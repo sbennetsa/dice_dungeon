@@ -8,6 +8,15 @@ import { createDie, upgradeDie, renderFaceStrip, renderDieCard, show, updateStat
 import { Combat } from './combat.js';
 
 // ════════════════════════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════════════════════════
+// Applies a die upgrade, doubling the effect if mastersHammer is active
+function applyUpgrade(die) {
+    upgradeDie(die);
+    if (GS.tempBuffs && GS.tempBuffs.mastersHammer) upgradeDie(die);
+}
+
+// ════════════════════════════════════════════════════════════
 //  GAME CONTROLLER
 // ════════════════════════════════════════════════════════════
 const Game = {
@@ -24,6 +33,11 @@ const Game = {
             enemy: null, enemiesKilled: 0, totalGold: 0,
             artifacts: [], buffs: { damageBoost: 0, armor: 0 },
             allocated: { attack: [], defend: [] }, rolled: false,
+            tempBuffs: {
+                poisonCombats: 0, armorCombats: 0, armorBonus: 0,
+                mastersHammer: false, shopReduced: false,
+                voidLordWeakened: false, foresight: false, merchantEscort: false,
+            },
         });
         Game.enterFloor();
     },
@@ -140,19 +154,22 @@ const Game = {
             else Game.launchChallengeBoss();
         }});
 
-        rewards.push({ title: '⬆️ Upgrade Die', desc: '+1/+1 to a die', action: () => {
+        const hammer = GS.tempBuffs && GS.tempBuffs.mastersHammer;
+        rewards.push({ title: `⬆️ Upgrade Die`, desc: `+${hammer ? '2' : '1'}/+${hammer ? '2' : '1'} to a die${hammer ? ' ⚒️' : ''}`, action: () => {
             GS.challengePrep--;
             $('reward-title').textContent = 'Choose a Die to Upgrade';
             const cc = $('reward-cards');
             cc.innerHTML = '';
             GS.dice.forEach(die => {
                 const canUp = die.max < 12;
+                const nextMin = canUp ? die.min + (hammer ? 2 : 1) : die.min;
+                const nextMax = canUp ? die.max + (hammer ? 2 : 1) : die.max;
                 const card = document.createElement('div');
                 card.className = 'card' + (canUp ? '' : ' disabled');
-                card.innerHTML = `<div class="card-title">${die.min}-${die.max} → ${canUp ? `${die.min+1}-${die.max+1}` : 'MAX'}</div>`;
+                card.innerHTML = `<div class="card-title">${die.min}-${die.max} → ${canUp ? `${nextMin}-${nextMax}` : 'MAX'}</div>`;
                 if (canUp) card.onclick = () => {
-                    upgradeDie(die);
-                    log(`Upgraded to ${die.min}-${die.max}!`, 'info');
+                    applyUpgrade(die);
+                    log(`Upgraded to ${die.min}-${die.max}!${hammer ? ' (Master\'s Hammer)' : ''}`, 'info');
                     if (GS.challengePrep > 0) Game.showChallengePrep();
                     else Game.launchChallengeBoss();
                 };
@@ -789,17 +806,20 @@ const Rewards = {
         const c = $('reward-cards');
         c.innerHTML = '';
 
+        const hammer = GS.tempBuffs && GS.tempBuffs.mastersHammer;
         GS.dice.forEach((die, i) => {
             const canUp = die.max < 12;
+            const nextMin = canUp ? die.min + (hammer ? 2 : 1) : die.min;
+            const nextMax = canUp ? die.max + (hammer ? 2 : 1) : die.max;
             const card = document.createElement('div');
             card.className = 'card' + (canUp ? '' : ' disabled');
             card.innerHTML = renderDieCard(die, i, {
-                extraDesc: canUp ? `<div class="card-effect" style="text-align:center;">→ ${die.min+1}–${die.max+1}</div>` : '<div class="card-effect" style="text-align:center; color:var(--text-dim);">Max level</div>'
+                extraDesc: canUp ? `<div class="card-effect" style="text-align:center;">→ ${nextMin}–${nextMax}${hammer ? ' ⚒️' : ''}</div>` : '<div class="card-effect" style="text-align:center; color:var(--text-dim);">Max level</div>'
             });
             if (canUp) {
                 card.onclick = () => {
-                    upgradeDie(die);
-                    log(`Upgraded die to ${die.min}-${die.max}!`, 'info');
+                    applyUpgrade(die);
+                    log(`Upgraded die to ${die.min}-${die.max}!${hammer ? ' (Master\'s Hammer)' : ''}`, 'info');
                     Game.nextFloor();
                 };
             }
@@ -979,6 +999,7 @@ const Shop = {
     generateItems() {
         let discount = GS.artifacts.filter(a => a.effect === 'shopDiscount').reduce((s, a) => s + a.value, 0);
         if (GS.passives.shopDiscount) discount += GS.passives.shopDiscount;
+        if (GS.tempBuffs && GS.tempBuffs.merchantEscort) discount += 0.5;
         const applyDiscount = p => Math.floor(p * (1 - Math.min(discount, 0.5)));
         const totalSlots = (GS.slots.attack - GS.runes.attack.length) + (GS.slots.defend - GS.runes.defend.length);
 
@@ -1060,7 +1081,9 @@ const Shop = {
             });
         });
 
-        Shop.items = shuffle(all).slice(0, 6).map(item => ({
+        const shopSlots = (GS.tempBuffs && GS.tempBuffs.shopReduced) ? 3 : 6;
+        if (GS.tempBuffs && GS.tempBuffs.shopReduced) GS.tempBuffs.shopReduced = false;
+        Shop.items = shuffle(all).slice(0, shopSlots).map(item => ({
             ...item,
             price: applyDiscount(item.price)
         }));
@@ -1125,17 +1148,20 @@ const Shop = {
         const c = $('shop-cards');
         c.innerHTML = '';
 
+        const hammer = GS.tempBuffs && GS.tempBuffs.mastersHammer;
         GS.dice.forEach((die, i) => {
             const canUp = die.max < 12;
+            const nextMin = canUp ? die.min + (hammer ? 2 : 1) : die.min;
+            const nextMax = canUp ? die.max + (hammer ? 2 : 1) : die.max;
             const card = document.createElement('div');
             card.className = 'card' + (canUp ? '' : ' disabled');
             card.innerHTML = renderDieCard(die, i, {
-                extraDesc: canUp ? `<div class="card-effect" style="text-align:center;">→ ${die.min+1}–${die.max+1}</div>` : '<div class="card-effect" style="text-align:center; color:var(--text-dim);">Max level</div>'
+                extraDesc: canUp ? `<div class="card-effect" style="text-align:center;">→ ${nextMin}–${nextMax}${hammer ? ' ⚒️' : ''}</div>` : '<div class="card-effect" style="text-align:center; color:var(--text-dim);">Max level</div>'
             });
             if (canUp) {
                 card.onclick = () => {
-                    upgradeDie(die);
-                    log(`Upgraded die to ${die.min}-${die.max}!`, 'info');
+                    applyUpgrade(die);
+                    log(`Upgraded die to ${die.min}-${die.max}!${hammer ? ' (Master\'s Hammer)' : ''}`, 'info');
                     updateStats(); Shop.render();
                 };
             }
@@ -1296,111 +1322,98 @@ const Shop = {
 //  EVENTS
 // ════════════════════════════════════════════════════════════
 const Events = {
-    pool: [
-        {
-            text: 'A weathered treasure chest sits at a crossroads. The lock is rusted — it could be forced open, but something shifts inside...',
-            choices: [
-                { text: 'Open carefully (+35 gold)', action: () => { const g = gainGold(35); log(`+${g} gold`, 'info'); updateStats(); Game.nextFloor(); }},
-                { text: 'Force it open (50%: +80 gold or -12 HP)', action: () => {
-                    if (Math.random() < 0.5) { const g = gainGold(80); log(`Jackpot! +${g} gold`, 'info'); }
-                    else { GS.hp -= 12; log('Trap! -12 HP', 'damage'); }
-                    updateStats(); Game.nextFloor();
-                }},
-            ]
-        },
-        {
-            text: 'An ancient shrine pulses with dim light. You feel power radiating from its altar — but power always demands a price.',
-            choices: [
-                { text: 'Pray for vitality (+10 Max HP)', action: () => { GS.maxHp += 10; GS.hp += 10; log('+10 Max HP', 'heal'); updateStats(); Game.nextFloor(); }},
-                { text: 'Sacrifice blood for power (-10 HP, upgrade a die)', action: () => {
-                    GS.hp -= 10; updateStats();
-                    Events.showDieUpgrade();
-                }},
-            ]
-        },
-        {
-            text: 'A wandering alchemist offers you a bubbling flask. "Drink," she says, "and accept what fortune gives."',
-            choices: [
-                { text: 'Drink (random: +15 HP, +3 ATK, or -8 HP)', action: () => {
-                    const r = Math.random();
-                    if (r < 0.4) { const h = heal(15); log(`Refreshing! +${h} HP`, 'heal'); }
-                    else if (r < 0.8) { GS.buffs.damageBoost += 3; log('Power surges! +3 ATK', 'info'); }
-                    else { GS.hp -= 8; log('Poison! -8 HP', 'damage'); }
-                    updateStats(); Game.nextFloor();
-                }},
-                { text: 'Decline politely', action: () => { log('You walk on.', 'info'); Game.nextFloor(); }},
-            ]
-        },
-        {
-            text: 'A spectral blacksmith materializes before you. "One die," he whispers. "I can reshape it — make one face extraordinary."',
-            choices: [
-                { text: 'Accept (add a random face modifier to a die)', action: () => {
-                    Events.showFaceModEvent();
-                }},
-                { text: 'Decline (+15 gold instead)', action: () => { const g = gainGold(15); log(`+${g} gold`, 'info'); updateStats(); Game.nextFloor(); }},
-            ]
-        },
-    ],
+
+    // ── Per-act event pools ──
+    pools: {
+        1: [
+            () => Events._wanderingMerchant(),
+            () => Events._cursedShrine(),
+            () => Events._trappedChest(),
+        ],
+        2: [
+            () => Events._alchemistsLab(),
+            () => Events._gamblingDen(),
+            () => Events._forgottenForge(),
+        ],
+        3: [
+            () => Events._bloodAltar(),
+            () => Events._oracle(),
+            () => Events._merchantPrince(),
+        ],
+    },
 
     enter() {
         updateStats();
-        const event = pick(Events.pool);
-        const panel = $('event-panel');
-        panel.innerHTML = `<div class="event-text">${event.text}</div>`;
+        const act = getAct(GS.floor);
+        const pool = Events.pools[act] || Events.pools[1];
+        pick(pool)();
+    },
 
-        event.choices.forEach(ch => {
+    // ── Shared render helper ──
+    _render(title, text, choices) {
+        const panel = $('event-panel');
+        panel.innerHTML = `
+            <div style="font-size:1.15em; font-family:EB Garamond,serif; color:var(--gold); margin-bottom:10px; font-weight:bold;">${title}</div>
+            <div class="event-text" style="margin-bottom:12px;">${text}</div>
+        `;
+        choices.forEach(ch => {
             const btn = document.createElement('button');
             btn.className = 'btn';
-            btn.style.cssText = 'width:100%; text-align:left; margin:6px 0; padding:12px 16px;';
+            btn.style.cssText = 'width:100%; text-align:left; margin:5px 0; padding:11px 16px;';
+            if (ch.disabled) btn.style.cssText += 'opacity:0.45; cursor:not-allowed;';
             btn.textContent = ch.text;
-            btn.onclick = ch.action;
+            if (!ch.disabled) btn.onclick = ch.action;
             panel.appendChild(btn);
         });
-
         show('screen-event');
     },
 
-    showDieUpgrade() {
-        const panel = $('event-panel');
-        panel.innerHTML = '<div class="event-text">Choose a die to upgrade:</div><div class="card-grid" id="event-dice-cards"></div>';
-        const c = $('event-dice-cards');
-
-        GS.dice.forEach((die, i) => {
-            const canUp = die.max < 12;
-            const card = document.createElement('div');
-            card.className = 'card' + (canUp ? '' : ' disabled');
-            card.innerHTML = renderDieCard(die, i, {
-                extraDesc: canUp ? `<div class="card-effect" style="text-align:center;">→ ${die.min+1}–${die.max+1}</div>` : '<div class="card-effect" style="text-align:center; color:var(--text-dim);">Max level</div>'
-            });
-            if (canUp) card.onclick = () => { upgradeDie(die); log(`Upgraded to ${die.min}-${die.max}!`, 'info'); updateStats(); Game.nextFloor(); };
-            c.appendChild(card);
-        });
+    // ── Utility helpers ──
+    _gainArtifact(art) {
+        GS.artifacts.push({ ...art });
+        if (art.effect === 'permArmor') GS.buffs.armor += art.value;
+        log(`Found ${art.icon} ${art.name}!`, 'info');
     },
 
-    showFaceModEvent() {
-        const mod = pick(FACE_MODS);
-        const panel = $('event-panel');
-        panel.innerHTML = `<div class="event-text">The blacksmith offers: <strong style="color:${mod.color}">${mod.icon} ${mod.name}</strong> — ${mod.desc}<br><br>Choose a die:</div><div class="card-grid" id="event-dice-cards"></div>`;
-        const c = $('event-dice-cards');
+    _gainRandomArtifacts(n) {
+        const owned = new Set(GS.artifacts.map(a => a.name));
+        let pool = ARTIFACT_POOL.filter(a => !owned.has(a.name));
+        if (pool.length < n) pool = [...ARTIFACT_POOL];
+        shuffle([...pool]).slice(0, n).forEach(art => Events._gainArtifact(art));
+    },
 
+    // Show 3 random face mod choices, call cb(mod)
+    _chooseFaceMod(cb) {
+        const mods = shuffle([...FACE_MODS]).slice(0, 3);
+        const panel = $('event-panel');
+        panel.innerHTML = '<div class="event-text">Choose a face modifier:</div><div class="card-grid" id="event-mod-cards"></div>';
+        mods.forEach(mod => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `<div class="card-title" style="color:${mod.color}">${mod.icon} ${mod.name}</div><div class="card-effect">${mod.desc}</div>`;
+            card.onclick = () => cb(mod);
+            $('event-mod-cards').appendChild(card);
+        });
+        show('screen-event');
+    },
+
+    // Show die picker then face picker for a given mod, call cb() when done
+    _applyModFlow(mod, cb) {
+        const panel = $('event-panel');
+        panel.innerHTML = `<div class="event-text">Apply <strong style="color:${mod.color}">${mod.icon} ${mod.name}</strong> — Choose a die:</div><div class="card-grid" id="event-dice-cards"></div>`;
         GS.dice.forEach((die, i) => {
             const card = document.createElement('div');
             card.className = 'card';
             card.innerHTML = renderDieCard(die, i);
-            card.onclick = () => Events.pickFaceForMod(die, mod);
-            c.appendChild(card);
+            card.onclick = () => Events._pickFaceForModCb(die, mod, cb);
+            $('event-dice-cards').appendChild(card);
         });
+        show('screen-event');
     },
 
-    pickFaceForMod(die, mod) {
+    _pickFaceForModCb(die, mod, cb) {
         const panel = $('event-panel');
-        panel.innerHTML = `<div class="event-text">Choose which face gets <strong style="color:${mod.color}">${mod.icon} ${mod.name}</strong>:</div>`;
-
-        const preview = document.createElement('div');
-        preview.style.cssText = 'text-align:center; margin:8px 0 12px; padding:8px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px;';
-        preview.innerHTML = `<div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center;">${renderFaceStrip(die)}</div>`;
-        panel.appendChild(preview);
-
+        panel.innerHTML = `<div class="event-text">Apply <strong style="color:${mod.color}">${mod.icon} ${mod.name}</strong> — Choose a face:</div>`;
         const grid = document.createElement('div');
         grid.className = 'card-grid';
         die.faceValues.forEach(v => {
@@ -1412,18 +1425,471 @@ const Events = {
                     <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">${v}</span>
                     ${existing ? `<span style="font-size:0.85em;">${existing.modifier.icon} ${existing.modifier.name}</span>` : '<span style="font-size:0.85em; opacity:0.4;">Empty</span>'}
                     <span style="color:var(--green-bright);">→ ${mod.icon} ${mod.name}</span>
-                </div>
-            `;
+                </div>`;
             card.onclick = () => {
                 die.faces = die.faces.filter(f => f.faceValue !== v);
                 die.faces.push({ faceValue: v, modifier: mod });
                 log(`Applied ${mod.name} to face ${v}!`, 'info');
-                updateStats(); Game.nextFloor();
+                cb();
             };
             grid.appendChild(card);
         });
         panel.appendChild(grid);
-    }
+        show('screen-event');
+    },
+
+    // Show die picker, call cb(die)
+    _chooseDie(prompt, cb) {
+        const panel = $('event-panel');
+        panel.innerHTML = `<div class="event-text">${prompt}</div><div class="card-grid" id="event-dice-cards"></div>`;
+        GS.dice.forEach((die, i) => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = renderDieCard(die, i);
+            card.onclick = () => cb(die);
+            $('event-dice-cards').appendChild(card);
+        });
+        show('screen-event');
+    },
+
+    // Show N artifacts from pool, call cb(art)
+    _chooseArtifact(n, cb) {
+        const owned = new Set(GS.artifacts.map(a => a.name));
+        let pool = ARTIFACT_POOL.filter(a => !owned.has(a.name));
+        if (pool.length < n) pool = [...ARTIFACT_POOL];
+        const choices = shuffle([...pool]).slice(0, n);
+        const panel = $('event-panel');
+        panel.innerHTML = '<div class="event-text">Choose an artifact:</div><div class="card-grid" id="event-art-cards"></div>';
+        choices.forEach(art => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `<div class="card-title">${art.icon} ${art.name}</div><div class="card-effect">${art.desc}</div>`;
+            card.onclick = () => cb(art);
+            $('event-art-cards').appendChild(card);
+        });
+        show('screen-event');
+    },
+
+    // Show owned artifacts for selection, call cb(art)
+    _chooseOwnedArtifact(prompt, cb) {
+        const panel = $('event-panel');
+        panel.innerHTML = `<div class="event-text">${prompt}</div><div class="card-grid" id="event-art-cards"></div>`;
+        GS.artifacts.forEach(art => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `<div class="card-title">${art.icon} ${art.name}</div><div class="card-effect">${art.desc}</div>`;
+            card.onclick = () => cb(art);
+            $('event-art-cards').appendChild(card);
+        });
+        show('screen-event');
+    },
+
+    // ─────────────────────────────────────────
+    //  ACT 1 EVENTS (Floor 3)
+    // ─────────────────────────────────────────
+
+    _wanderingMerchant() {
+        Events._render(
+            'Wandering Merchant',
+            'A hooded figure offers you a trade from their cart...',
+            [
+                {
+                    text: GS.gold >= 30 ? 'Buy a mystery die (30g) — random between d4 and d8' : 'Buy a mystery die (30g) — Not enough gold',
+                    disabled: GS.gold < 30,
+                    action: () => {
+                        GS.gold -= 30;
+                        const opts = [{min:1,max:4},{min:2,max:6},{min:1,max:6},{min:2,max:8},{min:1,max:8}];
+                        const {min, max} = pick(opts);
+                        GS.dice.push(createDie(min, max));
+                        log(`Bought a mystery die (${min}-${max})!`, 'info');
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+                {
+                    text: GS.dice.length >= 2 ? 'Trade a die — sacrifice your worst, gain your best +2/+2' : 'Trade a die — need 2+ dice',
+                    disabled: GS.dice.length < 2,
+                    action: () => {
+                        const sorted = [...GS.dice].sort((a, b) => a.max - b.max);
+                        const worst = sorted[0];
+                        const best = sorted[sorted.length - 1];
+                        GS.dice = GS.dice.filter(d => d.id !== worst.id);
+                        const newMin = Math.max(1, best.min + 2);
+                        const newMax = Math.min(12, best.max + 2);
+                        GS.dice.push(createDie(newMin, newMax));
+                        log(`Traded away ${worst.min}-${worst.max} die, gained ${newMin}-${newMax} die!`, 'info');
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+                {
+                    text: 'Decline and pickpocket (50%: +25 gold | 50%: -10 HP)',
+                    action: () => {
+                        if (Math.random() < 0.5) {
+                            const g = gainGold(25);
+                            log(`Nimble fingers! +${g} gold!`, 'info');
+                        } else {
+                            GS.hp = Math.max(1, GS.hp - 10);
+                            log('Caught! -10 HP', 'damage');
+                        }
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+            ]
+        );
+    },
+
+    _cursedShrine() {
+        Events._render(
+            'Cursed Shrine',
+            'A stone altar pulses with dark energy. Offerings seem welcome...',
+            [
+                {
+                    text: GS.hp > 15 ? 'Offer 15 HP — random face mod on a random die & face' : 'Offer 15 HP — Too low HP',
+                    disabled: GS.hp <= 15,
+                    action: () => {
+                        GS.hp -= 15;
+                        const mod = pick(FACE_MODS);
+                        const die = pick(GS.dice);
+                        const v = pick(die.faceValues);
+                        die.faces = die.faces.filter(f => f.faceValue !== v);
+                        die.faces.push({ faceValue: v, modifier: mod });
+                        log(`The shrine bestows ${mod.icon} ${mod.name} on face ${v}!`, 'info');
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+                {
+                    text: GS.gold >= 25 ? 'Offer 25 gold — choose face mod, die, and face' : 'Offer 25 gold — Not enough gold',
+                    disabled: GS.gold < 25,
+                    action: () => {
+                        GS.gold -= 25;
+                        updateStats();
+                        Events._chooseFaceMod(mod => {
+                            Events._applyModFlow(mod, () => { updateStats(); Game.nextFloor(); });
+                        });
+                    }
+                },
+                {
+                    text: 'Pray — +10 Max HP permanently (safe option)',
+                    action: () => {
+                        GS.maxHp += 10;
+                        GS.hp += 10;
+                        log('+10 Max HP from the shrine!', 'heal');
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+            ]
+        );
+    },
+
+    _trappedChest() {
+        Events._render(
+            'Trapped Chest',
+            'A chest sits in the corridor. The lock is rigged — you can see the mechanism...',
+            [
+                {
+                    text: 'Force it open (-8 HP, gain a random artifact)',
+                    action: () => {
+                        GS.hp = Math.max(1, GS.hp - 8);
+                        Events._gainRandomArtifacts(1);
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+                {
+                    text: 'Disarm carefully (+20 gold, no risk)',
+                    action: () => {
+                        const g = gainGold(20);
+                        log(`Carefully disarmed! +${g} gold!`, 'info');
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+                {
+                    text: 'Smash it — a random die gains +1/+1',
+                    action: () => {
+                        const upgradable = GS.dice.filter(d => d.max < 12);
+                        if (upgradable.length > 0) {
+                            const die = pick(upgradable);
+                            upgradeDie(die);
+                            log(`Smashed the chest! ${die.min}-${die.max} die upgraded!`, 'info');
+                        } else {
+                            log('Smashed the chest! (All dice already at max)', 'info');
+                        }
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+            ]
+        );
+    },
+
+    // ─────────────────────────────────────────
+    //  ACT 2 EVENTS (Floor 7)
+    // ─────────────────────────────────────────
+
+    _alchemistsLab() {
+        Events._render(
+            "The Alchemist's Lab",
+            'Bubbling vials line the shelves. The alchemist is long gone but the reagents remain...',
+            [
+                {
+                    text: 'Brew poison coating — next 2 combats: +1 poison per attack',
+                    action: () => {
+                        GS.tempBuffs.poisonCombats = 2;
+                        log('Poison coating brewed! (+1 poison per attack for 2 combats)', 'info');
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+                {
+                    text: 'Brew fortification elixir — next 2 combats: +8 armor',
+                    action: () => {
+                        GS.tempBuffs.armorCombats = 2;
+                        GS.tempBuffs.armorBonus = 8;
+                        log('Fortification elixir brewed! (+8 armor for 2 combats)', 'info');
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+                {
+                    text: 'Sell the reagents (+50 gold)',
+                    action: () => {
+                        const g = gainGold(50);
+                        log(`Sold the reagents for ${g} gold!`, 'info');
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+            ]
+        );
+    },
+
+    _gamblingDen() {
+        Events._render(
+            'The Gambling Den',
+            'A circle of shadowy figures beckon you to play...',
+            [
+                {
+                    text: 'Bet a die — sacrifice it: above avg → 2 artifacts, else nothing',
+                    action: () => {
+                        Events._chooseDie('Which die will you sacrifice?', die => {
+                            GS.dice = GS.dice.filter(d => d.id !== die.id);
+                            const avg = (die.min + die.max) / 2;
+                            const roll = die.min + Math.floor(Math.random() * (die.max - die.min + 1));
+                            log(`Rolled ${roll} on your ${die.min}-${die.max} die (avg ${avg.toFixed(1)})`, 'info');
+                            if (roll > avg) {
+                                log('Above average! Won 2 artifacts!', 'info');
+                                Events._gainRandomArtifacts(2);
+                            } else {
+                                log('Below average... Got nothing.', 'damage');
+                            }
+                            updateStats(); Game.nextFloor();
+                        });
+                    }
+                },
+                {
+                    text: GS.gold >= 50 ? 'Bet 50 gold (50%: +100 gold, 50%: lose it all)' : 'Bet 50 gold — Not enough gold',
+                    disabled: GS.gold < 50,
+                    action: () => {
+                        GS.gold -= 50;
+                        if (Math.random() < 0.5) {
+                            const g = gainGold(100);
+                            log(`Lucky! Won ${g} gold!`, 'info');
+                        } else {
+                            log('Lost it all!', 'damage');
+                        }
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+                {
+                    text: 'Rob the place (+30 gold, -12 HP, next shop has fewer items)',
+                    action: () => {
+                        const g = gainGold(30);
+                        GS.hp = Math.max(1, GS.hp - 12);
+                        GS.tempBuffs.shopReduced = true;
+                        log(`Grabbed ${g} gold and ran! Took 12 damage and left suspicion behind.`, 'damage');
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+            ]
+        );
+    },
+
+    _forgottenForge() {
+        const allRunes = [...GS.runes.attack, ...GS.runes.defend];
+        const hasRunes = allRunes.length > 0;
+        Events._render(
+            'The Forgotten Forge',
+            'An ancient forge still burns. Tools of remarkable craft surround it...',
+            [
+                {
+                    text: 'Reforge a die — randomize all face values within its range',
+                    action: () => {
+                        Events._chooseDie('Choose a die to reforge:', die => {
+                            const n = die.faceValues.length;
+                            const modsByIdx = die.faceValues.map(v => die.faces.find(f => f.faceValue === v) || null);
+                            const newVals = Array.from({length: n}, () => die.min + Math.floor(Math.random() * (die.max - die.min + 1))).sort((a, b) => a - b);
+                            die.faceValues = newVals;
+                            die.faces = modsByIdx.map((f, i) => f ? { faceValue: newVals[i], modifier: f.modifier } : null).filter(Boolean);
+                            log(`Reforged die! New faces: [${newVals.join(', ')}]`, 'info');
+                            updateStats(); Game.nextFloor();
+                        });
+                    }
+                },
+                {
+                    text: hasRunes ? 'Enhance a rune — double one rune\'s effect value' : 'Enhance a rune — No runes equipped',
+                    disabled: !hasRunes,
+                    action: () => {
+                        const panel = $('event-panel');
+                        panel.innerHTML = '<div class="event-text">Choose a rune to enhance:</div><div class="card-grid" id="event-rune-cards"></div>';
+                        const addRuneCard = (rune, slotLabel) => {
+                            const card = document.createElement('div');
+                            card.className = 'card';
+                            card.innerHTML = `<div class="card-title">${rune.icon} ${rune.name}</div><div class="card-effect">${rune.desc} (${slotLabel}) → value doubled</div>`;
+                            card.onclick = () => {
+                                rune.value = rune.value * 2;
+                                log(`Enhanced ${rune.icon} ${rune.name}! New value: ${rune.value}`, 'info');
+                                updateStats(); Game.nextFloor();
+                            };
+                            $('event-rune-cards').appendChild(card);
+                        };
+                        GS.runes.attack.forEach(r => addRuneCard(r, 'attack'));
+                        GS.runes.defend.forEach(r => addRuneCard(r, 'defend'));
+                        show('screen-event');
+                    }
+                },
+                {
+                    text: "Take the master's hammer — die upgrades give +2/+2 for this run",
+                    action: () => {
+                        GS.tempBuffs.mastersHammer = true;
+                        log("Master's Hammer acquired! Die upgrades now give +2/+2 for the rest of the run!", 'info');
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+            ]
+        );
+    },
+
+    // ─────────────────────────────────────────
+    //  ACT 3 EVENTS (Floor 13)
+    // ─────────────────────────────────────────
+
+    _bloodAltar() {
+        Events._render(
+            'The Blood Altar',
+            'The altar demands sacrifice. It promises power in return...',
+            [
+                {
+                    text: GS.hp > 30 ? 'Sacrifice 30 HP → +5 permanent damage boost' : 'Sacrifice 30 HP — Too risky (low HP)',
+                    disabled: GS.hp <= 30,
+                    action: () => {
+                        GS.hp -= 30;
+                        GS.buffs.damageBoost += 5;
+                        log('Blood offered! +5 permanent damage!', 'info');
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+                {
+                    text: GS.artifacts.length > 0 ? 'Sacrifice an artifact → gain 2 skill points' : 'Sacrifice an artifact — No artifacts',
+                    disabled: GS.artifacts.length === 0,
+                    action: () => {
+                        Events._chooseOwnedArtifact('Choose an artifact to sacrifice:', art => {
+                            GS.artifacts = GS.artifacts.filter(a => a !== art);
+                            if (art.effect === 'permArmor') GS.buffs.armor -= art.value;
+                            log(`Sacrificed ${art.icon} ${art.name}! Gaining 2 skill points...`, 'info');
+                            updateStats();
+                            Rewards.slotChoice(() => {
+                                Rewards.slotChoice(() => { updateStats(); Game.nextFloor(); });
+                            });
+                        });
+                    }
+                },
+                {
+                    text: GS.dice.length > 1 ? 'Sacrifice a die → all remaining dice gain +1 to every face' : 'Sacrifice a die — Need 2+ dice',
+                    disabled: GS.dice.length <= 1,
+                    action: () => {
+                        Events._chooseDie('Choose a die to sacrifice:', die => {
+                            GS.dice = GS.dice.filter(d => d.id !== die.id);
+                            GS.dice.forEach(d => {
+                                d.faceValues = d.faceValues.map(v => v + 1);
+                                d.min = d.faceValues[0];
+                                d.max = d.faceValues[d.faceValues.length - 1];
+                                d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + 1 }));
+                            });
+                            log(`Sacrificed die! All remaining dice face values +1!`, 'info');
+                            updateStats(); Game.nextFloor();
+                        });
+                    }
+                },
+            ]
+        );
+    },
+
+    _oracle() {
+        Events._render(
+            'The Oracle',
+            'She sees your death at the hands of the Void Lord. But she offers alternatives...',
+            [
+                {
+                    text: 'Accept the vision — Foresight: see 2 turns ahead for bosses',
+                    action: () => {
+                        GS.tempBuffs.foresight = true;
+                        log('Foresight granted! You see further into battle...', 'info');
+                        log('The Void Lord cycles: Strike, Void Rift, Dark Pulse, Strike. Phase 2 adds Entropy. Phase 3 attacks twice.', 'info');
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+                {
+                    text: 'Reject fate — +15 Max HP, full heal (the practical choice)',
+                    action: () => {
+                        GS.maxHp += 15;
+                        GS.hp = GS.maxHp;
+                        log('+15 Max HP and fully healed!', 'heal');
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+                {
+                    text: 'Defy the Oracle — Void Lord starts at 90% HP',
+                    action: () => {
+                        GS.tempBuffs.voidLordWeakened = true;
+                        log('You defy fate! The Void Lord will begin weakened...', 'info');
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+            ]
+        );
+    },
+
+    _merchantPrince() {
+        Events._render(
+            'The Merchant Prince',
+            'The wealthiest trader in the dungeon offers one final deal...',
+            [
+                {
+                    text: GS.gold >= 100 ? 'Buy everything (100g) — gain 3 random artifacts' : 'Buy everything (100g) — Not enough gold',
+                    disabled: GS.gold < 100,
+                    action: () => {
+                        GS.gold -= 100;
+                        Events._gainRandomArtifacts(3);
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+                {
+                    text: GS.gold >= 60 ? 'Exclusive stock (60g) — choose 1 artifact from 5' : 'Exclusive stock (60g) — Not enough gold',
+                    disabled: GS.gold < 60,
+                    action: () => {
+                        GS.gold -= 60;
+                        updateStats();
+                        Events._chooseArtifact(5, art => {
+                            Events._gainArtifact(art);
+                            updateStats(); Game.nextFloor();
+                        });
+                    }
+                },
+                {
+                    text: "A proposition — Merchant's Escort: +10 gold per combat, shop prices halved",
+                    action: () => {
+                        GS.tempBuffs.merchantEscort = true;
+                        log("The Merchant joins your cause! +10 gold per combat, shop prices halved!", 'info');
+                        updateStats(); Game.nextFloor();
+                    }
+                },
+            ]
+        );
+    },
 };
 
 // ════════════════════════════════════════════════════════════
@@ -1574,16 +2040,19 @@ const Rest = {
         const grid = document.createElement('div');
         grid.className = 'card-grid';
 
+        const hammer = GS.tempBuffs && GS.tempBuffs.mastersHammer;
         GS.dice.forEach((die, i) => {
             const canUp = die.max < 12;
+            const nextMin = canUp ? die.min + (hammer ? 2 : 1) : die.min;
+            const nextMax = canUp ? die.max + (hammer ? 2 : 1) : die.max;
             const card = document.createElement('div');
             card.className = 'card' + (canUp ? '' : ' disabled');
             card.innerHTML = renderDieCard(die, i, {
-                extraDesc: canUp ? `<div class="card-effect" style="text-align:center;">→ ${die.min+1}–${die.max+1}</div>` : '<div class="card-effect" style="text-align:center; color:var(--text-dim);">Max level</div>'
+                extraDesc: canUp ? `<div class="card-effect" style="text-align:center;">→ ${nextMin}–${nextMax}${hammer ? ' ⚒️' : ''}</div>` : '<div class="card-effect" style="text-align:center; color:var(--text-dim);">Max level</div>'
             });
             if (canUp) card.onclick = () => {
-                upgradeDie(die);
-                log(`Upgraded to ${die.min}-${die.max}!`, 'info');
+                applyUpgrade(die);
+                log(`Upgraded to ${die.min}-${die.max}!${hammer ? ' (Master\'s Hammer)' : ''}`, 'info');
                 updateStats();
                 Game.enterFloor();
             };

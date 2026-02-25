@@ -68,6 +68,19 @@ export const Combat = {
         // Lich: set decay aura immediately
         if (eName === 'Lich') GS.playerDebuffs.diceReduction = 1;
 
+        // tempBuff: Void Lord weakened (Oracle: Defy)
+        if (eName === 'The Void Lord' && GS.tempBuffs && GS.tempBuffs.voidLordWeakened) {
+            GS.enemy.currentHp = Math.floor(GS.enemy.hp * 0.9);
+            GS.tempBuffs.voidLordWeakened = false;
+            log('The Void Lord begins weakened! (90% HP)', 'info');
+        }
+
+        // tempBuff: armor elixir
+        if (GS.tempBuffs && GS.tempBuffs.armorCombats > 0) {
+            GS.buffs.armor += GS.tempBuffs.armorBonus;
+            log(`Fortification Elixir: +${GS.tempBuffs.armorBonus} armor this combat! (${GS.tempBuffs.armorCombats} combats remain)`, 'info');
+        }
+
         GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; });
         GS.allocated = { attack: [], defend: [] };
         GS.rolled = false;
@@ -441,6 +454,8 @@ export const Combat = {
         if (serpentPoison > 0 && finalAtk > 0) poisonToApply += Math.floor(finalAtk * serpentPoison);
         if (GS.passives.poisonOnAtk) poisonToApply += GS.passives.poisonOnAtk;
         if (GS.passives.plagueLord) poisonToApply += 2;
+        // tempBuff: poison coating
+        if (GS.tempBuffs && GS.tempBuffs.poisonCombats > 0 && finalAtk > 0) poisonToApply += 1;
         if (poisonToApply > 0) {
             GS.enemy.poison += poisonToApply;
             log(`☠️ Applied ${poisonToApply} poison! (${GS.enemy.poison} stacks)`, 'info');
@@ -822,24 +837,59 @@ export const Combat = {
         }
 
         // Boss patterns
+        const foresight = GS.tempBuffs && GS.tempBuffs.foresight;
+        const _bossActionLabel = (action, boss) => {
+            if (boss === 'bone') {
+                if (action === 'bonewall') return '🦴 Bone Wall';
+                if (action === 'raisedead') return '💀 Raise Dead';
+                return `⚔️ Strike (${rageAtk})`;
+            }
+            if (boss === 'wyrm') {
+                if (action === 'breath') return '🔥 Fire Breath';
+                if (action === 'wingbuffet') return '💨 Wing Buffet';
+                return `⚔️ Strike (${rageAtk})`;
+            }
+            if (boss === 'void') {
+                if (action === 'voidrift') return '🌀 Void Rift';
+                if (action === 'darkpulse') return '🌀 Dark Pulse (15 dmg)';
+                return `⚔️ Strike (${rageAtk})`;
+            }
+            return '?';
+        };
+
         if (eName === 'The Bone King') {
-            const nextAction = as.pattern && as.pattern[(as.patternIdx || 0) % 4];
+            const idx = as.patternIdx || 0;
+            const nextAction = as.pattern && as.pattern[idx % 4];
             if (nextAction === 'bonewall') text = '🦴 Bone Wall incoming...';
             else if (nextAction === 'raisedead') text = '💀 Raise Dead incoming...';
             else text = `⚔️ Attacks for ${rageAtk}${as.boneWallShield > 0 ? ` (🦴 Shield ${as.boneWallShield})` : ''}`;
+            if (foresight && as.pattern) {
+                const after = _bossActionLabel(as.pattern[(idx + 1) % 4], 'bone');
+                text += ` | Then: ${after}`;
+            }
         }
         if (eName === 'Crimson Wyrm') {
-            const nextAction = as.pattern && as.pattern[(as.patternIdx || 0) % 4];
+            const idx = as.patternIdx || 0;
+            const nextAction = as.pattern && as.pattern[idx % 4];
             if (nextAction === 'breath') text = '🔥 Fire Breath incoming!';
             else if (nextAction === 'wingbuffet') text = '💨 Wing Buffet incoming!';
             else text = `⚔️ Attacks for ${rageAtk}${as.phase2 ? ' + burn' : ''}`;
+            if (foresight && as.pattern) {
+                const after = _bossActionLabel(as.pattern[(idx + 1) % 4], 'wyrm');
+                text += ` | Then: ${after}`;
+            }
         }
         if (eName === 'The Void Lord') {
-            const nextAction = as.pattern && as.pattern[(as.patternIdx || 0) % 4];
+            const idx = as.patternIdx || 0;
+            const nextAction = as.pattern && as.pattern[idx % 4];
             if (nextAction === 'voidrift') text = '🌀 Void Rift incoming!';
             else if (nextAction === 'darkpulse') text = '🌀 Dark Pulse: 15 unblockable!';
             else if (as.phase >= 3) text = `⚔️⚔️ Desperate! Attacks twice for ${rageAtk} (takes +50% damage)`;
             else text = `⚔️ Attacks for ${rageAtk}${as.phase >= 2 ? ' + Entropy' : ''}`;
+            if (foresight && as.pattern) {
+                const after = _bossActionLabel(as.pattern[(idx + 1) % 4], 'void');
+                text += ` | Then: ${after}`;
+            }
         }
 
         e.intent = rageAtk;
@@ -1009,6 +1059,29 @@ export const Combat = {
 
         // Clear player debuffs at end of combat
         GS.playerDebuffs = { poison: 0, poisonTurns: 0, slotDisabled: null, slotDisabledTurns: 0, diceReduction: 0 };
+
+        // Decrement tempBuff combat counters
+        if (GS.tempBuffs) {
+            if (GS.tempBuffs.armorCombats > 0) {
+                GS.buffs.armor -= GS.tempBuffs.armorBonus;
+                GS.tempBuffs.armorCombats--;
+                if (GS.tempBuffs.armorCombats <= 0) {
+                    GS.tempBuffs.armorBonus = 0;
+                    log('Fortification Elixir wore off.', 'info');
+                } else {
+                    log(`Fortification Elixir: ${GS.tempBuffs.armorCombats} combat(s) remaining.`, 'info');
+                }
+            }
+            if (GS.tempBuffs.poisonCombats > 0) {
+                GS.tempBuffs.poisonCombats--;
+                if (GS.tempBuffs.poisonCombats <= 0) log('Poison Coating wore off.', 'info');
+                else log(`Poison Coating: ${GS.tempBuffs.poisonCombats} combat(s) remaining.`, 'info');
+            }
+            if (GS.tempBuffs.merchantEscort) {
+                const eg = gainGold(10);
+                log(`Merchant's Escort: +${eg} gold!`, 'info');
+            }
+        }
 
         if (GS.enemy.isBoss && GS.floor >= 15) {
             setTimeout(() => window.Game.victory(), 1200);

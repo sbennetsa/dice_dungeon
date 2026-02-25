@@ -34,6 +34,16 @@ export const GS = {
         slotDisabledTurns: 0,
         diceReduction: 0,
     },
+    tempBuffs: {
+        poisonCombats: 0,    // remaining combats that apply +1 poison per attack
+        armorCombats: 0,     // remaining combats with bonus armor
+        armorBonus: 0,       // flat armor bonus while armorCombats > 0
+        mastersHammer: false, // die upgrades give +2/+2 for the run
+        shopReduced: false,  // next shop has 50% fewer items
+        voidLordWeakened: false, // Void Lord starts at 90% HP
+        foresight: false,    // see 2 turns of boss intent instead of 1
+        merchantEscort: false,   // +10 gold per combat, shop prices halved
+    },
 };
 
 // ════════════════════════════════════════════════════════════

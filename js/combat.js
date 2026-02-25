@@ -312,6 +312,16 @@ export const Combat = {
         });
 
         atkBonus += GS.buffs.damageBoost;
+        // transformBuffs: Fury Chamber attack multiplier
+        if (GS.transformBuffs && GS.transformBuffs.furyChambered > 1) atkMult *= GS.transformBuffs.furyChambered;
+        // Ascended dice aura bonus to attack
+        if (GS.ascendedDice && GS.ascendedDice.length > 0) {
+            atkBonus += GS.ascendedDice.reduce((s, a) => s + a.bonus, 0);
+        }
+        // Conduit: extra poison per attack die
+        if (GS.transformBuffs && GS.transformBuffs.conduit > 0 && atkCount > 0) {
+            poisonToApply += GS.transformBuffs.conduit * atkCount;
+        }
         atkBonus += GS.artifacts.filter(a => a.effect === 'flatAtk').reduce((s, a) => s + a.value, 0);
         const goldScale = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
         if (goldScale > 0) atkBonus += goldScale;
@@ -381,6 +391,12 @@ export const Combat = {
         });
 
         defBonus += GS.buffs.armor;
+        // transformBuffs: Fortification defend multiplier
+        if (GS.transformBuffs && GS.transformBuffs.fortified > 1) defMult *= GS.transformBuffs.fortified;
+        // Ascended dice aura bonus to defend
+        if (GS.ascendedDice && GS.ascendedDice.length > 0) {
+            defBonus += GS.ascendedDice.reduce((s, a) => s + a.bonus, 0);
+        }
         defBonus += GS.artifacts.filter(a => a.effect === 'permArmor').reduce((s, a) => s + a.value, 0);
         if (defCount >= 3) defBonus += GS.artifacts.filter(a => a.effect === 'swarmDef').reduce((s, a) => s + a.value, 0);
         if (GS.passives.swarmMaster) defBonus += GS.passives.swarmMaster * defCount;
@@ -448,6 +464,16 @@ export const Combat = {
         GS.enemy.currentHp -= finalAtk;
         if (GS.challengeMode) GS.challengeDmg += finalAtk;
         log(`You deal ${finalAtk} damage!`, 'damage');
+
+        // Gold Forge: each attack die generates gold equal to its rolled value
+        if (GS.transformBuffs && GS.transformBuffs.goldForge && finalAtk > 0) {
+            GS.allocated.attack.forEach(d => {
+                if (d.value > 0) {
+                    const g = gainGold(d.value);
+                    log(`⚒️ Gold Forge: +${g} gold!`, 'info');
+                }
+            });
+        }
 
         // Apply poison from player
         const serpentPoison = GS.artifacts.filter(a => a.effect === 'poisonOnHit').reduce((s, a) => s + a.value, 0);
@@ -734,6 +760,23 @@ export const Combat = {
                     Combat.renderEnemy();
                     if (GS.enemy.currentHp <= 0) { Combat.enemyDefeated(); return; }
                 }
+                // transformBuffs: Thorns Aura
+                if (GS.transformBuffs && GS.transformBuffs.thornsAura > 0) {
+                    GS.enemy.currentHp -= GS.transformBuffs.thornsAura;
+                    if (GS.challengeMode) GS.challengeDmg += GS.transformBuffs.thornsAura;
+                    log(`🌿 Thorns Aura: ${GS.transformBuffs.thornsAura} reflect!`, 'damage');
+                    Combat.renderEnemy();
+                    if (GS.enemy.currentHp <= 0) { Combat.enemyDefeated(); return; }
+                }
+            }
+
+            // transformBuffs: Vampiric Ward — heal from blocked damage
+            if (GS.transformBuffs && GS.transformBuffs.vampiricWard && blocked > 0) {
+                const vheal = Math.floor(blocked * 0.25);
+                if (vheal > 0) {
+                    const h = heal(vheal);
+                    if (h > 0) { log(`🧛 Vampiric Ward: +${h} HP!`, 'heal'); updateStats(); }
+                }
             }
 
             // Vampire Lifesteal: heals after each attack
@@ -897,6 +940,22 @@ export const Combat = {
     },
 
     newTurn() {
+        // ── CORRUPT DAMAGE ──
+        if (GS.dice && GS.dice.length > 0) {
+            const corruptCount = GS.dice.filter(d => d.corrupted).length;
+            if (corruptCount > 0) {
+                const cdmg = corruptCount * 3;
+                GS.hp = Math.max(0, GS.hp - cdmg);
+                log(`💀 Corruption: -${cdmg} HP.`, 'damage');
+                updateStats();
+                if (GS.hp <= 0) {
+                    GS.hp = 0; updateStats();
+                    setTimeout(() => window.Game.defeat(), 1000);
+                    return;
+                }
+            }
+        }
+
         // ── PLAYER POISON TICK ──
         if (GS.playerDebuffs.poison > 0 && GS.playerDebuffs.poisonTurns > 0) {
             const dmg = GS.playerDebuffs.poison;

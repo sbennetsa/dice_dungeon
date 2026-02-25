@@ -10,6 +10,11 @@ import { getFloorType } from './constants.js';
 let dieIdCounter = 0;
 export function resetDieIdCounter(n = 0) { dieIdCounter = n; }
 
+export function createDieFromFaces(faceValues) {
+    const sorted = [...faceValues].sort((a, b) => a - b);
+    return { id: dieIdCounter++, min: sorted[0], max: sorted[sorted.length - 1], sides: sorted.length, faceValues: sorted, value: 0, rolled: false, faces: [], location: 'pool' };
+}
+
 export function createDie(min = 1, max = 6, sides = 6) {
     const step = (max - min) / (sides - 1);
     const faceValues = Array.from({length: sides}, (_, i) => Math.round(min + step * i));
@@ -39,6 +44,9 @@ export function rollSingleDie(die) {
     }
     die.value = val;
     die.rolled = true;
+    if (die.infuseFloor && die.value < die.infuseFloor) {
+        die.value = die.infuseFloor;
+    }
 }
 
 export function getActiveFace(die) {
@@ -100,9 +108,7 @@ export function updateStats() {
         }
         if (gd) $(gd).textContent = GS.gold;
     });
-    const effAtk = GS.slots.attack - GS.runes.attack.length;
-    const effDef = GS.slots.defend - GS.runes.defend.length;
-    const slotsStr = `${effAtk}⚔️ ${effDef}🛡️`;
+    const slotsStr = `${GS.slots.attack}⚔️ ${GS.slots.defend}🛡️`;
     const runeCount = GS.runes.attack.length + GS.runes.defend.length;
     const runeStr = runeCount > 0 ? ` 🔮${runeCount}` : '';
     const diceStr = `${GS.dice.length}`;
@@ -242,8 +248,8 @@ export function renderCombatDice() {
 
     const rollHint = $('roll-hint');
     const allRolled = GS.dice.every(d => d.rolled);
-    const effectiveAtkSlots = GS.slots.attack - GS.runes.attack.length;
-    const effectiveDefSlots = GS.slots.defend - GS.runes.defend.length;
+    const effectiveAtkSlots = GS.slots.attack;
+    const effectiveDefSlots = GS.slots.defend;
     const atkFull = GS.allocated.attack.length >= effectiveAtkSlots;
     const defFull = GS.allocated.defend.length >= effectiveDefSlots;
     const hasAttack = GS.allocated.attack.length > 0;
@@ -297,6 +303,19 @@ export function renderCombatDice() {
         autoDice.forEach(d => autoDiceEl.appendChild(makeDieElement(d, 'auto')));
     } else {
         autoTray.style.display = 'none';
+    }
+
+    const auraTray = $('aura-tray');
+    const auraDiceEl = $('aura-dice');
+    if (auraTray) {
+        if (GS.ascendedDice && GS.ascendedDice.length > 0) {
+            auraTray.style.display = 'block';
+            auraDiceEl.innerHTML = GS.ascendedDice.map(a =>
+                `<span style="background:rgba(255,200,0,0.08);border:1px solid rgba(255,200,0,0.2);border-radius:4px;padding:2px 8px;margin:2px;display:inline-block;">🌟 ${a.label}: +${a.bonus} all slots</span>`
+            ).join('');
+        } else {
+            auraTray.style.display = 'none';
+        }
     }
 
     const atkDice = $('slot-attack-dice');
@@ -563,7 +582,7 @@ export function allocateDie(die, slot) {
         log(`🔒 ${slot} slot is disabled!`, 'damage');
         return;
     }
-    const effectiveSlots = GS.slots[slot] - GS.runes[slot].length;
+    const effectiveSlots = GS.slots[slot];
     if (GS.allocated[slot].length >= effectiveSlots) return;
     GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== die.id);
     GS.allocated.defend = GS.allocated.defend.filter(d => d.id !== die.id);

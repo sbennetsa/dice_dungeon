@@ -44,6 +44,15 @@ export const GS = {
         foresight: false,    // see 2 turns of boss intent instead of 1
         merchantEscort: false,   // +10 gold per combat, shop prices halved
     },
+    transformBuffs: {
+        furyChambered: 1,    // attack multiplier (starts 1, ×1.5 per Fury Chamber, stacks multiplicatively)
+        fortified: 1,        // defend multiplier (starts 1, ×1.5 per Fortification, stacks)
+        conduit: 0,          // extra poison per attack die per turn (3 per Conduit, additive)
+        goldForge: false,    // each attack die generates gold equal to its rolled value
+        thornsAura: 0,       // reflect damage per hit taken (5 per Thorns Aura, additive)
+        vampiricWard: false, // heal 25% of blocked amount
+    },
+    ascendedDice: [],        // [{label: 'Ascended d6 (1-6)', bonus: 2}]
 };
 
 // ════════════════════════════════════════════════════════════

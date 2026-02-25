@@ -4,7 +4,7 @@
 // ════════════════════════════════════════════════════════════
 import { FACE_MODS, ARTIFACT_POOL, RUNES, SKILL_TREE, getAct, getFloorType } from './constants.js';
 import { GS, $, rand, pick, shuffle, log, gainXP, gainGold, heal } from './state.js';
-import { createDie, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice } from './engine.js';
+import { createDie, createDieFromFaces, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice } from './engine.js';
 import { Combat } from './combat.js';
 
 // ════════════════════════════════════════════════════════════
@@ -38,6 +38,11 @@ const Game = {
                 mastersHammer: false, shopReduced: false,
                 voidLordWeakened: false, foresight: false, merchantEscort: false,
             },
+            transformBuffs: {
+                furyChambered: 1, fortified: 1, conduit: 0,
+                goldForge: false, thornsAura: 0, vampiricWard: false,
+            },
+            ascendedDice: [],
         });
         Game.enterFloor();
     },
@@ -145,7 +150,7 @@ const Game = {
             };
         }});
 
-        const totalSlots = (GS.slots.attack - GS.runes.attack.length) + (GS.slots.defend - GS.runes.defend.length);
+        const totalSlots = GS.slots.attack + GS.slots.defend;
         rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
             GS.dice.push(createDie(1, 6));
             log('Added new D6!', 'info');
@@ -706,12 +711,10 @@ const Rewards = {
                 card.innerHTML = `
                     <div class="card-title">${rune.icon} ${rune.name}</div>
                     <div class="card-desc">${rune.desc}</div>
-                    <div class="card-effect" style="color:var(--text-dim); font-size:0.8em; margin-top:4px;">Costs 1 ${slotType} slot</div>
                 `;
                 card.onclick = () => {
                     GS.runes[slotType].push({ ...rune });
-                    const effective = GS.slots[slotType] - GS.runes[slotType].length;
-                    log(`🔮 ${rune.icon} ${rune.name} inscribed! (${effective} usable ${slotType} slots remain)`, 'info');
+                    log(`🔮 ${rune.icon} ${rune.name} inscribed on ${slotType}! ${rune.desc}`, 'info');
                     updateStats();
                     callback();
                 };
@@ -725,16 +728,14 @@ const Rewards = {
         if (canAtk) {
             const atkBtn = document.createElement('button');
             atkBtn.className = 'btn';
-            const atkEffective = GS.slots.attack - GS.runes.attack.length;
-            atkBtn.innerHTML = `⚔️ Attack Slot (${atkEffective} usable)`;
+            atkBtn.innerHTML = `⚔️ Attack Rune (${GS.slots.attack} attack slots)`;
             atkBtn.onclick = () => renderRunes('attack');
             btnRow.appendChild(atkBtn);
         }
         if (canDef) {
             const defBtn = document.createElement('button');
             defBtn.className = 'btn';
-            const defEffective = GS.slots.defend - GS.runes.defend.length;
-            defBtn.innerHTML = `🛡️ Defend Slot (${defEffective} usable)`;
+            defBtn.innerHTML = `🛡️ Defend Rune (${GS.slots.defend} defend slots)`;
             defBtn.onclick = () => renderRunes('defend');
             btnRow.appendChild(defBtn);
         }
@@ -756,7 +757,7 @@ const Rewards = {
 
         const rewards = [];
 
-        const totalSlots = (GS.slots.attack - GS.runes.attack.length) + (GS.slots.defend - GS.runes.defend.length);
+        const totalSlots = GS.slots.attack + GS.slots.defend;
         rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — you have ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
             GS.dice.push(createDie(1, 6));
             log('Added new D6!', 'info');
@@ -884,9 +885,6 @@ const Rewards = {
         const slotBtns = document.createElement('div');
         slotBtns.style.cssText = 'display:none; gap:12px; justify-content:center; margin-top:8px;';
 
-        const atkEff = GS.slots.attack - GS.runes.attack.length;
-        const defEff = GS.slots.defend - GS.runes.defend.length;
-
         const makeBtn = (label, type) => {
             const btn = document.createElement('button');
             btn.className = 'btn btn-primary';
@@ -901,8 +899,8 @@ const Rewards = {
             };
             return btn;
         };
-        slotBtns.appendChild(makeBtn(`⚔️ +1 Attack Slot (${atkEff} usable)`, 'attack'));
-        slotBtns.appendChild(makeBtn(`🛡️ +1 Defend Slot (${defEff} usable)`, 'defend'));
+        slotBtns.appendChild(makeBtn(`⚔️ +1 Attack Slot (${GS.slots.attack} → ${GS.slots.attack + 1})`, 'attack'));
+        slotBtns.appendChild(makeBtn(`🛡️ +1 Defend Slot (${GS.slots.defend} → ${GS.slots.defend + 1})`, 'defend'));
         c.appendChild(slotBtns);
 
         const back = document.createElement('div');
@@ -944,18 +942,16 @@ const Rewards = {
             c.appendChild(card);
         });
 
-        const effectiveAtk = GS.slots.attack - GS.runes.attack.length;
-        const effectiveDef = GS.slots.defend - GS.runes.defend.length;
         const runePool = [];
         const ownedRuneKeys = new Set([
             ...GS.runes.attack.map(r => r.effect + ':attack'),
             ...GS.runes.defend.map(r => r.effect + ':defend'),
         ]);
-        if (effectiveAtk >= 2) {
+        if (GS.slots.attack >= 1) {
             RUNES.attack.forEach(r => { if (!ownedRuneKeys.has(r.effect+':attack')) runePool.push({ rune: r, slotType: 'attack' }); });
             RUNES.either.forEach(r => { if (!ownedRuneKeys.has(r.effect+':attack')) runePool.push({ rune: r, slotType: 'attack' }); });
         }
-        if (effectiveDef >= 2) {
+        if (GS.slots.defend >= 1) {
             RUNES.defend.forEach(r => { if (!ownedRuneKeys.has(r.effect+':defend')) runePool.push({ rune: r, slotType: 'defend' }); });
             RUNES.either.forEach(r => { if (!ownedRuneKeys.has(r.effect+':defend')) runePool.push({ rune: r, slotType: 'defend' }); });
         }
@@ -966,7 +962,7 @@ const Rewards = {
             card.style.borderColor = '#8040a0';
             card.innerHTML = `
                 <div class="card-title" style="color:#c080ff;">${runeOfferItem.rune.icon} ${runeOfferItem.rune.name}</div>
-                <div class="card-desc">RUNE (${runeOfferItem.slotType}) — ${runeOfferItem.rune.desc}<br><span style="color:#ff8080; font-size:0.85em;">Sacrifices 1 ${runeOfferItem.slotType} slot</span></div>
+                <div class="card-desc">RUNE (${runeOfferItem.slotType}) — ${runeOfferItem.rune.desc}</div>
             `;
             card.onclick = () => {
                 GS.runes[runeOfferItem.slotType].push({ ...runeOfferItem.rune });
@@ -1001,7 +997,7 @@ const Shop = {
         if (GS.passives.shopDiscount) discount += GS.passives.shopDiscount;
         if (GS.tempBuffs && GS.tempBuffs.merchantEscort) discount += 0.5;
         const applyDiscount = p => Math.floor(p * (1 - Math.min(discount, 0.5)));
-        const totalSlots = (GS.slots.attack - GS.runes.attack.length) + (GS.slots.defend - GS.runes.defend.length);
+        const totalSlots = GS.slots.attack + GS.slots.defend;
 
         const all = [
             { title: '🎲 Weighted Die', desc: `A die that rolls 2-7 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 35, type: 'DICE',
@@ -1052,14 +1048,12 @@ const Shop = {
             });
         });
 
-        const effectiveAtk = GS.slots.attack - GS.runes.attack.length;
-        const effectiveDef = GS.slots.defend - GS.runes.defend.length;
         const allRunes = [];
-        if (effectiveAtk >= 2) {
+        if (GS.slots.attack >= 1) {
             RUNES.attack.forEach(r => allRunes.push({ rune: r, slotType: 'attack' }));
             RUNES.either.forEach(r => allRunes.push({ rune: r, slotType: 'attack' }));
         }
-        if (effectiveDef >= 2) {
+        if (GS.slots.defend >= 1) {
             RUNES.defend.forEach(r => allRunes.push({ rune: r, slotType: 'defend' }));
             RUNES.either.forEach(r => allRunes.push({ rune: r, slotType: 'defend' }));
         }
@@ -1072,7 +1066,7 @@ const Shop = {
         runeOffers.forEach(({ rune, slotType }) => {
             const price = GS.act >= 2 ? 80 : 100;
             all.push({
-                title: `${rune.icon} ${rune.name}`, desc: `Rune (${slotType}) — sacrifices 1 ${slotType} slot`, price,
+                title: `${rune.icon} ${rune.name}`, desc: `Rune (${slotType}) — ${rune.desc}`, price,
                 type: 'RUNE', effect: rune.desc,
                 action: () => {
                     GS.runes[slotType].push({ ...rune });
@@ -1893,78 +1887,428 @@ const Events = {
 };
 
 // ════════════════════════════════════════════════════════════
-//  REST (between acts)
+//  REST (between acts) — two-tier: Transformation then Maintenance
 // ════════════════════════════════════════════════════════════
 const Rest = {
+    _transformDone: false,
+    _maintenanceDone: false,
+
     enter() {
+        Rest._transformDone = false;
+        Rest._maintenanceDone = false;
+        Rest._render();
+    },
+
+    _render() {
         updateStats();
         $('rest-title').textContent = `Act ${GS.act - 1} Complete — Rest & Prepare`;
-
         const content = $('rest-content');
         content.innerHTML = '';
 
-        const panel = document.createElement('div');
-        panel.className = 'rest-panel';
-        panel.innerHTML = `
-            <h3>A moment of respite...</h3>
-            <p>You find shelter between the dungeon's depths. Choose how to spend your time.</p>
-        `;
-        content.appendChild(panel);
+        // ── TRANSFORMATION TIER ──
+        const transHeader = document.createElement('div');
+        transHeader.className = 'section-title';
+        transHeader.textContent = '⚡ FORGE YOUR PATH';
+        content.appendChild(transHeader);
+
+        if (Rest._transformDone) {
+            const done = document.createElement('div');
+            done.style.cssText = 'text-align:center; color:var(--text-dim); font-size:0.85em; margin-bottom:16px;';
+            done.textContent = '✓ Transformation chosen';
+            content.appendChild(done);
+        } else {
+            const transGrid = document.createElement('div');
+            transGrid.style.cssText = 'display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:8px;';
+
+            const expandCard = document.createElement('div');
+            expandCard.className = 'card';
+            expandCard.style.cssText = 'width:140px; cursor:pointer;';
+            const atkCap = GS.slots.attack >= 6, defCap = GS.slots.defend >= 6;
+            expandCard.innerHTML = `<div class="card-title">➕ Expand</div><div class="card-desc">+1 slot<br>${atkCap && defCap ? '<span style="color:#ff8080;">Max slots reached</span>' : `${GS.slots.attack}⚔️ / ${GS.slots.defend}🛡️`}</div>`;
+            if (!(atkCap && defCap)) expandCard.onclick = () => Rest.showExpand();
+            else expandCard.classList.add('disabled');
+            transGrid.appendChild(expandCard);
+
+            const canSacAtk = GS.slots.attack > 1, canSacDef = GS.slots.defend > 1;
+            const sacCard = document.createElement('div');
+            sacCard.className = 'card' + (canSacAtk || canSacDef ? '' : ' disabled');
+            sacCard.style.cssText = 'width:140px; cursor:pointer;';
+            sacCard.innerHTML = `<div class="card-title">🔥 Sacrifice</div><div class="card-desc">Destroy a slot for a powerful enhancement</div>`;
+            if (canSacAtk || canSacDef) sacCard.onclick = () => Rest.showSacrifice();
+            transGrid.appendChild(sacCard);
+
+            const transCard = document.createElement('div');
+            transCard.className = 'card';
+            transCard.style.cssText = 'width:140px; cursor:pointer;';
+            transCard.innerHTML = `<div class="card-title">✨ Transform</div><div class="card-desc">Permanently alter one of your dice</div>`;
+            transCard.onclick = () => Rest.showTransform();
+            transGrid.appendChild(transCard);
+
+            content.appendChild(transGrid);
+
+            const skipDiv = document.createElement('div');
+            skipDiv.style.cssText = 'text-align:center; margin-bottom:16px;';
+            const skipBtn = document.createElement('button');
+            skipBtn.className = 'btn';
+            skipBtn.textContent = 'Skip transformation';
+            skipBtn.onclick = () => { Rest._transformDone = true; Rest._render(); };
+            skipDiv.appendChild(skipBtn);
+            content.appendChild(skipDiv);
+        }
+
+        // ── SEPARATOR ──
+        const sep = document.createElement('hr');
+        sep.style.cssText = 'border:none; border-top:1px solid var(--border); margin:8px 0 16px;';
+        content.appendChild(sep);
+
+        // ── MAINTENANCE TIER ──
+        const maintHeader = document.createElement('div');
+        maintHeader.className = 'section-title';
+        maintHeader.textContent = '🔧 MAINTENANCE';
+        if (!Rest._transformDone) maintHeader.style.opacity = '0.4';
+        content.appendChild(maintHeader);
+
+        const maintGrid = document.createElement('div');
+        maintGrid.className = 'card-grid';
+
+        if (!Rest._maintenanceDone) {
+            const healAmt = Math.floor(GS.maxHp * 0.3);
+            const healCard = document.createElement('div');
+            healCard.className = 'card' + (!Rest._transformDone ? ' disabled' : '');
+            healCard.innerHTML = `<div class="card-title">❤️ Heal</div><div class="card-desc">Restore ${healAmt} HP (30% max)</div>`;
+            if (Rest._transformDone) healCard.onclick = () => {
+                const h = heal(healAmt);
+                log(`Rested: +${h} HP`, 'heal');
+                updateStats();
+                Rest._maintenanceDone = true;
+                Rest._render();
+            };
+            maintGrid.appendChild(healCard);
+
+            const upCard = document.createElement('div');
+            upCard.className = 'card' + (!Rest._transformDone ? ' disabled' : '');
+            upCard.innerHTML = `<div class="card-title">⬆️ Train</div><div class="card-desc">Upgrade one die +1/+1</div>`;
+            if (Rest._transformDone) upCard.onclick = () => Rest.showUpgrade();
+            maintGrid.appendChild(upCard);
+
+            const hasTrimmable = GS.dice.some(d => d.faceValues && d.faceValues.length > 3);
+            if (hasTrimmable) {
+                const trimCard = document.createElement('div');
+                trimCard.className = 'card' + (!Rest._transformDone ? ' disabled' : '');
+                trimCard.innerHTML = `<div class="card-title">✂️ Trim</div><div class="card-desc">Remove a face from a die</div>`;
+                if (Rest._transformDone) trimCard.onclick = () => Rest.showFaceTrim();
+                maintGrid.appendChild(trimCard);
+            }
+
+            if (GS.passives.canMerge && GS.dice.length >= 4) {
+                const mergeCard = document.createElement('div');
+                mergeCard.className = 'card' + (!Rest._transformDone ? ' disabled' : '');
+                mergeCard.innerHTML = `<div class="card-title">🔥 Forge Merge</div><div class="card-desc">Fuse 2 dice into 1</div>`;
+                if (Rest._transformDone) mergeCard.onclick = () => {
+                    Rewards.showMergeSelection(() => { Rest._maintenanceDone = true; Rest._render(); });
+                };
+                maintGrid.appendChild(mergeCard);
+            }
+        } else {
+            const doneDiv = document.createElement('div');
+            doneDiv.style.cssText = 'text-align:center; color:var(--text-dim); font-size:0.85em; padding:8px;';
+            doneDiv.textContent = '✓ Maintenance complete';
+            maintGrid.appendChild(doneDiv);
+        }
+
+        content.appendChild(maintGrid);
+
+        if (Rest._transformDone && Rest._maintenanceDone) {
+            const contDiv = document.createElement('div');
+            contDiv.style.cssText = 'text-align:center; margin-top:16px;';
+            const contBtn = document.createElement('button');
+            contBtn.className = 'btn btn-primary';
+            contBtn.textContent = 'Continue →';
+            contBtn.onclick = () => Game.enterFloor();
+            contDiv.appendChild(contBtn);
+            content.appendChild(contDiv);
+        }
+
+        show('screen-rest');
+    },
+
+    // ── EXPAND ──
+    showExpand() {
+        const content = $('rest-content');
+        content.innerHTML = '<div class="section-title">➕ Expand — Choose a slot type</div>';
+        const info = document.createElement('div');
+        info.style.cssText = 'text-align:center; margin-bottom:12px; font-size:0.85em; color:var(--text-dim);';
+        info.innerHTML = `Current: ${GS.slots.attack} Attack slots / ${GS.slots.defend} Defend slots`;
+        content.appendChild(info);
 
         const grid = document.createElement('div');
         grid.className = 'card-grid';
 
-        const healAmt = Math.floor(GS.maxHp * 0.4);
-        const card1 = document.createElement('div');
-        card1.className = 'card';
-        card1.innerHTML = `<div class="card-title">🔥 Rest by the Fire</div><div class="card-desc">Heal ${healAmt} HP (40% of max)</div>`;
-        card1.onclick = () => {
-            const h = heal(healAmt);
-            log(`Rested: +${h} HP`, 'heal');
-            updateStats();
-            Game.enterFloor();
-        };
-        grid.appendChild(card1);
+        const atkCapped = GS.slots.attack >= 6;
+        const atkCard = document.createElement('div');
+        atkCard.className = 'card' + (atkCapped ? ' disabled' : '');
+        atkCard.innerHTML = `<div class="card-title">⚔️ +1 Attack Slot</div><div class="card-desc">${GS.slots.attack} → ${GS.slots.attack + 1}${atkCapped ? ' (MAX)' : ''}</div>`;
+        if (!atkCapped) atkCard.onclick = () => { GS.slots.attack++; log('➕ +1 attack slot!', 'info'); updateStats(); Rest._transformDone = true; Rest._render(); };
+        grid.appendChild(atkCard);
 
-        const hasTrimmable = GS.dice.some(d => d.faceValues && d.faceValues.length > 3);
-        if (hasTrimmable) {
-            const card2 = document.createElement('div');
-            card2.className = 'card';
-            card2.innerHTML = `<div class="card-title">✂️ Trim a Die</div><div class="card-desc">Remove a face from a die (increases consistency)</div>`;
-            card2.onclick = () => Rest.showFaceTrim();
-            grid.appendChild(card2);
-        }
+        const defCapped = GS.slots.defend >= 6;
+        const defCard = document.createElement('div');
+        defCard.className = 'card' + (defCapped ? ' disabled' : '');
+        defCard.innerHTML = `<div class="card-title">🛡️ +1 Defend Slot</div><div class="card-desc">${GS.slots.defend} → ${GS.slots.defend + 1}${defCapped ? ' (MAX)' : ''}</div>`;
+        if (!defCapped) defCard.onclick = () => { GS.slots.defend++; log('➕ +1 defend slot!', 'info'); updateStats(); Rest._transformDone = true; Rest._render(); };
+        grid.appendChild(defCard);
 
-        const card3 = document.createElement('div');
-        card3.className = 'card';
-        card3.innerHTML = `<div class="card-title">⬆️ Train</div><div class="card-desc">Upgrade one die's range +1/+1</div>`;
-        card3.onclick = () => Rest.showUpgrade();
-        grid.appendChild(card3);
-
-        if (GS.passives.canMerge && GS.dice.length >= 4) {
-            const card4 = document.createElement('div');
-            card4.className = 'card';
-            card4.innerHTML = `<div class="card-title">🔥 Forge Merge</div><div class="card-desc">Fuse 2 dice into 1 powerful die</div>`;
-            card4.onclick = () => {
-                Rewards.showMergeSelection(() => Game.enterFloor());
-            };
-            grid.appendChild(card4);
-        }
-
-        if (GS.dice.length >= 5) {
-            const card5 = document.createElement('div');
-            card5.className = 'card';
-            card5.innerHTML = `<div class="card-title">🔨 Sacrifice Dice</div><div class="card-desc">Destroy 3 dice → +1 Attack or Defend slot (${GS.dice.length} dice)</div>`;
-            card5.onclick = () => {
-                Rewards.showDiceSacrifice(() => Game.enterFloor());
-            };
-            grid.appendChild(card5);
-        }
-
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => Rest._render();
+        grid.appendChild(back);
         content.appendChild(grid);
-        show('screen-rest');
     },
 
+    // ── SACRIFICE ──
+    showSacrifice() {
+        const content = $('rest-content');
+        content.innerHTML = '<div class="section-title">🔥 Sacrifice — Choose a slot to destroy</div>';
+        const info = document.createElement('div');
+        info.style.cssText = 'text-align:center; margin-bottom:12px; font-size:0.85em; color:var(--text-dim);';
+        info.innerHTML = `Current: ${GS.slots.attack} Attack / ${GS.slots.defend} Defend (minimum 1 each)`;
+        content.appendChild(info);
+
+        const grid = document.createElement('div');
+        grid.className = 'card-grid';
+
+        const atkMin = GS.slots.attack <= 1;
+        const atkCard = document.createElement('div');
+        atkCard.className = 'card' + (atkMin ? ' disabled' : '');
+        atkCard.innerHTML = `<div class="card-title">⚔️ Sacrifice Attack Slot</div><div class="card-desc">${GS.slots.attack} → ${GS.slots.attack - 1}${atkMin ? ' (MINIMUM)' : ''}${GS.runes.attack.length > 0 ? '<br><span style="color:#ff8080; font-size:0.85em;">⚠️ Loses 1 attack rune</span>' : ''}</div>`;
+        if (!atkMin) atkCard.onclick = () => Rest.showSacrificeEnhancements('attack');
+        grid.appendChild(atkCard);
+
+        const defMin = GS.slots.defend <= 1;
+        const defCard = document.createElement('div');
+        defCard.className = 'card' + (defMin ? ' disabled' : '');
+        defCard.innerHTML = `<div class="card-title">🛡️ Sacrifice Defend Slot</div><div class="card-desc">${GS.slots.defend} → ${GS.slots.defend - 1}${defMin ? ' (MINIMUM)' : ''}${GS.runes.defend.length > 0 ? '<br><span style="color:#ff8080; font-size:0.85em;">⚠️ Loses 1 defend rune</span>' : ''}</div>`;
+        if (!defMin) defCard.onclick = () => Rest.showSacrificeEnhancements('defend');
+        grid.appendChild(defCard);
+
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => Rest._render();
+        grid.appendChild(back);
+        content.appendChild(grid);
+    },
+
+    showSacrificeEnhancements(slotType) {
+        const content = $('rest-content');
+        content.innerHTML = `<div class="section-title">🔥 Sacrifice ${slotType} slot — Choose Enhancement</div>`;
+        const remaining = GS.slots[slotType] - 1;
+
+        const enhancements = slotType === 'attack' ? [
+            { name: 'Fury Chamber', icon: '🔥', desc: `All ${remaining} remaining attack slots deal ×1.5 damage${GS.transformBuffs.furyChambered > 1 ? ' (stacks × existing)' : ''}`, effect: 'furyChambered', value: 1.5 },
+            { name: 'Conduit', icon: '☠️', desc: `Each attack die applies +3 poison per turn (currently: ${GS.transformBuffs.conduit} → ${GS.transformBuffs.conduit + 3})`, effect: 'conduit', value: 3 },
+            { name: 'Gold Forge', icon: '⚒️', desc: `Each attack die generates gold equal to its rolled value after you attack`, effect: 'goldForge', value: true },
+        ] : [
+            { name: 'Fortification', icon: '🏰', desc: `All ${remaining} remaining defend slots block ×1.5${GS.transformBuffs.fortified > 1 ? ' (stacks × existing)' : ''}`, effect: 'fortified', value: 1.5 },
+            { name: 'Thorns Aura', icon: '🌿', desc: `When you take damage, reflect ${GS.transformBuffs.thornsAura + 5} back to the enemy (currently: ${GS.transformBuffs.thornsAura} → ${GS.transformBuffs.thornsAura + 5})`, effect: 'thornsAura', value: 5 },
+            { name: 'Vampiric Ward', icon: '🧛', desc: `All blocked damage heals you for 25% of the amount blocked`, effect: 'vampiricWard', value: true },
+        ];
+
+        const grid = document.createElement('div');
+        grid.className = 'card-grid';
+
+        enhancements.forEach(enh => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `<div class="card-title">${enh.icon} ${enh.name}</div><div class="card-desc">${enh.desc}</div>`;
+            card.onclick = () => {
+                GS.slots[slotType]--;
+                if (GS.runes[slotType].length > 0) {
+                    const lost = GS.runes[slotType].pop();
+                    log(`🔮 ${lost.name} rune lost with the sacrificed slot!`, 'info');
+                }
+                if (enh.effect === 'furyChambered') GS.transformBuffs.furyChambered *= enh.value;
+                else if (enh.effect === 'conduit') GS.transformBuffs.conduit += enh.value;
+                else if (enh.effect === 'goldForge') GS.transformBuffs.goldForge = true;
+                else if (enh.effect === 'fortified') GS.transformBuffs.fortified *= enh.value;
+                else if (enh.effect === 'thornsAura') GS.transformBuffs.thornsAura += enh.value;
+                else if (enh.effect === 'vampiricWard') GS.transformBuffs.vampiricWard = true;
+                log(`🔥 Sacrificed ${slotType} slot for ${enh.name}!`, 'info');
+                updateStats();
+                Rest._transformDone = true;
+                Rest._render();
+            };
+            grid.appendChild(card);
+        });
+
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => Rest.showSacrifice();
+        grid.appendChild(back);
+        content.appendChild(grid);
+    },
+
+    // ── TRANSFORM ──
+    showTransform() {
+        const content = $('rest-content');
+        content.innerHTML = '<div class="section-title">✨ Transform — Choose a transformation</div>';
+
+        const transforms = [
+            { name: 'Infuse', icon: '⚡', desc: 'Set a minimum face value on a die. Rolls below the chosen value are raised to it. (Requires ≥4 faces)' },
+            { name: 'Fracture', icon: '💥', desc: 'Split a die into two smaller dice by interleaving face values. Face mods are lost. (Requires ≥6 faces)' },
+            { name: 'Ascend', icon: '🌟', desc: 'Remove from dice pool — becomes a passive aura adding half its average to every attack and defend slot each turn. (Requires ≥3 dice remain)' },
+            { name: 'Corrupt', icon: '💀', desc: 'Double all face values on the die. Powerful, but deals 3 unblockable damage to you at the start of each combat turn. (Cannot re-corrupt)' },
+        ];
+
+        const grid = document.createElement('div');
+        grid.className = 'card-grid';
+
+        transforms.forEach(tr => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `<div class="card-title">${tr.icon} ${tr.name}</div><div class="card-desc">${tr.desc}</div>`;
+            card.onclick = () => Rest.showTransformDiePicker(tr.name.toLowerCase());
+            grid.appendChild(card);
+        });
+
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => Rest._render();
+        grid.appendChild(back);
+        content.appendChild(grid);
+    },
+
+    showTransformDiePicker(type) {
+        const content = $('rest-content');
+        const typeLabel = { infuse: '⚡ Infuse', fracture: '💥 Fracture', ascend: '🌟 Ascend', corrupt: '💀 Corrupt' };
+        content.innerHTML = `<div class="section-title">${typeLabel[type]} — Choose a die</div>`;
+
+        const grid = document.createElement('div');
+        grid.className = 'card-grid';
+
+        const rollable = GS.dice.filter(d => !d.ascended);
+
+        GS.dice.forEach((die, idx) => {
+            let disabled = false, reason = '';
+            if (type === 'infuse') {
+                if (die.faceValues.length < 4) { disabled = true; reason = 'Needs ≥4 faces'; }
+            } else if (type === 'fracture') {
+                if (die.faceValues.length < 6) { disabled = true; reason = 'Needs ≥6 faces'; }
+            } else if (type === 'ascend') {
+                if (rollable.length - 1 < 2) { disabled = true; reason = 'Need ≥2 dice remaining'; }
+            } else if (type === 'corrupt') {
+                if (die.corrupted) { disabled = true; reason = 'Already corrupted'; }
+            }
+
+            const card = document.createElement('div');
+            card.className = 'card' + (disabled ? ' disabled' : '');
+            const faces = renderFaceStrip(die);
+            card.innerHTML = `
+                <div class="card-title">d${die.faceValues.length}: ${die.min}–${die.max}${die.corrupted ? ' 💀' : ''}${die.infuseFloor ? ` ⚡≥${die.infuseFloor}` : ''}</div>
+                <div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center; margin:6px 0;">${faces}</div>
+                ${disabled ? `<div class="card-desc" style="color:#ff8080; text-align:center;">${reason}</div>` : ''}
+            `;
+            if (!disabled) card.onclick = () => Rest._applyTransform(type, die, idx);
+            grid.appendChild(card);
+        });
+
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => Rest.showTransform();
+        grid.appendChild(back);
+        content.appendChild(grid);
+    },
+
+    _applyTransform(type, die, idx) {
+        if (type === 'infuse') { Rest.showInfusePicker(die); return; }
+
+        if (type === 'fracture') {
+            const sorted = [...die.faceValues].sort((a, b) => a - b);
+            const facesA = sorted.filter((_, i) => i % 2 === 0);
+            const facesB = sorted.filter((_, i) => i % 2 === 1);
+            const dieA = createDieFromFaces(facesA);
+            const dieB = createDieFromFaces(facesB);
+            GS.dice.splice(idx, 1, dieA, dieB);
+            log(`💥 Fractured! d${sorted.length} → d${facesA.length} [${dieA.min}-${dieA.max}] + d${facesB.length} [${dieB.min}-${dieB.max}]`, 'info');
+            updateStats();
+            Rest._transformDone = true;
+            Rest._render();
+            return;
+        }
+
+        if (type === 'ascend') {
+            const avg = die.faceValues.reduce((s, v) => s + v, 0) / die.faceValues.length;
+            const bonus = Math.ceil(avg / 2);
+            const label = `Ascended d${die.faceValues.length} (${die.min}-${die.max})`;
+            GS.ascendedDice.push({ label, bonus });
+            GS.dice.splice(idx, 1);
+            log(`🌟 ${label} ascended! +${bonus} to all slots each turn.`, 'info');
+            updateStats();
+            Rest._transformDone = true;
+            Rest._render();
+            return;
+        }
+
+        if (type === 'corrupt') {
+            die.faceValues = die.faceValues.map(v => v * 2);
+            die.min = die.faceValues[0];
+            die.max = die.faceValues[die.faceValues.length - 1];
+            die.corrupted = true;
+            log(`💀 Die corrupted! All face values doubled. Takes 3 damage/turn in combat.`, 'damage');
+            updateStats();
+            Rest._transformDone = true;
+            Rest._render();
+            return;
+        }
+    },
+
+    showInfusePicker(die) {
+        const content = $('rest-content');
+        content.innerHTML = `<div class="section-title">⚡ Infuse — Choose a minimum value</div>`;
+
+        const preview = document.createElement('div');
+        preview.style.cssText = 'text-align:center; margin:8px 0 12px; padding:8px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px;';
+        preview.innerHTML = `<div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center;">${renderFaceStrip(die)}</div>`;
+        content.appendChild(preview);
+
+        const info = document.createElement('div');
+        info.style.cssText = 'text-align:center; margin-bottom:12px; font-size:0.85em; color:var(--text-dim);';
+        info.textContent = 'Choose a face value. Rolls below this value will always be raised to it.';
+        content.appendChild(info);
+
+        const grid = document.createElement('div');
+        grid.className = 'card-grid';
+
+        die.faceValues.slice(1).forEach(val => {
+            const lowCount = die.faceValues.filter(v => v < val).length;
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="card-title">⚡ ${val}</div>
+                <div class="card-desc">Guaranteed minimum: ${val}<br>(${lowCount} lower value${lowCount !== 1 ? 's' : ''} raised)</div>
+            `;
+            card.onclick = () => {
+                die.infuseFloor = val;
+                log(`⚡ Infused! This die rolls minimum ${val}.`, 'info');
+                Rest._transformDone = true;
+                Rest._render();
+            };
+            grid.appendChild(card);
+        });
+
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => Rest.showTransformDiePicker('infuse');
+        grid.appendChild(back);
+        content.appendChild(grid);
+    },
+
+    // ── MAINTENANCE HELPERS ──
     showFaceTrim() {
         const content = $('rest-content');
         content.innerHTML = '<div class="section-title">✂️ Trim a Die Face</div>';
@@ -1983,9 +2327,8 @@ const Rest = {
         const back = document.createElement('div');
         back.className = 'card';
         back.innerHTML = `<div class="card-title">← Back</div>`;
-        back.onclick = () => Rest.enter();
+        back.onclick = () => Rest._render();
         grid.appendChild(back);
-
         content.appendChild(grid);
     },
 
@@ -2020,7 +2363,8 @@ const Rest = {
                 die.faces = die.faces.filter(f => f.faceValue !== val);
                 log(`Trimmed face ${val} — now d${die.sides} [${die.min}-${die.max}]`, 'info');
                 updateStats();
-                Game.enterFloor();
+                Rest._maintenanceDone = true;
+                Rest._render();
             };
             grid.appendChild(card);
         });
@@ -2030,13 +2374,12 @@ const Rest = {
         back.innerHTML = `<div class="card-title">← Back</div>`;
         back.onclick = () => Rest.showFaceTrim();
         grid.appendChild(back);
-
         content.appendChild(grid);
     },
 
     showUpgrade() {
         const content = $('rest-content');
-        content.innerHTML = '<div class="section-title">Upgrade a Die</div>';
+        content.innerHTML = '<div class="section-title">⬆️ Train — Upgrade a Die</div>';
         const grid = document.createElement('div');
         grid.className = 'card-grid';
 
@@ -2054,7 +2397,8 @@ const Rest = {
                 applyUpgrade(die);
                 log(`Upgraded to ${die.min}-${die.max}!${hammer ? ' (Master\'s Hammer)' : ''}`, 'info');
                 updateStats();
-                Game.enterFloor();
+                Rest._maintenanceDone = true;
+                Rest._render();
             };
             grid.appendChild(card);
         });
@@ -2062,9 +2406,8 @@ const Rest = {
         const back = document.createElement('div');
         back.className = 'card';
         back.innerHTML = `<div class="card-title">← Back</div>`;
-        back.onclick = () => Rest.enter();
+        back.onclick = () => Rest._render();
         grid.appendChild(back);
-
         content.appendChild(grid);
     }
 };
@@ -2086,18 +2429,19 @@ const Inventory = {
     },
     render() {
         const c = $('inventory-content');
-        const effectiveAtk = GS.slots.attack - GS.runes.attack.length;
-        const effectiveDef = GS.slots.defend - GS.runes.defend.length;
 
         let html = '';
+
+        const atkRuneStr = GS.runes.attack.length > 0 ? ` (${GS.runes.attack.length} rune${GS.runes.attack.length > 1 ? 's' : ''})` : '';
+        const defRuneStr = GS.runes.defend.length > 0 ? ` (${GS.runes.defend.length} rune${GS.runes.defend.length > 1 ? 's' : ''})` : '';
 
         html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
             <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">⚙️ STATS</div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; font-size:0.85em;">
                 <span>❤️ HP: ${GS.hp}/${GS.maxHp}${GS.regenStacks > 0 ? ` (+${GS.regenStacks} regen)` : ''}</span>
                 <span>💰 Gold: ${GS.gold}</span>
-                <span>⚔️ Atk Slots: ${effectiveAtk} (${GS.slots.attack} total)</span>
-                <span>🛡️ Def Slots: ${effectiveDef} (${GS.slots.defend} total)</span>
+                <span>⚔️ Atk Slots: ${GS.slots.attack}${atkRuneStr}</span>
+                <span>🛡️ Def Slots: ${GS.slots.defend}${defRuneStr}</span>
                 <span>🎲 Dice: ${GS.dice.length}</span>
                 <span>🔄 Rerolls: ${GS.rerolls}</span>
                 <span>⚔️ Dmg Boost: +${GS.buffs.damageBoost}</span>

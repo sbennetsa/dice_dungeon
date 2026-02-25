@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Generate Dice Dungeon Icons</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #0a0a12; color: #e8d5a3; }
+        canvas { display: block; margin: 10px 0; border: 1px solid #444; }
+        button { background: #d4a534; color: #0a0a12; border: none; padding: 8px 16px;
+                 font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px; margin: 4px; }
+        .instructions { background: #1a1a2e; padding: 12px; border-radius: 6px; margin-bottom: 16px;
+                        border: 1px solid #333; }
+        h2 { color: #d4a534; }
+    </style>
+</head>
+<body>
+    <h2>🎲 Dice Dungeon — Icon Generator</h2>
+    <div class="instructions">
+        <p>Click the buttons below to download <code>icon-192.png</code> and <code>icon-512.png</code>,
+           then place both files in this <code>icons/</code> folder.</p>
+    </div>
+
+    <div>
+        <h3>192×192</h3>
+        <canvas id="canvas-192" width="192" height="192"></canvas>
+        <button onclick="download('canvas-192', 'icon-192.png')">⬇ Download icon-192.png</button>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <h3>512×512</h3>
+        <canvas id="canvas-512" width="512" height="512"></canvas>
+        <button onclick="download('canvas-512', 'icon-512.png')">⬇ Download icon-512.png</button>
+    </div>
+
+    <script>
+        function drawIcon(canvas) {
+            const size = canvas.width;
+            const ctx = canvas.getContext('2d');
+            const pad = size * 0.08;
+            const r = size * 0.18; // corner radius
+
+            // Background
+            ctx.fillStyle = '#0a0a12';
+            ctx.fillRect(0, 0, size, size);
+
+            // Rounded rect card (die face)
+            const inset = pad;
+            ctx.beginPath();
+            ctx.moveTo(inset + r, inset);
+            ctx.lineTo(size - inset - r, inset);
+            ctx.arcTo(size - inset, inset, size - inset, inset + r, r);
+            ctx.lineTo(size - inset, size - inset - r);
+            ctx.arcTo(size - inset, size - inset, size - inset - r, size - inset, r);
+            ctx.lineTo(inset + r, size - inset);
+            ctx.arcTo(inset, size - inset, inset, size - inset - r, r);
+            ctx.lineTo(inset, inset + r);
+            ctx.arcTo(inset, inset, inset + r, inset, r);
+            ctx.closePath();
+
+            // Card fill with gradient
+            const grad = ctx.createLinearGradient(inset, inset, size - inset, size - inset);
+            grad.addColorStop(0, '#1a1a2e');
+            grad.addColorStop(1, '#0d0d1a');
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Gold border
+            ctx.strokeStyle = '#d4a534';
+            ctx.lineWidth = size * 0.025;
+            ctx.stroke();
+
+            // Dice emoji / number (🎲)
+            const emojiSize = size * 0.52;
+            ctx.font = `${emojiSize}px serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🎲', size / 2, size / 2 - size * 0.03);
+
+            // "DD" text below emoji
+            const labelSize = size * 0.1;
+            ctx.font = `bold ${labelSize}px sans-serif`;
+            ctx.fillStyle = '#d4a534';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('DICE DUNGEON', size / 2, size - pad - labelSize * 0.6);
+        }
+
+        function download(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const a = document.createElement('a');
+            a.download = filename;
+            a.href = canvas.toDataURL('image/png');
+            a.click();
+        }
+
+        // Draw both canvases on load
+        drawIcon(document.getElementById('canvas-192'));
+        drawIcon(document.getElementById('canvas-512'));
+    </script>
+</body>
+</html>

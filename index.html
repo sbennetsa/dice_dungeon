@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dice Dungeon II</title>
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#d4a534">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&family=Uncial+Antiqua&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="game">
+
+<!-- ═══════════ START SCREEN ═══════════ -->
+<div id="screen-start" class="screen active">
+    <div class="start-screen">
+        <h1>Dice Dungeon</h1>
+        <div class="subtitle">A Tactical Roguelike</div>
+        <div class="flavor">
+            Roll your dice. Choose your battles.<br>
+            Left-click to attack, right-click to defend &mdash;<br>
+            every allocation is a gamble.
+        </div>
+        <div style="margin-bottom: 30px;">
+            <div style="color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 0.8em; line-height: 2;">
+                ⚔️ &thinsp;3 Acts &middot; 15 Floors &middot; 3 Bosses<br>
+                🎲 &thinsp;Left-click → Attack &middot; Right-click → Defend<br>
+                📱 &thinsp;Mobile: Tap → Attack &middot; Hold → Defend &middot; Drag to slot<br>
+                🏗️ &thinsp;Level up to gain Attack or Defend slots
+            </div>
+        </div>
+        <button class="btn btn-primary start-btn" onclick="Game.start()">Enter the Dungeon</button>
+    </div>
+</div>
+
+<!-- ═══════════ COMBAT SCREEN ═══════════ -->
+<div id="screen-combat" class="screen">
+    <div class="game-header">
+        <div class="header-title">Dice Dungeon</div>
+        <div class="stats-row">
+            <div class="stat-item"><span class="stat-label">Floor</span><span class="stat-val" id="s-floor">1</span></div>
+            <div class="stat-item"><span class="stat-label">Lvl</span><span class="stat-val" id="s-level">1</span></div>
+            <div class="stat-item"><span class="stat-label">XP</span><span class="stat-val" id="s-xp">0/50</span></div>
+            <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="s-hp">50/50</span></div>
+            <div class="stat-item"><span class="stat-label">Dice</span><span class="stat-val" id="s-dice">3/4</span></div>
+            <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="s-gold">0</span></div>
+        </div>
+        <button class="btn" id="btn-inventory" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+    </div>
+    <div id="floor-progress"></div>
+    <div id="artifacts-display" class="artifacts-bar" style="display:none;"></div>
+    <div id="buffs-display" class="buffs-row"></div>
+
+    <div id="enemy-panel" class="enemy-panel"></div>
+
+    <div class="dice-tray" id="dice-tray-main">
+        <div class="tray-label">🎲 Your Dice — <span style="color:var(--attack-color)">Left-click → Attack</span> · <span style="color:var(--defend-color)">Right-click → Defend</span> · Click in slot to return <span id="reroll-counter" style="display:none; color: var(--gold); margin-left: 8px;">🔄 0</span></div>
+        <div class="dice-pool" id="dice-pool" style="cursor: pointer;"></div>
+        <div style="text-align:center; margin-top: 10px;">
+            <span id="roll-hint" class="mono" style="color: var(--gold); font-size: 0.85em;">Click dice or press Roll to begin</span>
+        </div>
+        <div style="text-align:center; margin-top: 8px;">
+            <button class="btn btn-execute-main" id="btn-execute" onclick="Combat.execute()" style="display:none;">⚔️ Execute Turn</button>
+        </div>
+    </div>
+
+    <div class="dice-tray" id="autofire-tray" style="display:none;">
+        <div class="tray-label">✨ Auto-triggered effects</div>
+        <div class="dice-pool" id="autofire-dice"></div>
+    </div>
+
+    <div class="allocation-area">
+        <div class="alloc-slot attack-slot" id="slot-attack">
+            <div class="slot-header">
+                <span class="slot-title">⚔️ Attack <span class="slot-count" id="atk-slot-count">(0/2)</span></span>
+                <span class="slot-total" id="attack-total">0</span>
+            </div>
+            <div class="slot-dice-grid" id="slot-attack-dice"></div>
+            <div class="slot-summary" id="attack-summary"></div>
+        </div>
+        <div class="alloc-slot defend-slot" id="slot-defend">
+            <div class="slot-header">
+                <span class="slot-title">🛡️ Defend <span class="slot-count" id="def-slot-count">(0/2)</span></span>
+                <span class="slot-total" id="defend-total">0</span>
+            </div>
+            <div class="slot-dice-grid" id="slot-defend-dice"></div>
+            <div class="slot-summary" id="defend-summary"></div>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <button class="btn" id="btn-return-all" onclick="Combat.returnAll()" style="display:none;">↩ Return All</button>
+    </div>
+
+    <div class="combat-log" id="combat-log"></div>
+</div>
+
+<!-- ═══════════ REWARD SCREEN ═══════════ -->
+<div id="screen-reward" class="screen">
+    <div class="game-header">
+        <div class="header-title">Dice Dungeon</div>
+        <div class="stats-row">
+            <div class="stat-item"><span class="stat-label">Floor</span><span class="stat-val" id="r-floor">1</span></div>
+            <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="r-hp">50/50</span></div>
+            <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="r-gold">0</span></div>
+        </div>
+        <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+    </div>
+    <div class="section-title" id="reward-title">Victory — Choose Your Reward</div>
+    <div class="card-grid" id="reward-cards"></div>
+</div>
+
+<!-- ═══════════ SHOP SCREEN ═══════════ -->
+<div id="screen-shop" class="screen">
+    <div class="game-header">
+        <div class="header-title">The Dice Emporium</div>
+        <div class="stats-row">
+            <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="sh-hp">50/50</span></div>
+            <div class="stat-item"><span class="stat-label">Dice</span><span class="stat-val" id="sh-dice">3/4</span></div>
+            <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="sh-gold">0</span></div>
+        </div>
+        <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+    </div>
+    <div class="section-title">Browse Wares</div>
+    <div class="card-grid" id="shop-cards"></div>
+    <div class="btn-group" style="margin-top:16px;">
+        <button class="btn btn-primary" onclick="Shop.leave()">Continue →</button>
+    </div>
+</div>
+
+<!-- ═══════════ EVENT SCREEN ═══════════ -->
+<div id="screen-event" class="screen">
+    <div class="game-header">
+        <div class="header-title">Dice Dungeon</div>
+        <div class="stats-row">
+            <div class="stat-item"><span class="stat-label">Floor</span><span class="stat-val" id="e-floor">1</span></div>
+            <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="e-hp">50/50</span></div>
+            <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="e-gold">0</span></div>
+        </div>
+        <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+    </div>
+    <div class="event-panel" id="event-panel"></div>
+</div>
+
+<!-- ═══════════ REST SCREEN ═══════════ -->
+<div id="screen-rest" class="screen">
+    <div class="game-header">
+        <div class="header-title">Dice Dungeon</div>
+        <div class="stats-row">
+            <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="rest-hp">50/50</span></div>
+            <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="rest-gold">0</span></div>
+        </div>
+        <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+    </div>
+    <div class="section-title" id="rest-title">Act Complete — Rest &amp; Prepare</div>
+    <div id="rest-content"></div>
+</div>
+
+<!-- ═══════════ GAME OVER ═══════════ -->
+<div id="screen-gameover" class="screen">
+    <div class="gameover-screen">
+        <h2 id="go-title">Defeated</h2>
+        <div class="final-stats" id="go-stats"></div>
+        <div id="go-buttons" style="margin-top:20px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="Game.start()">Try Again</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ INVENTORY OVERLAY ═══════════ -->
+<div id="inventory-overlay" style="display:none; position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.8); overflow-y:auto; padding:20px;">
+    <div style="max-width:500px; margin:0 auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h2 style="color:var(--gold); font-family:Uncial Antiqua,cursive; margin:0;">📋 Build Overview</h2>
+            <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em;">✕ Close</button>
+        </div>
+        <div id="inventory-content"></div>
+    </div>
+</div>
+
+</div><!-- /game -->
+
+<script type="module" src="js/screens.js"></script>
+<script>
+    if ('serviceWorker' in navigator)
+        navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>

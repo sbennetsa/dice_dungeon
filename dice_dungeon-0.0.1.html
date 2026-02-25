@@ -1,0 +1,4172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dice Dungeon II</title>
+    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&family=Uncial+Antiqua&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #0a0a12;
+            --bg-mid: #12121e;
+            --bg-surface: #1a1a2a;
+            --bg-raised: #22223a;
+            --border: #2a2a44;
+            --border-bright: #3a3a5a;
+            --text: #c8c8d8;
+            --text-dim: #7a7a9a;
+            --text-bright: #e8e8f0;
+            --gold: #d4a534;
+            --gold-dim: #8a6a1a;
+            --red: #c44040;
+            --red-dim: #6a2020;
+            --red-bright: #ff6060;
+            --green: #40a060;
+            --green-bright: #60d080;
+            --blue: #4060c0;
+            --blue-bright: #6080e0;
+            --purple: #8040c0;
+            --attack-color: #c44040;
+            --defend-color: #4060c0;
+            --slot-glow-attack: rgba(196, 64, 64, 0.4);
+            --slot-glow-defend: rgba(64, 96, 192, 0.4);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'EB Garamond', serif;
+            background: var(--bg-deep);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            font-size: 18px;
+            overflow-x: hidden;
+        }
+
+        /* Subtle background texture */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse at 20% 50%, rgba(64, 96, 192, 0.03) 0%, transparent 60%),
+                radial-gradient(ellipse at 80% 30%, rgba(196, 64, 64, 0.03) 0%, transparent 60%),
+                radial-gradient(ellipse at 50% 80%, rgba(212, 165, 52, 0.02) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        #game {
+            max-width: 800px;
+            width: 100%;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── Typography ── */
+        h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
+        .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; }
+
+        /* ── Screens ── */
+        .screen { display: none; }
+        .screen.active { display: block; animation: fadeIn 0.4s ease; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Header / Stats ── */
+        .game-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 16px;
+            gap: 12px;
+        }
+
+        .header-title {
+            font-family: 'Uncial Antiqua', cursive;
+            font-size: 1.1em;
+            color: var(--gold);
+        }
+
+        .stats-row {
+            display: flex;
+            gap: 20px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+        }
+
+        .stat-item { display: flex; gap: 6px; align-items: center; }
+        .stat-label { color: var(--text-dim); text-transform: uppercase; font-size: 0.8em; letter-spacing: 0.1em; }
+        .stat-val { color: var(--text-bright); font-weight: 700; }
+        .stat-val.hp { color: var(--red-bright); }
+        .stat-val.gold { color: var(--gold); }
+
+        /* ── Floor Progress ── */
+        .floor-progress {
+            display: flex;
+            gap: 3px;
+            margin-bottom: 16px;
+            padding: 10px 16px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        .floor-pip {
+            flex: 1;
+            height: 6px;
+            background: var(--bg-raised);
+            border-radius: 3px;
+            position: relative;
+            transition: all 0.3s;
+        }
+
+        .floor-pip.completed { background: var(--green); }
+        .floor-pip.current { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+        .floor-pip.boss { border: 1px solid var(--red-dim); }
+        .floor-pip.boss.current { background: var(--red); box-shadow: 0 0 8px var(--red); }
+        .floor-pip.shop-pip { border: 1px solid var(--gold-dim); }
+
+        .act-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            padding: 0 4px;
+            display: flex;
+            align-items: center;
+        }
+
+        /* ── Enemy Display ── */
+        .enemy-panel {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .enemy-name {
+            font-family: 'Uncial Antiqua', cursive;
+            font-size: 1.6em;
+            color: var(--red-bright);
+            margin-bottom: 4px;
+        }
+
+        .enemy-name.elite { color: var(--gold); text-shadow: 0 0 12px rgba(212, 165, 52, 0.4); }
+
+        .enemy-subtitle {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85em;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+        }
+
+        .enemy-hp-bar {
+            width: 100%;
+            height: 12px;
+            background: var(--bg-raised);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+
+        .enemy-hp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--red) 0%, var(--red-bright) 100%);
+            border-radius: 5px;
+            transition: width 0.5s ease;
+        }
+
+        .enemy-hp-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+            color: var(--red-bright);
+        }
+
+        .enemy-intent {
+            margin-top: 12px;
+            padding: 8px 14px;
+            background: rgba(196, 64, 64, 0.1);
+            border: 1px solid rgba(196, 64, 64, 0.3);
+            border-radius: 6px;
+            font-size: 0.95em;
+            color: var(--text);
+        }
+
+        /* ── Dice Tray ── */
+        .dice-tray {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .tray-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            margin-bottom: 12px;
+        }
+
+        .dice-pool {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            min-height: 70px;
+            padding: 10px;
+            background: var(--bg-mid);
+            border: 1px dashed var(--border);
+            border-radius: 6px;
+        }
+
+        /* ── Dice ── */
+        .die {
+            width: 68px;
+            height: 68px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.5em;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: grab;
+            user-select: none;
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+            border: 2px solid var(--border-bright);
+            background: var(--bg-raised);
+            color: var(--text-bright);
+        }
+
+        .die:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
+        .die.dragging { opacity: 0.4; cursor: grabbing; }
+
+        .die .die-label {
+            position: absolute;
+            top: 2px;
+            right: 4px;
+            font-size: 0.35em;
+            color: var(--text-dim);
+            font-weight: 400;
+        }
+
+        .die .die-face-icon {
+            position: absolute;
+            bottom: 2px;
+            left: 4px;
+            font-size: 0.5em;
+        }
+
+        .die.unrolled {
+            color: var(--text-dim);
+            border-style: dashed;
+        }
+
+        .die.special {
+            border-color: var(--gold);
+            box-shadow: 0 0 8px rgba(212, 165, 52, 0.2);
+        }
+
+        @keyframes diceRoll {
+            0% { transform: rotate(0deg) scale(1); }
+            25% { transform: rotate(90deg) scale(1.1); }
+            50% { transform: rotate(180deg) scale(1); }
+            75% { transform: rotate(270deg) scale(1.1); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+
+        .die.rolling { animation: diceRoll 0.4s ease; }
+
+        @keyframes pulse-glow {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.3); }
+        }
+
+        /* ── Allocation Slots ── */
+        .allocation-area {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .alloc-slot {
+            background: var(--bg-surface);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            min-height: 100px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .alloc-slot.attack-slot { border-color: var(--red-dim); background: rgba(196, 64, 64, 0.04); }
+        .alloc-slot.attack-slot .slot-header { color: var(--attack-color); }
+        .alloc-slot.defend-slot { border-color: rgba(64, 96, 192, 0.4); background: rgba(64, 96, 192, 0.04); }
+        .alloc-slot.defend-slot .slot-header { color: var(--defend-color); }
+
+        .slot-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .slot-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+
+        .slot-count {
+            font-size: 0.9em;
+            opacity: 0.7;
+        }
+
+        .slot-count.full {
+            color: var(--green-bright);
+            opacity: 1;
+        }
+
+        .slot-total {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.2em;
+            font-weight: 700;
+        }
+
+        .slot-dice-grid {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .slot-dice-grid .die { width: 58px; height: 58px; font-size: 1.3em; }
+
+        /* Empty slot placeholder */
+        .slot-placeholder {
+            width: 58px;
+            height: 58px;
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            color: var(--border-bright);
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .attack-slot .slot-placeholder {
+            border-color: rgba(196, 64, 64, 0.25);
+            background: rgba(196, 64, 64, 0.03);
+        }
+        .attack-slot .slot-placeholder:hover {
+            border-color: rgba(196, 64, 64, 0.5);
+            background: rgba(196, 64, 64, 0.06);
+        }
+
+        .defend-slot .slot-placeholder {
+            border-color: rgba(64, 96, 192, 0.25);
+            background: rgba(64, 96, 192, 0.03);
+        }
+        .defend-slot .slot-placeholder:hover {
+            border-color: rgba(64, 96, 192, 0.5);
+            background: rgba(64, 96, 192, 0.06);
+        }
+
+        /* Filled slot glow */
+        .slot-placeholder.filled {
+            border-style: solid;
+            border-color: transparent;
+        }
+
+        .slot-summary {
+            margin-top: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8em;
+            color: var(--text-dim);
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+            padding: 10px 22px;
+            border: 1px solid var(--border-bright);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: var(--bg-raised);
+            color: var(--text);
+            letter-spacing: 0.05em;
+        }
+
+        .btn:hover { background: var(--border); transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+        .btn-primary {
+            background: var(--gold-dim);
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+        .btn-primary:hover { background: var(--gold); color: var(--bg-deep); }
+
+        .btn-attack {
+            background: var(--red-dim);
+            border-color: var(--red);
+            color: var(--red-bright);
+        }
+        .btn-attack:hover { background: var(--red); color: white; }
+
+        .btn-green {
+            background: rgba(64, 160, 96, 0.2);
+            border-color: var(--green);
+            color: var(--green-bright);
+        }
+        .btn-green:hover { background: var(--green); color: white; }
+
+        .btn-group { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+        /* ── Action Bar ── */
+        .action-bar {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn-execute-main {
+            background: var(--red-dim);
+            border: 2px solid var(--red);
+            color: var(--red-bright);
+            font-size: 1em;
+            padding: 12px 32px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+        .btn-execute-main:hover:not(:disabled) {
+            background: var(--red);
+            color: white;
+            box-shadow: 0 0 16px rgba(196, 64, 64, 0.4);
+        }
+        .btn-execute-main:disabled {
+            opacity: 0.25;
+            border-color: var(--border);
+            background: var(--bg-raised);
+            color: var(--text-dim);
+        }
+
+        /* Clickable dice pool pre-roll */
+        .dice-pool.clickable-roll {
+            cursor: pointer;
+            border-color: var(--gold-dim);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .dice-pool.clickable-roll:hover {
+            border-color: var(--gold);
+            box-shadow: 0 0 12px rgba(212, 165, 52, 0.15);
+        }
+
+        .dice-pool.clickable-execute {
+            cursor: pointer;
+            border-color: var(--red-dim);
+            border-style: solid;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .dice-pool.clickable-execute:hover {
+            border-color: var(--red);
+            box-shadow: 0 0 12px rgba(196, 64, 64, 0.2);
+        }
+
+        /* ── Combat Log ── */
+        .combat-log {
+            background: var(--bg-mid);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            max-height: 140px;
+            overflow-y: auto;
+            margin-top: 12px;
+            font-size: 0.9em;
+        }
+
+        .combat-log::-webkit-scrollbar { width: 4px; }
+        .combat-log::-webkit-scrollbar-track { background: transparent; }
+        .combat-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        .log-entry {
+            padding: 3px 0 3px 10px;
+            border-left: 2px solid var(--border);
+            margin: 4px 0;
+            font-size: 0.9em;
+            color: var(--text-dim);
+        }
+        .log-entry.damage { border-color: var(--red); color: var(--red-bright); }
+        .log-entry.heal { border-color: var(--green); color: var(--green-bright); }
+        .log-entry.info { border-color: var(--gold); color: var(--gold); }
+        .log-entry.defend { border-color: var(--blue); color: var(--blue-bright); }
+
+        /* ── Reward / Shop / Event cards ── */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin: 16px 0;
+        }
+
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 18px;
+            cursor: pointer;
+            transition: all 0.25s;
+        }
+
+        .card:hover {
+            border-color: var(--gold);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+
+        .card-title {
+            font-family: 'Uncial Antiqua', cursive;
+            font-size: 1.15em;
+            color: var(--gold);
+            margin-bottom: 8px;
+        }
+
+        .card-desc {
+            font-size: 0.9em;
+            color: var(--text-dim);
+            line-height: 1.5;
+        }
+
+        .card-effect {
+            margin-top: 8px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85em;
+            color: var(--green-bright);
+        }
+
+        .card-price {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9em;
+            color: var(--gold);
+            margin-top: 8px;
+        }
+
+        .card.disabled { opacity: 0.4; cursor: not-allowed; }
+        .card.disabled:hover { border-color: var(--border); transform: none; box-shadow: none; }
+
+        /* ── Start Screen ── */
+        .start-screen { text-align: center; padding: 60px 20px; }
+
+        .start-screen h1 {
+            font-size: 2.8em;
+            color: var(--gold);
+            margin-bottom: 8px;
+            text-shadow: 0 0 30px rgba(212, 165, 52, 0.2);
+        }
+
+        .start-screen .subtitle {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8em;
+            color: var(--text-dim);
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            margin-bottom: 40px;
+        }
+
+        .start-screen .flavor {
+            max-width: 500px;
+            margin: 0 auto 40px;
+            font-size: 1.15em;
+            line-height: 1.8;
+            color: var(--text);
+            font-style: italic;
+        }
+
+        .start-screen .start-btn {
+            font-size: 1.1em;
+            padding: 14px 40px;
+        }
+
+        /* ── Game Over ── */
+        .gameover-screen { text-align: center; padding: 40px 20px; }
+
+        .gameover-screen h2 {
+            font-size: 2.2em;
+            margin-bottom: 20px;
+        }
+        .gameover-screen h2.defeat { color: var(--red); }
+        .gameover-screen h2.victory { color: var(--gold); text-shadow: 0 0 20px rgba(212,165,52,0.3); }
+
+        .final-stats {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px auto;
+            max-width: 400px;
+            text-align: left;
+        }
+
+        .final-stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.95em;
+        }
+        .final-stat-row:last-child { border: none; }
+        .final-stat-row span:last-child { color: var(--gold); font-weight: 700; }
+
+        /* ── Section title ── */
+        .section-title {
+            text-align: center;
+            font-family: 'Uncial Antiqua', cursive;
+            font-size: 1.4em;
+            color: var(--gold);
+            margin: 16px 0;
+        }
+
+        /* ── Event panel ── */
+        .event-panel {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+
+        .event-text {
+            font-size: 1.1em;
+            line-height: 1.7;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+
+        /* ── Artifacts display ── */
+        .artifacts-bar {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            padding: 8px 12px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 12px;
+            min-height: 36px;
+            align-items: center;
+        }
+
+        .artifact-pip {
+            font-size: 1.1em;
+            cursor: help;
+            transition: transform 0.2s;
+        }
+        .artifact-pip:hover { transform: scale(1.3); }
+
+        .artifacts-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        /* ── Buffs ── */
+        .buffs-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .buff-tag {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7em;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: rgba(64, 160, 96, 0.15);
+            border: 1px solid rgba(64, 160, 96, 0.3);
+            color: var(--green-bright);
+        }
+
+        /* ── Rest Screen ── */
+        .rest-panel {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .rest-panel h3 {
+            color: var(--gold);
+            margin-bottom: 8px;
+        }
+
+        .rest-panel p {
+            color: var(--text-dim);
+            margin-bottom: 16px;
+            font-style: italic;
+        }
+
+        /* Dice face management */
+        .dice-inventory {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 16px 0;
+        }
+
+        .dice-inv-card {
+            background: var(--bg-raised);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            width: 120px;
+            text-align: center;
+        }
+
+        .dice-inv-card .die-preview {
+            width: 50px;
+            height: 50px;
+            margin: 0 auto 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1em;
+            font-weight: 700;
+            background: var(--bg-surface);
+            border: 2px solid var(--border-bright);
+            border-radius: 8px;
+            color: var(--text-dim);
+        }
+
+        .dice-inv-card .die-range {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8em;
+            color: var(--text);
+        }
+
+        .dice-inv-card .die-faces-list {
+            font-size: 0.75em;
+            color: var(--text-dim);
+            margin-top: 4px;
+        }
+
+        /* Tooltip */
+        .tooltip-wrapper { position: relative; display: inline-block; }
+        .tooltip-wrapper .tooltip-text {
+            visibility: hidden;
+            background: var(--bg-deep);
+            border: 1px solid var(--border-bright);
+            color: var(--text);
+            font-size: 0.8em;
+            padding: 6px 10px;
+            border-radius: 4px;
+            position: absolute;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            z-index: 10;
+        }
+        .tooltip-wrapper:hover .tooltip-text { visibility: visible; }
+
+        /* Mobile touch support */
+        @media (max-width: 600px) {
+            .allocation-area { grid-template-columns: 1fr; }
+            .die { width: 58px; height: 58px; font-size: 1.3em; }
+            .slot-dice-grid .die { width: 52px; height: 52px; font-size: 1.2em; }
+            .slot-placeholder { width: 52px; height: 52px; }
+            .stats-row { gap: 10px; flex-wrap: wrap; }
+            .game-header { flex-direction: column; gap: 8px; }
+            body { font-size: 17px; }
+        }
+    </style>
+</head>
+<body>
+<div id="game">
+
+<!-- ═══════════ START SCREEN ═══════════ -->
+<div id="screen-start" class="screen active">
+    <div class="start-screen">
+        <h1>Dice Dungeon</h1>
+        <div class="subtitle">A Tactical Roguelike</div>
+        <div class="flavor">
+            Roll your dice. Choose your battles.<br>
+            Left-click to attack, right-click to defend &mdash;<br>
+            every allocation is a gamble.
+        </div>
+        <div style="margin-bottom: 30px;">
+            <div style="color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 0.8em; line-height: 2;">
+                ⚔️ &thinsp;3 Acts &middot; 15 Floors &middot; 3 Bosses<br>
+                🎲 &thinsp;Left-click → Attack &middot; Right-click → Defend<br>
+                📱 &thinsp;Mobile: Tap → Attack &middot; Long-press → Defend<br>
+                🏗️ &thinsp;Level up to gain Attack or Defend slots
+            </div>
+        </div>
+        <button class="btn btn-primary start-btn" onclick="Game.start()">Enter the Dungeon</button>
+    </div>
+</div>
+
+<!-- ═══════════ COMBAT SCREEN ═══════════ -->
+<div id="screen-combat" class="screen">
+    <div class="game-header">
+        <div class="header-title">Dice Dungeon</div>
+        <div class="stats-row">
+            <div class="stat-item"><span class="stat-label">Floor</span><span class="stat-val" id="s-floor">1</span></div>
+            <div class="stat-item"><span class="stat-label">Lvl</span><span class="stat-val" id="s-level">1</span></div>
+            <div class="stat-item"><span class="stat-label">XP</span><span class="stat-val" id="s-xp">0/50</span></div>
+            <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="s-hp">50/50</span></div>
+            <div class="stat-item"><span class="stat-label">Dice</span><span class="stat-val" id="s-dice">3/4</span></div>
+            <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="s-gold">0</span></div>
+        </div>
+        <button class="btn" id="btn-inventory" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+    </div>
+    <div id="floor-progress"></div>
+    <div id="artifacts-display" class="artifacts-bar" style="display:none;"></div>
+    <div id="buffs-display" class="buffs-row"></div>
+
+    <div id="enemy-panel" class="enemy-panel"></div>
+
+    <div class="dice-tray" id="dice-tray-main">
+        <div class="tray-label">🎲 Your Dice — <span style="color:var(--attack-color)">Left-click → Attack</span> · <span style="color:var(--defend-color)">Right-click → Defend</span> · Click in slot to return <span id="reroll-counter" style="display:none; color: var(--gold); margin-left: 8px;">🔄 0</span></div>
+        <div class="dice-pool" id="dice-pool" style="cursor: pointer;"></div>
+        <div style="text-align:center; margin-top: 10px;">
+            <span id="roll-hint" class="mono" style="color: var(--gold); font-size: 0.85em;">Click dice or press Roll to begin</span>
+        </div>
+        <div style="text-align:center; margin-top: 8px;">
+            <button class="btn btn-execute-main" id="btn-execute" onclick="Combat.execute()" style="display:none;">⚔️ Execute Turn</button>
+        </div>
+    </div>
+
+    <div class="dice-tray" id="autofire-tray" style="display:none;">
+        <div class="tray-label">✨ Auto-triggered effects</div>
+        <div class="dice-pool" id="autofire-dice"></div>
+    </div>
+
+    <div class="allocation-area">
+        <div class="alloc-slot attack-slot" id="slot-attack">
+            <div class="slot-header">
+                <span class="slot-title">⚔️ Attack <span class="slot-count" id="atk-slot-count">(0/2)</span></span>
+                <span class="slot-total" id="attack-total">0</span>
+            </div>
+            <div class="slot-dice-grid" id="slot-attack-dice"></div>
+            <div class="slot-summary" id="attack-summary"></div>
+        </div>
+        <div class="alloc-slot defend-slot" id="slot-defend">
+            <div class="slot-header">
+                <span class="slot-title">🛡️ Defend <span class="slot-count" id="def-slot-count">(0/2)</span></span>
+                <span class="slot-total" id="defend-total">0</span>
+            </div>
+            <div class="slot-dice-grid" id="slot-defend-dice"></div>
+            <div class="slot-summary" id="defend-summary"></div>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <button class="btn" id="btn-return-all" onclick="Combat.returnAll()" style="display:none;">↩ Return All</button>
+    </div>
+
+    <div class="combat-log" id="combat-log"></div>
+</div>
+
+<!-- ═══════════ REWARD SCREEN ═══════════ -->
+<div id="screen-reward" class="screen">
+    <div class="game-header">
+        <div class="header-title">Dice Dungeon</div>
+        <div class="stats-row">
+            <div class="stat-item"><span class="stat-label">Floor</span><span class="stat-val" id="r-floor">1</span></div>
+            <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="r-hp">50/50</span></div>
+            <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="r-gold">0</span></div>
+        </div>
+        <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+    </div>
+    <div class="section-title" id="reward-title">Victory — Choose Your Reward</div>
+    <div class="card-grid" id="reward-cards"></div>
+</div>
+
+<!-- ═══════════ SHOP SCREEN ═══════════ -->
+<div id="screen-shop" class="screen">
+    <div class="game-header">
+        <div class="header-title">The Dice Emporium</div>
+        <div class="stats-row">
+            <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="sh-hp">50/50</span></div>
+            <div class="stat-item"><span class="stat-label">Dice</span><span class="stat-val" id="sh-dice">3/4</span></div>
+            <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="sh-gold">0</span></div>
+        </div>
+        <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+    </div>
+    <div class="section-title">Browse Wares</div>
+    <div class="card-grid" id="shop-cards"></div>
+    <div class="btn-group" style="margin-top:16px;">
+        <button class="btn btn-primary" onclick="Shop.leave()">Continue →</button>
+    </div>
+</div>
+
+<!-- ═══════════ EVENT SCREEN ═══════════ -->
+<div id="screen-event" class="screen">
+    <div class="game-header">
+        <div class="header-title">Dice Dungeon</div>
+        <div class="stats-row">
+            <div class="stat-item"><span class="stat-label">Floor</span><span class="stat-val" id="e-floor">1</span></div>
+            <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="e-hp">50/50</span></div>
+            <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="e-gold">0</span></div>
+        </div>
+        <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+    </div>
+    <div class="event-panel" id="event-panel"></div>
+</div>
+
+<!-- ═══════════ REST SCREEN ═══════════ -->
+<div id="screen-rest" class="screen">
+    <div class="game-header">
+        <div class="header-title">Dice Dungeon</div>
+        <div class="stats-row">
+            <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="rest-hp">50/50</span></div>
+            <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="rest-gold">0</span></div>
+        </div>
+        <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+    </div>
+    <div class="section-title" id="rest-title">Act Complete — Rest &amp; Prepare</div>
+    <div id="rest-content"></div>
+</div>
+
+<!-- ═══════════ GAME OVER ═══════════ -->
+<div id="screen-gameover" class="screen">
+    <div class="gameover-screen">
+        <h2 id="go-title">Defeated</h2>
+        <div class="final-stats" id="go-stats"></div>
+        <div id="go-buttons" style="margin-top:20px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="Game.start()">Try Again</button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════ INVENTORY OVERLAY ═══════════ -->
+<div id="inventory-overlay" style="display:none; position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.8); overflow-y:auto; padding:20px;">
+    <div style="max-width:500px; margin:0 auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h2 style="color:var(--gold); font-family:Uncial Antiqua,cursive; margin:0;">📋 Build Overview</h2>
+            <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em;">✕ Close</button>
+        </div>
+        <div id="inventory-content"></div>
+    </div>
+</div>
+
+</div><!-- /game -->
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  GAME STATE
+// ════════════════════════════════════════════════════════════
+const GS = {
+    floor: 1,
+    act: 1,
+    hp: 50,
+    maxHp: 50,
+    gold: 0,
+    level: 1,
+    xp: 0,
+    xpNext: 50,
+    dice: [],
+    slots: { attack: 2, defend: 2 }, // starting slots
+    runes: { attack: [], defend: [] }, // sacrificed slot runes
+    passives: {}, // passive effects from skill tree
+    unlockedNodes: [], // skill tree node ids
+    rerolls: 0, // rerolls per combat
+    rerollsLeft: 0, // remaining this combat
+    enemy: null,
+    enemiesKilled: 0,
+    totalGold: 0,
+    artifacts: [],
+    buffs: { damageBoost: 0, armor: 0 },
+    // Allocation tracking
+    allocated: { attack: [], defend: [] },
+    rolled: false,
+    // Challenge boss
+    challengeMode: false,
+    challengeDmg: 0,
+    challengeTurns: 0,
+};
+
+// ════════════════════════════════════════════════════════════
+//  FLOOR LAYOUT — 3 acts × 5 floors, boss at 5/10/15
+// ════════════════════════════════════════════════════════════
+// Types: combat, elite, event, shop, boss
+// Act 1: combat, combat, event, shop, boss
+// Act 2: combat, event, elite, shop, boss
+// Act 3: combat, elite, event, shop, boss
+function getFloorType(floor) {
+    const layout = {
+        1: 'combat', 2: 'combat', 3: 'event', 4: 'shop', 5: 'boss',
+        6: 'combat', 7: 'event', 8: 'elite', 9: 'shop', 10: 'boss',
+        11: 'combat', 12: 'elite', 13: 'event', 14: 'shop', 15: 'boss',
+    };
+    return layout[floor] || 'combat';
+}
+
+function getAct(floor) {
+    if (floor <= 5) return 1;
+    if (floor <= 10) return 2;
+    return 3;
+}
+
+// ════════════════════════════════════════════════════════════
+//  ENEMIES
+// ════════════════════════════════════════════════════════════
+const ENEMIES = {
+    // act 1
+    1: [
+        { name: 'Goblin', hp: 20, atk: 5, gold: 20 },
+        { name: 'Skeleton', hp: 24, atk: 5, gold: 22 },
+        { name: 'Dire Rat', hp: 16, atk: 6, gold: 18 },
+    ],
+    2: [
+        { name: 'Orc Warrior', hp: 45, atk: 11, gold: 25 },
+        { name: 'Dark Mage', hp: 36, atk: 13, gold: 30 },
+        { name: 'Troll', hp: 55, atk: 10, gold: 28 },
+        { name: 'Vampire', hp: 40, atk: 14, gold: 35 },
+    ],
+    3: [
+        { name: 'Demon', hp: 75, atk: 17, gold: 45 },
+        { name: 'Lich', hp: 70, atk: 20, gold: 50 },
+        { name: 'Dragon Whelp', hp: 85, atk: 16, gold: 55 },
+    ]
+};
+
+const ELITES = [
+    { prefix: '💀 Deadly', hpM: 1.3, atkM: 1.5, goldM: 2 },
+    { prefix: '🛡️ Armored', hpM: 1.8, atkM: 1.0, goldM: 1.5 },
+    { prefix: '⚡ Swift', hpM: 1.0, atkM: 1.8, goldM: 1.8 },
+    { prefix: '🔥 Enraged', hpM: 1.2, atkM: 2.0, goldM: 2.5 },
+];
+
+const BOSSES = {
+    5:  { name: 'The Bone King', hp: 70, atk: 9, gold: 100 },
+    10: { name: 'Crimson Wyrm', hp: 170, atk: 18, gold: 150 },
+    15: { name: 'The Void Lord', hp: 260, atk: 25, gold: 250 },
+};
+
+// ════════════════════════════════════════════════════════════
+//  FACE MODIFIERS
+// ════════════════════════════════════════════════════════════
+const FACE_MODS = [
+    // ── GENERAL ──
+    { name: '×2 Strike', icon: '⚡', desc: 'Doubles total damage/block of this slot', effect: 'slotMultiply', value: 2, color: '#d4a534', autoFire: false },
+    { name: '+5 Bonus', icon: '💎', desc: '+5 per die in this slot (this die contributes bonus only)', effect: 'slotAdd', value: 5, color: '#40a060', autoFire: false },
+    { name: 'Shield', icon: '🛡', desc: 'Blocks 4 extra damage (defend slot only)', effect: 'defAdd', value: 4, color: '#4060c0', autoFire: false },
+
+    // ── WIDE BUILD (many dice/slots) ──
+    { name: 'Pack Tactics', icon: '🐺', desc: '+2 per die in this slot (stacks with other dice)', effect: 'packTactics', value: 2, color: '#6a8f3f', autoFire: false },
+    { name: 'Volley', icon: '🏹', desc: 'If 3+ dice in this slot, +8 bonus', effect: 'volley', value: 8, color: '#7a6f3f', autoFire: false },
+
+    // ── TALL BUILD (few big dice) ──
+    { name: 'Threshold', icon: '🔶', desc: 'If this die rolled ≥8, double its value', effect: 'threshold', value: 8, color: '#c06020', autoFire: false },
+
+    // ── UTILITY BUILD (sustain/economy/rerolls) ──
+    { name: 'Lucky', icon: '🎰', desc: 'When this face triggers, +1 reroll this combat', effect: 'lucky', value: 1, color: '#30a0a0', autoFire: false },
+
+    // ── POISON BUILD ──
+    { name: 'Poison Tip', icon: '☠️', desc: 'Apply 2 poison when this face triggers', effect: 'poison', value: 2, color: '#50a030', autoFire: false },
+
+    // ── AUTO-FIRE (trigger on roll) ──
+    { name: 'Rejuvenate', icon: '❤️', desc: 'Gain 5 regen (heals each turn, -1/turn)', effect: 'heal', value: 5, color: '#c44040', autoFire: true },
+    { name: 'Lifesteal', icon: '🩸', desc: 'Heal 30% of attack damage (auto)', effect: 'lifesteal', value: 0.3, color: '#a03030', autoFire: true },
+    { name: 'Gold Rush', icon: '💰', desc: 'Gain 10 gold (auto)', effect: 'gold', value: 10, color: '#d4a534', autoFire: true },
+    { name: 'Scavenger', icon: '🪤', desc: 'Gain 5 gold per combat (auto). Stacks.', effect: 'scavGold', value: 5, color: '#8a7a30', autoFire: true },
+    { name: 'Midas Touch', icon: '👑', desc: 'Gain gold equal to die value when triggered', effect: 'midasGold', value: 1, color: '#d4a534', autoFire: false },
+];
+
+// ════════════════════════════════════════════════════════════
+//  ARTIFACTS
+// ════════════════════════════════════════════════════════════
+const ARTIFACT_POOL = [
+    // ── GENERAL ──
+    { name: 'Heart of Phoenix', icon: '🔥', desc: 'Heal 8 HP at start of each combat', effect: 'combatHeal', value: 8 },
+    { name: "Rabbit's Foot", icon: '🍀', desc: '+1 to all dice rolls', effect: 'diceFlat', value: 1 },
+    { name: 'War Drum', icon: '🥁', desc: 'First attack each combat deals +10 damage', effect: 'firstStrike', value: 10 },
+    { name: 'Vampiric Amulet', icon: '🩸', desc: '5% lifesteal on all attacks', effect: 'permLifesteal', value: 0.05 },
+    { name: 'Whetstone', icon: '🪨', desc: '+3 flat attack damage', effect: 'flatAtk', value: 3 },
+    { name: 'Iron Will', icon: '🛡️', desc: '+2 permanent armor', effect: 'permArmor', value: 2 },
+    { name: 'Ancient Tome', icon: '📖', desc: '+50% XP from all sources', effect: 'xpMult', value: 0.5 },
+
+    // ── WIDE BUILD ──
+    { name: "Hydra's Crest", icon: '🐉', desc: '+1 damage per die you own', effect: 'dmgPerDie', value: 1 },
+    { name: 'Swarm Banner', icon: '🚩', desc: 'If 4+ dice in attack slot, +10 damage', effect: 'swarmAtk', value: 10 },
+    { name: 'Legion Shield', icon: '🏰', desc: 'If 3+ dice in defend slot, +6 block', effect: 'swarmDef', value: 6 },
+
+    // ── TALL BUILD ──
+    { name: "Giant's Belt", icon: '⛓️', desc: '+5 damage per die with max ≥10', effect: 'giantDmg', value: 5 },
+    { name: 'Colossus Ring', icon: '💎', desc: 'Dice with range ≥10 get +3 to rolls', effect: 'colossusDice', value: 3 },
+    { name: 'Executioner Blade', icon: '⚔️', desc: 'Single-die attacks deal double damage', effect: 'executioner', value: 2 },
+
+    // ── UTILITY BUILD ──
+    { name: "Gambler's Coin", icon: '🪙', desc: 'Each reroll used deals 3 damage', effect: 'rerollDmg', value: 3 },
+    { name: 'Lucky Charm', icon: '🎲', desc: '+1 reroll per combat', effect: 'bonusReroll', value: 1 },
+    { name: 'Merchant Ledger', icon: '📜', desc: 'Shop items cost 20% less', effect: 'shopDiscount', value: 0.2 },
+    { name: 'Golden Crown', icon: '👑', desc: '+25% gold from all sources', effect: 'goldMult', value: 0.25 },
+    { name: 'Gilded Gauntlet', icon: '✨', desc: 'Start of combat: spend 50 gold → deal 15 damage', effect: 'goldToDmg', value: 1 },
+    { name: "Merchant's Crown", icon: '💎', desc: '+1 attack damage per 20 gold held', effect: 'goldScaleDmg', value: 20 },
+    { name: 'Tax Collector', icon: '💰', desc: 'Gain 10 gold after every combat', effect: 'goldPerKill', value: 10 },
+
+    // ── POISON BUILD ──
+    { name: 'Serpent Fang', icon: '🐍', desc: 'All attacks apply poison equal to 10% of damage', effect: 'poisonOnHit', value: 0.1 },
+    { name: 'Plague Bearer', icon: '🦠', desc: 'Poison ticks deal double damage', effect: 'poisonDouble', value: 2 },
+];
+
+// ════════════════════════════════════════════════════════════
+//  SLOT RUNES (sacrifice a slot for permanent effect)
+// ════════════════════════════════════════════════════════════
+const RUNES = {
+    attack: [
+        { name: 'Fury Rune', icon: '🔥', desc: 'Each attack die deals +3 damage', effect: 'furyPerDie', value: 3 },
+        { name: 'Berserker Mark', icon: '⚔️', desc: '×1.5 to all attack damage', effect: 'atkMultRune', value: 1.5 },
+        { name: 'Venom Edge', icon: '☠️', desc: 'Apply 3 poison every turn', effect: 'poisonPerTurn', value: 3 },
+    ],
+    defend: [
+        { name: 'Stone Ward', icon: '🪨', desc: '+5 block every turn', effect: 'flatBlock', value: 5 },
+        { name: 'Thorn Mantle', icon: '🌿', desc: 'Reflect 3 damage when hit', effect: 'thorns', value: 3 },
+        { name: 'Regeneration', icon: '💚', desc: 'Heal 3 HP at start of each turn', effect: 'regenPerTurn', value: 3 },
+    ],
+    either: [
+        { name: 'Amplifier', icon: '🔮', desc: '×2 to this slot\'s total', effect: 'amplifier', value: 2 },
+        { name: "Titan's Blow", icon: '🔨', desc: 'If only 1 die in this slot, ×3 its value', effect: 'titanBlow', value: 3 },
+    ]
+};
+
+// ════════════════════════════════════════════════════════════
+//  PASSIVE SKILL TREE
+// ════════════════════════════════════════════════════════════
+const SKILL_TREE = [
+    // ── ROOT (row 0) ──
+    { id: 'root', name: 'Adventurer', icon: '⭐', desc: '+1 Attack Slot, +1 Defend Slot', row: 0, col: 3, requires: [], effect: (gs) => { gs.slots.attack++; gs.slots.defend++; } },
+
+    // ── WIDE BRANCH (left, col 0) ──
+    { id: 'w1', name: 'Extra Arms', icon: '🐺', desc: '+1 Attack Slot', row: 1, col: 0, requires: ['root'], effect: (gs) => { gs.slots.attack++; } },
+    { id: 'w2', name: 'Pack Tactics', icon: '🐺', desc: 'Passive: +1 dmg per die in attack slot', row: 2, col: 0, requires: ['w1'], effect: (gs) => { gs.passives.packTactics = (gs.passives.packTactics || 0) + 1; } },
+    { id: 'w3', name: 'Shield Wall', icon: '🐺', desc: '+1 Defend Slot', row: 3, col: 0, requires: ['w2', 'wt'], requiresAny: true, effect: (gs) => { gs.slots.defend++; } },
+    { id: 'w4', name: 'Volley', icon: '🐺', desc: 'Passive: 3+ dice in slot = +8 bonus', row: 4, col: 0, requires: ['w3'], effect: (gs) => { gs.passives.volley = (gs.passives.volley || 0) + 8; } },
+    { id: 'w5', name: 'Swarm Master', icon: '👑', desc: 'Passive: +2 per die in ANY slot', row: 5, col: 0, requires: ['w4'], effect: (gs) => { gs.passives.swarmMaster = (gs.passives.swarmMaster || 0) + 2; } },
+
+    // ── GOLD BRANCH (col 2) ──
+    { id: 'g1', name: 'Prospector', icon: '💰', desc: '+15 gold immediately, +5 gold per combat', effect: (gs) => { gs.gold += 15; gs.passives.goldPerCombat = (gs.passives.goldPerCombat || 0) + 5; }, row: 1, col: 2, requires: ['root'] },
+    { id: 'g2', name: 'Appraisal', icon: '💰', desc: 'Shop prices reduced by 15%', effect: (gs) => { gs.passives.shopDiscount = (gs.passives.shopDiscount || 0) + 0.15; }, row: 2, col: 2, requires: ['g1'] },
+    { id: 'g3', name: 'Investment', icon: '💰', desc: '+1 atk damage per 15 gold held', effect: (gs) => { gs.passives.goldDmg = 15; }, row: 3, col: 2, requires: ['g2', 'wt', 'tv'], requiresAny: true },
+    { id: 'g4', name: 'Compound Interest', icon: '💰', desc: 'Gain 10% of current gold after each combat', effect: (gs) => { gs.passives.goldInterest = (gs.passives.goldInterest || 0) + 0.1; }, row: 4, col: 2, requires: ['g3'] },
+    { id: 'g5', name: 'Golden God', icon: '👑', desc: '+1 dmg per 8 gold held, free shop refresh', effect: (gs) => { gs.passives.goldDmg = 8; gs.passives.freeRefresh = true; }, row: 5, col: 2, requires: ['g4'] },
+
+    // ── TALL BRANCH (center, col 3) ──
+    { id: 't1', name: 'Precision', icon: '🔨', desc: '+1 Reroll per combat', row: 1, col: 4, requires: ['root'], effect: (gs) => { gs.rerolls++; } },
+    { id: 't2', name: 'Forge', icon: '🔨', desc: 'Unlock Dice Merge at rest stops', row: 2, col: 4, requires: ['t1'], effect: (gs) => { gs.passives.canMerge = true; } },
+    { id: 't3', name: 'Threshold', icon: '🔨', desc: 'Passive: dice ≥8 deal +50% value', row: 3, col: 4, requires: ['t2', 'wt', 'tv'], requiresAny: true, effect: (gs) => { gs.passives.threshold = true; } },
+    { id: 't4', name: 'Amplify', icon: '🔨', desc: 'Free Amplifier on attack slot', row: 4, col: 4, requires: ['t3'], effect: (gs) => { gs.runes.attack.push({ ...RUNES.either[0] }); } },
+    { id: 't5', name: "Titan's Wrath", icon: '👑', desc: 'Single-die slots deal ×3', row: 5, col: 4, requires: ['t4'], effect: (gs) => { gs.passives.titanWrath = true; } },
+
+    // ── VENOM/UTILITY BRANCH (right, col 6) ──
+    { id: 'v1', name: 'Vitality', icon: '🧪', desc: '+20 Max HP (heals too)', row: 1, col: 6, requires: ['root'], effect: (gs) => { gs.maxHp += 20; gs.hp = Math.min(gs.hp + 20, gs.maxHp); } },
+    { id: 'v2', name: 'Venom', icon: '🧪', desc: 'All attacks apply 1 poison', row: 2, col: 6, requires: ['v1'], effect: (gs) => { gs.passives.poisonOnAtk = (gs.passives.poisonOnAtk || 0) + 1; } },
+    { id: 'v3', name: "Gambler", icon: '🧪', desc: '+1 Reroll, rerolls deal 2 dmg', row: 3, col: 6, requires: ['v2', 'tv'], requiresAny: true, effect: (gs) => { gs.rerolls++; gs.passives.rerollDmg = (gs.passives.rerollDmg || 0) + 2; } },
+    { id: 'v4', name: 'Regeneration', icon: '🧪', desc: 'Heal 3 HP at start of each turn', row: 4, col: 6, requires: ['v3'], effect: (gs) => { gs.passives.regen = (gs.passives.regen || 0) + 3; } },
+    { id: 'v5', name: 'Plague Lord', icon: '👑', desc: 'Poison ×2, +2 poison/turn', row: 5, col: 6, requires: ['v4'], effect: (gs) => { gs.passives.plagueLord = true; } },
+
+    // ── CROSS-BRANCH BRIDGES ──
+    { id: 'wt', name: 'Battle Fury', icon: '🔗', desc: '+2 Dmg, +1 Reroll', row: 3, col: 1, requires: ['w2', 'g2'], requiresAny: true, effect: (gs) => { gs.buffs.damageBoost += 2; gs.rerolls++; } },
+    { id: 'tv', name: 'Toxic Blade', icon: '🔗', desc: '+1 Atk Slot, apply 1 poison', row: 3, col: 5, requires: ['t2', 'v2'], requiresAny: true, effect: (gs) => { gs.slots.attack++; gs.passives.poisonOnAtk = (gs.passives.poisonOnAtk || 0) + 1; } },
+    { id: 'wv', name: 'Endurance', icon: '🔗', desc: '+1 Def Slot, +15 Max HP', row: 5, col: 1, requires: ['w4', 'g4'], requiresAny: true, effect: (gs) => { gs.slots.defend++; gs.maxHp += 15; gs.hp = Math.min(gs.hp + 15, gs.maxHp); } },
+    { id: 'gt', name: 'War Chest', icon: '🔗', desc: '+30 gold, +1 Reroll', row: 5, col: 3, requires: ['g4', 't4'], requiresAny: true, effect: (gs) => { gs.gold += 30; gs.rerolls++; } },
+    { id: 'tv2', name: 'Versatility', icon: '🔗', desc: '+1 to both slot types', row: 5, col: 5, requires: ['t4', 'v4'], requiresAny: true, effect: (gs) => { gs.slots.attack++; gs.slots.defend++; } },
+];
+
+// ════════════════════════════════════════════════════════════
+//  UTILITY
+// ════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const shuffle = arr => [...arr].sort(() => Math.random() - 0.5);
+
+// Render a die's faces as a visual strip of mini-dice
+function renderFaceStrip(die, opts = {}) {
+    const { highlightVal, showArrow, arrowMod } = opts;
+    return die.faceValues.map(v => {
+        const existing = die.faces.find(f => f.faceValue === v);
+        const isHighlight = highlightVal === v;
+        const bg = isHighlight ? 'rgba(212,165,52,0.25)' : 'rgba(255,255,255,0.05)';
+        const border = isHighlight ? 'var(--gold)' : existing ? existing.modifier.color + '66' : 'rgba(255,255,255,0.1)';
+        const modIcon = existing ? `<div style="font-size:0.65em; margin-top:1px;">${existing.modifier.icon}</div>` : '';
+        const arrow = isHighlight && showArrow && arrowMod ? `<div style="font-size:0.6em; color:var(--green-bright);">→${arrowMod.icon}</div>` : '';
+        return `<div style="display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
+            width:38px; height:44px; border-radius:6px; border:1.5px solid ${border}; background:${bg};
+            font-family:JetBrains Mono,monospace; font-weight:700; font-size:0.95em; margin:2px;">
+            ${v}${modIcon}${arrow}
+        </div>`;
+    }).join('');
+}
+
+// Render a die card with visual face strip
+function renderDieCard(die, index, opts = {}) {
+    const { clickable = true, extraDesc = '' } = opts;
+    const facesHtml = renderFaceStrip(die);
+    return `
+        <div class="card-title">d${die.faceValues.length}: ${die.min}–${die.max}</div>
+        <div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center; margin:8px 0;">${facesHtml}</div>
+        ${extraDesc ? `<div class="card-desc">${extraDesc}</div>` : ''}
+    `;
+}
+
+function show(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    $(screenId).classList.add('active');
+}
+
+function updateStats() {
+    const sets = [
+        ['s-floor','s-level','s-xp','s-hp','s-gold'],
+        ['r-floor',null,null,'r-hp','r-gold'],
+        [null,null,null,'sh-hp','sh-gold'],
+        ['e-floor',null,null,'e-hp','e-gold'],
+        [null,null,null,'rest-hp','rest-gold'],
+    ];
+    sets.forEach(([fl,lv,xp,hp,gd]) => {
+        if (fl) $(fl).textContent = GS.floor;
+        if (lv) $(lv).textContent = GS.level;
+        if (xp) $(xp).textContent = `${GS.xp}/${GS.xpNext}`;
+        if (hp) {
+            const el = $(hp);
+            const regenStr = GS.regenStacks > 0 ? ` <span style="color:#60d080; font-size:0.8em;">+${GS.regenStacks}❤️</span>` : '';
+            el.innerHTML = `${GS.hp}/${GS.maxHp}${regenStr}`;
+        }
+        if (gd) $(gd).textContent = GS.gold;
+    });
+    // Dice/Slots display
+    const effAtk = GS.slots.attack - GS.runes.attack.length;
+    const effDef = GS.slots.defend - GS.runes.defend.length;
+    const slotsStr = `${effAtk}⚔️ ${effDef}🛡️`;
+    const runeCount = GS.runes.attack.length + GS.runes.defend.length;
+    const runeStr = runeCount > 0 ? ` 🔮${runeCount}` : '';
+    const diceStr = `${GS.dice.length}`;
+    const rerollStr = GS.rerolls > 0 ? ` 🔄${GS.rerolls}` : '';
+    ['s-dice', 'sh-dice'].forEach(id => { const el = $(id); if (el) el.innerHTML = `${diceStr} <span style="opacity:0.6; font-size:0.8em">(${slotsStr}${runeStr}${rerollStr})</span>`; });
+    renderFloorProgress();
+    renderArtifacts();
+    renderBuffs();
+}
+
+function renderFloorProgress() {
+    const c = $('floor-progress');
+    if (!c) return;
+    let html = '<div class="floor-progress">';
+    for (let act = 1; act <= 3; act++) {
+        html += `<span class="act-label">Act ${act}</span>`;
+        const start = (act - 1) * 5 + 1;
+        for (let f = start; f < start + 5; f++) {
+            const type = getFloorType(f);
+            let cls = 'floor-pip';
+            if (f < GS.floor) cls += ' completed';
+            if (f === GS.floor) cls += ' current';
+            if (type === 'boss') cls += ' boss';
+            if (type === 'shop') cls += ' shop-pip';
+            html += `<div class="${cls}" title="Floor ${f}: ${type}"></div>`;
+        }
+    }
+    html += '</div>';
+    c.outerHTML = html.replace('<div class="floor-progress"', `<div class="floor-progress" id="floor-progress"`);
+}
+
+function renderArtifacts() {
+    const c = $('artifacts-display');
+    if (GS.artifacts.length === 0) { c.style.display = 'none'; return; }
+    c.style.display = 'flex';
+    c.innerHTML = '<span class="artifacts-label">Relics:</span>' +
+        GS.artifacts.map(a => `<span class="tooltip-wrapper"><span class="artifact-pip">${a.icon}</span><span class="tooltip-text">${a.name}: ${a.desc}</span></span>`).join('');
+}
+
+function renderBuffs() {
+    const c = $('buffs-display');
+    const tags = [];
+    if (GS.buffs.damageBoost > 0) tags.push(`⚔️ +${GS.buffs.damageBoost} ATK`);
+    if (GS.buffs.armor > 0) tags.push(`🛡️ ${GS.buffs.armor} Armor`);
+    c.innerHTML = tags.map(t => `<span class="buff-tag">${t}</span>`).join('');
+}
+
+function log(msg, type = '') {
+    const c = $('combat-log');
+    const d = document.createElement('div');
+    d.className = 'log-entry' + (type ? ' ' + type : '');
+    d.textContent = msg;
+    c.appendChild(d);
+    c.scrollTop = c.scrollHeight;
+}
+
+function gainXP(amount) {
+    const xpMult = GS.artifacts.filter(a => a.effect === 'xpMult').reduce((s, a) => s + a.value, 0);
+    amount = Math.floor(amount * (1 + xpMult));
+    GS.xp += amount;
+    log(`+${amount} XP`, 'info');
+    while (GS.xp >= GS.xpNext) {
+        GS.xp -= GS.xpNext;
+        GS.level++;
+        GS.xpNext = Math.floor(GS.xpNext * 1.25);
+        GS.maxHp += 5;
+        GS.hp = Math.min(GS.hp + 5, GS.maxHp);
+        GS.pendingSlotChoice = true;
+        log(`⭐ Level ${GS.level}! +5 Max HP — Skill point available!`, 'info');
+    }
+    updateStats();
+}
+
+function gainGold(amount) {
+    const goldMult = GS.artifacts.filter(a => a.effect === 'goldMult').reduce((s, a) => s + a.value, 0);
+    amount = Math.floor(amount * (1 + goldMult));
+    GS.gold += amount;
+    GS.totalGold += amount;
+    return amount;
+}
+
+function heal(amount) {
+    const actual = Math.min(amount, GS.maxHp - GS.hp);
+    GS.hp += actual;
+    return actual;
+}
+
+// ════════════════════════════════════════════════════════════
+//  DICE CREATION & MANAGEMENT
+// ════════════════════════════════════════════════════════════
+let dieIdCounter = 0;
+
+function createDie(min = 1, max = 6, sides = 6) {
+    const step = (max - min) / (sides - 1);
+    const faceValues = Array.from({length: sides}, (_, i) => Math.round(min + step * i));
+    return { id: dieIdCounter++, min, max, sides, faceValues, value: 0, rolled: false, faces: [], location: 'pool' };
+}
+
+function upgradeDie(die) {
+    if (die.max >= 12) return;
+    die.min++; die.max++;
+    // Regenerate face values, preserving number of sides
+    const step = (die.max - die.min) / (die.faceValues.length - 1);
+    die.faceValues = Array.from({length: die.faceValues.length}, (_, i) => Math.round(die.min + step * i));
+    // Remap any face modifiers to new values
+    die.faces = die.faces.map((f, i) => {
+        // Find closest new value for each modifier
+        const oldVal = f.faceValue;
+        const closest = die.faceValues.reduce((best, v) => Math.abs(v - oldVal) < Math.abs(best - oldVal) ? v : best);
+        return { ...f, faceValue: closest };
+    });
+}
+
+function rollSingleDie(die) {
+    // Roll from faceValues array
+    const fIdx = Math.floor(Math.random() * die.faceValues.length);
+    let val = die.faceValues[fIdx];
+    // Artifact: flat dice bonus
+    const flatBonus = GS.artifacts.filter(a => a.effect === 'diceFlat').reduce((s, a) => s + a.value, 0);
+    if (flatBonus > 0) val = Math.min(val + flatBonus, die.max + flatBonus);
+    // Colossus Ring: big dice get +3
+    if (die.max - die.min >= 9) {
+        const colossusBonus = GS.artifacts.filter(a => a.effect === 'colossusDice').reduce((s, a) => s + a.value, 0);
+        val += colossusBonus;
+    }
+    die.value = val;
+    die.rolled = true;
+}
+
+function getActiveFace(die) {
+    if (!die.rolled || !die.faces.length) return null;
+    return die.faces.find(f => f.faceValue === die.value) || null;
+}
+
+// ════════════════════════════════════════════════════════════
+//  DRAG & DROP / CLICK ALLOCATION
+// ════════════════════════════════════════════════════════════
+let dragDie = null;
+
+function renderCombatDice() {
+    // Separate auto-fire dice from allocatable dice
+    const autoDice = GS.dice.filter(d => d.rolled && d.location === 'auto');
+    const poolDice = GS.dice.filter(d => d.location === 'pool');
+
+    // Pool
+    const pool = $('dice-pool');
+    pool.innerHTML = '';
+    poolDice.forEach(d => pool.appendChild(makeDieElement(d, 'pool')));
+
+    // Make pool clickable: pre-roll = click to roll, post-allocation = click to execute
+    const rollHint = $('roll-hint');
+    const allRolled = GS.dice.every(d => d.rolled);
+    const effectiveAtkSlots = GS.slots.attack - GS.runes.attack.length;
+    const effectiveDefSlots = GS.slots.defend - GS.runes.defend.length;
+    const atkFull = GS.allocated.attack.length >= effectiveAtkSlots;
+    const defFull = GS.allocated.defend.length >= effectiveDefSlots;
+    const hasAttack = GS.allocated.attack.length > 0;
+    const hasDefend = GS.allocated.defend.length > 0;
+    const noneInPool = !GS.dice.some(d => d.location === 'pool');
+    // Can execute when: all rolled AND (at least 1 die allocated OR no dice left to allocate)
+    const allSlotsFull = atkFull && defFull;
+    const hasAnyAllocated = hasAttack || hasDefend;
+    const canExecute = allRolled && (hasAnyAllocated || noneInPool || allSlotsFull);
+
+    // Update slot count displays
+    const atkCountEl = $('atk-slot-count');
+    const defCountEl = $('def-slot-count');
+    if (atkCountEl) {
+        atkCountEl.textContent = `(${GS.allocated.attack.length}/${effectiveAtkSlots})`;
+        atkCountEl.className = atkFull ? 'slot-count full' : 'slot-count';
+    }
+    if (defCountEl) {
+        defCountEl.textContent = `(${GS.allocated.defend.length}/${effectiveDefSlots})`;
+        defCountEl.className = defFull ? 'slot-count full' : 'slot-count';
+    }
+
+    if (!GS.rolled) {
+        pool.classList.add('clickable-roll');
+        pool.classList.remove('clickable-execute');
+        pool.onclick = (e) => { if (!GS.rolled && (e.target === pool || e.target.id === 'roll-hint')) Combat.roll(); };
+        if (rollHint) { rollHint.style.display = 'block'; rollHint.textContent = 'Click here to roll'; rollHint.style.color = 'var(--gold)'; }
+    } else {
+        pool.classList.remove('clickable-roll');
+        pool.classList.remove('clickable-execute');
+        pool.onclick = null;
+        const remaining = GS.dice.filter(d => d.location === 'pool').length;
+        if (rollHint && remaining > 0) {
+            rollHint.style.display = 'block';
+            rollHint.textContent = `${remaining} dice to place`;
+            rollHint.style.color = 'var(--text-dim)';
+        } else if (rollHint) {
+            rollHint.style.display = 'none';
+        }
+    }
+
+    // Execute button visibility
+    const execBtn = $('btn-execute');
+    if (execBtn) {
+        execBtn.style.display = canExecute ? 'inline-block' : 'none';
+    }
+
+    // Return All button
+    const returnBtn = $('btn-return-all');
+    if (returnBtn) {
+        returnBtn.style.display = (allRolled && hasAnyAllocated) ? 'inline-block' : 'none';
+    }
+
+    // Auto-fire tray
+    const autoTray = $('autofire-tray');
+    const autoDiceEl = $('autofire-dice');
+    if (autoDice.length > 0) {
+        autoTray.style.display = 'block';
+        autoDiceEl.innerHTML = '';
+        autoDice.forEach(d => autoDiceEl.appendChild(makeDieElement(d, 'auto')));
+    } else {
+        autoTray.style.display = 'none';
+    }
+
+    // Attack slot - render dice + empty placeholders + rune icons
+    const atkDice = $('slot-attack-dice');
+    atkDice.innerHTML = '';
+    // Rune icons first
+    GS.runes.attack.forEach(r => {
+        const ph = document.createElement('div');
+        ph.className = 'slot-placeholder rune-slot';
+        ph.style.cssText = 'border-color: var(--gold); background: rgba(212,165,52,0.15); opacity: 1;';
+        ph.innerHTML = `<span title="${r.name}: ${r.desc}">${r.icon}</span>`;
+        atkDice.appendChild(ph);
+    });
+    GS.allocated.attack.forEach(d => atkDice.appendChild(makeDieElement(d, 'attack')));
+    for (let i = GS.allocated.attack.length; i < effectiveAtkSlots; i++) {
+        const ph = document.createElement('div');
+        ph.className = 'slot-placeholder';
+        ph.innerHTML = '<span style="font-family: JetBrains Mono, monospace;">⚔️</span>';
+        atkDice.appendChild(ph);
+    }
+
+    // Defend slot - render dice + empty placeholders + rune icons
+    const defDice = $('slot-defend-dice');
+    defDice.innerHTML = '';
+    // Rune icons first
+    GS.runes.defend.forEach(r => {
+        const ph = document.createElement('div');
+        ph.className = 'slot-placeholder rune-slot';
+        ph.style.cssText = 'border-color: var(--gold); background: rgba(212,165,52,0.15); opacity: 1;';
+        ph.innerHTML = `<span title="${r.name}: ${r.desc}">${r.icon}</span>`;
+        defDice.appendChild(ph);
+    });
+    GS.allocated.defend.forEach(d => defDice.appendChild(makeDieElement(d, 'defend')));
+    for (let i = GS.allocated.defend.length; i < effectiveDefSlots; i++) {
+        const ph = document.createElement('div');
+        ph.className = 'slot-placeholder';
+        ph.innerHTML = '<span style="font-family: JetBrains Mono, monospace;">🛡️</span>';
+        defDice.appendChild(ph);
+    }
+
+    updateSlotTotals();
+
+    // Reroll counter
+    const rerollEl = $('reroll-counter');
+    if (rerollEl) {
+        if (GS.rerolls > 0) {
+            rerollEl.style.display = 'inline';
+            rerollEl.textContent = `🔄 ${GS.rerollsLeft}/${GS.rerolls}`;
+            rerollEl.style.color = GS.rerollsLeft > 0 ? 'var(--gold)' : 'var(--text-dim)';
+        } else {
+            rerollEl.style.display = 'none';
+        }
+    }
+
+    // (return-all and execute button visibility handled above)
+}
+
+function makeDieElement(die, context) {
+    const el = document.createElement('div');
+    el.className = 'die';
+    if (!die.rolled) el.classList.add('unrolled');
+
+    const face = getActiveFace(die);
+    if (face) {
+        el.classList.add('special');
+        el.style.borderColor = face.modifier.color;
+        el.style.boxShadow = `0 0 10px ${face.modifier.color}40`;
+    }
+
+    const rangeLabel = `${die.min}-${die.max}`;
+    let valueDisplay = die.rolled ? (face ? face.modifier.icon : die.value) : '?';
+
+    // Face indicator — show on all dice that have faces (rolled or not)
+    let faceIcon = '';
+    if (die.faces.length > 0) {
+        if (!die.rolled) {
+            faceIcon = `<span class="die-face-icon">${die.faces.map(f=>f.modifier.icon).join('')}</span>`;
+        } else if (!face) {
+            // Rolled but face didn't trigger — still show small indicator
+            faceIcon = `<span class="die-face-icon" style="opacity:0.4">${die.faces.map(f=>f.modifier.icon).join('')}</span>`;
+        }
+    }
+
+    el.innerHTML = `<span class="die-label">${rangeLabel}</span>${valueDisplay}${faceIcon}`;
+
+    // Prevent default context menu on all dice
+    el.oncontextmenu = e => e.preventDefault();
+
+    // Reroll helper — works on any rolled die in pool or slot
+    const tryReroll = () => {
+        if (!die.rolled || GS.rerollsLeft <= 0) return false;
+        GS.rerollsLeft--;
+        const oldVal = die.value;
+        rollSingleDie(die);
+        // Re-check auto-fire after reroll
+        const newFace = getActiveFace(die);
+        if (newFace && newFace.modifier.autoFire) {
+            // Move to auto if it was in a slot
+            GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== die.id);
+            GS.allocated.defend = GS.allocated.defend.filter(d => d.id !== die.id);
+            die.location = 'auto';
+            const m = newFace.modifier;
+            if (m.effect === 'heal') { if (!GS.regenStacks) GS.regenStacks = 0; GS.regenStacks += m.value; log(`${m.icon} Auto: +${m.value} regen (${GS.regenStacks} total)`, 'heal'); }
+            if (m.effect === 'lifesteal') { GS.autoLifesteal += m.value; log(`${m.icon} Lifesteal ${Math.round(m.value * 100)}% armed`, 'info'); }
+            if (m.effect === 'gold') { const g = gainGold(m.value); log(`${m.icon} Gold Rush: +${g} gold`, 'info'); }
+            if (m.effect === 'scavGold') { const g = gainGold(m.value); log(`${m.icon} Scavenger: +${g} gold`, 'info'); }
+        }
+        log(`🔄 Reroll: ${oldVal} → ${die.value} (${GS.rerollsLeft} left)`, 'info');
+        renderCombatDice();
+        return true;
+    };
+
+    if (die.rolled && context === 'pool') {
+        // In pool: left-click = attack, right-click = defend, middle-click = reroll
+        el.style.cursor = 'pointer';
+        el.title = GS.rerollsLeft > 0 ? 'L-click → Attack | R-click → Defend | Middle → Reroll' : 'Left-click → Attack | Right-click → Defend';
+
+        el.onmousedown = e => {
+            e.preventDefault();
+            if (e.button === 1 && tryReroll()) return;  // middle click
+            if (e.button === 0) allocateDie(die, 'attack');       // left click
+            else if (e.button === 2) allocateDie(die, 'defend');   // right click
+        };
+
+        // Touch support: tap = attack, long press = defend, double-tap = reroll
+        let touchTimer = null;
+        let touchHandled = false;
+        let lastTapTime = 0;
+        el.ontouchstart = e => {
+            e.preventDefault();
+            const now = Date.now();
+            if (now - lastTapTime < 300 && tryReroll()) { touchHandled = true; lastTapTime = 0; return; }
+            lastTapTime = now;
+            touchHandled = false;
+            touchTimer = setTimeout(() => {
+                touchHandled = true;
+                allocateDie(die, 'defend');
+            }, 400);
+        };
+        el.ontouchend = e => {
+            e.preventDefault();
+            clearTimeout(touchTimer);
+            if (!touchHandled) allocateDie(die, 'attack');
+        };
+        el.ontouchmove = () => clearTimeout(touchTimer);
+
+        // Also keep drag support
+        el.draggable = true;
+        el.ondragstart = e => {
+            dragDie = die;
+            el.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        };
+        el.ondragend = () => { el.classList.remove('dragging'); dragDie = null; };
+
+    } else if (die.rolled && (context === 'attack' || context === 'defend')) {
+        // In a slot: click returns to pool, middle-click = reroll in place
+        el.style.cursor = 'pointer';
+        el.title = GS.rerollsLeft > 0 ? 'Click to return | Middle-click to reroll' : 'Click to return to pool';
+        el.onmousedown = e => {
+            e.preventDefault();
+            if (e.button === 1 && tryReroll()) return;  // middle click reroll in slot
+            die.location = 'pool';
+            GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== die.id);
+            GS.allocated.defend = GS.allocated.defend.filter(d => d.id !== die.id);
+            renderCombatDice();
+        };
+        // Touch: double-tap to reroll in slot, single tap returns to pool
+        let lastSlotTap = 0;
+        el.ontouchstart = e => {
+            e.preventDefault();
+            const now = Date.now();
+            if (now - lastSlotTap < 300 && tryReroll()) { lastSlotTap = 0; return; }
+            lastSlotTap = now;
+            setTimeout(() => {
+                if (lastSlotTap > 0) {
+                    die.location = 'pool';
+                    GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== die.id);
+                    GS.allocated.defend = GS.allocated.defend.filter(d => d.id !== die.id);
+                    renderCombatDice();
+                }
+            }, 320);
+        };
+    } else if (context === 'auto') {
+        // Auto-fired: no interaction, dim slightly
+        el.style.opacity = '0.7';
+        el.style.cursor = 'default';
+        el.title = 'Auto-triggered effect';
+    }
+
+    // Add reroll badge if die is rolled and rerolls available
+    if (die.rolled && GS.rerollsLeft > 0 && context !== 'auto') {
+        const rerollBadge = document.createElement('div');
+        rerollBadge.style.cssText = `
+            position:absolute; bottom:-8px; right:-8px; width:20px; height:20px;
+            background:rgba(212,165,52,0.9); border-radius:50%; display:flex;
+            align-items:center; justify-content:center; font-size:0.5em;
+            cursor:pointer; z-index:5; border:1px solid rgba(255,255,255,0.3);
+            box-shadow: 0 0 6px rgba(212,165,52,0.5);
+        `;
+        rerollBadge.textContent = '🔄';
+        rerollBadge.title = `Reroll this die (${GS.rerollsLeft} left)`;
+        rerollBadge.onclick = (e) => { e.stopPropagation(); e.preventDefault(); tryReroll(); };
+        rerollBadge.onmousedown = (e) => { e.stopPropagation(); };
+        rerollBadge.ontouchstart = (e) => { e.stopPropagation(); e.preventDefault(); tryReroll(); };
+        el.style.position = 'relative';
+        el.style.overflow = 'visible';
+        el.appendChild(rerollBadge);
+    }
+
+    return el;
+}
+
+function setupDropZones() {
+    ['slot-attack', 'slot-defend'].forEach(slotId => {
+        const slot = $(slotId);
+        const type = slotId === 'slot-attack' ? 'attack' : 'defend';
+
+        slot.ondragover = e => { e.preventDefault(); slot.classList.add('drag-over'); };
+        slot.ondragleave = () => slot.classList.remove('drag-over');
+        slot.ondrop = e => {
+            e.preventDefault();
+            slot.classList.remove('drag-over');
+            if (dragDie) allocateDie(dragDie, type);
+        };
+
+        // Click on empty slot area also works — but we handle via die clicks
+    });
+
+    // Also allow dropping back to pool
+    const pool = $('dice-pool');
+    pool.ondragover = e => { e.preventDefault(); pool.classList.add('drag-over'); };
+    pool.ondragleave = () => pool.classList.remove('drag-over');
+    pool.ondrop = e => {
+        e.preventDefault();
+        pool.classList.remove('drag-over');
+        if (dragDie) {
+            dragDie.location = 'pool';
+            GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== dragDie.id);
+            GS.allocated.defend = GS.allocated.defend.filter(d => d.id !== dragDie.id);
+            renderCombatDice();
+        }
+    };
+}
+
+function allocateDie(die, slot) {
+    // Check slot limit (effective = total slots - rune slots)
+    const effectiveSlots = GS.slots[slot] - GS.runes[slot].length;
+    if (GS.allocated[slot].length >= effectiveSlots) return; // slot full
+
+    // Remove from wherever it currently is
+    GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== die.id);
+    GS.allocated.defend = GS.allocated.defend.filter(d => d.id !== die.id);
+
+    die.location = slot;
+    GS.allocated[slot].push(die);
+    renderCombatDice();
+}
+
+function updateSlotTotals() {
+    // Attack total
+    let atkTotal = 0;
+    let atkMultiplier = 1;
+    let atkBonus = 0;
+    const atkCount = GS.allocated.attack.length;
+
+    GS.allocated.attack.forEach(d => {
+        const face = getActiveFace(d);
+        const m = face && !face.modifier.autoFire ? face.modifier : null;
+
+        if (m) {
+            if (m.effect === 'slotMultiply') { atkMultiplier *= m.value; atkTotal += d.value; }
+            else if (m.effect === 'slotAdd') { atkBonus += m.value * atkCount; }
+            else if (m.effect === 'packTactics') { atkBonus += m.value * atkCount; atkTotal += d.value; }
+            else if (m.effect === 'volley') { if (atkCount >= 3) atkBonus += m.value; atkTotal += d.value; }
+            else if (m.effect === 'threshold') { atkTotal += d.value >= m.value ? d.value * 2 : d.value; }
+            else if (m.effect === 'defAdd') { atkTotal += d.value; } // shield in attack slot = no bonus
+            else { atkTotal += d.value; }
+        } else {
+            atkTotal += d.value;
+        }
+    });
+
+    // Flat attack bonuses
+    atkBonus += GS.buffs.damageBoost;
+    atkBonus += GS.artifacts.filter(a => a.effect === 'flatAtk').reduce((s, a) => s + a.value, 0);
+    // Merchant's Crown: +1 dmg per 20 gold held
+    const goldScalePreview = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
+    if (goldScalePreview > 0) atkBonus += goldScalePreview;
+    // Gold passive (Investment / Golden God): +1 dmg per N gold held
+    if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
+    // Hydra's Crest: +1 per die owned
+    atkBonus += GS.artifacts.filter(a => a.effect === 'dmgPerDie').reduce((s, a) => s + a.value, 0) * GS.dice.length;
+    // Giant's Belt: +5 per die with max >= 10
+    atkBonus += GS.artifacts.filter(a => a.effect === 'giantDmg').reduce((s, a) => s + a.value, 0) * GS.dice.filter(d => d.max >= 10).length;
+    // Swarm Banner: 4+ dice in attack = +10
+    if (atkCount >= 4) atkBonus += GS.artifacts.filter(a => a.effect === 'swarmAtk').reduce((s, a) => s + a.value, 0);
+    // Executioner Blade: single die in attack = double
+    if (atkCount === 1) atkMultiplier *= GS.artifacts.some(a => a.effect === 'executioner') ? 2 : 1;
+    // Passive: Pack Tactics from skill tree
+    if (GS.passives.packTactics) atkBonus += GS.passives.packTactics * atkCount;
+    // Passive: Swarm Master
+    if (GS.passives.swarmMaster) atkBonus += GS.passives.swarmMaster * atkCount;
+    // Passive: Volley
+    if (GS.passives.volley && atkCount >= 3) atkBonus += GS.passives.volley;
+    // Passive: Threshold (dice ≥8 get +50% — applies to all dice, not just face-triggered)
+    if (GS.passives.threshold) {
+        GS.allocated.attack.forEach(d => { if (d.value >= 8) atkBonus += Math.floor(d.value * 0.5); });
+    }
+    // Passive: Titan's Wrath
+    if (GS.passives.titanWrath && atkCount === 1) atkMultiplier *= 3;
+
+    const finalAtk = Math.floor(atkTotal * atkMultiplier) + atkBonus;
+
+    // Apply attack runes
+    let runeAtkMult = 1;
+    let runeAtkBonus = 0;
+    GS.runes.attack.forEach(r => {
+        if (r.effect === 'furyPerDie') runeAtkBonus += r.value * atkCount;
+        if (r.effect === 'atkMultRune') runeAtkMult *= r.value;
+        if (r.effect === 'amplifier') runeAtkMult *= r.value;
+        if (r.effect === 'titanBlow' && atkCount === 1) runeAtkMult *= r.value;
+    });
+    const finalAtkWithRunes = Math.floor(finalAtk * runeAtkMult) + runeAtkBonus;
+    $('attack-total').textContent = finalAtkWithRunes;
+
+    let atkSummary = '';
+    if (atkMultiplier > 1 || runeAtkMult > 1) atkSummary += `×${(atkMultiplier * runeAtkMult).toFixed(1).replace('.0','')} `;
+    if (atkBonus + runeAtkBonus > 0) atkSummary += `+${atkBonus + runeAtkBonus} bonus `;
+    $('attack-summary').textContent = atkSummary;
+
+    // Defend total
+    let defTotal = 0;
+    let defMultiplier = 1;
+    let defBonus = 0;
+    const defCount = GS.allocated.defend.length;
+
+    GS.allocated.defend.forEach(d => {
+        const face = getActiveFace(d);
+        const m = face && !face.modifier.autoFire ? face.modifier : null;
+
+        if (m) {
+            if (m.effect === 'slotMultiply') { defMultiplier *= m.value; defTotal += d.value; }
+            else if (m.effect === 'slotAdd') { defBonus += m.value * defCount; }
+            else if (m.effect === 'packTactics') { defBonus += m.value * defCount; defTotal += d.value; }
+            else if (m.effect === 'volley') { if (defCount >= 3) defBonus += m.value; defTotal += d.value; }
+            else if (m.effect === 'threshold') { defTotal += d.value >= m.value ? d.value * 2 : d.value; }
+            else if (m.effect === 'defAdd') { defBonus += m.value; defTotal += d.value; }
+            else { defTotal += d.value; }
+        } else {
+            defTotal += d.value;
+        }
+    });
+
+    defBonus += GS.buffs.armor;
+    defBonus += GS.artifacts.filter(a => a.effect === 'permArmor').reduce((s, a) => s + a.value, 0);
+    // Legion Shield: 3+ dice in defend = +6
+    if (defCount >= 3) defBonus += GS.artifacts.filter(a => a.effect === 'swarmDef').reduce((s, a) => s + a.value, 0);
+    // Passive: Swarm Master
+    if (GS.passives.swarmMaster) defBonus += GS.passives.swarmMaster * defCount;
+    // Passive: Volley
+    if (GS.passives.volley && defCount >= 3) defBonus += GS.passives.volley;
+    // Passive: Threshold
+    if (GS.passives.threshold) {
+        GS.allocated.defend.forEach(d => { if (d.value >= 8) defBonus += Math.floor(d.value * 0.5); });
+    }
+    // Passive: Titan's Wrath
+    if (GS.passives.titanWrath && defCount === 1) defMultiplier *= 3;
+
+    const finalDef = Math.floor(defTotal * defMultiplier) + defBonus;
+
+    // Apply defend runes
+    let runeDefMult = 1;
+    let runeDefBonus = 0;
+    GS.runes.defend.forEach(r => {
+        if (r.effect === 'flatBlock') runeDefBonus += r.value;
+        if (r.effect === 'amplifier') runeDefMult *= r.value;
+        if (r.effect === 'titanBlow' && defCount === 1) runeDefMult *= r.value;
+    });
+    const finalDefWithRunes = Math.floor(finalDef * runeDefMult) + runeDefBonus;
+    $('defend-total').textContent = finalDefWithRunes;
+
+    let defSummary = '';
+    if (defMultiplier > 1 || runeDefMult > 1) defSummary += `×${(defMultiplier * runeDefMult).toFixed(1).replace('.0','')} `;
+    if (defBonus + runeDefBonus > 0) defSummary += `+${defBonus + runeDefBonus} armor `;
+    $('defend-summary').textContent = defSummary;
+}
+
+// ════════════════════════════════════════════════════════════
+//  GAME CONTROLLER
+// ════════════════════════════════════════════════════════════
+const Game = {
+    start() {
+        Object.assign(GS, {
+            floor: 1, act: 1, hp: 50, maxHp: 50, gold: 15,
+            level: 1, xp: 0, xpNext: 50,
+            dice: [createDie(1,6), createDie(1,6), createDie(1,6)],
+            slots: { attack: 2, defend: 2 },
+            runes: { attack: [], defend: [] },
+            passives: {}, unlockedNodes: [], // sacrificed slot effects
+            rerolls: 0, rerollsLeft: 0,
+            enemy: null, enemiesKilled: 0, totalGold: 0,
+            artifacts: [], buffs: { damageBoost: 0, armor: 0 },
+            allocated: { attack: [], defend: [] }, rolled: false,
+        });
+        dieIdCounter = 3;
+        Game.enterFloor();
+    },
+
+    enterFloor() {
+        GS.act = getAct(GS.floor);
+        const type = getFloorType(GS.floor);
+
+        if (type === 'combat' || type === 'elite') Combat.start(type === 'elite');
+        else if (type === 'boss') Combat.start(false, true);
+        else if (type === 'shop') Shop.enter();
+        else if (type === 'event') Events.enter();
+    },
+
+    nextFloor() {
+        GS.floor++;
+        if (GS.floor > 15) {
+            Game.victory();
+            return;
+        }
+        // Rest stop between acts
+        if (GS.floor === 6 || GS.floor === 11) {
+            Rest.enter();
+            return;
+        }
+        Game.enterFloor();
+    },
+
+    defeat() {
+        const t = $('go-title');
+        t.textContent = '💀 Defeated';
+        t.className = 'defeat';
+        $('go-stats').innerHTML = [
+            ['Floor Reached', GS.floor],
+            ['Level', GS.level],
+            ['Enemies Slain', GS.enemiesKilled],
+            ['Gold Earned', GS.totalGold],
+        ].map(([k,v]) => `<div class="final-stat-row"><span>${k}</span><span>${v}</span></div>`).join('');
+        show('screen-gameover');
+    },
+
+    victory() {
+        const t = $('go-title');
+        t.textContent = '🏆 Victory!';
+        t.className = 'victory';
+        $('go-stats').innerHTML = [
+            ['Floors Cleared', 15],
+            ['Level', GS.level],
+            ['Enemies Slain', GS.enemiesKilled],
+            ['Gold Earned', GS.totalGold],
+            ['Artifacts', GS.artifacts.map(a => a.icon).join(' ') || 'None'],
+        ].map(([k,v]) => `<div class="final-stat-row"><span>${k}</span><span>${v}</span></div>`).join('');
+
+        const btns = $('go-buttons');
+        btns.innerHTML = '';
+        const tryAgain = document.createElement('button');
+        tryAgain.className = 'btn btn-primary';
+        tryAgain.textContent = 'Try Again';
+        tryAgain.onclick = () => Game.start();
+        btns.appendChild(tryAgain);
+
+        // Challenge boss option
+        const challenge = document.createElement('button');
+        challenge.className = 'btn btn-execute-main';
+        challenge.textContent = '💀 Challenge the Eternal Guardian';
+        challenge.onclick = () => Game.startChallengeBoss();
+        btns.appendChild(challenge);
+
+        show('screen-gameover');
+    },
+
+    startChallengeBoss() {
+        // Show preparation screen before the fight
+        GS.challengePrep = 3; // 3 free preparation choices
+        GS.hp = GS.maxHp;
+        Game.showChallengePrep();
+    },
+
+    showChallengePrep() {
+        updateStats();
+        $('reward-title').textContent = `💀 Prepare for the Eternal Guardian — ${GS.challengePrep} choices remaining`;
+        const c = $('reward-cards');
+        c.innerHTML = '';
+
+        const info = document.createElement('div');
+        info.style.cssText = 'text-align:center; margin-bottom:12px; font-family:EB Garamond,serif; color:var(--text-dim); font-size:0.9em;';
+        info.innerHTML = 'Strengthen your build before the final challenge. Choose wisely.';
+        c.appendChild(info);
+
+        const rewards = [];
+
+        // Skill point
+        rewards.push({ title: '⭐ Skill Point', desc: 'Unlock a node on the passive tree', action: () => {
+            GS.challengePrep--;
+            Rewards.slotChoice(() => {
+                if (GS.challengePrep > 0) Game.showChallengePrep();
+                else Game.launchChallengeBoss();
+            });
+        }});
+
+        // Artifact
+        rewards.push({ title: '✨ Artifact', desc: 'Choose from 3 artifacts', action: () => {
+            GS.challengePrep--;
+            Rewards.artifactChoice(false);
+            // Override nextFloor to return to prep
+            const origNext = Game.nextFloor;
+            Game.nextFloor = () => {
+                Game.nextFloor = origNext;
+                if (GS.challengePrep > 0) Game.showChallengePrep();
+                else Game.launchChallengeBoss();
+            };
+        }});
+
+        // New die
+        const totalSlots = (GS.slots.attack - GS.runes.attack.length) + (GS.slots.defend - GS.runes.defend.length);
+        rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
+            GS.dice.push(createDie(1, 6));
+            log('Added new D6!', 'info');
+            GS.challengePrep--;
+            if (GS.challengePrep > 0) Game.showChallengePrep();
+            else Game.launchChallengeBoss();
+        }});
+
+        // Upgrade die
+        rewards.push({ title: '⬆️ Upgrade Die', desc: '+1/+1 to a die', action: () => {
+            GS.challengePrep--;
+            // Show upgrade picker
+            $('reward-title').textContent = 'Choose a Die to Upgrade';
+            const cc = $('reward-cards');
+            cc.innerHTML = '';
+            GS.dice.forEach(die => {
+                const canUp = die.max < 12;
+                const card = document.createElement('div');
+                card.className = 'card' + (canUp ? '' : ' disabled');
+                card.innerHTML = `<div class="card-title">${die.min}-${die.max} → ${canUp ? `${die.min+1}-${die.max+1}` : 'MAX'}</div>`;
+                if (canUp) card.onclick = () => {
+                    upgradeDie(die);
+                    log(`Upgraded to ${die.min}-${die.max}!`, 'info');
+                    if (GS.challengePrep > 0) Game.showChallengePrep();
+                    else Game.launchChallengeBoss();
+                };
+                cc.appendChild(card);
+            });
+            show('screen-reward');
+        }});
+
+        // Sacrifice dice for slot
+        if (GS.dice.length >= 5) {
+            rewards.push({ title: '🔨 Sacrifice Dice', desc: 'Destroy 3 dice → +1 slot', action: () => {
+                GS.challengePrep--;
+                Rewards.showDiceSacrifice(() => {
+                    if (GS.challengePrep > 0) Game.showChallengePrep();
+                    else Game.launchChallengeBoss();
+                });
+            }});
+        }
+
+        // Heal (always full heal)
+        rewards.push({ title: '❤️ Full Heal', desc: `Restore to ${GS.maxHp} HP`, action: () => {
+            GS.hp = GS.maxHp;
+            log('Fully healed!', 'heal');
+            GS.challengePrep--;
+            updateStats();
+            if (GS.challengePrep > 0) Game.showChallengePrep();
+            else Game.launchChallengeBoss();
+        }});
+
+        rewards.forEach(r => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `<div class="card-title">${r.title}</div><div class="card-desc">${r.desc}</div>`;
+            card.onclick = r.action;
+            c.appendChild(card);
+        });
+
+        // Skip option
+        const skip = document.createElement('div');
+        skip.style.cssText = 'text-align:center; margin-top:12px;';
+        const skipBtn = document.createElement('button');
+        skipBtn.className = 'btn';
+        skipBtn.textContent = '💀 Skip — Fight Now';
+        skipBtn.onclick = () => Game.launchChallengeBoss();
+        skip.appendChild(skipBtn);
+        c.appendChild(skip);
+
+        show('screen-reward');
+    },
+
+    launchChallengeBoss() {
+        GS.hp = GS.maxHp;
+        GS.challengeMode = true;
+        GS.challengeDmg = 0;
+        GS.challengeTurns = 0;
+
+        // Create the Eternal Guardian
+        GS.enemy = {
+            name: '💀 The Eternal Guardian',
+            hp: 999999,
+            currentHp: 999999,
+            baseAtk: 8 + GS.level * 2,
+            intent: 8 + GS.level * 2,
+            gold: 0,
+            turn: 0,
+            rage: 0,
+            poison: 0,
+            isElite: false,
+            isBoss: true,
+        };
+
+        // Reset combat state
+        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; });
+        GS.allocated = { attack: [], defend: [] };
+        GS.rolled = false;
+        GS.rerollsLeft = GS.rerolls + GS.artifacts.filter(a => a.effect === 'bonusReroll').reduce((s, a) => s + a.value, 0);
+        GS.autoLifesteal = 0;
+
+        Combat.renderEnemy();
+        renderCombatDice();
+        updateStats();
+        show('screen-combat');
+        log('💀 The Eternal Guardian awakens. It cannot be killed — deal as much damage as you can!', 'damage');
+        setTimeout(() => Combat.roll(), 300);
+    },
+
+    challengeResult() {
+        const t = $('go-title');
+        t.textContent = '💀 The Guardian Claims You';
+        t.className = 'victory';
+        const dpt = GS.challengeTurns > 0 ? Math.round(GS.challengeDmg / GS.challengeTurns) : 0;
+        $('go-stats').innerHTML = [
+            ['💥 Total Damage', GS.challengeDmg.toLocaleString()],
+            ['⚔️ Damage/Turn', dpt.toLocaleString()],
+            ['🔄 Turns Survived', GS.challengeTurns],
+            ['Level', GS.level],
+            ['Artifacts', GS.artifacts.map(a => a.icon).join(' ') || 'None'],
+        ].map(([k,v]) => `<div class="final-stat-row"><span>${k}</span><span>${v}</span></div>`).join('');
+
+        const btns = $('go-buttons');
+        btns.innerHTML = '';
+        const tryAgain = document.createElement('button');
+        tryAgain.className = 'btn btn-primary';
+        tryAgain.textContent = 'New Run';
+        tryAgain.onclick = () => Game.start();
+        btns.appendChild(tryAgain);
+
+        GS.challengeMode = false;
+        show('screen-gameover');
+    }
+};
+
+// ════════════════════════════════════════════════════════════
+//  COMBAT
+// ════════════════════════════════════════════════════════════
+const Combat = {
+    start(isElite = false, isBoss = false) {
+        // Create enemy
+        let template;
+        if (isBoss) {
+            template = { ...BOSSES[GS.floor] };
+        } else {
+            const pool = ENEMIES[GS.act] || ENEMIES[1];
+            template = { ...pick(pool) };
+        }
+
+        // Scale with floor
+        // Exponential scaling: gentle early (floors 1-5), steep late (floors 10-15)
+        const scale = Math.pow(1.04, GS.floor - 1);
+        template.hp = Math.floor(template.hp * scale);
+        template.atk = Math.floor(template.atk * scale);
+        template.gold = Math.floor(template.gold * scale);
+
+        let elite = null;
+        if (isElite) {
+            elite = pick(ELITES);
+            template.hp = Math.floor(template.hp * elite.hpM);
+            template.atk = Math.floor(template.atk * elite.atkM);
+            template.gold = Math.floor(template.gold * elite.goldM);
+            template.name = `${elite.prefix} ${template.name}`;
+        }
+
+        GS.enemy = {
+            ...template,
+            currentHp: template.hp,
+            baseAtk: template.atk,
+            isElite, isBoss,
+            intent: template.atk,
+            turn: 0,
+            rage: 0,
+            poison: 0,
+        };
+
+        // Reset dice
+        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; });
+        GS.allocated = { attack: [], defend: [] };
+        GS.rolled = false;
+        GS.autoLifesteal = 0;
+        GS.regenStacks = 0;
+        GS.rerollsLeft = GS.rerolls;
+        // Lucky Charm artifact: bonus rerolls
+        GS.rerollsLeft += GS.artifacts.filter(a => a.effect === 'bonusReroll').reduce((s, a) => s + a.value, 0);
+
+        // Combat heal artifact
+        const combatHeal = GS.artifacts.filter(a => a.effect === 'combatHeal').reduce((s, a) => s + a.value, 0);
+        if (combatHeal > 0) {
+            const h = heal(combatHeal);
+            if (h > 0) log(`🔥 Phoenix Heart: +${h} HP`, 'heal');
+        }
+
+        // Gilded Gauntlet: convert gold to damage at combat start
+        const gildedArtifact = GS.artifacts.find(a => a.effect === 'goldToDmg');
+        if (gildedArtifact && GS.gold >= 50) {
+            GS.gold -= 50;
+            GS.enemy.currentHp -= 15;
+            if (GS.challengeMode) GS.challengeDmg += 15;
+            log(`✨ Gilded Gauntlet: Spent 50 gold, dealt 15 damage!`, 'damage');
+        }
+
+        // Track first turn for War Drum
+        GS.isFirstTurn = true;
+
+        // Clear log
+        $('combat-log').innerHTML = '';
+
+        // UI
+        updateStats();
+        setupDropZones();
+        Combat.renderEnemy();
+        renderCombatDice();
+
+        // roll via pool click
+        // roll via pool click
+        // execute via pool click
+
+        const label = isBoss ? '👑 BOSS' : isElite ? '⚡ ELITE' : `Floor ${GS.floor}`;
+        log(`${label}: ${GS.enemy.name} appears!`, 'info');
+        log(`HP: ${GS.enemy.hp} | ATK: ${GS.enemy.atk}`, 'info');
+
+        show('screen-combat');
+
+        // Auto-roll dice at turn start
+        setTimeout(() => Combat.roll(), 300);
+    },
+
+    renderEnemy() {
+        const e = GS.enemy;
+        const nameCls = e.isElite ? 'enemy-name elite' : (e.isBoss ? 'enemy-name elite' : 'enemy-name');
+
+        let statusIndicators = '';
+        if (e.rage > 0) {
+            statusIndicators += `<span style="color: var(--red-bright); font-size: 0.75em; margin-left: 8px;">🔥 Rage ×${e.rage}</span>`;
+        }
+        if (e.poison > 0) {
+            statusIndicators += `<span style="color: #50a030; font-size: 0.75em; margin-left: 8px;">☠️ Poison ×${e.poison}</span>`;
+        }
+
+        if (GS.challengeMode) {
+            const dpt = GS.challengeTurns > 0 ? Math.round(GS.challengeDmg / GS.challengeTurns) : 0;
+            $('enemy-panel').innerHTML = `
+                <div class="${nameCls}">${e.name}${statusIndicators}</div>
+                <div class="enemy-subtitle">💀 CHALLENGE — Survive and deal maximum damage</div>
+                <div style="text-align:center; margin:8px 0;">
+                    <span style="font-size:1.4em; color:var(--gold); font-family:JetBrains Mono,monospace;">💥 ${GS.challengeDmg.toLocaleString()}</span>
+                    <span style="font-size:0.8em; color:var(--text-dim); margin-left:8px;">(${dpt}/turn)</span>
+                </div>
+                <div class="enemy-intent">Intent: Attack for <strong>${e.intent}</strong> damage${e.rage > 0 ? ' (enraged)' : ''}</div>
+            `;
+        } else {
+            const pct = Math.max(0, (e.currentHp / e.hp) * 100);
+            $('enemy-panel').innerHTML = `
+                <div class="${nameCls}">${e.name}${statusIndicators}</div>
+                <div class="enemy-subtitle">${e.isBoss ? '👑 BOSS' : e.isElite ? '⚡ ELITE' : 'Enemy'} — Floor ${GS.floor}, Act ${GS.act}</div>
+                <div class="enemy-hp-bar"><div class="enemy-hp-fill" style="width:${pct}%"></div></div>
+                <div class="enemy-hp-text">${e.currentHp} / ${e.hp}</div>
+                <div class="enemy-intent">Intent: Attack for <strong>${e.intent}</strong> damage${e.rage > 0 ? ' (enraged)' : ''}</div>
+            `;
+        }
+    },
+
+    roll() {
+        GS.dice.forEach(d => {
+            if (!d.rolled) rollSingleDie(d);
+        });
+        GS.rolled = true;
+        // roll via pool click
+
+        // Process auto-fire faces: heal, gold, lifesteal, scavenger
+        // These dice get pulled out of the pool and don't need allocation
+        GS.dice.forEach(d => {
+            const face = getActiveFace(d);
+            if (face && face.modifier.autoFire) {
+                d.location = 'auto';
+                const m = face.modifier;
+                if (m.effect === 'heal') {
+                    if (!GS.regenStacks) GS.regenStacks = 0;
+                    GS.regenStacks += m.value;
+                    log(`${m.icon} Auto: +${m.value} regen (${GS.regenStacks} total)`, 'heal');
+                } else if (m.effect === 'gold') {
+                    const g = gainGold(m.value);
+                    log(`${m.icon} Auto: +${g} gold`, 'info');
+                } else if (m.effect === 'scavGold') {
+                    const g = gainGold(m.value);
+                    log(`${m.icon} Scavenger: +${g} gold`, 'info');
+                } else if (m.effect === 'lifesteal') {
+                    if (!GS.autoLifesteal) GS.autoLifesteal = 0;
+                    GS.autoLifesteal += m.value;
+                    log(`${m.icon} Auto: ${Math.round(m.value * 100)}% lifesteal active`, 'info');
+                }
+            }
+        });
+
+        // Animate
+        const dieEls = document.querySelectorAll('.die');
+        dieEls.forEach(el => el.classList.add('rolling'));
+        setTimeout(() => {
+            renderCombatDice();
+            updateStats();
+            log('Rolled: ' + GS.dice.map(d => d.value).join(', '), 'info');
+        }, 400);
+    },
+
+    returnAll() {
+        GS.dice.forEach(d => {
+            if (d.location !== 'auto') d.location = 'pool';
+        });
+        GS.allocated = { attack: [], defend: [] };
+        renderCombatDice();
+    },
+
+    execute() {
+        // Hide action buttons immediately
+        if ($('btn-execute')) $('btn-execute').style.display = 'none';
+        if ($('btn-return-all')) $('btn-return-all').style.display = 'none';
+
+        const atkCount = GS.allocated.attack.length;
+        const defCount = GS.allocated.defend.length;
+
+        // ── ATTACK CALCULATION ──
+        let atkBase = 0, atkMult = 1, atkBonus = 0;
+        let poisonToApply = 0;
+
+        GS.allocated.attack.forEach(d => {
+            const face = getActiveFace(d);
+            const m = face && !face.modifier.autoFire ? face.modifier : null;
+
+            if (m) {
+                // Lucky: grant reroll when face triggers
+                if (m.effect === 'lucky') { GS.rerollsLeft += m.value; log(`🎰 Lucky! +${m.value} reroll`, 'info'); }
+                // Poison Tip: apply poison
+                if (m.effect === 'poison') { poisonToApply += m.value; }
+                // Midas Touch: gain gold = die value
+                if (m.effect === 'midasGold') { const mg = gainGold(d.value); log(`👑 Midas: +${mg} gold`, 'info'); }
+
+                if (m.effect === 'slotMultiply') { atkMult *= m.value; atkBase += d.value; }
+                else if (m.effect === 'slotAdd') { atkBonus += m.value * atkCount; }
+                else if (m.effect === 'packTactics') { atkBonus += m.value * atkCount; atkBase += d.value; }
+                else if (m.effect === 'volley') { if (atkCount >= 3) atkBonus += m.value; atkBase += d.value; }
+                else if (m.effect === 'threshold') { atkBase += d.value >= m.value ? d.value * 2 : d.value; }
+                else if (m.effect === 'defAdd') { atkBase += d.value; }
+                else if (m.effect === 'poison') { atkBase += d.value; }
+                else { atkBase += d.value; }
+            } else {
+                atkBase += d.value;
+            }
+        });
+
+        // Flat bonuses from buffs/artifacts
+        atkBonus += GS.buffs.damageBoost;
+        atkBonus += GS.artifacts.filter(a => a.effect === 'flatAtk').reduce((s, a) => s + a.value, 0);
+        // Merchant's Crown: +1 dmg per 20 gold held
+        const goldScale = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
+        if (goldScale > 0) atkBonus += goldScale;
+        // Gold passive (Investment / Golden God): +1 dmg per N gold held
+        if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
+        // Hydra's Crest
+        atkBonus += GS.artifacts.filter(a => a.effect === 'dmgPerDie').reduce((s, a) => s + a.value, 0) * GS.dice.length;
+        // Giant's Belt
+        atkBonus += GS.artifacts.filter(a => a.effect === 'giantDmg').reduce((s, a) => s + a.value, 0) * GS.dice.filter(d => d.max >= 10).length;
+        // Swarm Banner
+        if (atkCount >= 4) atkBonus += GS.artifacts.filter(a => a.effect === 'swarmAtk').reduce((s, a) => s + a.value, 0);
+        // Executioner Blade
+        if (atkCount === 1) atkMult *= GS.artifacts.some(a => a.effect === 'executioner') ? 2 : 1;
+        // Passive: Pack Tactics
+        if (GS.passives.packTactics) atkBonus += GS.passives.packTactics * atkCount;
+        // Passive: Swarm Master
+        if (GS.passives.swarmMaster) atkBonus += GS.passives.swarmMaster * atkCount;
+        // Passive: Volley
+        if (GS.passives.volley && atkCount >= 3) atkBonus += GS.passives.volley;
+        // Passive: Threshold
+        if (GS.passives.threshold) {
+            GS.allocated.attack.forEach(d => { if (d.value >= 8) atkBonus += Math.floor(d.value * 0.5); });
+        }
+        // Passive: Titan's Wrath
+        if (GS.passives.titanWrath && atkCount === 1) atkMult *= 3;
+        // Gambler's Coin: damage from rerolls used
+        const rerollsUsed = GS.rerolls - GS.rerollsLeft;
+        if (rerollsUsed > 0) {
+            let rerollDmg = GS.artifacts.filter(a => a.effect === 'rerollDmg').reduce((s, a) => s + a.value, 0) * rerollsUsed;
+            // Passive: rerollDmg
+            if (GS.passives.rerollDmg) rerollDmg += GS.passives.rerollDmg * rerollsUsed;
+            if (rerollDmg > 0) { atkBonus += rerollDmg; log(`🪙 Reroll damage: +${rerollDmg} (${rerollsUsed} rerolls)`, 'info'); }
+        }
+
+        // War Drum: bonus damage on first attack
+        if (GS.isFirstTurn) {
+            const firstStrike = GS.artifacts.filter(a => a.effect === 'firstStrike').reduce((s, a) => s + a.value, 0);
+            if (firstStrike > 0) {
+                atkBonus += firstStrike;
+                log(`🥁 War Drum: +${firstStrike} first strike damage!`, 'info');
+            }
+            GS.isFirstTurn = false;
+        }
+
+        const totalAtkBase = Math.floor(atkBase * atkMult) + atkBonus;
+
+        // Apply attack runes
+        let runeAtkMult = 1, runeAtkBonus = 0;
+        GS.runes.attack.forEach(r => {
+            if (r.effect === 'furyPerDie') runeAtkBonus += r.value * atkCount;
+            if (r.effect === 'atkMultRune') runeAtkMult *= r.value;
+            if (r.effect === 'amplifier') runeAtkMult *= r.value;
+            if (r.effect === 'titanBlow' && atkCount === 1) runeAtkMult *= r.value;
+            if (r.effect === 'poisonPerTurn') poisonToApply += r.value;
+        });
+        const totalAtk = Math.floor(totalAtkBase * runeAtkMult) + runeAtkBonus;
+
+        // ── DEFEND CALCULATION ──
+        let defBase = 0, defMult = 1, defBonus = 0;
+
+        GS.allocated.defend.forEach(d => {
+            const face = getActiveFace(d);
+            const m = face && !face.modifier.autoFire ? face.modifier : null;
+
+            if (m) {
+                if (m.effect === 'lucky') { GS.rerollsLeft += m.value; log(`🎰 Lucky! +${m.value} reroll`, 'info'); }
+                if (m.effect === 'poison') { poisonToApply += m.value; }
+                if (m.effect === 'midasGold') { const mg = gainGold(d.value); log(`👑 Midas: +${mg} gold`, 'info'); }
+
+                if (m.effect === 'slotMultiply') { defMult *= m.value; defBase += d.value; }
+                else if (m.effect === 'slotAdd') { defBonus += m.value * defCount; }
+                else if (m.effect === 'packTactics') { defBonus += m.value * defCount; defBase += d.value; }
+                else if (m.effect === 'volley') { if (defCount >= 3) defBonus += m.value; defBase += d.value; }
+                else if (m.effect === 'threshold') { defBase += d.value >= m.value ? d.value * 2 : d.value; }
+                else if (m.effect === 'defAdd') { defBonus += m.value; defBase += d.value; }
+                else if (m.effect === 'poison') { defBase += d.value; }
+                else { defBase += d.value; }
+            } else {
+                defBase += d.value;
+            }
+        });
+
+        defBonus += GS.buffs.armor;
+        defBonus += GS.artifacts.filter(a => a.effect === 'permArmor').reduce((s, a) => s + a.value, 0);
+        if (defCount >= 3) defBonus += GS.artifacts.filter(a => a.effect === 'swarmDef').reduce((s, a) => s + a.value, 0);
+        // Passive: Swarm Master
+        if (GS.passives.swarmMaster) defBonus += GS.passives.swarmMaster * defCount;
+        // Passive: Volley
+        if (GS.passives.volley && defCount >= 3) defBonus += GS.passives.volley;
+        // Passive: Threshold
+        if (GS.passives.threshold) {
+            GS.allocated.defend.forEach(d => { if (d.value >= 8) defBonus += Math.floor(d.value * 0.5); });
+        }
+        // Passive: Titan's Wrath
+        if (GS.passives.titanWrath && defCount === 1) defMult *= 3;
+
+        const totalDefBase = Math.floor(defBase * defMult) + defBonus;
+
+        // Apply defend runes
+        let runeDefMult = 1, runeDefBonus = 0;
+        GS.runes.defend.forEach(r => {
+            if (r.effect === 'flatBlock') runeDefBonus += r.value;
+            if (r.effect === 'amplifier') runeDefMult *= r.value;
+            if (r.effect === 'titanBlow' && defCount === 1) runeDefMult *= r.value;
+        });
+        const totalDef = Math.floor(totalDefBase * runeDefMult) + runeDefBonus;
+
+        // ── PLAYER ATTACKS ──
+        GS.enemy.currentHp -= totalAtk;
+        if (GS.challengeMode) GS.challengeDmg += totalAtk;
+        log(`You deal ${totalAtk} damage!`, 'damage');
+
+        // Apply poison from faces + Serpent Fang artifact + passives
+        const serpentPoison = GS.artifacts.filter(a => a.effect === 'poisonOnHit').reduce((s, a) => s + a.value, 0);
+        if (serpentPoison > 0 && totalAtk > 0) poisonToApply += Math.floor(totalAtk * serpentPoison);
+        // Passive: poisonOnAtk
+        if (GS.passives.poisonOnAtk) poisonToApply += GS.passives.poisonOnAtk;
+        // Passive: Plague Lord (+2 poison/turn)
+        if (GS.passives.plagueLord) poisonToApply += 2;
+        if (poisonToApply > 0) {
+            GS.enemy.poison += poisonToApply;
+            log(`☠️ Applied ${poisonToApply} poison! (${GS.enemy.poison} stacks)`, 'info');
+        }
+
+        // Lifesteal: from auto-fire faces + artifact
+        let lsPercent = GS.autoLifesteal || 0;
+        lsPercent += GS.artifacts.filter(a => a.effect === 'permLifesteal').reduce((s, a) => s + a.value, 0);
+        if (lsPercent > 0 && totalAtk > 0) {
+            const lsHeal = heal(Math.floor(totalAtk * lsPercent));
+            if (lsHeal > 0) log(`🩸 Lifesteal: +${lsHeal} HP`, 'heal');
+        }
+
+        Combat.renderEnemy();
+        updateStats();
+
+        // Check enemy death
+        if (GS.enemy.currentHp <= 0) {
+            Combat.enemyDefeated();
+            return;
+        }
+
+        // ── POISON TICK (after player attack, before enemy attack) ──
+        if (GS.enemy.poison > 0) {
+            let poisonDmg = GS.enemy.poison;
+            const poisonMult = GS.artifacts.filter(a => a.effect === 'poisonDouble').reduce((s, a) => s + a.value, 0);
+            if (poisonMult > 0) poisonDmg = Math.floor(poisonDmg * poisonMult);
+            // Passive: Plague Lord doubles poison
+            if (GS.passives.plagueLord) poisonDmg *= 2;
+            GS.enemy.currentHp -= poisonDmg;
+            if (GS.challengeMode) GS.challengeDmg += poisonDmg;
+            GS.enemy.poison = Math.max(0, GS.enemy.poison - 1); // decay by 1
+            log(`☠️ Poison deals ${poisonDmg} damage! (${GS.enemy.poison} stacks remain)`, 'damage');
+            Combat.renderEnemy();
+
+            if (GS.enemy.currentHp <= 0) {
+                Combat.enemyDefeated();
+                return;
+            }
+        }
+
+        // ── ENEMY ATTACKS ──
+        const enemyDamage = GS.enemy.intent;
+        const mitigated = Math.max(0, enemyDamage - totalDef);
+        const blocked = enemyDamage - mitigated;
+
+        GS.hp -= mitigated;
+        if (blocked > 0) {
+            log(`${GS.enemy.name} attacks for ${enemyDamage} — you block ${blocked}, take ${mitigated} damage`, 'defend');
+        } else {
+            log(`${GS.enemy.name} attacks for ${enemyDamage} damage!`, 'damage');
+        }
+
+        // Thorns rune: reflect damage when hit
+        if (mitigated > 0) {
+            const thornsDmg = GS.runes.defend.filter(r => r.effect === 'thorns').reduce((s, r) => s + r.value, 0);
+            if (thornsDmg > 0) {
+                GS.enemy.currentHp -= thornsDmg;
+                if (GS.challengeMode) GS.challengeDmg += thornsDmg;
+                log(`🌿 Thorns: reflect ${thornsDmg} damage!`, 'damage');
+                Combat.renderEnemy();
+            }
+        }
+
+        updateStats();
+
+        if (GS.hp <= 0) {
+            GS.hp = 0;
+            updateStats();
+            if (GS.challengeMode) {
+                setTimeout(() => Game.challengeResult(), 1000);
+            } else {
+                setTimeout(() => Game.defeat(), 1000);
+            }
+            return;
+        }
+
+        if (GS.enemy.currentHp <= 0) {
+            Combat.enemyDefeated();
+            return;
+        }
+
+        // ── NEXT TURN ──
+        Combat.newTurn();
+    },
+
+    newTurn() {
+        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; });
+        GS.allocated = { attack: [], defend: [] };
+        GS.rolled = false;
+        GS.autoLifesteal = 0;
+        GS.rerollsLeft = GS.rerolls;
+        GS.rerollsLeft += GS.artifacts.filter(a => a.effect === 'bonusReroll').reduce((s, a) => s + a.value, 0);
+
+        // Regen rune + passive (permanent, doesn't decay)
+        let regenAmt = GS.runes.defend.filter(r => r.effect === 'regenPerTurn').reduce((s, r) => s + r.value, 0);
+        if (GS.passives.regen) regenAmt += GS.passives.regen;
+        if (regenAmt > 0) {
+            const h = heal(regenAmt);
+            if (h > 0) log(`💚 Regen: +${h} HP`, 'heal');
+        }
+
+        // Decaying regen stacks (from Rejuvenate face mod)
+        if (GS.regenStacks && GS.regenStacks > 0) {
+            const h = heal(GS.regenStacks);
+            if (h > 0) log(`❤️ Rejuvenate: +${h} HP (${GS.regenStacks - 1} next turn)`, 'heal');
+            GS.regenStacks--;
+        }
+
+        // Increment turn and apply rage every 3 turns (bosses & elites only)
+        GS.enemy.turn++;
+        if (GS.challengeMode) {
+            GS.challengeTurns++;
+            // Guardian enrages every 2 turns at first, then every turn after turn 6
+            const enrageEvery = GS.enemy.turn >= 6 ? 1 : 2;
+            if (GS.enemy.turn > 0 && GS.enemy.turn % enrageEvery === 0) {
+                GS.enemy.rage++;
+                const warning = GS.enemy.turn >= 6 ? ' (accelerating!)' : '';
+                log(`🔥 The Guardian grows stronger! (+${GS.enemy.rage} ATK)${warning}`, 'damage');
+            }
+        } else if ((GS.enemy.isBoss || GS.enemy.isElite) && GS.enemy.turn > 0 && GS.enemy.turn % 3 === 0) {
+            GS.enemy.rage++;
+            log(`🔥 ${GS.enemy.name} grows enraged! (+${GS.enemy.rage} ATK)`, 'damage');
+        }
+
+        // Calculate intent with rage
+        const rageAtk = GS.enemy.baseAtk + GS.enemy.rage;
+        if (GS.enemy.isBoss) {
+            const variation = Math.random() < 0.3 ? 1.5 : 1.0;
+            GS.enemy.intent = Math.floor(rageAtk * variation);
+        } else {
+            GS.enemy.intent = rageAtk;
+        }
+
+        // roll via pool click
+        // roll via pool click
+        // execute via pool click
+        Combat.renderEnemy();
+        renderCombatDice();
+
+        // Auto-roll dice at turn start
+        setTimeout(() => Combat.roll(), 300);
+    },
+
+    enemyDefeated() {
+        GS.enemiesKilled++;
+        const g = gainGold(GS.enemy.gold);
+        log(`${GS.enemy.name} defeated! +${g} gold`, 'info');
+        // Tax Collector: bonus gold per kill
+        const taxGold = GS.artifacts.filter(a => a.effect === 'goldPerKill').reduce((s, a) => s + a.value, 0);
+        if (taxGold > 0) {
+            const tg = gainGold(taxGold);
+            log(`💰 Tax Collector: +${tg} gold`, 'info');
+        }
+        // Prospector passive: flat gold per combat
+        if (GS.passives.goldPerCombat) {
+            const pg = gainGold(GS.passives.goldPerCombat);
+            log(`💰 Prospector: +${pg} gold`, 'info');
+        }
+        // Compound Interest passive: % of current gold
+        if (GS.passives.goldInterest) {
+            const interest = Math.floor(GS.gold * GS.passives.goldInterest);
+            if (interest > 0) {
+                const ig = gainGold(interest);
+                log(`💰 Interest: +${ig} gold (${Math.round(GS.passives.goldInterest * 100)}%)`, 'info');
+            }
+        }
+        gainXP(Math.floor(GS.enemy.hp * 2.5));
+        updateStats();
+
+        // Final boss — skip rewards, go to victory
+        if (GS.enemy.isBoss && GS.floor >= 15) {
+            setTimeout(() => Game.victory(), 1200);
+            return;
+        }
+
+        setTimeout(() => {
+            if (GS.pendingSlotChoice) {
+                Rewards.slotChoice(() => {
+                    if (GS.enemy.isElite) Rewards.artifactChoice();
+                    else if (GS.enemy.isBoss) Rewards.artifactChoice(true);
+                    else Rewards.show();
+                });
+            } else if (GS.enemy.isElite) {
+                Rewards.artifactChoice();
+            } else if (GS.enemy.isBoss) {
+                Rewards.artifactChoice(true);
+            } else {
+                Rewards.show();
+            }
+        }, 1200);
+    }
+};
+
+// ════════════════════════════════════════════════════════════
+//  REWARDS
+// ════════════════════════════════════════════════════════════
+const Rewards = {
+    slotChoice(callback) {
+        GS.pendingSlotChoice = false;
+        updateStats();
+        $('reward-title').textContent = `⭐ Level ${GS.level} — Skill Tree`;
+        const c = $('reward-cards');
+        c.innerHTML = '';
+
+        // Branch color scheme
+        const BC = {
+            w: { main: '#5fa84f', glow: '#7cdf68', dim: '#3a6830' },
+            g: { main: '#d4a534', glow: '#ffe070', dim: '#8a6a1e' },
+            t: { main: '#d48830', glow: '#ffaa44', dim: '#7a4e1c' },
+            v: { main: '#9050c0', glow: '#bb77ff', dim: '#5a3078' },
+            root: { main: '#d4a534', glow: '#ffe070', dim: '#8a6a1e' },
+            bridge: { main: '#5588bb', glow: '#77bbee', dim: '#3a5a7a' },
+        };
+        const getBC = (id) => {
+            if (id === 'root') return BC.root;
+            if (id.startsWith('w')) return BC.w;
+            if (id.startsWith('g')) return BC.g;
+            if (id.startsWith('t')) return BC.t;
+            if (id.startsWith('v')) return BC.v;
+            return BC.bridge;
+        };
+
+        // ── OUTER WRAPPER with atmospheric background ──
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = `
+            position:relative; border-radius:8px; overflow:hidden; padding:8px 4px 4px;
+            background: radial-gradient(ellipse at 50% 30%, #1a1a2e 0%, #0d0d15 60%, #050508 100%);
+            border: 1px solid rgba(212,165,52,0.15);
+        `;
+
+        // Vignette overlay
+        const vig = document.createElement('div');
+        vig.style.cssText = `position:absolute; inset:0; pointer-events:none; z-index:0;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%);`;
+        wrapper.appendChild(vig);
+
+        // ── Detail panel ──
+        const detailPanel = document.createElement('div');
+        detailPanel.style.cssText = `
+            position:relative; z-index:2; margin:0 8px 8px;
+            background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.08); border-radius:6px;
+            padding:8px 12px; min-height:42px; font-family:EB Garamond, serif;
+            display:flex; align-items:center; gap:10px; font-size:0.95em;
+        `;
+        detailPanel.innerHTML = '<span style="color:rgba(255,255,255,0.35); font-size:0.85em;">Hover a node for details · Click a glowing node to unlock</span>';
+        wrapper.appendChild(detailPanel);
+
+        // ── SVG Tree Canvas ──
+        // Layout: compact diamond grid
+        const W = 420, H = 320;
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+        svg.style.cssText = `position:relative; z-index:1; width:100%; max-width:600px; display:block; margin:0 auto;`;
+
+        // SVG defs for glow filters
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        ['w','g','t','v','root','bridge'].forEach(key => {
+            const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+            filter.setAttribute('id', `glow-${key}`);
+            filter.setAttribute('x', '-50%'); filter.setAttribute('y', '-50%');
+            filter.setAttribute('width', '200%'); filter.setAttribute('height', '200%');
+            const blur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
+            blur.setAttribute('in', 'SourceGraphic'); blur.setAttribute('stdDeviation', '3');
+            filter.appendChild(blur);
+            defs.appendChild(filter);
+        });
+        svg.appendChild(defs);
+
+        // Node positions — 7 columns for Wide / Gold / Bridges / Root+Tall / Bridges / Venom
+        const colX = [35, 90, 155, 210, 265, 330, 385];
+        const rowY = [28, 78, 128, 178, 228, 278];
+        const getPos = (row, col) => ({ x: colX[col], y: rowY[row] });
+
+        // Node sizes
+        const sizeFor = (node) => node.icon === '👑' ? 19 : (node.id.length <= 2 && node.id !== 'root' ? 13 : node.id === 'root' ? 16 : 12);
+
+        // ── Draw connections ──
+        SKILL_TREE.forEach(node => {
+            const to = getPos(node.row, node.col);
+            const bc = getBC(node.id);
+            node.requires.forEach(reqId => {
+                const req = SKILL_TREE.find(n => n.id === reqId);
+                if (!req) return;
+                const from = getPos(req.row, req.col);
+                const bothUnlocked = GS.unlockedNodes.includes(node.id) && GS.unlockedNodes.includes(reqId);
+                const oneUnlocked = GS.unlockedNodes.includes(reqId);
+
+                // Glow line (behind)
+                if (bothUnlocked) {
+                    const gLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    gLine.setAttribute('x1', from.x); gLine.setAttribute('y1', from.y);
+                    gLine.setAttribute('x2', to.x); gLine.setAttribute('y2', to.y);
+                    gLine.setAttribute('stroke', bc.glow); gLine.setAttribute('stroke-width', '4');
+                    gLine.setAttribute('opacity', '0.3');
+                    gLine.setAttribute('filter', `url(#glow-${node.id === 'root' ? 'root' : node.id[0] === 'w' ? 'w' : node.id[0] === 'g' ? 'g' : node.id[0] === 't' ? 't' : node.id[0] === 'v' ? 'v' : 'bridge'})`);
+                    svg.appendChild(gLine);
+                }
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', from.x); line.setAttribute('y1', from.y);
+                line.setAttribute('x2', to.x); line.setAttribute('y2', to.y);
+                line.setAttribute('stroke', bothUnlocked ? bc.main : oneUnlocked ? bc.dim : 'rgba(255,255,255,0.06)');
+                line.setAttribute('stroke-width', bothUnlocked ? '2' : '1');
+                if (!bothUnlocked && !oneUnlocked) line.setAttribute('stroke-dasharray', '3,3');
+                svg.appendChild(line);
+            });
+        });
+
+        // ── Draw nodes ──
+        SKILL_TREE.forEach(node => {
+            const pos = getPos(node.row, node.col);
+            const bc = getBC(node.id);
+            const size = sizeFor(node);
+            const isUnlocked = GS.unlockedNodes.includes(node.id);
+            const meetsReqs = node.requires.length === 0 ||
+                (node.requiresAny
+                    ? node.requires.some(r => GS.unlockedNodes.includes(r))
+                    : node.requires.every(r => GS.unlockedNodes.includes(r)));
+            const isAvailable = !isUnlocked && meetsReqs;
+            const isCapstone = node.icon === '👑';
+
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            g.style.cursor = isAvailable ? 'pointer' : 'default';
+
+            // Glow behind node
+            if (isUnlocked || isAvailable) {
+                const glowCirc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                glowCirc.setAttribute('cx', pos.x); glowCirc.setAttribute('cy', pos.y);
+                glowCirc.setAttribute('r', size + 4);
+                glowCirc.setAttribute('fill', isUnlocked ? bc.glow : bc.main);
+                glowCirc.setAttribute('opacity', isUnlocked ? '0.15' : '0.08');
+                glowCirc.setAttribute('filter', `url(#glow-${node.id === 'root' ? 'root' : node.id[0] === 'w' ? 'w' : node.id[0] === 'g' ? 'g' : node.id[0] === 't' ? 't' : node.id[0] === 'v' ? 'v' : 'bridge'})`);
+                g.appendChild(glowCirc);
+                if (isAvailable) {
+                    // Pulse animation
+                    const anim = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+                    anim.setAttribute('attributeName', 'opacity');
+                    anim.setAttribute('values', '0.08;0.2;0.08');
+                    anim.setAttribute('dur', '2s'); anim.setAttribute('repeatCount', 'indefinite');
+                    glowCirc.appendChild(anim);
+                }
+            }
+
+            // Diamond shape (rotated rect)
+            const diamond = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            const dSize = size * 1.45;
+            diamond.setAttribute('x', pos.x - dSize/2); diamond.setAttribute('y', pos.y - dSize/2);
+            diamond.setAttribute('width', dSize); diamond.setAttribute('height', dSize);
+            diamond.setAttribute('rx', isCapstone ? 3 : 1.5);
+            diamond.setAttribute('transform', `rotate(45 ${pos.x} ${pos.y})`);
+            diamond.setAttribute('fill', isUnlocked ? bc.main + '40' : isAvailable ? bc.main + '20' : 'rgba(10,10,20,0.7)');
+            diamond.setAttribute('stroke', isUnlocked ? bc.main : isAvailable ? bc.main + '99' : 'rgba(255,255,255,0.08)');
+            diamond.setAttribute('stroke-width', isCapstone ? '1.5' : '1');
+            g.appendChild(diamond);
+
+            // Icon text
+            const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            txt.setAttribute('x', pos.x); txt.setAttribute('y', pos.y + 1);
+            txt.setAttribute('text-anchor', 'middle'); txt.setAttribute('dominant-baseline', 'central');
+            txt.setAttribute('font-size', isCapstone ? '14' : '11');
+            txt.setAttribute('opacity', isUnlocked || isAvailable ? '1' : '0.25');
+            txt.textContent = node.icon;
+            g.appendChild(txt);
+
+            // Name label below
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', pos.x); label.setAttribute('y', pos.y + size + 10);
+            label.setAttribute('text-anchor', 'middle'); label.setAttribute('font-size', '7');
+            label.setAttribute('font-family', 'JetBrains Mono, monospace');
+            label.setAttribute('fill', isUnlocked ? bc.main : isAvailable ? bc.dim : 'rgba(255,255,255,0.12)');
+            label.textContent = node.name;
+            g.appendChild(label);
+
+            // Hover → detail panel
+            const showDetail = () => {
+                const statusText = isUnlocked ? `<span style="color:${bc.main};">✓ UNLOCKED</span>` :
+                    isAvailable ? `<span style="color:#80ff80;">⬆ AVAILABLE</span>` :
+                    `<span style="opacity:0.4;">🔒 Locked</span>`;
+                detailPanel.innerHTML = `
+                    <div style="font-size:1.5em; width:32px; text-align:center;">${node.icon}</div>
+                    <div style="flex:1;">
+                        <div style="color:${bc.main}; font-weight:bold; font-size:0.95em;">${node.name} ${statusText}</div>
+                        <div style="color:rgba(255,255,255,0.55); font-size:0.8em; margin-top:1px;">${node.desc}</div>
+                    </div>
+                `;
+            };
+
+            // Create invisible hitbox for better hover/click
+            const hitbox = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            hitbox.setAttribute('cx', pos.x); hitbox.setAttribute('cy', pos.y);
+            hitbox.setAttribute('r', size + 6); hitbox.setAttribute('fill', 'transparent');
+            hitbox.setAttribute('style', 'cursor:' + (isAvailable ? 'pointer' : 'default'));
+            g.appendChild(hitbox);
+
+            hitbox.addEventListener('mouseenter', () => {
+                showDetail();
+                if (isAvailable) {
+                    diamond.setAttribute('stroke-width', isCapstone ? '2.5' : '2');
+                    diamond.setAttribute('fill', bc.main + '35');
+                }
+            });
+            hitbox.addEventListener('mouseleave', () => {
+                if (isAvailable) {
+                    diamond.setAttribute('stroke-width', isCapstone ? '1.5' : '1');
+                    diamond.setAttribute('fill', bc.main + '20');
+                }
+            });
+
+            if (isAvailable) {
+                hitbox.addEventListener('click', () => {
+                    GS.unlockedNodes.push(node.id);
+                    node.effect(GS);
+                    log(`🌟 ${node.name}: ${node.desc}`, 'info');
+                    updateStats();
+                    callback();
+                });
+            }
+
+            // Touch support
+            let tapped = false;
+            hitbox.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                showDetail();
+                if (isAvailable && tapped) {
+                    GS.unlockedNodes.push(node.id);
+                    node.effect(GS);
+                    log(`🌟 ${node.name}: ${node.desc}`, 'info');
+                    updateStats();
+                    callback();
+                }
+                tapped = isAvailable;
+            });
+
+            svg.appendChild(g);
+        });
+
+        wrapper.appendChild(svg);
+        c.appendChild(wrapper);
+        show('screen-reward');
+    },
+
+    showMergeSelection(callback) {
+        $('reward-title').textContent = '🔥 Dice Forge — Select 2 Dice';
+        const c = $('reward-cards');
+        c.innerHTML = '';
+        const selected = [];
+
+        const previewDiv = document.createElement('div');
+        previewDiv.style.cssText = 'text-align:center; margin-bottom:16px; min-height:40px; font-family:JetBrains Mono, monospace; color:var(--gold);';
+        previewDiv.id = 'merge-preview';
+        c.appendChild(previewDiv);
+
+        const grid = document.createElement('div');
+        grid.style.cssText = 'display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-bottom:16px;';
+        GS.dice.forEach(die => {
+            const el = document.createElement('div');
+            el.className = 'die'; el.style.cursor = 'pointer'; el.style.width = '70px'; el.style.height = '70px'; el.style.fontSize = '1.1em';
+            const facesStr = die.faces.length > 0 ? ` ${die.faces.map(f => f.modifier.icon).join('')}` : '';
+            el.innerHTML = `<span class="die-label">${die.min}-${die.max}</span>d${die.sides}${facesStr}`;
+            el.onclick = () => {
+                const idx = selected.indexOf(die);
+                if (idx >= 0) { selected.splice(idx, 1); el.style.borderColor = ''; el.style.boxShadow = ''; }
+                else if (selected.length < 2) { selected.push(die); el.style.borderColor = 'var(--gold)'; el.style.boxShadow = '0 0 12px var(--gold)'; }
+                updatePreview();
+            };
+            grid.appendChild(el);
+        });
+        c.appendChild(grid);
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.className = 'btn'; confirmBtn.textContent = 'Forge These Dice';
+        confirmBtn.disabled = true; confirmBtn.style.opacity = '0.5';
+        confirmBtn.onclick = () => { if (selected.length === 2) Rewards.showForgeScreen(selected[0], selected[1], callback); };
+        c.appendChild(confirmBtn);
+
+        function updatePreview() {
+            const preview = $('merge-preview');
+            if (selected.length === 2) {
+                const [d1, d2] = selected;
+                const nMin = d1.min + d2.min, nMax = d1.max + d2.max, st = (nMax - nMin) / 5;
+                const vals = Array.from({length: 6}, (_, i) => Math.round(nMin + st * i));
+                const tf = d1.faces.length + d2.faces.length;
+                preview.innerHTML = `[${d1.min}-${d1.max}] + [${d2.min}-${d2.max}] → <strong>[${nMin}-${nMax}]</strong> d6<br><span style="font-size:0.85em; opacity:0.7;">Values: ${vals.join(', ')} | ${tf} source face(s)</span>`;
+                confirmBtn.disabled = false; confirmBtn.style.opacity = '1';
+            } else if (selected.length === 1) {
+                preview.textContent = `Selected: [${selected[0].min}-${selected[0].max}] — pick one more`;
+                confirmBtn.disabled = true; confirmBtn.style.opacity = '0.5';
+            } else {
+                preview.textContent = 'Click 2 dice to forge'; confirmBtn.disabled = true; confirmBtn.style.opacity = '0.5';
+            }
+        }
+        updatePreview();
+        show('screen-reward');
+    },
+
+    showForgeScreen(d1, d2, callback) {
+        $('reward-title').textContent = '🔥 Forge — Map Faces to New Die';
+        const c = $('reward-cards');
+        c.innerHTML = '';
+
+        const newMin = d1.min + d2.min, newMax = d1.max + d2.max;
+        const step = (newMax - newMin) / 5;
+        const newValues = Array.from({length: 6}, (_, i) => Math.round(newMin + step * i));
+
+        // Each slot holds up to 2 source faces
+        const slots = newValues.map(v => ({ value: v, faces: [] }));
+        // Source pool with unique IDs
+        const sourcePool = [];
+        d1.faces.forEach((f, i) => sourcePool.push({ id: 'a' + i, mod: { ...f.modifier }, fromDie: d1, assigned: -1 }));
+        d2.faces.forEach((f, i) => sourcePool.push({ id: 'b' + i, mod: { ...f.modifier }, fromDie: d2, assigned: -1 }));
+
+        let selectedSrc = null;
+
+        const info = document.createElement('div');
+        info.style.cssText = 'text-align:center; margin-bottom:8px; font-family:EB Garamond, serif; color:var(--text-dim); font-size:0.85em;';
+        info.innerHTML = `Forging: <strong style="color:var(--gold)">[${newMin}-${newMax}]</strong> d6<br>Click a source face, then a die slot to assign. 2× same modifier on one slot = doubled effect.`;
+        c.appendChild(info);
+
+        const poolLabel = document.createElement('div');
+        poolLabel.style.cssText = 'font-family:JetBrains Mono, monospace; font-size:0.7em; color:var(--text-dim); margin:8px 0 4px; text-align:center;';
+        poolLabel.textContent = 'SOURCE FACES — click to select';
+        c.appendChild(poolLabel);
+        const poolDiv = document.createElement('div');
+        poolDiv.style.cssText = 'display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:12px; min-height:50px;';
+        c.appendChild(poolDiv);
+
+        const slotLabel = document.createElement('div');
+        slotLabel.style.cssText = 'font-family:JetBrains Mono, monospace; font-size:0.7em; color:var(--text-dim); margin:4px 0; text-align:center;';
+        slotLabel.textContent = 'NEW DIE FACES — click to assign or remove';
+        c.appendChild(slotLabel);
+        const slotsDiv = document.createElement('div');
+        slotsDiv.style.cssText = 'display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:16px;';
+        c.appendChild(slotsDiv);
+
+        const forgeBtn = document.createElement('button');
+        forgeBtn.className = 'btn';
+        forgeBtn.textContent = 'Complete Forge';
+        forgeBtn.style.cssText = 'display:block; margin:0 auto;';
+        forgeBtn.onclick = () => {
+            GS.dice = GS.dice.filter(d => d.id !== d1.id && d.id !== d2.id);
+            const merged = createDie(newMin, newMax, 6);
+            slots.forEach(slot => {
+                if (slot.faces.length === 0) return;
+                if (slot.faces.length === 1) {
+                    merged.faces.push({ faceValue: slot.value, modifier: { ...slot.faces[0] } });
+                } else if (slot.faces.length === 2) {
+                    const [a, b] = slot.faces;
+                    if (a.effect === b.effect) {
+                        const doubled = { ...a, value: a.value + b.value, name: a.name + ' ×2' };
+                        merged.faces.push({ faceValue: slot.value, modifier: doubled });
+                    } else {
+                        merged.faces.push({ faceValue: slot.value, modifier: { ...a } });
+                    }
+                }
+            });
+            GS.dice.push(merged);
+            const fs = merged.faces.length > 0 ? ` [${merged.faces.map(f => f.faceValue + ':' + f.modifier.icon).join(' ')}]` : '';
+            log(`🔥 Forged: [${newMin}-${newMax}] d6${fs}`, 'info');
+            updateStats();
+            callback();
+        };
+        c.appendChild(forgeBtn);
+
+        function render() {
+            poolDiv.innerHTML = '';
+            const unassigned = sourcePool.filter(s => s.assigned < 0);
+            if (unassigned.length === 0) {
+                poolDiv.innerHTML = `<div style="color:var(--text-dim); font-size:0.8em; padding:12px;">${sourcePool.length > 0 ? 'All faces assigned!' : 'No source faces — plain die'}</div>`;
+            }
+            unassigned.forEach(src => {
+                const el = document.createElement('div');
+                const isSel = selectedSrc === src.id;
+                el.style.cssText = `width:58px; height:58px; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; border:2px solid ${isSel ? 'var(--gold)' : src.mod.color}; background:${isSel ? 'rgba(212,165,52,0.2)' : 'rgba(0,0,0,0.3)'}; box-shadow:${isSel ? '0 0 10px var(--gold)' : 'none'}; transition:all 0.15s;`;
+                el.innerHTML = `<span style="font-size:1.2em;">${src.mod.icon}</span><span style="font-size:0.5em; opacity:0.6; text-align:center;">${src.mod.name}</span>`;
+                el.title = `${src.mod.name}: ${src.mod.desc} (from [${src.fromDie.min}-${src.fromDie.max}])`;
+                el.onclick = () => { selectedSrc = selectedSrc === src.id ? null : src.id; render(); };
+                poolDiv.appendChild(el);
+            });
+
+            slotsDiv.innerHTML = '';
+            slots.forEach((slot, si) => {
+                const el = document.createElement('div');
+                const has = slot.faces.length > 0;
+                let content = `<div style="font-size:0.65em; opacity:0.4;">val ${slot.value}</div>`;
+                if (slot.faces.length === 0) {
+                    content += `<div style="font-size:1.1em; opacity:0.25;">—</div>`;
+                } else if (slot.faces.length === 1) {
+                    content += `<div style="font-size:1.2em;">${slot.faces[0].icon}</div><div style="font-size:0.45em; color:${slot.faces[0].color};">${slot.faces[0].name}</div>`;
+                } else {
+                    const [a, b] = slot.faces;
+                    if (a.effect === b.effect) {
+                        content += `<div style="font-size:1.2em;">${a.icon}×2</div><div style="font-size:0.45em; color:var(--gold);">DOUBLED</div>`;
+                    } else {
+                        content += `<div style="font-size:0.9em;">${a.icon}+${b.icon}</div><div style="font-size:0.45em; color:var(--red-bright);">keeps first</div>`;
+                    }
+                }
+                el.style.cssText = `width:68px; height:72px; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; border:2px solid ${has ? 'var(--gold)' : 'rgba(255,255,255,0.12)'}; background:${has ? 'rgba(212,165,52,0.08)' : 'rgba(0,0,0,0.3)'}; transition:all 0.15s;`;
+                el.innerHTML = content;
+                el.onclick = () => {
+                    if (selectedSrc !== null && slot.faces.length < 2) {
+                        const src = sourcePool.find(s => s.id === selectedSrc);
+                        if (src) { slot.faces.push({ ...src.mod }); src.assigned = si; selectedSrc = null; }
+                    } else if (slot.faces.length > 0 && selectedSrc === null) {
+                        const removed = slot.faces.pop();
+                        for (let j = sourcePool.length - 1; j >= 0; j--) {
+                            if (sourcePool[j].assigned === si && sourcePool[j].mod.effect === removed.effect) { sourcePool[j].assigned = -1; break; }
+                        }
+                    }
+                    render();
+                };
+                slotsDiv.appendChild(el);
+            });
+        }
+        render();
+        show('screen-reward');
+    },
+
+
+    showRuneSelection(callback, canAtk, canDef) {
+        $('reward-title').textContent = '🔮 Sacrifice Slot — Choose a Rune';
+        const c = $('reward-cards');
+        c.innerHTML = '';
+
+        // Step 1: Pick slot type
+        const info = document.createElement('div');
+        info.style.cssText = 'text-align:center; margin-bottom:16px; color: var(--text-dim); font-family: EB Garamond, serif;';
+        info.textContent = 'Choose a slot type to sacrifice, then pick a rune.';
+        c.appendChild(info);
+
+        let selectedSlotType = null;
+        const runeGrid = document.createElement('div');
+        runeGrid.style.cssText = 'display:flex; flex-wrap:wrap; gap:10px; justify-content:center;';
+
+        const renderRunes = (slotType) => {
+            selectedSlotType = slotType;
+            runeGrid.innerHTML = '';
+            const available = [...RUNES[slotType], ...RUNES.either];
+
+            available.forEach(rune => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.width = '140px';
+                card.innerHTML = `
+                    <div class="card-title">${rune.icon} ${rune.name}</div>
+                    <div class="card-desc">${rune.desc}</div>
+                    <div class="card-effect" style="color:var(--text-dim); font-size:0.8em; margin-top:4px;">Costs 1 ${slotType} slot</div>
+                `;
+                card.onclick = () => {
+                    GS.runes[slotType].push({ ...rune });
+                    const effective = GS.slots[slotType] - GS.runes[slotType].length;
+                    log(`🔮 ${rune.icon} ${rune.name} inscribed! (${effective} usable ${slotType} slots remain)`, 'info');
+                    updateStats();
+                    callback();
+                };
+                runeGrid.appendChild(card);
+            });
+        };
+
+        // Slot type buttons
+        const btnRow = document.createElement('div');
+        btnRow.style.cssText = 'display:flex; gap:12px; justify-content:center; margin-bottom:16px;';
+
+        if (canAtk) {
+            const atkBtn = document.createElement('button');
+            atkBtn.className = 'btn';
+            const atkEffective = GS.slots.attack - GS.runes.attack.length;
+            atkBtn.innerHTML = `⚔️ Attack Slot (${atkEffective} usable)`;
+            atkBtn.onclick = () => renderRunes('attack');
+            btnRow.appendChild(atkBtn);
+        }
+        if (canDef) {
+            const defBtn = document.createElement('button');
+            defBtn.className = 'btn';
+            const defEffective = GS.slots.defend - GS.runes.defend.length;
+            defBtn.innerHTML = `🛡️ Defend Slot (${defEffective} usable)`;
+            defBtn.onclick = () => renderRunes('defend');
+            btnRow.appendChild(defBtn);
+        }
+
+        c.appendChild(btnRow);
+        c.appendChild(runeGrid);
+
+        // Default to first available
+        if (canAtk) renderRunes('attack');
+        else renderRunes('defend');
+
+        show('screen-reward');
+    },
+
+    show() {
+        updateStats();
+        $('reward-title').textContent = 'Victory — Choose Your Reward';
+        const c = $('reward-cards');
+        c.innerHTML = '';
+
+        const rewards = [];
+
+        // Dice option — always available, more dice = more to choose from
+        const totalSlots = (GS.slots.attack - GS.runes.attack.length) + (GS.slots.defend - GS.runes.defend.length);
+        rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — you have ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
+            GS.dice.push(createDie(1, 6));
+            log('Added new D6!', 'info');
+            Game.nextFloor();
+        }});
+
+        // Heal
+        const healAmt = Math.min(20, GS.maxHp - GS.hp);
+        if (healAmt > 0) {
+            rewards.push({ title: '❤️ Heal', desc: `Restore ${healAmt} HP`, action: () => {
+                heal(healAmt);
+                log(`Healed ${healAmt} HP`, 'heal');
+                updateStats();
+                Game.nextFloor();
+            }});
+        }
+
+        // Upgrade die
+        rewards.push({ title: '⬆️ Upgrade Die', desc: 'Increase a die\'s range by +1/+1', action: () => {
+            Rewards.showDieUpgrade();
+        }});
+
+        // Gold bonus
+        rewards.push({ title: '💰 Loot', desc: `Gain ${20 + GS.floor * 5} gold`, action: () => {
+            const g = gainGold(20 + GS.floor * 5);
+            log(`+${g} gold`, 'info');
+            updateStats();
+            Game.nextFloor();
+        }});
+
+        // Sacrifice 3 dice for +1 slot (only if 5+ dice)
+        if (GS.dice.length >= 5) {
+            rewards.push({ title: '🔨 Sacrifice Dice', desc: `Destroy 3 dice → +1 Attack or Defend slot (${GS.dice.length} dice)`, action: () => {
+                Rewards.showDiceSacrifice(() => Game.nextFloor());
+            }});
+        }
+
+        rewards.forEach(r => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `<div class="card-title">${r.title}</div><div class="card-desc">${r.desc}</div>`;
+            card.onclick = r.action;
+            c.appendChild(card);
+        });
+
+        show('screen-reward');
+    },
+
+    showDieUpgrade() {
+        $('reward-title').textContent = 'Choose a Die to Upgrade';
+        const c = $('reward-cards');
+        c.innerHTML = '';
+
+        GS.dice.forEach((die, i) => {
+            const canUp = die.max < 12;
+            const card = document.createElement('div');
+            card.className = 'card' + (canUp ? '' : ' disabled');
+            card.innerHTML = renderDieCard(die, i, {
+                extraDesc: canUp ? `<div class="card-effect" style="text-align:center;">→ ${die.min+1}–${die.max+1}</div>` : '<div class="card-effect" style="text-align:center; color:var(--text-dim);">Max level</div>'
+            });
+            if (canUp) {
+                card.onclick = () => {
+                    upgradeDie(die);
+                    log(`Upgraded die to ${die.min}-${die.max}!`, 'info');
+                    Game.nextFloor();
+                };
+            }
+            c.appendChild(card);
+        });
+
+        // Back
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => Rewards.show();
+        c.appendChild(back);
+
+        show('screen-reward');
+    },
+
+    showDiceSacrifice(callback) {
+        $('reward-title').textContent = '🔨 Sacrifice Dice — Select 3 to Destroy';
+        const c = $('reward-cards');
+        c.innerHTML = '';
+
+        const selected = [];
+
+        const info = document.createElement('div');
+        info.style.cssText = 'text-align:center; margin-bottom:12px; font-family:EB Garamond, serif; color:var(--text-dim); font-size:0.9em;';
+        info.innerHTML = `Destroy 3 dice to gain <strong style="color:var(--gold);">+1 slot</strong> of your choice. Pick wisely — they're gone forever.`;
+        c.appendChild(info);
+
+        const preview = document.createElement('div');
+        preview.style.cssText = 'text-align:center; margin-bottom:8px; font-family:JetBrains Mono, monospace; color:var(--gold); min-height:24px; font-size:0.85em;';
+        preview.textContent = 'Select 3 dice...';
+        c.appendChild(preview);
+
+        const grid = document.createElement('div');
+        grid.style.cssText = 'display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-bottom:16px;';
+
+        GS.dice.forEach((die, idx) => {
+            const el = document.createElement('div');
+            el.className = 'die';
+            el.style.cssText = 'cursor:pointer; width:65px; height:65px; font-size:1em;';
+            const facesStr = die.faces.length > 0 ? ` ${die.faces.map(f => f.modifier.icon).join('')}` : '';
+            el.innerHTML = `<span class="die-label">${die.min}-${die.max}</span>${facesStr}`;
+            el.onclick = () => {
+                const i = selected.indexOf(idx);
+                if (i >= 0) {
+                    selected.splice(i, 1);
+                    el.style.borderColor = '';
+                    el.style.boxShadow = '';
+                } else if (selected.length < 3) {
+                    selected.push(idx);
+                    el.style.borderColor = '#ff4444';
+                    el.style.boxShadow = '0 0 10px rgba(255,60,60,0.5)';
+                }
+                preview.textContent = selected.length < 3
+                    ? `Selected ${selected.length}/3 dice...`
+                    : `3 dice selected — choose slot type below`;
+                slotBtns.style.display = selected.length === 3 ? 'flex' : 'none';
+            };
+            grid.appendChild(el);
+        });
+        c.appendChild(grid);
+
+        // Slot type choice (only shows after 3 selected)
+        const slotBtns = document.createElement('div');
+        slotBtns.style.cssText = 'display:none; gap:12px; justify-content:center; margin-top:8px;';
+
+        const atkEff = GS.slots.attack - GS.runes.attack.length;
+        const defEff = GS.slots.defend - GS.runes.defend.length;
+
+        const makeBtn = (label, type) => {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-primary';
+            btn.innerHTML = label;
+            btn.onclick = () => {
+                // Remove selected dice (sort descending to keep indices valid)
+                selected.sort((a, b) => b - a).forEach(i => GS.dice.splice(i, 1));
+                if (type === 'attack') GS.slots.attack++;
+                else GS.slots.defend++;
+                log(`🔨 Sacrificed 3 dice for +1 ${type} slot!`, 'info');
+                updateStats();
+                callback();
+            };
+            return btn;
+        };
+        slotBtns.appendChild(makeBtn(`⚔️ +1 Attack Slot (${atkEff} usable)`, 'attack'));
+        slotBtns.appendChild(makeBtn(`🛡️ +1 Defend Slot (${defEff} usable)`, 'defend'));
+        c.appendChild(slotBtns);
+
+        // Back button
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.style.cssText = 'margin-top:8px; max-width:120px; margin-left:auto; margin-right:auto;';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => Rewards.show();
+        c.appendChild(back);
+
+        show('screen-reward');
+    },
+
+    artifactChoice(thenReward = false) {
+        updateStats();
+        $('reward-title').textContent = '✨ Artifact Drop';
+        const c = $('reward-cards');
+        c.innerHTML = '';
+
+        const owned = new Set(GS.artifacts.map(a => a.name));
+        let available = ARTIFACT_POOL.filter(a => !owned.has(a.name));
+        if (available.length < 3) available = [...ARTIFACT_POOL]; // allow dupes if needed
+        const choices = shuffle(available).slice(0, 3);
+
+        const afterPick = () => { updateStats(); if (thenReward) Rewards.show(); else Game.nextFloor(); };
+
+        choices.forEach(art => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="card-title">${art.icon} ${art.name}</div>
+                <div class="card-desc">${art.desc}</div>
+            `;
+            card.onclick = () => {
+                GS.artifacts.push(art);
+                if (art.effect === 'permArmor') GS.buffs.armor += art.value;
+                log(`Acquired ${art.name}!`, 'info');
+                afterPick();
+            };
+            c.appendChild(card);
+        });
+
+        // Also offer a random rune if the player has slots to sacrifice
+        const effectiveAtk = GS.slots.attack - GS.runes.attack.length;
+        const effectiveDef = GS.slots.defend - GS.runes.defend.length;
+        const runePool = [];
+        const ownedRuneKeys = new Set([
+            ...GS.runes.attack.map(r => r.effect + ':attack'),
+            ...GS.runes.defend.map(r => r.effect + ':defend'),
+        ]);
+        if (effectiveAtk >= 2) {
+            RUNES.attack.forEach(r => { if (!ownedRuneKeys.has(r.effect+':attack')) runePool.push({ rune: r, slotType: 'attack' }); });
+            RUNES.either.forEach(r => { if (!ownedRuneKeys.has(r.effect+':attack')) runePool.push({ rune: r, slotType: 'attack' }); });
+        }
+        if (effectiveDef >= 2) {
+            RUNES.defend.forEach(r => { if (!ownedRuneKeys.has(r.effect+':defend')) runePool.push({ rune: r, slotType: 'defend' }); });
+            RUNES.either.forEach(r => { if (!ownedRuneKeys.has(r.effect+':defend')) runePool.push({ rune: r, slotType: 'defend' }); });
+        }
+        if (runePool.length > 0) {
+            const pick = runePool[Math.floor(Math.random() * runePool.length)];
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.style.borderColor = '#8040a0';
+            card.innerHTML = `
+                <div class="card-title" style="color:#c080ff;">${pick.rune.icon} ${pick.rune.name}</div>
+                <div class="card-desc">RUNE (${pick.slotType}) — ${pick.rune.desc}<br><span style="color:#ff8080; font-size:0.85em;">Sacrifices 1 ${pick.slotType} slot</span></div>
+            `;
+            card.onclick = () => {
+                GS.runes[pick.slotType].push({ ...pick.rune });
+                log(`Inscribed ${pick.rune.name} on ${pick.slotType}! ${pick.rune.desc}`, 'info');
+                afterPick();
+            };
+            c.appendChild(card);
+        }
+
+        show('screen-reward');
+    }
+};
+
+// ════════════════════════════════════════════════════════════
+//  SHOP
+// ════════════════════════════════════════════════════════════
+const Shop = {
+    items: [],
+    purchased: new Set(),
+    refreshCount: 0,
+
+    enter() {
+        Shop.purchased = new Set();
+        Shop.refreshCount = 0;
+        Shop.generateItems();
+        Shop.render();
+        show('screen-shop');
+    },
+
+    generateItems() {
+        let discount = GS.artifacts.filter(a => a.effect === 'shopDiscount').reduce((s, a) => s + a.value, 0);
+        if (GS.passives.shopDiscount) discount += GS.passives.shopDiscount;
+        const applyDiscount = p => Math.floor(p * (1 - Math.min(discount, 0.5)));
+        const totalSlots = (GS.slots.attack - GS.runes.attack.length) + (GS.slots.defend - GS.runes.defend.length);
+
+        const all = [
+            { title: '🎲 Weighted Die', desc: `A die that rolls 2-7 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 35, type: 'DICE',
+              effect: 'Adds 2-7 die to your pool',
+              action: () => { GS.dice.push(createDie(2, 7)); log('Bought Weighted Die (2-7)!', 'info'); } },
+            { title: '💎 Power Die', desc: `A die that rolls 4-9 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 80, type: 'DICE',
+              effect: 'Adds 4-9 die to your pool',
+              action: () => { GS.dice.push(createDie(4, 9)); log('Bought Power Die (4-9)!', 'info'); } },
+            { title: '⚔️ Blade Oil', desc: 'Permanent damage boost', price: 25, type: 'BUFF',
+              effect: '+3 attack damage', action: () => { GS.buffs.damageBoost += 3; log('+3 damage!', 'info'); } },
+            { title: '🛡️ Iron Plate', desc: 'Permanent damage reduction', price: 30, type: 'BUFF',
+              effect: '+2 armor', action: () => { GS.buffs.armor += 2; log('+2 armor!', 'info'); } },
+            { title: '❤️ Health Potion', desc: 'Restore vitality', price: 20, type: 'CONSUMABLE',
+              effect: 'Heal 25 HP', action: () => { const h = heal(25); log(`Healed ${h} HP`, 'heal'); } },
+            { title: '💪 Vitality Gem', desc: 'Increase your maximum', price: 35, type: 'BUFF',
+              effect: '+12 Max HP', action: () => { GS.maxHp += 12; GS.hp += 12; log('+12 Max HP!', 'heal'); } },
+            { title: '⬆️ Die Upgrade', desc: 'Improve one die\'s range', price: 50, type: 'UPGRADE',
+              effect: '+1/+1 to a die', action: () => { Shop.showUpgrade(); return false; } },
+        ];
+
+        // Face trim (only if player has dice with 4+ faces)
+        const hasTrimmable = GS.dice.some(d => d.faceValues && d.faceValues.length > 3);
+        if (hasTrimmable) {
+            all.push({
+                title: '✂️ Face Trim', desc: 'Remove a face from a die (d6→d5)', price: 40, type: 'SERVICE',
+                effect: 'Reduce die sides, increase consistency', action: () => { Shop.showFaceRemoval(); return false; }
+            });
+        }
+
+        // Late-game expensive power items (Act 2+)
+        if (GS.act >= 2) {
+            all.push(
+                { title: '⚡ Titan Die', desc: 'A die that rolls 6-11', price: 150, type: 'DICE',
+                  effect: 'Adds 6-11 die to your pool',
+                  action: () => { GS.dice.push(createDie(6, 11)); log('Bought Titan Die (6-11)!', 'info'); } },
+                { title: '🗡️ Vorpal Edge', desc: 'Massive permanent boost', price: 120, type: 'BUFF',
+                  effect: '+6 attack damage', action: () => { GS.buffs.damageBoost += 6; log('+6 damage!', 'info'); } },
+                { title: '🏰 Fortress', desc: 'Major defense upgrade', price: 100, type: 'BUFF',
+                  effect: '+4 armor, +15 Max HP', action: () => { GS.buffs.armor += 4; GS.maxHp += 15; GS.hp += 15; log('+4 armor, +15 Max HP!', 'heal'); } },
+            );
+        }
+
+        // Add face mod offerings
+        const mods = shuffle([...FACE_MODS]).slice(0, 2);
+        mods.forEach(mod => {
+            all.push({
+                title: `${mod.icon} ${mod.name} Face`, desc: `Add to any die face`, price: 35,
+                type: 'FACE MOD', effect: mod.desc,
+                action: () => { Shop.showFaceModPurchase(mod); return false; },
+                modifier: mod
+            });
+        });
+
+        // ── RUNE OFFERINGS ──
+        // Gather all runes, pick 1-2 random ones
+        const effectiveAtk = GS.slots.attack - GS.runes.attack.length;
+        const effectiveDef = GS.slots.defend - GS.runes.defend.length;
+        const allRunes = [];
+        if (effectiveAtk >= 2) {
+            RUNES.attack.forEach(r => allRunes.push({ rune: r, slotType: 'attack' }));
+            RUNES.either.forEach(r => allRunes.push({ rune: r, slotType: 'attack' }));
+        }
+        if (effectiveDef >= 2) {
+            RUNES.defend.forEach(r => allRunes.push({ rune: r, slotType: 'defend' }));
+            RUNES.either.forEach(r => allRunes.push({ rune: r, slotType: 'defend' }));
+        }
+        // Remove runes already owned with same effect+slot
+        const ownedRuneKeys = new Set([
+            ...GS.runes.attack.map(r => r.effect + ':attack'),
+            ...GS.runes.defend.map(r => r.effect + ':defend'),
+        ]);
+        const availableRunes = allRunes.filter(r => !ownedRuneKeys.has(r.rune.effect + ':' + r.slotType));
+        const runeOffers = shuffle(availableRunes).slice(0, GS.act >= 2 ? 2 : 1);
+        runeOffers.forEach(({ rune, slotType }) => {
+            const price = GS.act >= 2 ? 80 : 100;
+            all.push({
+                title: `${rune.icon} ${rune.name}`, desc: `Rune (${slotType}) — sacrifices 1 ${slotType} slot`, price,
+                type: 'RUNE', effect: rune.desc,
+                action: () => {
+                    GS.runes[slotType].push({ ...rune });
+                    log(`Inscribed ${rune.name} on ${slotType} slot! ${rune.desc}`, 'info');
+                },
+            });
+        });
+
+        Shop.items = shuffle(all).slice(0, 6).map(item => ({
+            ...item,
+            price: applyDiscount(item.price)
+        }));
+    },
+
+    render() {
+        updateStats();
+        const c = $('shop-cards');
+        c.innerHTML = '';
+
+        Shop.items.forEach((item, i) => {
+            const bought = Shop.purchased.has(i);
+            const canBuy = GS.gold >= item.price && !bought && !item.disabled;
+            const card = document.createElement('div');
+            card.className = 'card' + (canBuy ? '' : ' disabled');
+            card.innerHTML = `
+                <div class="card-title">${item.title}</div>
+                <div class="card-desc">${item.desc}</div>
+                <div class="card-effect">${item.effect}</div>
+                <div class="card-price">${bought ? '✓ SOLD' : item.price + ' gold'}</div>
+            `;
+            if (canBuy) {
+                card.onclick = () => {
+                    GS.gold -= item.price;
+                    Shop.purchased.add(i);
+                    const result = item.action();
+                    if (result !== false) {
+                        updateStats();
+                        Shop.render();
+                    }
+                };
+            }
+            c.appendChild(card);
+        });
+
+        // Refresh button
+        const isFreeRefresh = GS.passives.freeRefresh && Shop.refreshCount === 0;
+        const refreshCost = isFreeRefresh ? 0 : 15 + Shop.refreshCount * 10;
+        const canRefresh = GS.gold >= refreshCost;
+        const refreshCard = document.createElement('div');
+        refreshCard.className = 'card' + (canRefresh ? '' : ' disabled');
+        refreshCard.style.borderColor = canRefresh ? 'var(--gold)' : '';
+        refreshCard.innerHTML = `
+            <div class="card-title">🔄 Refresh Shop</div>
+            <div class="card-desc">Reroll all offerings</div>
+            <div class="card-price">${isFreeRefresh ? '✨ FREE' : refreshCost + ' gold'}</div>
+        `;
+        if (canRefresh) {
+            refreshCard.onclick = () => {
+                GS.gold -= refreshCost;
+                Shop.refreshCount++;
+                Shop.purchased = new Set();
+                Shop.generateItems();
+                updateStats();
+                Shop.render();
+                log(`🔄 Shop refreshed!${refreshCost > 0 ? ` (-${refreshCost} gold)` : ' (free!)'}`, 'info');
+            };
+        }
+        c.appendChild(refreshCard);
+    },
+
+    showUpgrade() {
+        const c = $('shop-cards');
+        c.innerHTML = '';
+
+        GS.dice.forEach((die, i) => {
+            const canUp = die.max < 12;
+            const card = document.createElement('div');
+            card.className = 'card' + (canUp ? '' : ' disabled');
+            card.innerHTML = renderDieCard(die, i, {
+                extraDesc: canUp ? `<div class="card-effect" style="text-align:center;">→ ${die.min+1}–${die.max+1}</div>` : '<div class="card-effect" style="text-align:center; color:var(--text-dim);">Max level</div>'
+            });
+            if (canUp) {
+                card.onclick = () => {
+                    upgradeDie(die);
+                    log(`Upgraded die to ${die.min}-${die.max}!`, 'info');
+                    updateStats(); Shop.render();
+                };
+            }
+            c.appendChild(card);
+        });
+
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => Shop.render();
+        c.appendChild(back);
+    },
+
+    showFaceModPurchase(mod) {
+        // Pick die → pick face → apply
+        const c = $('shop-cards');
+        c.innerHTML = '';
+        const title = document.createElement('div');
+        title.className = 'section-title';
+        title.innerHTML = `Apply ${mod.icon} ${mod.name} — Choose a Die`;
+        c.parentNode.insertBefore(title, c);
+
+        GS.dice.forEach((die, i) => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = renderDieCard(die, i);
+            card.onclick = () => { if (title.parentNode) title.remove(); Shop.showFaceSlot(die, mod); };
+            c.appendChild(card);
+        });
+
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => { if (title.parentNode) title.remove(); Shop.render(); };
+        c.appendChild(back);
+    },
+
+    showFaceSlot(die, mod) {
+        const c = $('shop-cards');
+        c.innerHTML = '';
+
+        // Show the die's face strip at top for context
+        const preview = document.createElement('div');
+        preview.style.cssText = 'text-align:center; margin-bottom:12px; padding:10px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px;';
+        preview.innerHTML = `<div style="font-family:Uncial Antiqua,cursive; color:var(--gold); margin-bottom:6px;">d${die.faceValues.length}: ${die.min}–${die.max}</div>
+            <div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center;">${renderFaceStrip(die)}</div>`;
+        c.appendChild(preview);
+
+        die.faceValues.forEach(v => {
+            const existing = die.faces.find(f => f.faceValue === v);
+            const card = document.createElement('div');
+            card.className = 'card';
+            const faceHtml = renderFaceStrip(die, { highlightVal: v, showArrow: true, arrowMod: mod });
+            card.innerHTML = `
+                <div class="card-title" style="display:flex; align-items:center; gap:8px; justify-content:center;">
+                    <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">${v}</span>
+                    ${existing ? `<span style="font-size:0.8em;">${existing.modifier.icon} ${existing.modifier.name}</span>` : '<span style="font-size:0.8em; opacity:0.4;">Empty</span>'}
+                    <span style="color:var(--green-bright);">→ ${mod.icon} ${mod.name}</span>
+                </div>
+            `;
+            card.onclick = () => {
+                die.faces = die.faces.filter(f => f.faceValue !== v);
+                die.faces.push({ faceValue: v, modifier: mod });
+                log(`Applied ${mod.name} to face ${v}!`, 'info');
+                updateStats(); Shop.render();
+            };
+            c.appendChild(card);
+        });
+
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => Shop.showFaceModPurchase(mod);
+        c.appendChild(back);
+    },
+
+    leave() {
+        Game.nextFloor();
+    },
+
+    showFaceRemoval() {
+        const c = $('shop-cards');
+        c.innerHTML = '';
+
+        const info = document.createElement('div');
+        info.style.cssText = 'text-align:center; margin-bottom:12px; font-family:EB Garamond, serif; color:var(--text-dim); font-size:0.9em;';
+        info.innerHTML = 'Choose a die, then pick a face value to <strong style="color:#ff6666;">permanently remove</strong>. The die loses one side.';
+        c.appendChild(info);
+
+        // Show dice that can be trimmed (minimum d3)
+        const trimmable = GS.dice.filter(d => d.faceValues.length > 3);
+        if (trimmable.length === 0) {
+            const msg = document.createElement('div');
+            msg.style.cssText = 'text-align:center; color:var(--text-dim); padding:20px;';
+            msg.textContent = 'No dice can be trimmed further (minimum 3 faces).';
+            c.appendChild(msg);
+        } else {
+            trimmable.forEach((die, di) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = renderDieCard(die, di);
+                card.onclick = () => Shop.showFaceTrimChoice(die);
+                c.appendChild(card);
+            });
+        }
+
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => Shop.render();
+        c.appendChild(back);
+    },
+
+    showFaceTrimChoice(die) {
+        const c = $('shop-cards');
+        c.innerHTML = '';
+
+        const info = document.createElement('div');
+        info.style.cssText = 'text-align:center; margin-bottom:12px; font-family:EB Garamond, serif; color:var(--text-dim); font-size:0.9em;';
+        info.innerHTML = `d${die.faceValues.length} → d${die.faceValues.length - 1} — Pick a face to <strong style="color:#ff6666;">remove</strong>:`;
+        c.appendChild(info);
+
+        // Show current die faces for reference
+        const preview = document.createElement('div');
+        preview.style.cssText = 'text-align:center; margin-bottom:12px; padding:8px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px;';
+        preview.innerHTML = `<div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center;">${renderFaceStrip(die)}</div>`;
+        c.appendChild(preview);
+
+        die.faceValues.forEach((val, idx) => {
+            const mod = die.faces.find(f => f.faceValue === val);
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="card-title" style="color:#ff6666; display:flex; align-items:center; gap:8px; justify-content:center;">
+                    <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">✂️ ${val}</span>
+                    ${mod ? `<span style="font-size:0.85em;">${mod.modifier.icon} ${mod.modifier.name} — also lost!</span>` : ''}
+                </div>
+                <div class="card-desc" style="text-align:center;">Die becomes d${die.faceValues.length - 1}</div>
+            `;
+            card.onclick = () => {
+                die.faceValues.splice(idx, 1);
+                die.sides = die.faceValues.length;
+                die.min = Math.min(...die.faceValues);
+                die.max = Math.max(...die.faceValues);
+                // Remove any modifier on that face value
+                die.faces = die.faces.filter(f => f.faceValue !== val);
+                log(`Trimmed face ${val} from die — now d${die.sides} [${die.min}-${die.max}]`, 'info');
+                updateStats();
+                Shop.render();
+            };
+            c.appendChild(card);
+        });
+
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => Shop.showFaceRemoval();
+        c.appendChild(back);
+    }
+};
+
+// ════════════════════════════════════════════════════════════
+//  EVENTS
+// ════════════════════════════════════════════════════════════
+const Events = {
+    pool: [
+        {
+            text: 'A weathered treasure chest sits at a crossroads. The lock is rusted — it could be forced open, but something shifts inside...',
+            choices: [
+                { text: 'Open carefully (+35 gold)', action: () => { const g = gainGold(35); log(`+${g} gold`, 'info'); updateStats(); Game.nextFloor(); }},
+                { text: 'Force it open (50%: +80 gold or -12 HP)', action: () => {
+                    if (Math.random() < 0.5) { const g = gainGold(80); log(`Jackpot! +${g} gold`, 'info'); }
+                    else { GS.hp -= 12; log('Trap! -12 HP', 'damage'); }
+                    updateStats(); Game.nextFloor();
+                }},
+            ]
+        },
+        {
+            text: 'An ancient shrine pulses with dim light. You feel power radiating from its altar — but power always demands a price.',
+            choices: [
+                { text: 'Pray for vitality (+10 Max HP)', action: () => { GS.maxHp += 10; GS.hp += 10; log('+10 Max HP', 'heal'); updateStats(); Game.nextFloor(); }},
+                { text: 'Sacrifice blood for power (-10 HP, upgrade a die)', action: () => {
+                    GS.hp -= 10; updateStats();
+                    Events.showDieUpgrade();
+                }},
+            ]
+        },
+        {
+            text: 'A wandering alchemist offers you a bubbling flask. "Drink," she says, "and accept what fortune gives."',
+            choices: [
+                { text: 'Drink (random: +15 HP, +3 ATK, or -8 HP)', action: () => {
+                    const r = Math.random();
+                    if (r < 0.4) { const h = heal(15); log(`Refreshing! +${h} HP`, 'heal'); }
+                    else if (r < 0.8) { GS.buffs.damageBoost += 3; log('Power surges! +3 ATK', 'info'); }
+                    else { GS.hp -= 8; log('Poison! -8 HP', 'damage'); }
+                    updateStats(); Game.nextFloor();
+                }},
+                { text: 'Decline politely', action: () => { log('You walk on.', 'info'); Game.nextFloor(); }},
+            ]
+        },
+        {
+            text: 'A spectral blacksmith materializes before you. "One die," he whispers. "I can reshape it — make one face extraordinary."',
+            choices: [
+                { text: 'Accept (add a random face modifier to a die)', action: () => {
+                    Events.showFaceModEvent();
+                }},
+                { text: 'Decline (+15 gold instead)', action: () => { const g = gainGold(15); log(`+${g} gold`, 'info'); updateStats(); Game.nextFloor(); }},
+            ]
+        },
+    ],
+
+    enter() {
+        updateStats();
+        const event = pick(Events.pool);
+        const panel = $('event-panel');
+        panel.innerHTML = `<div class="event-text">${event.text}</div>`;
+
+        event.choices.forEach(ch => {
+            const btn = document.createElement('button');
+            btn.className = 'btn';
+            btn.style.cssText = 'width:100%; text-align:left; margin:6px 0; padding:12px 16px;';
+            btn.textContent = ch.text;
+            btn.onclick = ch.action;
+            panel.appendChild(btn);
+        });
+
+        show('screen-event');
+    },
+
+    showDieUpgrade() {
+        const panel = $('event-panel');
+        panel.innerHTML = '<div class="event-text">Choose a die to upgrade:</div><div class="card-grid" id="event-dice-cards"></div>';
+        const c = $('event-dice-cards');
+
+        GS.dice.forEach((die, i) => {
+            const canUp = die.max < 12;
+            const card = document.createElement('div');
+            card.className = 'card' + (canUp ? '' : ' disabled');
+            card.innerHTML = renderDieCard(die, i, {
+                extraDesc: canUp ? `<div class="card-effect" style="text-align:center;">→ ${die.min+1}–${die.max+1}</div>` : '<div class="card-effect" style="text-align:center; color:var(--text-dim);">Max level</div>'
+            });
+            if (canUp) card.onclick = () => { upgradeDie(die); log(`Upgraded to ${die.min}-${die.max}!`, 'info'); updateStats(); Game.nextFloor(); };
+            c.appendChild(card);
+        });
+    },
+
+    showFaceModEvent() {
+        const mod = pick(FACE_MODS);
+        const panel = $('event-panel');
+        panel.innerHTML = `<div class="event-text">The blacksmith offers: <strong style="color:${mod.color}">${mod.icon} ${mod.name}</strong> — ${mod.desc}<br><br>Choose a die:</div><div class="card-grid" id="event-dice-cards"></div>`;
+        const c = $('event-dice-cards');
+
+        GS.dice.forEach((die, i) => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = renderDieCard(die, i);
+            card.onclick = () => Events.pickFaceForMod(die, mod);
+            c.appendChild(card);
+        });
+    },
+
+    pickFaceForMod(die, mod) {
+        const panel = $('event-panel');
+        panel.innerHTML = `<div class="event-text">Choose which face gets <strong style="color:${mod.color}">${mod.icon} ${mod.name}</strong>:</div>`;
+
+        // Show die preview
+        const preview = document.createElement('div');
+        preview.style.cssText = 'text-align:center; margin:8px 0 12px; padding:8px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px;';
+        preview.innerHTML = `<div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center;">${renderFaceStrip(die)}</div>`;
+        panel.appendChild(preview);
+
+        const grid = document.createElement('div');
+        grid.className = 'card-grid';
+        die.faceValues.forEach(v => {
+            const existing = die.faces.find(f => f.faceValue === v);
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="card-title" style="display:flex; align-items:center; gap:8px; justify-content:center;">
+                    <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">${v}</span>
+                    ${existing ? `<span style="font-size:0.85em;">${existing.modifier.icon} ${existing.modifier.name}</span>` : '<span style="font-size:0.85em; opacity:0.4;">Empty</span>'}
+                    <span style="color:var(--green-bright);">→ ${mod.icon} ${mod.name}</span>
+                </div>
+            `;
+            card.onclick = () => {
+                die.faces = die.faces.filter(f => f.faceValue !== v);
+                die.faces.push({ faceValue: v, modifier: mod });
+                log(`Applied ${mod.name} to face ${v}!`, 'info');
+                updateStats(); Game.nextFloor();
+            };
+            grid.appendChild(card);
+        });
+        panel.appendChild(grid);
+    }
+};
+
+// ════════════════════════════════════════════════════════════
+//  REST (between acts)
+// ════════════════════════════════════════════════════════════
+const Rest = {
+    enter() {
+        updateStats();
+        $('rest-title').textContent = `Act ${GS.act - 1} Complete — Rest & Prepare`;
+
+        const content = $('rest-content');
+        content.innerHTML = '';
+
+        // Rest panel
+        const panel = document.createElement('div');
+        panel.className = 'rest-panel';
+        panel.innerHTML = `
+            <h3>A moment of respite...</h3>
+            <p>You find shelter between the dungeon's depths. Choose how to spend your time.</p>
+        `;
+        content.appendChild(panel);
+
+        // Choices
+        const grid = document.createElement('div');
+        grid.className = 'card-grid';
+
+        // Heal
+        const healAmt = Math.floor(GS.maxHp * 0.4);
+        const card1 = document.createElement('div');
+        card1.className = 'card';
+        card1.innerHTML = `<div class="card-title">🔥 Rest by the Fire</div><div class="card-desc">Heal ${healAmt} HP (40% of max)</div>`;
+        card1.onclick = () => {
+            const h = heal(healAmt);
+            log(`Rested: +${h} HP`, 'heal');
+            updateStats();
+            Game.enterFloor();
+        };
+        grid.appendChild(card1);
+
+        // Face trim
+        const hasTrimmable = GS.dice.some(d => d.faceValues && d.faceValues.length > 3);
+        if (hasTrimmable) {
+            const card2 = document.createElement('div');
+            card2.className = 'card';
+            card2.innerHTML = `<div class="card-title">✂️ Trim a Die</div><div class="card-desc">Remove a face from a die (increases consistency)</div>`;
+            card2.onclick = () => Rest.showFaceTrim();
+            grid.appendChild(card2);
+        }
+
+        // Upgrade
+        const card3 = document.createElement('div');
+        card3.className = 'card';
+        card3.innerHTML = `<div class="card-title">⬆️ Train</div><div class="card-desc">Upgrade one die's range +1/+1</div>`;
+        card3.onclick = () => Rest.showUpgrade();
+        grid.appendChild(card3);
+
+        // Dice Merge (only if Forge passive unlocked and 4+ dice)
+        if (GS.passives.canMerge && GS.dice.length >= 4) {
+            const card4 = document.createElement('div');
+            card4.className = 'card';
+            card4.innerHTML = `<div class="card-title">🔥 Forge Merge</div><div class="card-desc">Fuse 2 dice into 1 powerful die</div>`;
+            card4.onclick = () => {
+                Rewards.showMergeSelection(() => Game.enterFloor());
+            };
+            grid.appendChild(card4);
+        }
+
+        // Sacrifice 3 dice for a slot (need 5+ dice)
+        if (GS.dice.length >= 5) {
+            const card5 = document.createElement('div');
+            card5.className = 'card';
+            card5.innerHTML = `<div class="card-title">🔨 Sacrifice Dice</div><div class="card-desc">Destroy 3 dice → +1 Attack or Defend slot (${GS.dice.length} dice)</div>`;
+            card5.onclick = () => {
+                Rewards.showDiceSacrifice(() => Game.enterFloor());
+            };
+            grid.appendChild(card5);
+        }
+
+        content.appendChild(grid);
+        show('screen-rest');
+    },
+
+    showFaceTrim() {
+        const content = $('rest-content');
+        content.innerHTML = '<div class="section-title">✂️ Trim a Die Face</div>';
+        const grid = document.createElement('div');
+        grid.className = 'card-grid';
+
+        const trimmable = GS.dice.filter(d => d.faceValues && d.faceValues.length > 3);
+        trimmable.forEach(die => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = renderDieCard(die, 0);
+            card.onclick = () => Rest.showFaceTrimChoice(die);
+            grid.appendChild(card);
+        });
+
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => Rest.enter();
+        grid.appendChild(back);
+
+        content.appendChild(grid);
+    },
+
+    showFaceTrimChoice(die) {
+        const content = $('rest-content');
+        content.innerHTML = `<div class="section-title">✂️ d${die.faceValues.length} → d${die.faceValues.length - 1} — Pick a face to remove</div>`;
+
+        // Die preview
+        const preview = document.createElement('div');
+        preview.style.cssText = 'text-align:center; margin:8px 0 12px; padding:8px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px;';
+        preview.innerHTML = `<div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center;">${renderFaceStrip(die)}</div>`;
+        content.appendChild(preview);
+
+        const grid = document.createElement('div');
+        grid.className = 'card-grid';
+
+        die.faceValues.forEach((val, idx) => {
+            const mod = die.faces.find(f => f.faceValue === val);
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="card-title" style="color:#ff6666; display:flex; align-items:center; gap:8px; justify-content:center;">
+                    <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">✂️ ${val}</span>
+                    ${mod ? `<span style="font-size:0.85em;">${mod.modifier.icon} ${mod.modifier.name} — also lost!</span>` : ''}
+                </div>
+                <div class="card-desc" style="text-align:center;">Die becomes d${die.faceValues.length - 1}</div>
+            `;
+            card.onclick = () => {
+                die.faceValues.splice(idx, 1);
+                die.sides = die.faceValues.length;
+                die.min = Math.min(...die.faceValues);
+                die.max = Math.max(...die.faceValues);
+                die.faces = die.faces.filter(f => f.faceValue !== val);
+                log(`Trimmed face ${val} — now d${die.sides} [${die.min}-${die.max}]`, 'info');
+                updateStats();
+                Game.enterFloor();
+            };
+            grid.appendChild(card);
+        });
+
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => Rest.showFaceTrim();
+        grid.appendChild(back);
+
+        content.appendChild(grid);
+    },
+
+    showUpgrade() {
+        const content = $('rest-content');
+        content.innerHTML = '<div class="section-title">Upgrade a Die</div>';
+        const grid = document.createElement('div');
+        grid.className = 'card-grid';
+
+        GS.dice.forEach((die, i) => {
+            const canUp = die.max < 12;
+            const card = document.createElement('div');
+            card.className = 'card' + (canUp ? '' : ' disabled');
+            card.innerHTML = renderDieCard(die, i, {
+                extraDesc: canUp ? `<div class="card-effect" style="text-align:center;">→ ${die.min+1}–${die.max+1}</div>` : '<div class="card-effect" style="text-align:center; color:var(--text-dim);">Max level</div>'
+            });
+            if (canUp) card.onclick = () => {
+                upgradeDie(die);
+                log(`Upgraded to ${die.min}-${die.max}!`, 'info');
+                updateStats();
+                Game.enterFloor();
+            };
+            grid.appendChild(card);
+        });
+
+        const back = document.createElement('div');
+        back.className = 'card';
+        back.innerHTML = `<div class="card-title">← Back</div>`;
+        back.onclick = () => Rest.enter();
+        grid.appendChild(back);
+
+        content.appendChild(grid);
+    }
+};
+
+// ════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════
+
+// Prevent right-click context menu on the combat screen
+document.getElementById('screen-combat').addEventListener('contextmenu', e => e.preventDefault());
+
+// ════════════════════════════════════════════════════════════
+//  INVENTORY / BUILD OVERVIEW
+// ════════════════════════════════════════════════════════════
+const Inventory = {
+    visible: false,
+    toggle() {
+        Inventory.visible = !Inventory.visible;
+        const overlay = $('inventory-overlay');
+        if (Inventory.visible) {
+            Inventory.render();
+            overlay.style.display = 'block';
+        } else {
+            overlay.style.display = 'none';
+        }
+    },
+    render() {
+        const c = $('inventory-content');
+        const effectiveAtk = GS.slots.attack - GS.runes.attack.length;
+        const effectiveDef = GS.slots.defend - GS.runes.defend.length;
+
+        let html = '';
+
+        // ── STATS SUMMARY ──
+        html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
+            <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">⚙️ STATS</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; font-size:0.85em;">
+                <span>❤️ HP: ${GS.hp}/${GS.maxHp}${GS.regenStacks > 0 ? ` (+${GS.regenStacks} regen)` : ''}</span>
+                <span>💰 Gold: ${GS.gold}</span>
+                <span>⚔️ Atk Slots: ${effectiveAtk} (${GS.slots.attack} total)</span>
+                <span>🛡️ Def Slots: ${effectiveDef} (${GS.slots.defend} total)</span>
+                <span>🎲 Dice: ${GS.dice.length}</span>
+                <span>🔄 Rerolls: ${GS.rerolls}</span>
+                <span>⚔️ Dmg Boost: +${GS.buffs.damageBoost}</span>
+                <span>🛡️ Armor: ${GS.buffs.armor}</span>
+            </div>
+        </div>`;
+
+        // ── DICE ──
+        html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
+            <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">🎲 DICE (${GS.dice.length})</div>`;
+        GS.dice.forEach((die, i) => {
+            const faces = die.faceValues ? die.faceValues.join(', ') : `${die.min}-${die.max}`;
+            const mods = die.faces.length ? die.faces.map(f => `<span style="color:${f.modifier.color};" title="${f.modifier.name}: ${f.modifier.desc}">  ${f.faceValue}:${f.modifier.icon}${f.modifier.name}</span>`).join('') : '<span style="opacity:0.4;">no mods</span>';
+            html += `<div style="margin:4px 0; font-size:0.82em; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+                <strong>d${die.faceValues ? die.faceValues.length : die.sides}</strong> [${faces}] ${mods}
+            </div>`;
+        });
+        html += `</div>`;
+
+        // ── RUNES ──
+        if (GS.runes.attack.length > 0 || GS.runes.defend.length > 0) {
+            html += `<div style="background:var(--bg-surface); border:1px solid #8040a0; border-radius:8px; padding:14px; margin-bottom:12px;">
+                <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:#bb77ff; margin-bottom:8px;">🔮 RUNES</div>`;
+            GS.runes.attack.forEach(r => {
+                html += `<div style="font-size:0.82em; margin:3px 0;">${r.icon} <strong>${r.name}</strong> <span style="color:var(--attack-color);">(attack)</span> — ${r.desc}</div>`;
+            });
+            GS.runes.defend.forEach(r => {
+                html += `<div style="font-size:0.82em; margin:3px 0;">${r.icon} <strong>${r.name}</strong> <span style="color:var(--defend-color);">(defend)</span> — ${r.desc}</div>`;
+            });
+            html += `</div>`;
+        }
+
+        // ── ARTIFACTS ──
+        if (GS.artifacts.length > 0) {
+            html += `<div style="background:var(--bg-surface); border:1px solid var(--gold); border-radius:8px; padding:14px; margin-bottom:12px;">
+                <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">✨ ARTIFACTS (${GS.artifacts.length})</div>`;
+            GS.artifacts.forEach(a => {
+                html += `<div style="font-size:0.82em; margin:3px 0;">${a.icon} <strong>${a.name}</strong> — ${a.desc}</div>`;
+            });
+            html += `</div>`;
+        }
+
+        // ── PASSIVES ──
+        const unlocked = SKILL_TREE.filter(n => GS.unlockedNodes.includes(n.id));
+        if (unlocked.length > 0) {
+            html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
+                <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">⭐ SKILL TREE (${unlocked.length} nodes)</div>`;
+            unlocked.forEach(n => {
+                html += `<div style="font-size:0.82em; margin:3px 0;">${n.icon} <strong>${n.name}</strong> — ${n.desc}</div>`;
+            });
+            html += `</div>`;
+        }
+
+        c.innerHTML = html;
+    }
+};
+
+updateStats();
+</script>
+</body>
+</html>

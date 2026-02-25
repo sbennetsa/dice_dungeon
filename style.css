@@ -1,0 +1,925 @@
+:root {
+    --bg-deep: #0a0a12;
+    --bg-mid: #12121e;
+    --bg-surface: #1a1a2a;
+    --bg-raised: #22223a;
+    --border: #2a2a44;
+    --border-bright: #3a3a5a;
+    --text: #c8c8d8;
+    --text-dim: #7a7a9a;
+    --text-bright: #e8e8f0;
+    --gold: #d4a534;
+    --gold-dim: #8a6a1a;
+    --red: #c44040;
+    --red-dim: #6a2020;
+    --red-bright: #ff6060;
+    --green: #40a060;
+    --green-bright: #60d080;
+    --blue: #4060c0;
+    --blue-bright: #6080e0;
+    --purple: #8040c0;
+    --attack-color: #c44040;
+    --defend-color: #4060c0;
+    --slot-glow-attack: rgba(196, 64, 64, 0.4);
+    --slot-glow-defend: rgba(64, 96, 192, 0.4);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'EB Garamond', serif;
+    background: var(--bg-deep);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px;
+    font-size: 18px;
+    overflow-x: hidden;
+}
+
+/* Subtle background texture */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at 20% 50%, rgba(64, 96, 192, 0.03) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 30%, rgba(196, 64, 64, 0.03) 0%, transparent 60%),
+        radial-gradient(ellipse at 50% 80%, rgba(212, 165, 52, 0.02) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+#game {
+    max-width: 800px;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+}
+
+/* ── Typography ── */
+h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
+.mono { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; }
+
+/* ── Screens ── */
+.screen { display: none; }
+.screen.active { display: block; animation: fadeIn 0.4s ease; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Header / Stats ── */
+.game-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 16px;
+    gap: 12px;
+}
+
+.header-title {
+    font-family: 'Uncial Antiqua', cursive;
+    font-size: 1.1em;
+    color: var(--gold);
+}
+
+.stats-row {
+    display: flex;
+    gap: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9em;
+}
+
+.stat-item { display: flex; gap: 6px; align-items: center; }
+.stat-label { color: var(--text-dim); text-transform: uppercase; font-size: 0.8em; letter-spacing: 0.1em; }
+.stat-val { color: var(--text-bright); font-weight: 700; }
+.stat-val.hp { color: var(--red-bright); }
+.stat-val.gold { color: var(--gold); }
+
+/* ── Floor Progress ── */
+.floor-progress {
+    display: flex;
+    gap: 3px;
+    margin-bottom: 16px;
+    padding: 10px 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+.floor-pip {
+    flex: 1;
+    height: 6px;
+    background: var(--bg-raised);
+    border-radius: 3px;
+    position: relative;
+    transition: all 0.3s;
+}
+
+.floor-pip.completed { background: var(--green); }
+.floor-pip.current { background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+.floor-pip.boss { border: 1px solid var(--red-dim); }
+.floor-pip.boss.current { background: var(--red); box-shadow: 0 0 8px var(--red); }
+.floor-pip.shop-pip { border: 1px solid var(--gold-dim); }
+
+.act-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    padding: 0 4px;
+    display: flex;
+    align-items: center;
+}
+
+/* ── Enemy Display ── */
+.enemy-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.enemy-name {
+    font-family: 'Uncial Antiqua', cursive;
+    font-size: 1.6em;
+    color: var(--red-bright);
+    margin-bottom: 4px;
+}
+
+.enemy-name.elite { color: var(--gold); text-shadow: 0 0 12px rgba(212, 165, 52, 0.4); }
+
+.enemy-subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+}
+
+.enemy-hp-bar {
+    width: 100%;
+    height: 12px;
+    background: var(--bg-raised);
+    border-radius: 5px;
+    overflow: hidden;
+    margin-bottom: 6px;
+}
+
+.enemy-hp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--red) 0%, var(--red-bright) 100%);
+    border-radius: 5px;
+    transition: width 0.5s ease;
+}
+
+.enemy-hp-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9em;
+    color: var(--red-bright);
+}
+
+.enemy-intent {
+    margin-top: 12px;
+    padding: 8px 14px;
+    background: rgba(196, 64, 64, 0.1);
+    border: 1px solid rgba(196, 64, 64, 0.3);
+    border-radius: 6px;
+    font-size: 0.95em;
+    color: var(--text);
+}
+
+/* ── Dice Tray ── */
+.dice-tray {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 16px;
+}
+
+.tray-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 12px;
+}
+
+.dice-pool {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    min-height: 70px;
+    padding: 10px;
+    background: var(--bg-mid);
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+}
+
+/* ── Dice ── */
+.die {
+    width: 68px;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.5em;
+    font-weight: 700;
+    border-radius: 10px;
+    cursor: grab;
+    user-select: none;
+    position: relative;
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+    border: 2px solid var(--border-bright);
+    background: var(--bg-raised);
+    color: var(--text-bright);
+}
+
+.die:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
+.die.dragging { opacity: 0.4; cursor: grabbing; }
+
+.die .die-label {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 0.35em;
+    color: var(--text-dim);
+    font-weight: 400;
+}
+
+.die .die-face-icon {
+    position: absolute;
+    bottom: 2px;
+    left: 4px;
+    font-size: 0.5em;
+}
+
+.die.unrolled {
+    color: var(--text-dim);
+    border-style: dashed;
+}
+
+.die.special {
+    border-color: var(--gold);
+    box-shadow: 0 0 8px rgba(212, 165, 52, 0.2);
+}
+
+@keyframes diceRoll {
+    0% { transform: rotate(0deg) scale(1); }
+    25% { transform: rotate(90deg) scale(1.1); }
+    50% { transform: rotate(180deg) scale(1); }
+    75% { transform: rotate(270deg) scale(1.1); }
+    100% { transform: rotate(360deg) scale(1); }
+}
+
+.die.rolling { animation: diceRoll 0.4s ease; }
+
+@keyframes pulse-glow {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.3); }
+}
+
+/* ── Drag-over zones ── */
+.drag-over {
+    border-color: var(--gold) !important;
+    box-shadow: 0 0 12px rgba(212,165,52,0.3);
+}
+
+/* ── Allocation Slots ── */
+.allocation-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.alloc-slot {
+    background: var(--bg-surface);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    min-height: 100px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.alloc-slot.attack-slot { border-color: var(--red-dim); background: rgba(196, 64, 64, 0.04); }
+.alloc-slot.attack-slot .slot-header { color: var(--attack-color); }
+.alloc-slot.defend-slot { border-color: rgba(64, 96, 192, 0.4); background: rgba(64, 96, 192, 0.04); }
+.alloc-slot.defend-slot .slot-header { color: var(--defend-color); }
+
+.slot-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.slot-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+}
+
+.slot-count {
+    font-size: 0.9em;
+    opacity: 0.7;
+}
+
+.slot-count.full {
+    color: var(--green-bright);
+    opacity: 1;
+}
+
+.slot-total {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.2em;
+    font-weight: 700;
+}
+
+.slot-dice-grid {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.slot-dice-grid .die { width: 58px; height: 58px; font-size: 1.3em; }
+
+/* Empty slot placeholder */
+.slot-placeholder {
+    width: 58px;
+    height: 58px;
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8em;
+    color: var(--border-bright);
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.attack-slot .slot-placeholder {
+    border-color: rgba(196, 64, 64, 0.25);
+    background: rgba(196, 64, 64, 0.03);
+}
+.attack-slot .slot-placeholder:hover {
+    border-color: rgba(196, 64, 64, 0.5);
+    background: rgba(196, 64, 64, 0.06);
+}
+
+.defend-slot .slot-placeholder {
+    border-color: rgba(64, 96, 192, 0.25);
+    background: rgba(64, 96, 192, 0.03);
+}
+.defend-slot .slot-placeholder:hover {
+    border-color: rgba(64, 96, 192, 0.5);
+    background: rgba(64, 96, 192, 0.06);
+}
+
+/* Filled slot glow */
+.slot-placeholder.filled {
+    border-style: solid;
+    border-color: transparent;
+}
+
+.slot-summary {
+    margin-top: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8em;
+    color: var(--text-dim);
+}
+
+/* ── Buttons ── */
+.btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9em;
+    padding: 10px 22px;
+    border: 1px solid var(--border-bright);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg-raised);
+    color: var(--text);
+    letter-spacing: 0.05em;
+}
+
+.btn:hover { background: var(--border); transform: translateY(-1px); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+.btn-primary {
+    background: var(--gold-dim);
+    border-color: var(--gold);
+    color: var(--gold);
+}
+.btn-primary:hover { background: var(--gold); color: var(--bg-deep); }
+
+.btn-attack {
+    background: var(--red-dim);
+    border-color: var(--red);
+    color: var(--red-bright);
+}
+.btn-attack:hover { background: var(--red); color: white; }
+
+.btn-green {
+    background: rgba(64, 160, 96, 0.2);
+    border-color: var(--green);
+    color: var(--green-bright);
+}
+.btn-green:hover { background: var(--green); color: white; }
+
+.btn-group { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+/* ── Action Bar ── */
+.action-bar {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.btn-execute-main {
+    background: var(--red-dim);
+    border: 2px solid var(--red);
+    color: var(--red-bright);
+    font-size: 1em;
+    padding: 12px 32px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.btn-execute-main:hover:not(:disabled) {
+    background: var(--red);
+    color: white;
+    box-shadow: 0 0 16px rgba(196, 64, 64, 0.4);
+}
+.btn-execute-main:disabled {
+    opacity: 0.25;
+    border-color: var(--border);
+    background: var(--bg-raised);
+    color: var(--text-dim);
+}
+
+/* Clickable dice pool pre-roll */
+.dice-pool.clickable-roll {
+    cursor: pointer;
+    border-color: var(--gold-dim);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.dice-pool.clickable-roll:hover {
+    border-color: var(--gold);
+    box-shadow: 0 0 12px rgba(212, 165, 52, 0.15);
+}
+
+.dice-pool.clickable-execute {
+    cursor: pointer;
+    border-color: var(--red-dim);
+    border-style: solid;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.dice-pool.clickable-execute:hover {
+    border-color: var(--red);
+    box-shadow: 0 0 12px rgba(196, 64, 64, 0.2);
+}
+
+/* ── Combat Log ── */
+.combat-log {
+    background: var(--bg-mid);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    max-height: 140px;
+    overflow-y: auto;
+    margin-top: 12px;
+    font-size: 0.9em;
+}
+
+.combat-log::-webkit-scrollbar { width: 4px; }
+.combat-log::-webkit-scrollbar-track { background: transparent; }
+.combat-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.log-entry {
+    padding: 3px 0 3px 10px;
+    border-left: 2px solid var(--border);
+    margin: 4px 0;
+    font-size: 0.9em;
+    color: var(--text-dim);
+}
+.log-entry.damage { border-color: var(--red); color: var(--red-bright); }
+.log-entry.heal { border-color: var(--green); color: var(--green-bright); }
+.log-entry.info { border-color: var(--gold); color: var(--gold); }
+.log-entry.defend { border-color: var(--blue); color: var(--blue-bright); }
+
+/* ── Reward / Shop / Event cards ── */
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    cursor: pointer;
+    transition: all 0.25s;
+}
+
+.card:hover {
+    border-color: var(--gold);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+
+.card-title {
+    font-family: 'Uncial Antiqua', cursive;
+    font-size: 1.15em;
+    color: var(--gold);
+    margin-bottom: 8px;
+}
+
+.card-desc {
+    font-size: 0.9em;
+    color: var(--text-dim);
+    line-height: 1.5;
+}
+
+.card-effect {
+    margin-top: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    color: var(--green-bright);
+}
+
+.card-price {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9em;
+    color: var(--gold);
+    margin-top: 8px;
+}
+
+.card.disabled { opacity: 0.4; cursor: not-allowed; }
+.card.disabled:hover { border-color: var(--border); transform: none; box-shadow: none; }
+
+/* ── Start Screen ── */
+.start-screen { text-align: center; padding: 60px 20px; }
+
+.start-screen h1 {
+    font-size: 2.8em;
+    color: var(--gold);
+    margin-bottom: 8px;
+    text-shadow: 0 0 30px rgba(212, 165, 52, 0.2);
+}
+
+.start-screen .subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8em;
+    color: var(--text-dim);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 40px;
+}
+
+.start-screen .flavor {
+    max-width: 500px;
+    margin: 0 auto 40px;
+    font-size: 1.15em;
+    line-height: 1.8;
+    color: var(--text);
+    font-style: italic;
+}
+
+.start-screen .start-btn {
+    font-size: 1.1em;
+    padding: 14px 40px;
+}
+
+/* ── Game Over ── */
+.gameover-screen { text-align: center; padding: 40px 20px; }
+
+.gameover-screen h2 {
+    font-size: 2.2em;
+    margin-bottom: 20px;
+}
+.gameover-screen h2.defeat { color: var(--red); }
+.gameover-screen h2.victory { color: var(--gold); text-shadow: 0 0 20px rgba(212,165,52,0.3); }
+
+.final-stats {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px auto;
+    max-width: 400px;
+    text-align: left;
+}
+
+.final-stat-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.95em;
+}
+.final-stat-row:last-child { border: none; }
+.final-stat-row span:last-child { color: var(--gold); font-weight: 700; }
+
+/* ── Section title ── */
+.section-title {
+    text-align: center;
+    font-family: 'Uncial Antiqua', cursive;
+    font-size: 1.4em;
+    color: var(--gold);
+    margin: 16px 0;
+}
+
+/* ── Event panel ── */
+.event-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 16px;
+}
+
+.event-text {
+    font-size: 1.1em;
+    line-height: 1.7;
+    margin-bottom: 20px;
+    font-style: italic;
+}
+
+/* ── Artifacts display ── */
+.artifacts-bar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 8px 12px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 12px;
+    min-height: 36px;
+    align-items: center;
+}
+
+.artifact-pip {
+    font-size: 1.1em;
+    cursor: help;
+    transition: transform 0.2s;
+}
+.artifact-pip:hover { transform: scale(1.3); }
+
+.artifacts-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* ── Buffs ── */
+.buffs-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.buff-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7em;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgba(64, 160, 96, 0.15);
+    border: 1px solid rgba(64, 160, 96, 0.3);
+    color: var(--green-bright);
+}
+
+/* ── Rest Screen ── */
+.rest-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.rest-panel h3 {
+    color: var(--gold);
+    margin-bottom: 8px;
+}
+
+.rest-panel p {
+    color: var(--text-dim);
+    margin-bottom: 16px;
+    font-style: italic;
+}
+
+/* Dice face management */
+.dice-inventory {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 16px 0;
+}
+
+.dice-inv-card {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    width: 120px;
+    text-align: center;
+}
+
+.dice-inv-card .die-preview {
+    width: 50px;
+    height: 50px;
+    margin: 0 auto 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1em;
+    font-weight: 700;
+    background: var(--bg-surface);
+    border: 2px solid var(--border-bright);
+    border-radius: 8px;
+    color: var(--text-dim);
+}
+
+.dice-inv-card .die-range {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8em;
+    color: var(--text);
+}
+
+.dice-inv-card .die-faces-list {
+    font-size: 0.75em;
+    color: var(--text-dim);
+    margin-top: 4px;
+}
+
+/* Tooltip */
+.tooltip-wrapper { position: relative; display: inline-block; }
+.tooltip-wrapper .tooltip-text {
+    visibility: hidden;
+    background: var(--bg-deep);
+    border: 1px solid var(--border-bright);
+    color: var(--text);
+    font-size: 0.8em;
+    padding: 6px 10px;
+    border-radius: 4px;
+    position: absolute;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    z-index: 10;
+}
+.tooltip-wrapper:hover .tooltip-text { visibility: visible; }
+
+/* ══════════════════════════════════════════════════════════
+   MOBILE: combat screen fits viewport — no scroll
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+    body {
+        padding: 0;
+        height: 100dvh;
+        overflow: hidden;
+        align-items: stretch;
+        font-size: 16px;
+    }
+
+    #game {
+        height: 100dvh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        max-width: 100%;
+    }
+
+    /* Non-combat screens scroll normally */
+    #screen-start,
+    #screen-reward,
+    #screen-shop,
+    #screen-event,
+    #screen-rest,
+    #screen-gameover {
+        overflow-y: auto;
+        height: 100dvh;
+        padding: 12px;
+    }
+
+    /* Combat screen: flex column, no scroll except log */
+    #screen-combat.active {
+        display: flex;
+        flex-direction: column;
+        height: 100dvh;
+        overflow: hidden;
+        padding: 8px;
+    }
+
+    /* Compact header */
+    .game-header {
+        flex-shrink: 0;
+        border-radius: 6px;
+        margin-bottom: 6px;
+        padding: 8px 12px;
+        gap: 6px;
+    }
+    .stats-row {
+        gap: 8px;
+        flex-wrap: wrap;
+        font-size: 0.8em;
+    }
+    .header-title { font-size: 0.9em; }
+
+    /* Floor progress: hidden on mobile to save space */
+    #floor-progress { display: none !important; }
+
+    /* Artifacts & buffs compact */
+    #artifacts-display { flex-shrink: 0; margin-bottom: 4px; padding: 6px 10px; min-height: 28px; }
+    #buffs-display { flex-shrink: 0; margin-bottom: 4px; }
+
+    /* Enemy panel compact */
+    .enemy-panel {
+        flex-shrink: 0;
+        padding: 10px 12px;
+        margin-bottom: 6px;
+    }
+    .enemy-name { font-size: 1.2em; }
+    .enemy-intent { padding: 5px 10px; font-size: 0.85em; margin-top: 6px; }
+    .enemy-hp-bar { height: 8px; margin-bottom: 4px; }
+
+    /* Dice tray compact */
+    .dice-tray {
+        flex-shrink: 0;
+        padding: 8px 10px;
+        margin-bottom: 6px;
+    }
+    .tray-label { margin-bottom: 6px; font-size: 0.7em; }
+    .dice-pool { min-height: 56px; padding: 6px; gap: 6px; }
+    .die { width: 54px; height: 54px; font-size: 1.2em; }
+
+    /* Allocation area compact */
+    .allocation-area {
+        flex-shrink: 0;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+        margin-bottom: 4px;
+    }
+    .alloc-slot { padding: 8px; min-height: 70px; }
+    .slot-dice-grid .die { width: 46px; height: 46px; font-size: 1.1em; }
+    .slot-placeholder { width: 46px; height: 46px; }
+    .slot-header { margin-bottom: 6px; }
+    .slot-title { font-size: 0.75em; }
+    .slot-total { font-size: 1em; }
+
+    /* Action bar compact */
+    .action-bar {
+        flex-shrink: 0;
+        margin-bottom: 4px;
+        padding-bottom: max(4px, env(safe-area-inset-bottom));
+    }
+    .btn-execute-main { padding: 10px 20px; font-size: 0.9em; }
+
+    /* Combat log: takes remaining space */
+    .combat-log {
+        flex: 1;
+        min-height: 0;
+        max-height: none;
+        overflow-y: auto;
+        margin-top: 4px;
+    }
+}
+
+/* Very small phones */
+@media (max-width: 380px) {
+    .die { width: 48px; height: 48px; font-size: 1.1em; }
+    .slot-dice-grid .die { width: 42px; height: 42px; font-size: 1em; }
+    .slot-placeholder { width: 42px; height: 42px; }
+    .stats-row { gap: 6px; font-size: 0.75em; }
+}

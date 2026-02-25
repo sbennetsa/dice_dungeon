@@ -199,6 +199,25 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     color: var(--text);
 }
 
+/* ── Enemy Passive Tags ── */
+.enemy-passive-tags {
+    margin: 6px 0 2px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    justify-content: center;
+}
+
+.passive-tag {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 0.72em;
+    color: var(--text-dim);
+    display: inline-block;
+}
+
 /* ── Dice Tray ── */
 .dice-tray {
     background: var(--bg-surface);

@@ -27,6 +27,13 @@ export const GS = {
     challengeMode: false,
     challengeDmg: 0,
     challengeTurns: 0,
+    playerDebuffs: {
+        poison: 0,
+        poisonTurns: 0,
+        slotDisabled: null,
+        slotDisabledTurns: 0,
+        diceReduction: 0,
+    },
 };
 
 // ════════════════════════════════════════════════════════════

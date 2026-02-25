@@ -20,21 +20,110 @@ export function getAct(floor) {
 //  ENEMIES
 // ════════════════════════════════════════════════════════════
 export const ENEMIES = {
+    // Index order matters: [Goblin=0, Dire Rat=1, Fungal Creep=2, Slime=3, Skeleton=4]
     1: [
-        { name: 'Goblin', hp: 20, atk: 5, gold: 20 },
-        { name: 'Skeleton', hp: 24, atk: 5, gold: 22 },
-        { name: 'Dire Rat', hp: 16, atk: 6, gold: 18 },
+        {
+            name: 'Goblin', hp: 20, atk: 5, gold: 20,
+            abilities: []
+        },
+        {
+            name: 'Dire Rat', hp: 14, atk: 4, gold: 18,
+            abilities: [
+                { name: 'Frenzy', icon: '⚔️', passive: true, desc: 'Attacks twice per turn (4+4)' }
+            ]
+        },
+        {
+            name: 'Fungal Creep', hp: 22, atk: 3, gold: 22,
+            abilities: [
+                { name: 'Spore Cloud', icon: '🟢', passive: false, desc: 'Every 2 turns: 2 poison/turn for 3 turns instead of attacking' }
+            ]
+        },
+        {
+            name: 'Slime', hp: 28, atk: 3, gold: 25,
+            abilities: [
+                { name: 'Mitosis', icon: '⏳', passive: false, desc: 'Turn 3: transforms into Slimeling Swarm (20 HP, 6 ATK)' }
+            ]
+        },
+        {
+            name: 'Skeleton', hp: 18, atk: 6, gold: 20,
+            abilities: [
+                { name: 'Brittle', icon: '💀', passive: true, desc: '+3 damage taken from every source' }
+            ]
+        },
     ],
     2: [
-        { name: 'Orc Warrior', hp: 45, atk: 11, gold: 25 },
-        { name: 'Dark Mage', hp: 36, atk: 13, gold: 30 },
-        { name: 'Troll', hp: 55, atk: 10, gold: 28 },
-        { name: 'Vampire', hp: 40, atk: 14, gold: 35 },
+        {
+            name: 'Orc Warrior', hp: 45, atk: 11, gold: 25,
+            abilities: [
+                { name: 'War Cry', icon: '🔥', passive: false, desc: 'Every 3 turns: next attack deals double damage' }
+            ]
+        },
+        {
+            name: 'Dark Mage', hp: 32, atk: 8, gold: 30,
+            abilities: [
+                { name: 'Penetration', icon: '🟣', passive: true, desc: 'All attacks ignore 3 block' },
+                { name: 'Curse', icon: '🟣', passive: false, desc: 'Every 3 turns: disables your most-stacked slot for 2 turns' }
+            ]
+        },
+        {
+            name: 'Troll', hp: 55, atk: 9, gold: 28,
+            abilities: [
+                { name: 'Thick Hide', icon: '🛡️', passive: true, desc: 'Ignores hits below 10 damage' },
+                { name: 'Regenerate', icon: '💚', passive: true, desc: 'Heals 3 HP at the start of each turn' }
+            ]
+        },
+        {
+            name: 'Vampire', hp: 38, atk: 12, gold: 35,
+            abilities: [
+                { name: 'Lifesteal', icon: '🩸', passive: true, desc: 'Heals 50% of damage dealt to you (after block)' },
+                { name: 'Blood Frenzy', icon: '🩸', passive: false, desc: 'Below 20% HP: attacks twice per turn' }
+            ]
+        },
+        {
+            name: 'Mimic', hp: 35, atk: 10, gold: 30,
+            abilities: [
+                { name: 'Surprise', icon: '💰', passive: false, desc: 'Turn 1: attacks first and steals 15 gold' },
+                { name: 'Greed Tax', icon: '💰', passive: true, desc: '+1 ATK per 50 gold you hold (recalculated each turn)' }
+            ]
+        },
     ],
     3: [
-        { name: 'Demon', hp: 75, atk: 17, gold: 45 },
-        { name: 'Lich', hp: 70, atk: 20, gold: 50 },
-        { name: 'Dragon Whelp', hp: 85, atk: 16, gold: 55 },
+        {
+            name: 'Demon', hp: 75, atk: 17, gold: 45,
+            abilities: [
+                { name: 'Hellfire', icon: '🔥', passive: true, desc: '5 unblockable damage to you every turn' },
+                { name: 'Soul Pact', icon: '👹', passive: true, desc: 'Excess damage beyond remaining HP is reflected back to you' }
+            ]
+        },
+        {
+            name: 'Lich', hp: 65, atk: 14, gold: 50,
+            abilities: [
+                { name: 'Decay Aura', icon: '💀', passive: true, desc: 'All your dice are -1 after rolling (min 1)' },
+                { name: 'Phylactery', icon: '💀', passive: false, desc: 'First death: revives at 26 HP — second kill is permanent' }
+            ]
+        },
+        {
+            name: 'Dragon Whelp', hp: 85, atk: 16, gold: 55,
+            abilities: [
+                { name: 'Scales', icon: '🐉', passive: true, desc: 'First 8 damage from your attack slot is ignored each turn' },
+                { name: 'Breath', icon: '🔥', passive: false, desc: 'Every 4 turns: charges for 1 turn, then 30 damage' }
+            ]
+        },
+        {
+            name: 'Shadow Assassin', hp: 45, atk: 22, gold: 50,
+            abilities: [
+                { name: 'Evasion', icon: '💨', passive: true, desc: 'One random attack die is negated each turn' },
+                { name: 'Expose', icon: '💨', passive: true, desc: '+5 damage per empty attack slot you have' }
+            ]
+        },
+        {
+            name: 'Iron Golem', hp: 100, atk: 12, gold: 55,
+            abilities: [
+                { name: 'Armor Plating', icon: '🛡️', passive: true, desc: '-5 to all damage taken (including poison)' },
+                { name: 'Overcharge', icon: '⚡', passive: false, desc: 'If you deal 25+ damage in one turn: stunned, skips next attack' },
+                { name: 'Escalate', icon: '⚙️', passive: true, desc: '+2 ATK every 2 turns' }
+            ]
+        },
     ]
 };
 
@@ -46,10 +135,43 @@ export const ELITES = [
 ];
 
 export const BOSSES = {
-    5:  { name: 'The Bone King', hp: 70, atk: 9, gold: 100 },
-    10: { name: 'Crimson Wyrm', hp: 170, atk: 18, gold: 150 },
-    15: { name: 'The Void Lord', hp: 260, atk: 25, gold: 250 },
+    5:  {
+        name: 'The Bone King', hp: 85, atk: 9, gold: 100,
+        abilities: [
+            { name: 'Bone Wall', icon: '🦴', passive: false, desc: 'Gains 15 shield that absorbs damage' },
+            { name: 'Raise Dead', icon: '💀', passive: false, desc: 'ATK permanently +3 (represents summoned skeleton)' }
+        ]
+    },
+    10: {
+        name: 'Crimson Wyrm', hp: 250, atk: 18, gold: 150,
+        abilities: [
+            { name: 'Fire Breath', icon: '🔥', passive: false, desc: '18 damage + 3 burn/turn for 3 turns' },
+            { name: 'Wing Buffet', icon: '💨', passive: false, desc: '10 damage + disables attack slot for 1 turn' }
+        ]
+    },
+    15: {
+        name: 'The Void Lord', hp: 450, atk: 25, gold: 250,
+        abilities: [
+            { name: 'Void Rift', icon: '🌀', passive: false, desc: 'Disables a random slot for 2 turns' },
+            { name: 'Dark Pulse', icon: '🌀', passive: false, desc: '15 unblockable damage' },
+            { name: 'Entropy', icon: '🌀', passive: false, desc: 'Phase 2: removes highest face value from a random die each turn' }
+        ]
+    },
 };
+
+// ════════════════════════════════════════════════════════════
+//  ENCOUNTER SELECTION
+// ════════════════════════════════════════════════════════════
+export function pickEnemy(floor) {
+    if (floor === 1) return { ...ENEMIES[1][0] };  // always Goblin
+    if (floor === 2) {
+        const idx = Math.random() < 0.5 ? 1 : 4;  // Dire Rat or Skeleton
+        return { ...ENEMIES[1][idx] };
+    }
+    const act = getAct(floor);
+    const pool = ENEMIES[act] || ENEMIES[1];
+    return { ...pool[Math.floor(Math.random() * pool.length)] };
+}
 
 // ════════════════════════════════════════════════════════════
 //  FACE MODIFIERS

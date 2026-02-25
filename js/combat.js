@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════
 //  COMBAT
 // ════════════════════════════════════════════════════════════
-import { BOSSES, ENEMIES, ELITES } from './constants.js';
+import { BOSSES, ENEMIES, ELITES, pickEnemy } from './constants.js';
 import { GS, $, log, gainXP, gainGold, heal, pick } from './state.js';
 import { rollSingleDie, getActiveFace, renderCombatDice, updateStats, setupDropZones, show } from './engine.js';
 
@@ -14,8 +14,7 @@ export const Combat = {
         if (isBoss) {
             template = { ...BOSSES[GS.floor] };
         } else {
-            const pool = ENEMIES[GS.act] || ENEMIES[1];
-            template = { ...pick(pool) };
+            template = pickEnemy(GS.floor);
         }
 
         const scale = Math.pow(1.04, GS.floor - 1);
@@ -38,10 +37,36 @@ export const Combat = {
             baseAtk: template.atk,
             isElite, isBoss,
             intent: template.atk,
+            intentText: null,
             turn: 0,
             rage: 0,
             poison: 0,
+            abilityState: {},
         };
+
+        // Boss-specific ability state init
+        const eName = GS.enemy.name;
+        if (eName === 'The Bone King') {
+            GS.enemy.abilityState.pattern = ['strike', 'strike', 'bonewall', 'raisedead'];
+            GS.enemy.abilityState.patternIdx = 0;
+            GS.enemy.abilityState.boneWallShield = 0;
+        }
+        if (eName === 'Crimson Wyrm') {
+            GS.enemy.abilityState.pattern = ['strike', 'breath', 'strike', 'wingbuffet'];
+            GS.enemy.abilityState.patternIdx = 0;
+            GS.enemy.abilityState.phase2 = false;
+        }
+        if (eName === 'The Void Lord') {
+            GS.enemy.abilityState.phase = 1;
+            GS.enemy.abilityState.pattern = ['strike', 'voidrift', 'darkpulse', 'strike'];
+            GS.enemy.abilityState.patternIdx = 0;
+        }
+
+        // Reset player debuffs for new combat
+        GS.playerDebuffs = { poison: 0, poisonTurns: 0, slotDisabled: null, slotDisabledTurns: 0, diceReduction: 0 };
+
+        // Lich: set decay aura immediately
+        if (eName === 'Lich') GS.playerDebuffs.diceReduction = 1;
 
         GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; });
         GS.allocated = { attack: [], defend: [] };
@@ -68,6 +93,9 @@ export const Combat = {
         GS.isFirstTurn = true;
         $('combat-log').innerHTML = '';
 
+        // Set initial intent text
+        Combat.updateIntent();
+
         updateStats();
         setupDropZones();
         Combat.renderEnemy();
@@ -76,8 +104,13 @@ export const Combat = {
         const label = isBoss ? '👑 BOSS' : isElite ? '⚡ ELITE' : `Floor ${GS.floor}`;
         log(`${label}: ${GS.enemy.name} appears!`, 'info');
         log(`HP: ${GS.enemy.hp} | ATK: ${GS.enemy.atk}`, 'info');
+        if (eName === 'Lich') log('💀 Decay Aura: All your dice are -1 after rolling!', 'damage');
+        if (eName === 'Mimic') log('💰 A Mimic! It attacks first and steals gold!', 'damage');
 
         show('screen-combat');
+
+        // Mimic Surprise: skip player roll on turn 0 — handle in execute
+        GS.isFirstTurn = true;
         setTimeout(() => Combat.roll(), 300);
     },
 
@@ -92,17 +125,47 @@ export const Combat = {
         if (e.poison > 0) {
             statusIndicators += `<span style="color: #50a030; font-size: 0.75em; margin-left: 8px;">☠️ Poison ×${e.poison}</span>`;
         }
+        if (e.abilityState && e.abilityState.boneWallShield > 0) {
+            statusIndicators += `<span style="color: #8888cc; font-size: 0.75em; margin-left: 8px;">🦴 Shield ${e.abilityState.boneWallShield}</span>`;
+        }
+        if (e.abilityState && e.abilityState.bloodFrenzyActive) {
+            statusIndicators += `<span style="color: var(--red-bright); font-size: 0.75em; margin-left: 8px;">🩸 Frenzied</span>`;
+        }
+        if (e.abilityState && e.abilityState.phase2 && e.name === 'The Void Lord') {
+            const phaseLabel = e.abilityState.phase >= 3 ? 'Phase 3 💀' : 'Phase 2';
+            statusIndicators += `<span style="color: #aa44ff; font-size: 0.75em; margin-left: 8px;">🌀 ${phaseLabel}</span>`;
+        }
+
+        // Passive ability tags
+        const passiveTags = (e.abilities || [])
+            .filter(a => a.passive)
+            .map(a => `<span class="passive-tag">${a.icon} ${a.name}: ${a.desc}</span>`)
+            .join('');
+        const passiveHtml = passiveTags ? `<div class="enemy-passive-tags">${passiveTags}</div>` : '';
+
+        // Player debuff indicators (shown in enemy panel for visibility)
+        let debuffHtml = '';
+        if (GS.playerDebuffs.poison > 0) {
+            debuffHtml += `<span class="passive-tag" style="color:#f07070;border-color:rgba(200,60,60,0.3)">☠️ You: Poison ×${GS.playerDebuffs.poison} (${GS.playerDebuffs.poisonTurns}t)</span>`;
+        }
+        if (GS.playerDebuffs.slotDisabled) {
+            debuffHtml += `<span class="passive-tag" style="color:#f07070;border-color:rgba(200,60,60,0.3)">🔒 Your ${GS.playerDebuffs.slotDisabled} slot disabled (${GS.playerDebuffs.slotDisabledTurns}t)</span>`;
+        }
+        if (debuffHtml) debuffHtml = `<div class="enemy-passive-tags">${debuffHtml}</div>`;
+
+        const intentDisplay = e.intentText || `⚔️ Attacks for ${e.intent}`;
 
         if (GS.challengeMode) {
             const dpt = GS.challengeTurns > 0 ? Math.round(GS.challengeDmg / GS.challengeTurns) : 0;
             $('enemy-panel').innerHTML = `
                 <div class="${nameCls}">${e.name}${statusIndicators}</div>
                 <div class="enemy-subtitle">💀 CHALLENGE — Survive and deal maximum damage</div>
+                ${passiveHtml}${debuffHtml}
                 <div style="text-align:center; margin:8px 0;">
                     <span style="font-size:1.4em; color:var(--gold); font-family:JetBrains Mono,monospace;">💥 ${GS.challengeDmg.toLocaleString()}</span>
                     <span style="font-size:0.8em; color:var(--text-dim); margin-left:8px;">(${dpt}/turn)</span>
                 </div>
-                <div class="enemy-intent">Intent: Attack for <strong>${e.intent}</strong> damage${e.rage > 0 ? ' (enraged)' : ''}</div>
+                <div class="enemy-intent">${intentDisplay}${e.rage > 0 ? ' 🔥' : ''}</div>
             `;
         } else {
             const pct = Math.max(0, (e.currentHp / e.hp) * 100);
@@ -111,7 +174,8 @@ export const Combat = {
                 <div class="enemy-subtitle">${e.isBoss ? '👑 BOSS' : e.isElite ? '⚡ ELITE' : 'Enemy'} — Floor ${GS.floor}, Act ${GS.act}</div>
                 <div class="enemy-hp-bar"><div class="enemy-hp-fill" style="width:${pct}%"></div></div>
                 <div class="enemy-hp-text">${e.currentHp} / ${e.hp}</div>
-                <div class="enemy-intent">Intent: Attack for <strong>${e.intent}</strong> damage${e.rage > 0 ? ' (enraged)' : ''}</div>
+                ${passiveHtml}${debuffHtml}
+                <div class="enemy-intent">${intentDisplay}${e.rage > 0 ? ' 🔥' : ''}</div>
             `;
         }
     },
@@ -121,6 +185,13 @@ export const Combat = {
             if (!d.rolled) rollSingleDie(d);
         });
         GS.rolled = true;
+
+        // Lich Decay Aura: reduce all dice by 1 after rolling (min 1)
+        if (GS.playerDebuffs.diceReduction > 0) {
+            GS.dice.forEach(d => {
+                if (d.rolled) d.value = Math.max(1, d.value - GS.playerDebuffs.diceReduction);
+            });
+        }
 
         GS.dice.forEach(d => {
             const face = getActiveFace(d);
@@ -165,6 +236,38 @@ export const Combat = {
     execute() {
         if ($('btn-execute')) $('btn-execute').style.display = 'none';
         if ($('btn-return-all')) $('btn-return-all').style.display = 'none';
+
+        const eName = GS.enemy.name;
+        const as = GS.enemy.abilityState;
+
+        // ── MIMIC SURPRISE (turn 0 only) ──
+        if ((eName === 'Mimic' || eName.includes('Mimic')) && GS.isFirstTurn && !as.surpriseDone) {
+            as.surpriseDone = true;
+            const stolen = Math.min(15, GS.gold);
+            GS.gold -= stolen;
+            const surpriseDmg = GS.enemy.intent;
+            GS.hp = Math.max(0, GS.hp - surpriseDmg);
+            log(`💰 The Mimic strikes first! Takes ${surpriseDmg} unblocked damage. -${stolen} gold stolen!`, 'damage');
+            updateStats();
+            if (GS.hp <= 0) {
+                GS.hp = 0;
+                updateStats();
+                setTimeout(() => window.Game.defeat(), 1000);
+                return;
+            }
+            Combat.newTurn();
+            return;
+        }
+
+        // ── SHADOW ASSASSIN EVASION: negate one random attack die ──
+        if (eName === 'Shadow Assassin' || eName.includes('Shadow Assassin')) {
+            if (GS.allocated.attack.length > 0) {
+                const dodgeDie = GS.allocated.attack[Math.floor(Math.random() * GS.allocated.attack.length)];
+                const dodgedVal = dodgeDie.value;
+                dodgeDie.value = 0;
+                log(`💨 Shadow Assassin dodges — negates ${dodgedVal} from one die!`, 'info');
+            }
+        }
 
         const atkCount = GS.allocated.attack.length;
         const defCount = GS.allocated.defend.length;
@@ -237,7 +340,7 @@ export const Combat = {
             if (r.effect === 'titanBlow' && atkCount === 1) runeAtkMult *= r.value;
             if (r.effect === 'poisonPerTurn') poisonToApply += r.value;
         });
-        const totalAtk = Math.floor(totalAtkBase * runeAtkMult) + runeAtkBonus;
+        let totalAtk = Math.floor(totalAtkBase * runeAtkMult) + runeAtkBonus;
 
         // ── DEFEND CALCULATION ──
         let defBase = 0, defMult = 1, defBonus = 0;
@@ -284,13 +387,58 @@ export const Combat = {
         });
         const totalDef = Math.floor(totalDefBase * runeDefMult) + runeDefBonus;
 
-        // ── PLAYER ATTACKS ──
-        GS.enemy.currentHp -= totalAtk;
-        if (GS.challengeMode) GS.challengeDmg += totalAtk;
-        log(`You deal ${totalAtk} damage!`, 'damage');
+        // ── ENEMY ABILITY MODIFIERS ON PLAYER ATTACK ──
+        let finalAtk = totalAtk;
+        const baseEName = eName.replace(/^(💀 Deadly|🛡️ Armored|⚡ Swift|🔥 Enraged) /, '');
 
+        // Brittle Skeleton: +3 to incoming damage
+        if (baseEName === 'Skeleton') {
+            finalAtk += 3;
+            log(`💀 Brittle: +3 bonus damage!`, 'info');
+        }
+
+        // Troll Thick Hide: ignore if raw dice base < 10
+        if (baseEName === 'Troll' && atkBase < 10 && finalAtk > 0) {
+            finalAtk = 0;
+            log(`🛡️ Thick Hide: attack ignored (below 10 dice)!`, 'info');
+        }
+
+        // Dragon Whelp Scales: only damage above 8 from attack dice counts, bonuses pass through
+        if (baseEName === 'Dragon Whelp') {
+            const bonuses = totalAtk - Math.floor(atkBase * runeAtkMult) - runeAtkBonus;
+            const scaledBase = Math.max(0, Math.floor(atkBase * runeAtkMult) + runeAtkBonus - 8);
+            finalAtk = scaledBase + bonuses;
+            if (scaledBase === 0) log(`🐉 Scales absorb all slot damage!`, 'info');
+            else log(`🐉 Scales block 8 slot damage (${finalAtk} gets through)`, 'info');
+        }
+
+        // Iron Golem Armor Plating: -5 all damage
+        if (baseEName === 'Iron Golem') {
+            finalAtk = Math.max(0, finalAtk - 5);
+            log(`🛡️ Armor Plating: -5 damage (${finalAtk} gets through)`, 'info');
+        }
+
+        // Bone King Bone Wall: shield absorbs damage first
+        if (eName === 'The Bone King' && as.boneWallShield > 0) {
+            const abs = Math.min(finalAtk, as.boneWallShield);
+            as.boneWallShield -= abs;
+            finalAtk -= abs;
+            if (abs > 0) log(`🦴 Bone Wall absorbs ${abs} damage (${as.boneWallShield} remaining)`, 'info');
+        }
+
+        // Void Lord Phase 3: takes +50% damage
+        if (eName === 'The Void Lord' && as.phase >= 3) {
+            finalAtk = Math.floor(finalAtk * 1.5);
+        }
+
+        // ── PLAYER ATTACKS ENEMY ──
+        GS.enemy.currentHp -= finalAtk;
+        if (GS.challengeMode) GS.challengeDmg += finalAtk;
+        log(`You deal ${finalAtk} damage!`, 'damage');
+
+        // Apply poison from player
         const serpentPoison = GS.artifacts.filter(a => a.effect === 'poisonOnHit').reduce((s, a) => s + a.value, 0);
-        if (serpentPoison > 0 && totalAtk > 0) poisonToApply += Math.floor(totalAtk * serpentPoison);
+        if (serpentPoison > 0 && finalAtk > 0) poisonToApply += Math.floor(finalAtk * serpentPoison);
         if (GS.passives.poisonOnAtk) poisonToApply += GS.passives.poisonOnAtk;
         if (GS.passives.plagueLord) poisonToApply += 2;
         if (poisonToApply > 0) {
@@ -300,9 +448,53 @@ export const Combat = {
 
         let lsPercent = GS.autoLifesteal || 0;
         lsPercent += GS.artifacts.filter(a => a.effect === 'permLifesteal').reduce((s, a) => s + a.value, 0);
-        if (lsPercent > 0 && totalAtk > 0) {
-            const lsHeal = heal(Math.floor(totalAtk * lsPercent));
+        if (lsPercent > 0 && finalAtk > 0) {
+            const lsHeal = heal(Math.floor(finalAtk * lsPercent));
             if (lsHeal > 0) log(`🩸 Lifesteal: +${lsHeal} HP`, 'heal');
+        }
+
+        // ── POST-ATTACK ABILITY CHECKS ──
+
+        // Iron Golem Overcharge: stun if player dealt 25+ (before armor reduction, use totalAtk pre-armor for intent)
+        if (baseEName === 'Iron Golem' && finalAtk >= 20) {
+            as.stunned = true;
+            log(`⚡ Overcharged! The Golem staggers — skips next attack!`, 'damage');
+        }
+
+        // Slime Mitosis: transform on turn 3
+        if (baseEName === 'Slime' && !as.transformed && GS.enemy.turn >= 3 && GS.enemy.currentHp > 0) {
+            as.transformed = true;
+            GS.enemy.name = 'Slimeling Swarm';
+            GS.enemy.hp = 20;
+            GS.enemy.currentHp = Math.min(GS.enemy.currentHp, 20);
+            GS.enemy.baseAtk = 6;
+            GS.enemy.atk = 6;
+            GS.enemy.intent = 6;
+            GS.enemy.intentText = `⚔️ Attacks for 6`;
+            log(`🟢 The Slime splits into a Slimeling Swarm! (20 HP, 6 ATK)`, 'damage');
+        }
+
+        // Demon Soul Pact: reflect overkill damage
+        if (baseEName === 'Demon' && GS.enemy.currentHp < 0) {
+            const reflected = -GS.enemy.currentHp;
+            GS.enemy.currentHp = 0;
+            GS.hp = Math.max(0, GS.hp - reflected);
+            log(`👹 Soul Pact: ${reflected} overkill reflected back to you!`, 'damage');
+            updateStats();
+            if (GS.hp <= 0) {
+                setTimeout(() => window.Game.defeat(), 1000);
+                return;
+            }
+        }
+
+        // Lich Phylactery: revive on first death
+        if (baseEName === 'Lich' && GS.enemy.currentHp <= 0 && !as.phylacteryUsed) {
+            as.phylacteryUsed = true;
+            GS.enemy.currentHp = 26;
+            log(`💀 The Phylactery pulses... The Lich reforms at 26 HP!`, 'damage');
+            Combat.renderEnemy();
+            updateStats();
+            // Don't call enemyDefeated — fall through to enemy attack
         }
 
         Combat.renderEnemy();
@@ -313,12 +505,14 @@ export const Combat = {
             return;
         }
 
-        // ── POISON TICK ──
+        // ── POISON TICK ON ENEMY ──
         if (GS.enemy.poison > 0) {
             let poisonDmg = GS.enemy.poison;
             const poisonMult = GS.artifacts.filter(a => a.effect === 'poisonDouble').reduce((s, a) => s + a.value, 0);
             if (poisonMult > 0) poisonDmg = Math.floor(poisonDmg * poisonMult);
             if (GS.passives.plagueLord) poisonDmg *= 2;
+            // Iron Golem armor applies to poison too
+            if (baseEName === 'Iron Golem') poisonDmg = Math.max(0, poisonDmg - 5);
             GS.enemy.currentHp -= poisonDmg;
             if (GS.challengeMode) GS.challengeDmg += poisonDmg;
             GS.enemy.poison = Math.max(0, GS.enemy.poison - 1);
@@ -326,45 +520,241 @@ export const Combat = {
             Combat.renderEnemy();
 
             if (GS.enemy.currentHp <= 0) {
-                Combat.enemyDefeated();
+                // Check Phylactery again after poison
+                if (baseEName === 'Lich' && !as.phylacteryUsed) {
+                    as.phylacteryUsed = true;
+                    GS.enemy.currentHp = 26;
+                    log(`💀 The Phylactery pulses... The Lich reforms at 26 HP!`, 'damage');
+                    Combat.renderEnemy();
+                } else {
+                    Combat.enemyDefeated();
+                    return;
+                }
+            }
+        }
+
+        // ── IRON GOLEM STUN: skip attack ──
+        if (baseEName === 'Iron Golem' && as.stunned) {
+            as.stunned = false;
+            log(`⚡ The Golem is stunned and skips its attack!`, 'info');
+            Combat.renderEnemy();
+            Combat.newTurn();
+            return;
+        }
+
+        // ── FUNGAL CREEP SPORE CLOUD: every 2nd player turn (turns 2, 4, 6...) ──
+        const sporeOnThisTurn = baseEName === 'Fungal Creep' && GS.enemy.turn > 0 && GS.enemy.turn % 2 === 0;
+        if (sporeOnThisTurn) {
+            GS.playerDebuffs.poison = Math.max(GS.playerDebuffs.poison, 2);
+            GS.playerDebuffs.poisonTurns = Math.max(GS.playerDebuffs.poisonTurns, 3);
+            log(`🟢 Fungal Creep releases spores! (2 poison/turn for 3 turns)`, 'damage');
+            Combat.renderEnemy();
+            Combat.newTurn();
+            return;
+        }
+
+        // ── DRAGON WHELP BREATH CHARGE: every 4 turns, turn 3 = charge ──
+        if (baseEName === 'Dragon Whelp' && GS.enemy.turn % 4 === 3) {
+            as.breathCharging = true;
+            log(`🔥 Dragon Whelp inhales deeply...`, 'info');
+            Combat.renderEnemy();
+            Combat.newTurn();
+            return;
+        }
+
+        // ── ENEMY ATTACKS PLAYER ──
+        let enemyDmg = GS.enemy.intent;
+        let attackTimes = 1;
+
+        // Dark Mage: apply Curse first
+        if (baseEName === 'Dark Mage' && GS.enemy.turn > 0 && GS.enemy.turn % 3 === 0) {
+            const atkDice = GS.allocated.attack.length;
+            const defDice = GS.allocated.defend.length;
+            const targetSlot = atkDice >= defDice ? 'attack' : 'defend';
+            GS.playerDebuffs.slotDisabled = targetSlot;
+            GS.playerDebuffs.slotDisabledTurns = 2;
+            GS.dice.filter(d => d.location === targetSlot).forEach(d => { d.location = 'pool'; });
+            GS.allocated[targetSlot] = [];
+            log(`🟣 Dark Mage casts Curse! Your ${targetSlot} slot is disabled for 2 turns!`, 'damage');
+        }
+
+        // Orc Warrior War Cry
+        if (baseEName === 'Orc Warrior' && as.warCryReady) {
+            enemyDmg = enemyDmg * 2;
+            as.warCryReady = false;
+            log(`🔥 War Cry! The Orc attacks for ${enemyDmg}!`, 'damage');
+        }
+
+        // Dragon Whelp Breath fire
+        if (baseEName === 'Dragon Whelp' && as.breathCharging) {
+            enemyDmg = 30;
+            as.breathCharging = false;
+            log(`🔥 Dragon Breath! 30 damage incoming!`, 'damage');
+        }
+
+        // Mimic Greed Tax
+        if (baseEName === 'Mimic') {
+            const greedBonus = Math.floor(GS.gold / 50);
+            if (greedBonus > 0) {
+                enemyDmg += greedBonus;
+                log(`💰 Greed Tax: +${greedBonus} ATK (you have ${GS.gold} gold)`, 'damage');
+            }
+        }
+
+        // Vampire Blood Frenzy: double attacks
+        if (baseEName === 'Vampire' && as.bloodFrenzyActive) attackTimes = 2;
+        // Dire Rat Frenzy: always attacks twice
+        if (baseEName === 'Dire Rat') attackTimes = 2;
+        // Void Lord Phase 3: attack twice
+        if (eName === 'The Void Lord' && as.phase >= 3) attackTimes = 2;
+
+        // Boss pattern actions
+        if (eName === 'The Bone King') {
+            const action = as.pattern[as.patternIdx % 4];
+            as.patternIdx++;
+            if (action === 'bonewall') {
+                as.boneWallShield += 15;
+                log(`🦴 Bone Wall! The Bone King gains 15 shield!`, 'info');
+                Combat.renderEnemy();
+                Combat.newTurn();
+                return;
+            } else if (action === 'raisedead') {
+                GS.enemy.baseAtk += 3;
+                GS.enemy.atk += 3;
+                log(`💀 Raise Dead! Bone King ATK permanently +3 (now ${GS.enemy.baseAtk + GS.enemy.rage})!`, 'damage');
+                Combat.renderEnemy();
+                Combat.newTurn();
+                return;
+            }
+            // else 'strike': normal attack (falls through)
+        }
+
+        if (eName === 'Crimson Wyrm') {
+            const action = as.pattern[as.patternIdx % 4];
+            as.patternIdx++;
+            if (action === 'breath') {
+                const breathDmg = 18;
+                GS.playerDebuffs.poison = Math.max(GS.playerDebuffs.poison, 3);
+                GS.playerDebuffs.poisonTurns = Math.max(GS.playerDebuffs.poisonTurns, 3);
+                GS.hp = Math.max(0, GS.hp - breathDmg);
+                log(`🔥 Fire Breath! ${breathDmg} damage + 3 burn/turn for 3 turns!`, 'damage');
+                updateStats();
+                if (GS.hp <= 0) { setTimeout(() => window.Game.defeat(), 1000); return; }
+                Combat.renderEnemy();
+                Combat.newTurn();
+                return;
+            } else if (action === 'wingbuffet') {
+                const buffetDmg = 10;
+                GS.playerDebuffs.slotDisabled = 'attack';
+                GS.playerDebuffs.slotDisabledTurns = 1;
+                GS.dice.filter(d => d.location === 'attack').forEach(d => { d.location = 'pool'; });
+                GS.allocated.attack = [];
+                GS.hp = Math.max(0, GS.hp - buffetDmg);
+                log(`💨 Wing Buffet! ${buffetDmg} damage + attack slot disabled 1 turn!`, 'damage');
+                updateStats();
+                if (GS.hp <= 0) { setTimeout(() => window.Game.defeat(), 1000); return; }
+                Combat.renderEnemy();
+                Combat.newTurn();
+                return;
+            } else if (action === 'strike' && as.phase2) {
+                // Phase 2 strikes also apply burn
+                GS.playerDebuffs.poison = Math.max(GS.playerDebuffs.poison, 2);
+                GS.playerDebuffs.poisonTurns = Math.max(GS.playerDebuffs.poisonTurns, 2);
+            }
+            // falls through to normal attack for 'strike'
+        }
+
+        if (eName === 'The Void Lord') {
+            const action = as.pattern[as.patternIdx % 4];
+            as.patternIdx++;
+            if (action === 'voidrift') {
+                const targetSlot = Math.random() < 0.5 ? 'attack' : 'defend';
+                GS.playerDebuffs.slotDisabled = targetSlot;
+                GS.playerDebuffs.slotDisabledTurns = 2;
+                GS.dice.filter(d => d.location === targetSlot).forEach(d => { d.location = 'pool'; });
+                GS.allocated[targetSlot] = [];
+                log(`🌀 Void Rift! Your ${targetSlot} slot is disabled for 2 turns!`, 'damage');
+                Combat.renderEnemy();
+                Combat.newTurn();
+                return;
+            } else if (action === 'darkpulse') {
+                const pulseDmg = 15;
+                GS.hp = Math.max(0, GS.hp - pulseDmg);
+                log(`🌀 Dark Pulse! ${pulseDmg} unblockable damage!`, 'damage');
+                updateStats();
+                if (GS.hp <= 0) { setTimeout(() => window.Game.defeat(), 1000); return; }
+                // Entropy in phase 2
+                if (as.phase >= 2) Combat._applyEntropy();
+                Combat.renderEnemy();
+                Combat.newTurn();
+                return;
+            }
+            // Phase 2 Entropy on regular strike turns
+            if (as.phase >= 2) Combat._applyEntropy();
+        }
+
+        // Dark Mage Penetration: reduce effective block by 3
+        let effectiveDef = totalDef;
+        if (baseEName === 'Dark Mage') effectiveDef = Math.max(0, totalDef - 3);
+
+        // ── DEAL DAMAGE TO PLAYER (once per attackTimes) ──
+        for (let i = 0; i < attackTimes; i++) {
+            const mitigated = Math.max(0, enemyDmg - effectiveDef);
+            const blocked = enemyDmg - mitigated;
+
+            GS.hp -= mitigated;
+
+            if (blocked > 0) {
+                log(`${GS.enemy.name} attacks for ${enemyDmg} — you block ${blocked}, take ${mitigated} damage`, 'defend');
+            } else {
+                log(`${GS.enemy.name} attacks for ${enemyDmg} damage!`, 'damage');
+            }
+
+            if (mitigated > 0) {
+                const thornsDmg = GS.runes.defend.filter(r => r.effect === 'thorns').reduce((s, r) => s + r.value, 0);
+                if (thornsDmg > 0) {
+                    GS.enemy.currentHp -= thornsDmg;
+                    if (GS.challengeMode) GS.challengeDmg += thornsDmg;
+                    log(`🌿 Thorns: reflect ${thornsDmg} damage!`, 'damage');
+                    Combat.renderEnemy();
+                    if (GS.enemy.currentHp <= 0) { Combat.enemyDefeated(); return; }
+                }
+            }
+
+            // Vampire Lifesteal: heals after each attack
+            if (baseEName === 'Vampire' && mitigated > 0) {
+                const lsHeal = Math.floor(mitigated * 0.5);
+                if (lsHeal > 0) {
+                    GS.enemy.currentHp = Math.min(GS.enemy.hp, GS.enemy.currentHp + lsHeal);
+                    log(`🩸 Vampire lifesteals ${lsHeal} HP!`, 'info');
+                    Combat.renderEnemy();
+                }
+            }
+
+            if (GS.hp <= 0) {
+                GS.hp = 0;
+                updateStats();
+                setTimeout(() => {
+                    if (GS.challengeMode) window.Game.challengeResult();
+                    else window.Game.defeat();
+                }, 1000);
                 return;
             }
         }
 
-        // ── ENEMY ATTACKS ──
-        const enemyDamage = GS.enemy.intent;
-        const mitigated = Math.max(0, enemyDamage - totalDef);
-        const blocked = enemyDamage - mitigated;
-
-        GS.hp -= mitigated;
-        if (blocked > 0) {
-            log(`${GS.enemy.name} attacks for ${enemyDamage} — you block ${blocked}, take ${mitigated} damage`, 'defend');
-        } else {
-            log(`${GS.enemy.name} attacks for ${enemyDamage} damage!`, 'damage');
-        }
-
-        if (mitigated > 0) {
-            const thornsDmg = GS.runes.defend.filter(r => r.effect === 'thorns').reduce((s, r) => s + r.value, 0);
-            if (thornsDmg > 0) {
-                GS.enemy.currentHp -= thornsDmg;
-                if (GS.challengeMode) GS.challengeDmg += thornsDmg;
-                log(`🌿 Thorns: reflect ${thornsDmg} damage!`, 'damage');
-                Combat.renderEnemy();
+        // Demon Hellfire: 5 unblockable damage in addition to normal attack
+        if (baseEName === 'Demon') {
+            GS.hp = Math.max(0, GS.hp - 5);
+            log(`🔥 Hellfire: 5 unblockable damage!`, 'damage');
+            if (GS.hp <= 0) {
+                GS.hp = 0;
+                updateStats();
+                setTimeout(() => window.Game.defeat(), 1000);
+                return;
             }
         }
 
         updateStats();
-
-        if (GS.hp <= 0) {
-            GS.hp = 0;
-            updateStats();
-            if (GS.challengeMode) {
-                setTimeout(() => window.Game.challengeResult(), 1000);
-            } else {
-                setTimeout(() => window.Game.defeat(), 1000);
-            }
-            return;
-        }
 
         if (GS.enemy.currentHp <= 0) {
             Combat.enemyDefeated();
@@ -374,7 +764,119 @@ export const Combat = {
         Combat.newTurn();
     },
 
+    // Apply Void Lord Entropy: remove highest face from a random die (min 3 faces)
+    _applyEntropy() {
+        const eligible = GS.dice.filter(d => d.faceValues.length > 3);
+        if (eligible.length > 0) {
+            const target = eligible[Math.floor(Math.random() * eligible.length)];
+            const removed = target.faceValues.pop();
+            target.max = target.faceValues[target.faceValues.length - 1];
+            log(`🌀 Entropy consumes a die! Lost face value ${removed} from a d${target.sides}!`, 'damage');
+        }
+    },
+
+    updateIntent() {
+        const e = GS.enemy;
+        if (!e) return;
+        const eName = e.name;
+        const as = e.abilityState || {};
+        const rageAtk = e.baseAtk + e.rage;
+
+        let text = `⚔️ Attacks for ${rageAtk}`;
+
+        const baseEName = eName.replace(/^(💀 Deadly|🛡️ Armored|⚡ Swift|🔥 Enraged) /, '');
+
+        if (baseEName === 'Dire Rat') {
+            text = `⚔️⚔️ Strikes twice for ${rageAtk}`;
+        }
+        if (baseEName === 'Fungal Creep') {
+            const nextTurn = e.turn + 1;
+            if (nextTurn > 0 && nextTurn % 2 === 0) text = '🟢 Releasing spores...';
+        }
+        if ((baseEName === 'Slime' || eName === 'Slimeling Swarm') && !as.transformed && e.turn < 3) {
+            const turnsLeft = 2 - e.turn;
+            text = turnsLeft > 0 ? `⏳ Splitting in ${turnsLeft}...` : `⏳ Splitting now!`;
+        }
+        if (baseEName === 'Orc Warrior') {
+            if (as.warCryReady) text = `🔥 War Cry! Attacks for ${rageAtk * 2}`;
+            else if ((e.turn + 1) % 3 === 2) text = '🔥 Winding up...';
+        }
+        if (baseEName === 'Dark Mage') {
+            if ((e.turn + 1) % 3 === 0) text = '🟣 Casting Curse...';
+        }
+        if (baseEName === 'Dragon Whelp') {
+            if (as.breathCharging) text = '🔥 Dragon Breath! 30 damage!';
+            else if ((e.turn + 1) % 4 === 3) text = '🔥 Inhaling...';
+        }
+        if (baseEName === 'Mimic') {
+            const greedBonus = Math.floor(GS.gold / 50);
+            text = `⚔️ Attacks for ${rageAtk + greedBonus}${greedBonus > 0 ? ` (+${greedBonus} Greed Tax)` : ''}`;
+        }
+        if (baseEName === 'Vampire' && as.bloodFrenzyActive) {
+            text = `🩸 Blood Frenzy! Attacks twice for ${rageAtk}`;
+        }
+        if (baseEName === 'Shadow Assassin') {
+            const emptySlots = Math.max(0, GS.slots.attack - GS.allocated.attack.length);
+            const exposeBonus = emptySlots * 5;
+            text = `⚔️ Attacks for ${rageAtk + exposeBonus}${exposeBonus > 0 ? ` (+${exposeBonus} Expose)` : ''}`;
+        }
+
+        // Boss patterns
+        if (eName === 'The Bone King') {
+            const nextAction = as.pattern && as.pattern[(as.patternIdx || 0) % 4];
+            if (nextAction === 'bonewall') text = '🦴 Bone Wall incoming...';
+            else if (nextAction === 'raisedead') text = '💀 Raise Dead incoming...';
+            else text = `⚔️ Attacks for ${rageAtk}${as.boneWallShield > 0 ? ` (🦴 Shield ${as.boneWallShield})` : ''}`;
+        }
+        if (eName === 'Crimson Wyrm') {
+            const nextAction = as.pattern && as.pattern[(as.patternIdx || 0) % 4];
+            if (nextAction === 'breath') text = '🔥 Fire Breath incoming!';
+            else if (nextAction === 'wingbuffet') text = '💨 Wing Buffet incoming!';
+            else text = `⚔️ Attacks for ${rageAtk}${as.phase2 ? ' + burn' : ''}`;
+        }
+        if (eName === 'The Void Lord') {
+            const nextAction = as.pattern && as.pattern[(as.patternIdx || 0) % 4];
+            if (nextAction === 'voidrift') text = '🌀 Void Rift incoming!';
+            else if (nextAction === 'darkpulse') text = '🌀 Dark Pulse: 15 unblockable!';
+            else if (as.phase >= 3) text = `⚔️⚔️ Desperate! Attacks twice for ${rageAtk} (takes +50% damage)`;
+            else text = `⚔️ Attacks for ${rageAtk}${as.phase >= 2 ? ' + Entropy' : ''}`;
+        }
+
+        e.intent = rageAtk;
+        e.intentText = text;
+    },
+
     newTurn() {
+        // ── PLAYER POISON TICK ──
+        if (GS.playerDebuffs.poison > 0 && GS.playerDebuffs.poisonTurns > 0) {
+            const dmg = GS.playerDebuffs.poison;
+            GS.hp = Math.max(0, GS.hp - dmg);
+            GS.playerDebuffs.poisonTurns--;
+            if (GS.playerDebuffs.poisonTurns <= 0) {
+                GS.playerDebuffs.poison = 0;
+                GS.playerDebuffs.poisonTurns = 0;
+            }
+            log(`☠️ Poison deals ${dmg} damage! (${GS.playerDebuffs.poisonTurns} turns remain)`, 'damage');
+            updateStats();
+            if (GS.hp <= 0) {
+                GS.hp = 0;
+                updateStats();
+                setTimeout(() => window.Game.defeat(), 1000);
+                return;
+            }
+        }
+
+        // ── SLOT DISABLE COUNTDOWN ──
+        if (GS.playerDebuffs.slotDisabled) {
+            GS.playerDebuffs.slotDisabledTurns--;
+            if (GS.playerDebuffs.slotDisabledTurns <= 0) {
+                log(`🔓 Your ${GS.playerDebuffs.slotDisabled} slot is no longer disabled.`, 'info');
+                GS.playerDebuffs.slotDisabled = null;
+                GS.playerDebuffs.slotDisabledTurns = 0;
+            }
+        }
+
+        // ── RESET DICE FOR NEW TURN ──
         GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; });
         GS.allocated = { attack: [], defend: [] };
         GS.rolled = false;
@@ -382,6 +884,7 @@ export const Combat = {
         GS.rerollsLeft = GS.rerolls;
         GS.rerollsLeft += GS.artifacts.filter(a => a.effect === 'bonusReroll').reduce((s, a) => s + a.value, 0);
 
+        // ── PLAYER REGEN ──
         let regenAmt = GS.runes.defend.filter(r => r.effect === 'regenPerTurn').reduce((s, r) => s + r.value, 0);
         if (GS.passives.regen) regenAmt += GS.passives.regen;
         if (regenAmt > 0) {
@@ -395,6 +898,7 @@ export const Combat = {
             GS.regenStacks--;
         }
 
+        // ── ENEMY TURN COUNTER & ENRAGE ──
         GS.enemy.turn++;
         if (GS.challengeMode) {
             GS.challengeTurns++;
@@ -409,13 +913,70 @@ export const Combat = {
             log(`🔥 ${GS.enemy.name} grows enraged! (+${GS.enemy.rage} ATK)`, 'damage');
         }
 
-        const rageAtk = GS.enemy.baseAtk + GS.enemy.rage;
-        if (GS.enemy.isBoss) {
-            const variation = Math.random() < 0.3 ? 1.5 : 1.0;
-            GS.enemy.intent = Math.floor(rageAtk * variation);
-        } else {
-            GS.enemy.intent = rageAtk;
+        // ── ENEMY PASSIVE/TURN EFFECTS ──
+        const eName = GS.enemy.name;
+        const baseEName = eName.replace(/^(💀 Deadly|🛡️ Armored|⚡ Swift|🔥 Enraged) /, '');
+        const as = GS.enemy.abilityState;
+
+        // Troll Regen
+        if (baseEName === 'Troll') {
+            const trollHeal = Math.min(3, GS.enemy.hp - GS.enemy.currentHp);
+            if (trollHeal > 0) {
+                GS.enemy.currentHp += trollHeal;
+                log(`💚 Troll regenerates ${trollHeal} HP (${GS.enemy.currentHp}/${GS.enemy.hp})`, 'info');
+            }
         }
+
+        // Iron Golem Escalate: +2 ATK every 2 turns
+        if (baseEName === 'Iron Golem' && GS.enemy.turn % 2 === 0) {
+            GS.enemy.baseAtk += 2;
+            GS.enemy.atk += 2;
+            log(`⚙️ Iron Golem escalates! (+2 ATK, now ${GS.enemy.baseAtk + GS.enemy.rage})`, 'damage');
+        }
+
+        // Orc Warrior War Cry wind-up
+        if (baseEName === 'Orc Warrior' && GS.enemy.turn % 3 === 2) {
+            as.warCryReady = true;
+        }
+
+        // Vampire Blood Frenzy trigger
+        if (baseEName === 'Vampire' && !as.bloodFrenzyActive && GS.enemy.currentHp / GS.enemy.hp < 0.2) {
+            as.bloodFrenzyActive = true;
+            log(`🩸 Blood Frenzy! The Vampire attacks twice for the rest of the fight!`, 'damage');
+        }
+
+        // Lich Decay Aura: maintain dice reduction
+        if (baseEName === 'Lich') {
+            GS.playerDebuffs.diceReduction = 1;
+        }
+
+        // Void Lord phase transitions
+        if (eName === 'The Void Lord') {
+            const hpPct = GS.enemy.currentHp / GS.enemy.hp;
+            if (as.phase < 3 && hpPct < 0.2) {
+                as.phase = 3;
+                log(`💀 The Void Lord is desperate! Attacks twice, takes +50% damage!`, 'damage');
+            } else if (as.phase < 2 && hpPct < 0.5) {
+                as.phase = 2;
+                GS.enemy.baseAtk += 8;
+                GS.enemy.atk += 8;
+                GS.enemy.pattern = ['strike', 'voidrift', 'darkpulse', 'strike'];
+                log(`🌀 The Void Lord enters Phase 2! ATK +8, Entropy begins...`, 'damage');
+            }
+        }
+
+        // Crimson Wyrm Phase 2 trigger
+        if (eName === 'Crimson Wyrm' && !as.phase2 && GS.enemy.currentHp / GS.enemy.hp < 0.5) {
+            as.phase2 = true;
+            GS.enemy.baseAtk += 5;
+            GS.enemy.atk += 5;
+            log(`🔥 The Wyrm erupts in flame! ATK +5, all attacks now burn!`, 'damage');
+        }
+
+        // Update intent for upcoming turn
+        const rageAtk = GS.enemy.baseAtk + GS.enemy.rage;
+        GS.enemy.intent = rageAtk;
+        Combat.updateIntent();
 
         Combat.renderEnemy();
         renderCombatDice();
@@ -445,6 +1006,9 @@ export const Combat = {
         }
         gainXP(Math.floor(GS.enemy.hp * 2.5));
         updateStats();
+
+        // Clear player debuffs at end of combat
+        GS.playerDebuffs = { poison: 0, poisonTurns: 0, slotDisabled: null, slotDisabledTurns: 0, diceReduction: 0 };
 
         if (GS.enemy.isBoss && GS.floor >= 15) {
             setTimeout(() => window.Game.victory(), 1200);

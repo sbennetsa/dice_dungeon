@@ -559,6 +559,10 @@ export function setupDropZones() {
 }
 
 export function allocateDie(die, slot) {
+    if (GS.playerDebuffs && GS.playerDebuffs.slotDisabled === slot) {
+        log(`🔒 ${slot} slot is disabled!`, 'damage');
+        return;
+    }
     const effectiveSlots = GS.slots[slot] - GS.runes[slot].length;
     if (GS.allocated[slot].length >= effectiveSlots) return;
     GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== die.id);

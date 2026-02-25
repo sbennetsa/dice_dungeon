@@ -12,6 +12,7 @@ import { Combat } from './combat.js';
 // ════════════════════════════════════════════════════════════
 const Game = {
     start() {
+        resetDieIdCounter(0);
         Object.assign(GS, {
             floor: 1, act: 1, hp: 50, maxHp: 50, gold: 15,
             level: 1, xp: 0, xpNext: 50,
@@ -24,7 +25,6 @@ const Game = {
             artifacts: [], buffs: { damageBoost: 0, armor: 0 },
             allocated: { attack: [], defend: [] }, rolled: false,
         });
-        resetDieIdCounter(3);
         Game.enterFloor();
     },
 

@@ -93,8 +93,6 @@ export function log(msg, type = '') {
 }
 
 export function gainXP(amount) {
-    const xpMult = GS.artifacts.filter(a => a.effect === 'xpMult').reduce((s, a) => s + a.value, 0);
-    amount = Math.floor(amount * (1 + xpMult));
     GS.xp += amount;
     log(`+${amount} XP`, 'info');
     while (GS.xp >= GS.xpNext) {
@@ -110,8 +108,6 @@ export function gainXP(amount) {
 }
 
 export function gainGold(amount) {
-    const goldMult = GS.artifacts.filter(a => a.effect === 'goldMult').reduce((s, a) => s + a.value, 0);
-    amount = Math.floor(amount * (1 + goldMult));
     GS.gold += amount;
     GS.totalGold += amount;
     return amount;

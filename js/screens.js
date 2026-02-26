@@ -300,7 +300,7 @@ const Game = {
         GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; });
         GS.allocated = { attack: [], defend: [] };
         GS.rolled = false;
-        GS.rerollsLeft = GS.rerolls + GS.artifacts.filter(a => a.effect === 'bonusReroll').reduce((s, a) => s + a.value, 0);
+        GS.rerollsLeft = GS.rerolls;
         GS.autoLifesteal = 0;
 
         Combat.renderEnemy();
@@ -1013,8 +1013,7 @@ const Shop = {
     },
 
     generateItems() {
-        let discount = GS.artifacts.filter(a => a.effect === 'shopDiscount').reduce((s, a) => s + a.value, 0);
-        if (GS.passives.shopDiscount) discount += GS.passives.shopDiscount;
+        let discount = GS.passives.shopDiscount || 0;
         if (GS.tempBuffs && GS.tempBuffs.merchantEscort) discount += 0.5;
         const applyDiscount = p => Math.floor(p * (1 - Math.min(discount, 0.5)));
         const totalSlots = GS.slots.attack.length + GS.slots.defend.length;
@@ -1026,8 +1025,6 @@ const Shop = {
             { title: '💎 Power Die', desc: `A die that rolls 4-9 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 80, type: 'DICE',
               effect: 'Adds 4-9 die to your pool',
               action: () => { GS.dice.push(createDie(4, 9)); log('Bought Power Die (4-9)!', 'info'); } },
-            { title: '⚔️ Blade Oil', desc: 'Permanent damage boost', price: 25, type: 'BUFF',
-              effect: '+3 attack damage', action: () => { GS.buffs.damageBoost += 3; log('+3 damage!', 'info'); } },
             { title: '🛡️ Iron Plate', desc: 'Permanent damage reduction', price: 30, type: 'BUFF',
               effect: '+2 armor', action: () => { GS.buffs.armor += 2; log('+2 armor!', 'info'); } },
             { title: '❤️ Health Potion', desc: 'Restore vitality', price: 20, type: 'CONSUMABLE',

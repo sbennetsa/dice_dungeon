@@ -136,13 +136,6 @@ export const Combat = {
         GS.autoLifesteal = 0;
         GS.regenStacks = 0;
         GS.rerollsLeft = GS.rerolls;
-        GS.rerollsLeft += GS.artifacts.filter(a => a.effect === 'bonusReroll').reduce((s, a) => s + a.value, 0);
-
-        const combatHeal = GS.artifacts.filter(a => a.effect === 'combatHeal').reduce((s, a) => s + a.value, 0);
-        if (combatHeal > 0) {
-            const h = heal(combatHeal);
-            if (h > 0) log(`🔥 Phoenix Heart: +${h} HP`, 'heal');
-        }
 
         const gildedArtifact = GS.artifacts.find(a => a.effect === 'goldToDmg');
         if (gildedArtifact && GS.gold >= 50) {
@@ -426,14 +419,9 @@ export const Combat = {
         if (GS.transformBuffs && GS.transformBuffs.conduit > 0 && atkCount > 0) {
             poisonToApply += GS.transformBuffs.conduit * atkCount;
         }
-        atkBonus += GS.artifacts.filter(a => a.effect === 'flatAtk').reduce((s, a) => s + a.value, 0);
         const goldScale = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
         if (goldScale > 0) atkBonus += goldScale;
         if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
-        atkBonus += GS.artifacts.filter(a => a.effect === 'dmgPerDie').reduce((s, a) => s + a.value, 0) * GS.dice.length;
-        atkBonus += GS.artifacts.filter(a => a.effect === 'giantDmg').reduce((s, a) => s + a.value, 0) * GS.dice.filter(d => d.max >= 10).length;
-        if (atkCount >= 4) atkBonus += GS.artifacts.filter(a => a.effect === 'swarmAtk').reduce((s, a) => s + a.value, 0);
-        if (atkCount === 1) atkMult *= GS.artifacts.some(a => a.effect === 'executioner') ? 2 : 1;
         if (GS.passives.packTactics) atkBonus += GS.passives.packTactics * atkCount;
         if (GS.passives.swarmMaster) atkBonus += GS.passives.swarmMaster * atkCount;
         if (GS.passives.volley && atkCount >= 3) atkBonus += GS.passives.volley;
@@ -448,14 +436,7 @@ export const Combat = {
             if (rerollDmg > 0) { atkBonus += rerollDmg; log(`🪙 Reroll damage: +${rerollDmg} (${rerollsUsed} rerolls)`, 'info'); }
         }
 
-        if (GS.isFirstTurn) {
-            const firstStrike = GS.artifacts.filter(a => a.effect === 'firstStrike').reduce((s, a) => s + a.value, 0);
-            if (firstStrike > 0) {
-                atkBonus += firstStrike;
-                log(`🥁 War Drum: +${firstStrike} first strike damage!`, 'info');
-            }
-            GS.isFirstTurn = false;
-        }
+        if (GS.isFirstTurn) GS.isFirstTurn = false;
 
         // New artifact attack bonuses
         atkBonus += GS.artifacts.filter(a => a.effect === 'hydrasCrest').reduce((s, a) => s + a.value * GS.dice.filter(d => !d.midasTemp).length, 0);
@@ -515,8 +496,6 @@ export const Combat = {
         if (GS.ascendedDice && GS.ascendedDice.length > 0) {
             defBonus += GS.ascendedDice.reduce((s, a) => s + a.bonus, 0);
         }
-        defBonus += GS.artifacts.filter(a => a.effect === 'permArmor').reduce((s, a) => s + a.value, 0);
-        if (defCount >= 3) defBonus += GS.artifacts.filter(a => a.effect === 'swarmDef').reduce((s, a) => s + a.value, 0);
         if (GS.passives.swarmMaster) defBonus += GS.passives.swarmMaster * defCount;
         if (GS.passives.volley && defCount >= 3) defBonus += GS.passives.volley;
         if (GS.passives.threshold) {
@@ -592,16 +571,13 @@ export const Combat = {
         }
 
         // Apply poison from player (via centralized helper)
-        const serpentPoison = GS.artifacts.filter(a => a.effect === 'poisonOnHit').reduce((s, a) => s + a.value, 0);
-        if (serpentPoison > 0 && finalAtk > 0) poisonToApply += Math.floor(finalAtk * serpentPoison);
         if (GS.passives.poisonOnAtk) poisonToApply += GS.passives.poisonOnAtk;
         if (GS.passives.plagueLord) poisonToApply += 2;
         // tempBuff: poison coating
         if (GS.tempBuffs && GS.tempBuffs.poisonCombats > 0 && finalAtk > 0) poisonToApply += 1;
         if (poisonToApply > 0) applyEnemyPoison(poisonToApply);
 
-        let lsPercent = GS.autoLifesteal || 0;
-        lsPercent += GS.artifacts.filter(a => a.effect === 'permLifesteal').reduce((s, a) => s + a.value, 0);
+        const lsPercent = GS.autoLifesteal || 0;
         if (lsPercent > 0 && finalAtk > 0) {
             const lsHeal = heal(Math.floor(finalAtk * lsPercent));
             if (lsHeal > 0) log(`🩸 Lifesteal: +${lsHeal} HP`, 'heal');
@@ -692,8 +668,6 @@ export const Combat = {
         // ── POISON TICK ON ENEMY ──
         if (GS.enemy.poison > 0) {
             let poisonDmg = GS.enemy.poison;
-            const poisonMult = GS.artifacts.filter(a => a.effect === 'poisonDouble').reduce((s, a) => s + a.value, 0);
-            if (poisonMult > 0) poisonDmg = Math.floor(poisonDmg * poisonMult);
             if (GS.passives.plagueLord) poisonDmg *= 2;
             // Iron Golem armor applies to poison too
             if (baseEName === 'Iron Golem') poisonDmg = Math.max(0, poisonDmg - 5);

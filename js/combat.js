@@ -3,10 +3,49 @@
 // ════════════════════════════════════════════════════════════
 import { BOSSES, ENEMIES, ELITES, pickEnemy } from './constants.js';
 import { GS, $, log, gainXP, gainGold, heal, pick } from './state.js';
-import { rollSingleDie, getActiveFace, renderCombatDice, updateStats, setupDropZones, show } from './engine.js';
+import { rollSingleDie, getActiveFace, renderCombatDice, updateStats, setupDropZones, show, createDie } from './engine.js';
 
 // window.Game and window.Rewards are set by screens.js at load time
 // to avoid circular module dependencies
+
+// ── STATUS HELPERS ──
+function applyEnemyPoison(amount) {
+    if (GS.artifacts.some(a => a.effect === 'venomGland')) amount *= 2;
+    GS.enemy.poison = (GS.enemy.poison || 0) + amount;
+    if (GS.artifacts.some(a => a.effect === 'witchsHex')) applyStatus('weaken', 1);
+    log(`☠️ Applied ${amount} poison! (${GS.enemy.poison} stacks)`, 'info');
+}
+
+function applyStatus(type, stacks, turns = 2) {
+    const es = GS.enemyStatus;
+    if (!es) return;
+    if (type === 'chill') {
+        es.chill += stacks; es.chillTurns = 2;
+        log(`❄️ Chill: ${es.chill} stacks!`, 'info');
+        if (GS.artifacts.some(a => a.effect === 'frozenHeart') && es.chill >= 6) {
+            es.freeze = es.freeze > 0 ? es.freeze + 1 : 1;
+            es.chill = 0;
+            log('🧊 Frozen Heart: Freeze!', 'info');
+        }
+    } else if (type === 'freeze') {
+        es.freeze = es.freeze > 0 ? es.freeze + 1 : 1;
+        log('🧊 Frozen!', 'info');
+    } else if (type === 'mark') {
+        es.mark += stacks; es.markTurns = turns;
+        log(`🎯 Mark +${stacks} (${es.mark} total)`, 'info');
+    } else if (type === 'weaken') {
+        es.weaken = turns;
+        log('💔 Weaken! Enemy deals 25% less.', 'info');
+    } else if (type === 'burn') {
+        es.burn += stacks; es.burnTurns = turns;
+        log(`🔥 Burn: ${es.burn} stacks!`, 'damage');
+    } else if (type === 'stun') {
+        if (!es.stunCooldown) {
+            es.stun = 1; es.stunCooldown = true;
+            log('⚡ Stunned!', 'info');
+        }
+    }
+}
 
 export const Combat = {
     start(isElite = false, isBoss = false) {
@@ -65,6 +104,16 @@ export const Combat = {
         // Reset player debuffs for new combat
         GS.playerDebuffs = { poison: 0, poisonTurns: 0, slotDisabled: null, slotDisabledTurns: 0, diceReduction: 0 };
 
+        // Reset enemy status effects for new combat
+        GS.enemyStatus = { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: false };
+        GS.echoStoneDieId = null;
+        GS.gamblerCoinBonus = 0;
+        GS.huntersMarkFired = false;
+        GS.hourglassFreeFirstTurn = false;
+
+        // Remove Midas Die temp dice from previous combat
+        GS.dice = GS.dice.filter(d => !d.midasTemp);
+
         // Lich: set decay aura immediately
         if (eName === 'Lich') GS.playerDebuffs.diceReduction = 1;
 
@@ -101,6 +150,28 @@ export const Combat = {
             GS.enemy.currentHp -= 15;
             if (GS.challengeMode) GS.challengeDmg += 15;
             log(`✨ Gilded Gauntlet: Spent 50 gold, dealt 15 damage!`, 'damage');
+        }
+
+        // Midas Die: add temp d6 that auto-fires gold
+        if (GS.artifacts.some(a => a.effect === 'midasDie')) {
+            const md = createDie(1, 6, 6);
+            md.midasTemp = true;
+            GS.dice.push(md);
+        }
+
+        // Gambler's Coin: flip at combat start
+        if (GS.artifacts.some(a => a.effect === 'gamblersCoin')) {
+            GS.gamblerCoinBonus = Math.random() < 0.5 ? 2 : -1;
+            log(GS.gamblerCoinBonus > 0 ? '🪙 Heads! All dice +2 this combat!' : '🪙 Tails! All dice -1 this combat!', 'info');
+        }
+
+        // Hourglass: free first turn
+        if (GS.artifacts.some(a => a.effect === 'hourglass')) GS.hourglassFreeFirstTurn = true;
+
+        // Parasite: gold per combat
+        if (GS.parasiteGoldPerCombat > 0) {
+            const pg = gainGold(GS.parasiteGoldPerCombat);
+            log(`🦠 Parasite: +${pg} gold`, 'info');
         }
 
         GS.isFirstTurn = true;
@@ -147,6 +218,16 @@ export const Combat = {
         if (e.abilityState && e.abilityState.phase2 && e.name === 'The Void Lord') {
             const phaseLabel = e.abilityState.phase >= 3 ? 'Phase 3 💀' : 'Phase 2';
             statusIndicators += `<span style="color: #aa44ff; font-size: 0.75em; margin-left: 8px;">🌀 ${phaseLabel}</span>`;
+        }
+        // Enemy status effects
+        const esDisplay = GS.enemyStatus;
+        if (esDisplay) {
+            if (esDisplay.chill > 0) statusIndicators += `<span style="color: #80c0e0; font-size: 0.75em; margin-left: 8px;">❄️ Chill ${esDisplay.chill}</span>`;
+            if (esDisplay.freeze > 0) statusIndicators += `<span style="color: #60a0d0; font-size: 0.75em; margin-left: 8px;">🧊 Frozen ${esDisplay.freeze}</span>`;
+            if (esDisplay.mark > 0) statusIndicators += `<span style="color: #cc4444; font-size: 0.75em; margin-left: 8px;">🎯 Mark +${esDisplay.mark}</span>`;
+            if (esDisplay.weaken > 0) statusIndicators += `<span style="color: #c060a0; font-size: 0.75em; margin-left: 8px;">💔 Weakened</span>`;
+            if (esDisplay.burn > 0) statusIndicators += `<span style="color: #d06020; font-size: 0.75em; margin-left: 8px;">🔥 Burn ${esDisplay.burn}</span>`;
+            if (esDisplay.stun > 0) statusIndicators += `<span style="color: #d0d020; font-size: 0.75em; margin-left: 8px;">⚡ Stunned</span>`;
         }
 
         // Passive ability tags
@@ -201,12 +282,23 @@ export const Combat = {
 
         // Lich Decay Aura: reduce all dice by 1 after rolling (min 1)
         if (GS.playerDebuffs.diceReduction > 0) {
-            GS.dice.forEach(d => {
-                if (d.rolled) d.value = Math.max(1, d.value - GS.playerDebuffs.diceReduction);
-            });
+            if (GS.artifacts.some(a => a.effect === 'ironWill')) {
+                log('🧠 Iron Will: dice unaffected by Decay Aura!', 'info');
+            } else {
+                GS.dice.forEach(d => {
+                    if (d.rolled) d.value = Math.max(1, d.value - GS.playerDebuffs.diceReduction);
+                });
+            }
         }
 
         GS.dice.forEach(d => {
+            // Midas Die: auto-fire gold on roll
+            if (d.midasTemp && d.rolled && d.location !== 'auto') {
+                const g = gainGold(d.value);
+                d.location = 'auto';
+                log(`🎲 Midas Die: +${g} gold!`, 'info');
+                return;
+            }
             const face = getActiveFace(d);
             if (face && face.modifier.autoFire) {
                 d.location = 'auto';
@@ -258,7 +350,8 @@ export const Combat = {
             as.surpriseDone = true;
             const stolen = Math.min(15, GS.gold);
             GS.gold -= stolen;
-            const surpriseDmg = GS.enemy.intent;
+            let surpriseDmg = GS.enemy.intent;
+            if (GS.artifacts.some(a => a.effect === 'soulMirror')) surpriseDmg = Math.floor(surpriseDmg * 0.5);
             GS.hp = Math.max(0, GS.hp - surpriseDmg);
             log(`💰 The Mimic strikes first! Takes ${surpriseDmg} unblocked damage. -${stolen} gold stolen!`, 'damage');
             updateStats();
@@ -288,27 +381,37 @@ export const Combat = {
         // ── ATTACK CALCULATION ──
         let atkBase = 0, atkMult = 1, atkBonus = 0;
         let poisonToApply = 0;
+        let siphonHealing = 0;
 
         GS.allocated.attack.forEach(d => {
             const face = getActiveFace(d);
             const m = face && !face.modifier.autoFire ? face.modifier : null;
 
+            // Per-die rune: apply before contributing to base
+            let dieVal = d.value;
+            if (d.rune?.effect === 'amplifier') dieVal *= 2;
+            if (d.rune?.effect === 'titanBlow' && atkCount === 1) dieVal *= 3;
+            if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
+
             if (m) {
                 if (m.effect === 'lucky') { GS.rerollsLeft += m.value; log(`🎰 Lucky! +${m.value} reroll`, 'info'); }
-                if (m.effect === 'poison') { poisonToApply += m.value; }
-                if (m.effect === 'midasGold') { const mg = gainGold(d.value); log(`👑 Midas: +${mg} gold`, 'info'); }
+                if (m.effect === 'poison') { poisonToApply += m.value * (d.rune?.effect === 'amplifier' ? 2 : 1); }
+                if (m.effect === 'midasGold') { const mg = gainGold(dieVal); log(`👑 Midas: +${mg} gold`, 'info'); }
+                if (m.effect === 'searing') { applyStatus('burn', 2, 3); }
+                if (m.effect === 'marked') { applyStatus('mark', 3, 2); }
 
-                if (m.effect === 'slotMultiply') { atkMult *= m.value; atkBase += d.value; }
-                else if (m.effect === 'slotAdd') { atkBonus += m.value * atkCount; }
-                else if (m.effect === 'packTactics') { atkBonus += m.value * atkCount; atkBase += d.value; }
-                else if (m.effect === 'volley') { if (atkCount >= 3) atkBonus += m.value; atkBase += d.value; }
-                else if (m.effect === 'threshold') { atkBase += d.value >= m.value ? d.value * 2 : d.value; }
-                else if (m.effect === 'defAdd') { atkBase += d.value; }
-                else if (m.effect === 'poison') { atkBase += d.value; }
-                else { atkBase += d.value; }
+                if (m.effect === 'slotMultiply') { atkMult *= m.value; atkBase += dieVal; }
+                else if (m.effect === 'slotAdd') { atkBonus += m.value * atkCount; atkBase += dieVal; }
+                else if (m.effect === 'packTactics') { atkBonus += m.value * atkCount; atkBase += dieVal; }
+                else if (m.effect === 'volley') { if (atkCount >= 3) atkBonus += m.value; atkBase += dieVal; }
+                else if (m.effect === 'threshold') { atkBase += d.value >= m.value ? dieVal * 2 : dieVal; }
+                else if (m.effect === 'defAdd') { atkBase += dieVal; }
+                else if (m.effect === 'poison') { atkBase += dieVal; }
+                else { atkBase += dieVal; }
             } else {
-                atkBase += d.value;
+                atkBase += dieVal;
             }
+            if (d.rune?.effect === 'siphon') siphonHealing += dieVal;
         });
 
         atkBonus += GS.buffs.damageBoost;
@@ -353,41 +456,54 @@ export const Combat = {
             GS.isFirstTurn = false;
         }
 
-        const totalAtkBase = Math.floor(atkBase * atkMult) + atkBonus;
+        // New artifact attack bonuses
+        atkBonus += GS.artifacts.filter(a => a.effect === 'hydrasCrest').reduce((s, a) => s + a.value * GS.dice.filter(d => !d.midasTemp).length, 0);
+        atkBonus += GS.enemyStatus?.mark || 0;
+        atkBonus += GS.artifacts.filter(a => a.effect === 'festeringWound').reduce((s, a) => s + a.value * (GS.enemy.poison || 0), 0);
+        if (GS.artifacts.some(a => a.effect === 'berserkersMask')) atkMult *= 1.5;
+        if (GS.artifacts.some(a => a.effect === 'bloodPact')) atkMult *= 1.3;
+        if (atkCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) atkMult *= 1.5;
 
-        let runeAtkMult = 1, runeAtkBonus = 0;
-        GS.runes.attack.forEach(r => {
-            if (r.effect === 'furyPerDie') runeAtkBonus += r.value * atkCount;
-            if (r.effect === 'atkMultRune') runeAtkMult *= r.value;
-            if (r.effect === 'amplifier') runeAtkMult *= r.value;
-            if (r.effect === 'titanBlow' && atkCount === 1) runeAtkMult *= r.value;
-            if (r.effect === 'poisonPerTurn') poisonToApply += r.value;
-        });
-        let totalAtk = Math.floor(totalAtkBase * runeAtkMult) + runeAtkBonus;
+        let totalAtk = Math.floor(atkBase * atkMult) + atkBonus;
+        // Sharpening Stone: +50% after all other bonuses
+        if (GS.artifacts.some(a => a.effect === 'sharpeningStone')) totalAtk = Math.ceil(totalAtk * 1.5);
 
         // ── DEFEND CALCULATION ──
         let defBase = 0, defMult = 1, defBonus = 0;
+        let mirrorDmg = 0, regenCoreHeal = 0, steadfastContrib = 0;
 
         GS.allocated.defend.forEach(d => {
             const face = getActiveFace(d);
             const m = face && !face.modifier.autoFire ? face.modifier : null;
 
+            // Per-die rune: apply before contributing to base
+            let dieVal = d.value;
+            if (d.rune?.effect === 'amplifier') dieVal *= 2;
+            if (d.rune?.effect === 'titanBlow' && defCount === 1) dieVal *= 3;
+            if (d.rune?.effect === 'leaden') dieVal *= 2;
+            if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
+
             if (m) {
                 if (m.effect === 'lucky') { GS.rerollsLeft += m.value; log(`🎰 Lucky! +${m.value} reroll`, 'info'); }
-                if (m.effect === 'poison') { poisonToApply += m.value; }
-                if (m.effect === 'midasGold') { const mg = gainGold(d.value); log(`👑 Midas: +${mg} gold`, 'info'); }
+                if (m.effect === 'poison') { poisonToApply += m.value * (d.rune?.effect === 'amplifier' ? 2 : 1); }
+                if (m.effect === 'midasGold') { const mg = gainGold(dieVal); log(`👑 Midas: +${mg} gold`, 'info'); }
+                if (m.effect === 'frostbite') { applyStatus('chill', 2); }
 
-                if (m.effect === 'slotMultiply') { defMult *= m.value; defBase += d.value; }
-                else if (m.effect === 'slotAdd') { defBonus += m.value * defCount; }
-                else if (m.effect === 'packTactics') { defBonus += m.value * defCount; defBase += d.value; }
-                else if (m.effect === 'volley') { if (defCount >= 3) defBonus += m.value; defBase += d.value; }
-                else if (m.effect === 'threshold') { defBase += d.value >= m.value ? d.value * 2 : d.value; }
-                else if (m.effect === 'defAdd') { defBonus += m.value; defBase += d.value; }
-                else if (m.effect === 'poison') { defBase += d.value; }
-                else { defBase += d.value; }
+                if (m.effect === 'slotMultiply') { defMult *= m.value; defBase += dieVal; }
+                else if (m.effect === 'slotAdd') { defBonus += m.value * defCount; defBase += dieVal; }
+                else if (m.effect === 'packTactics') { defBonus += m.value * defCount; defBase += dieVal; }
+                else if (m.effect === 'volley') { if (defCount >= 3) defBonus += m.value; defBase += dieVal; }
+                else if (m.effect === 'threshold') { defBase += d.value >= m.value ? dieVal * 2 : dieVal; }
+                else if (m.effect === 'defAdd') { defBonus += m.value; defBase += dieVal; }
+                else if (m.effect === 'poison') { defBase += dieVal; }
+                else { defBase += dieVal; }
             } else {
-                defBase += d.value;
+                defBase += dieVal;
             }
+            // Track rune secondary effects
+            if (d.rune?.effect === 'regenCore') regenCoreHeal += Math.ceil(dieVal * 0.5);
+            if (d.rune?.effect === 'mirror') mirrorDmg += dieVal;
+            if (d.rune?.effect === 'steadfast') steadfastContrib += dieVal;
         });
 
         defBonus += GS.buffs.armor;
@@ -405,16 +521,14 @@ export const Combat = {
             GS.allocated.defend.forEach(d => { if (d.value >= 8) defBonus += Math.floor(d.value * 0.5); });
         }
         if (GS.passives.titanWrath && defCount === 1) defMult *= 3;
+        // New artifact defend bonuses
+        defBonus += GS.artifacts.filter(a => a.effect === 'goldenAegis').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
+        if (defCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) defMult *= 1.5;
 
-        const totalDefBase = Math.floor(defBase * defMult) + defBonus;
+        const totalDef = Math.floor(defBase * defMult) + defBonus;
 
-        let runeDefMult = 1, runeDefBonus = 0;
-        GS.runes.defend.forEach(r => {
-            if (r.effect === 'flatBlock') runeDefBonus += r.value;
-            if (r.effect === 'amplifier') runeDefMult *= r.value;
-            if (r.effect === 'titanBlow' && defCount === 1) runeDefMult *= r.value;
-        });
-        const totalDef = Math.floor(totalDefBase * runeDefMult) + runeDefBonus;
+        // Frost Brand: block 10+ → apply chill
+        if (totalDef >= 10 && GS.artifacts.some(a => a.effect === 'frostBrand')) applyStatus('chill', 3, 2);
 
         // ── ENEMY ABILITY MODIFIERS ON PLAYER ATTACK ──
         let finalAtk = totalAtk;
@@ -434,8 +548,8 @@ export const Combat = {
 
         // Dragon Whelp Scales: only damage above 8 from attack dice counts, bonuses pass through
         if (baseEName === 'Dragon Whelp') {
-            const bonuses = totalAtk - Math.floor(atkBase * runeAtkMult) - runeAtkBonus;
-            const scaledBase = Math.max(0, Math.floor(atkBase * runeAtkMult) + runeAtkBonus - 8);
+            const scaledBase = Math.max(0, atkBase - 8);
+            const bonuses = totalAtk - atkBase;
             finalAtk = scaledBase + bonuses;
             if (scaledBase === 0) log(`🐉 Scales absorb all slot damage!`, 'info');
             else log(`🐉 Scales block 8 slot damage (${finalAtk} gets through)`, 'info');
@@ -475,23 +589,45 @@ export const Combat = {
             });
         }
 
-        // Apply poison from player
+        // Apply poison from player (via centralized helper)
         const serpentPoison = GS.artifacts.filter(a => a.effect === 'poisonOnHit').reduce((s, a) => s + a.value, 0);
         if (serpentPoison > 0 && finalAtk > 0) poisonToApply += Math.floor(finalAtk * serpentPoison);
         if (GS.passives.poisonOnAtk) poisonToApply += GS.passives.poisonOnAtk;
         if (GS.passives.plagueLord) poisonToApply += 2;
         // tempBuff: poison coating
         if (GS.tempBuffs && GS.tempBuffs.poisonCombats > 0 && finalAtk > 0) poisonToApply += 1;
-        if (poisonToApply > 0) {
-            GS.enemy.poison += poisonToApply;
-            log(`☠️ Applied ${poisonToApply} poison! (${GS.enemy.poison} stacks)`, 'info');
-        }
+        if (poisonToApply > 0) applyEnemyPoison(poisonToApply);
 
         let lsPercent = GS.autoLifesteal || 0;
         lsPercent += GS.artifacts.filter(a => a.effect === 'permLifesteal').reduce((s, a) => s + a.value, 0);
         if (lsPercent > 0 && finalAtk > 0) {
             const lsHeal = heal(Math.floor(finalAtk * lsPercent));
             if (lsHeal > 0) log(`🩸 Lifesteal: +${lsHeal} HP`, 'heal');
+        }
+
+        // Siphon: heal from attack damage
+        if (siphonHealing > 0 && finalAtk > 0) {
+            const sh = heal(siphonHealing);
+            if (sh > 0) { log(`🩸 Siphon: +${sh} HP`, 'heal'); updateStats(); }
+        }
+        // Hunter's Mark: first hit applies mark
+        if (!GS.huntersMarkFired && finalAtk > 0 && GS.artifacts.some(a => a.effect === 'huntersMark')) {
+            applyStatus('mark', 5, 2); GS.huntersMarkFired = true;
+        }
+        // Ember Crown: 15+ damage → 3 burn
+        if (finalAtk >= 15 && GS.artifacts.some(a => a.effect === 'emberCrown')) applyStatus('burn', 3, 3);
+        // Thunder Strike: 25+ damage → stun
+        if (finalAtk >= 25 && GS.artifacts.some(a => a.effect === 'thunderStrike')) applyStatus('stun', 1);
+        // Mirror: deal block as damage
+        if (mirrorDmg > 0) {
+            GS.enemy.currentHp = Math.max(0, GS.enemy.currentHp - mirrorDmg);
+            if (GS.challengeMode) GS.challengeDmg += mirrorDmg;
+            log(`🪞 Mirror: ${mirrorDmg} damage to enemy!`, 'damage');
+        }
+        // Regen Core: heal from block
+        if (regenCoreHeal > 0) {
+            const h = heal(regenCoreHeal);
+            if (h > 0) { log(`💚 Regen Core: +${h} HP`, 'heal'); updateStats(); }
         }
 
         // ── POST-ATTACK ABILITY CHECKS ──
@@ -542,6 +678,11 @@ export const Combat = {
         updateStats();
 
         if (GS.enemy.currentHp <= 0) {
+            // Overflow Chalice: overkill heals player
+            if (GS.enemy.currentHp < 0 && GS.artifacts.some(a => a.effect === 'overflowChalice')) {
+                const h = heal(-GS.enemy.currentHp);
+                if (h > 0) { log(`🏆 Overflow Chalice: +${h} HP!`, 'heal'); updateStats(); }
+            }
             Combat.enemyDefeated();
             return;
         }
@@ -603,20 +744,46 @@ export const Combat = {
             return;
         }
 
+        // ── HOURGLASS: free first turn ──
+        if (GS.hourglassFreeFirstTurn) {
+            GS.hourglassFreeFirstTurn = false;
+            log('⏳ Hourglass: free turn! Enemy skips.', 'info');
+            Combat.newTurn();
+            return;
+        }
+
+        // ── ENEMY STATUS: freeze/stun skip attack ──
+        const es = GS.enemyStatus;
+        if (es && (es.freeze > 0 || es.stun > 0)) {
+            log(`${es.freeze > 0 ? '🧊 Frozen' : '⚡ Stunned'} — enemy skips attack!`, 'info');
+            Combat.renderEnemy();
+            Combat.newTurn();
+            return;
+        }
+
         // ── ENEMY ATTACKS PLAYER ──
         let enemyDmg = GS.enemy.intent;
+        // Chill: reduce ATK by chill stacks
+        if (es && es.chill > 0) {
+            enemyDmg = Math.max(0, enemyDmg - es.chill);
+            log(`❄️ Chill reduces enemy ATK by ${es.chill}!`, 'info');
+        }
         let attackTimes = 1;
 
         // Dark Mage: apply Curse first
         if (baseEName === 'Dark Mage' && GS.enemy.turn > 0 && GS.enemy.turn % 3 === 0) {
-            const atkDice = GS.allocated.attack.length;
-            const defDice = GS.allocated.defend.length;
-            const targetSlot = atkDice >= defDice ? 'attack' : 'defend';
-            GS.playerDebuffs.slotDisabled = targetSlot;
-            GS.playerDebuffs.slotDisabledTurns = 2;
-            GS.dice.filter(d => d.location === targetSlot).forEach(d => { d.location = 'pool'; });
-            GS.allocated[targetSlot] = [];
-            log(`🟣 Dark Mage casts Curse! Your ${targetSlot} slot is disabled for 2 turns!`, 'damage');
+            if (GS.artifacts.some(a => a.effect === 'anchoredSlots')) {
+                log('⚓ Anchored Slots: Curse prevented!', 'info');
+            } else {
+                const atkDice = GS.allocated.attack.length;
+                const defDice = GS.allocated.defend.length;
+                const targetSlot = atkDice >= defDice ? 'attack' : 'defend';
+                GS.playerDebuffs.slotDisabled = targetSlot;
+                GS.playerDebuffs.slotDisabledTurns = 2;
+                GS.dice.filter(d => d.location === targetSlot).forEach(d => { d.location = 'pool'; });
+                GS.allocated[targetSlot] = [];
+                log(`🟣 Dark Mage casts Curse! Your ${targetSlot} slot is disabled for 2 turns!`, 'damage');
+            }
         }
 
         // Orc Warrior War Cry
@@ -686,12 +853,16 @@ export const Combat = {
                 return;
             } else if (action === 'wingbuffet') {
                 const buffetDmg = 10;
-                GS.playerDebuffs.slotDisabled = 'attack';
-                GS.playerDebuffs.slotDisabledTurns = 1;
-                GS.dice.filter(d => d.location === 'attack').forEach(d => { d.location = 'pool'; });
-                GS.allocated.attack = [];
+                if (GS.artifacts.some(a => a.effect === 'anchoredSlots')) {
+                    log('⚓ Anchored Slots: Wing Buffet slot disable prevented!', 'info');
+                } else {
+                    GS.playerDebuffs.slotDisabled = 'attack';
+                    GS.playerDebuffs.slotDisabledTurns = 1;
+                    GS.dice.filter(d => d.location === 'attack').forEach(d => { d.location = 'pool'; });
+                    GS.allocated.attack = [];
+                }
                 GS.hp = Math.max(0, GS.hp - buffetDmg);
-                log(`💨 Wing Buffet! ${buffetDmg} damage + attack slot disabled 1 turn!`, 'damage');
+                log(`💨 Wing Buffet! ${buffetDmg} damage${!GS.artifacts.some(a => a.effect === 'anchoredSlots') ? ' + attack slot disabled 1 turn' : ''}!`, 'damage');
                 updateStats();
                 if (GS.hp <= 0) { setTimeout(() => window.Game.defeat(), 1000); return; }
                 Combat.renderEnemy();
@@ -709,17 +880,22 @@ export const Combat = {
             const action = as.pattern[as.patternIdx % 4];
             as.patternIdx++;
             if (action === 'voidrift') {
-                const targetSlot = Math.random() < 0.5 ? 'attack' : 'defend';
-                GS.playerDebuffs.slotDisabled = targetSlot;
-                GS.playerDebuffs.slotDisabledTurns = 2;
-                GS.dice.filter(d => d.location === targetSlot).forEach(d => { d.location = 'pool'; });
-                GS.allocated[targetSlot] = [];
-                log(`🌀 Void Rift! Your ${targetSlot} slot is disabled for 2 turns!`, 'damage');
+                if (GS.artifacts.some(a => a.effect === 'anchoredSlots')) {
+                    log('⚓ Anchored Slots: Void Rift prevented!', 'info');
+                } else {
+                    const targetSlot = Math.random() < 0.5 ? 'attack' : 'defend';
+                    GS.playerDebuffs.slotDisabled = targetSlot;
+                    GS.playerDebuffs.slotDisabledTurns = 2;
+                    GS.dice.filter(d => d.location === targetSlot).forEach(d => { d.location = 'pool'; });
+                    GS.allocated[targetSlot] = [];
+                    log(`🌀 Void Rift! Your ${targetSlot} slot is disabled for 2 turns!`, 'damage');
+                }
                 Combat.renderEnemy();
                 Combat.newTurn();
                 return;
             } else if (action === 'darkpulse') {
-                const pulseDmg = 15;
+                let pulseDmg = 15;
+                if (GS.artifacts.some(a => a.effect === 'soulMirror')) pulseDmg = Math.floor(pulseDmg * 0.5);
                 GS.hp = Math.max(0, GS.hp - pulseDmg);
                 log(`🌀 Dark Pulse! ${pulseDmg} unblockable damage!`, 'damage');
                 updateStats();
@@ -734,9 +910,18 @@ export const Combat = {
             if (as.phase >= 2) Combat._applyEntropy();
         }
 
-        // Dark Mage Penetration: reduce effective block by 3
+        // Dark Mage Penetration: reduce effective block by 3 (Steadfast block is immune)
         let effectiveDef = totalDef;
-        if (baseEName === 'Dark Mage') effectiveDef = Math.max(0, totalDef - 3);
+        if (baseEName === 'Dark Mage') {
+            const reducible = totalDef - steadfastContrib;
+            effectiveDef = Math.max(0, reducible - 3) + steadfastContrib;
+        }
+
+        // Weaken: enemy deals 25% less
+        if (es && es.weaken > 0) {
+            enemyDmg = Math.floor(enemyDmg * 0.75);
+            log('💔 Weaken: enemy deals 25% less!', 'info');
+        }
 
         // ── DEAL DAMAGE TO PLAYER (once per attackTimes) ──
         for (let i = 0; i < attackTimes; i++) {
@@ -752,11 +937,12 @@ export const Combat = {
             }
 
             if (mitigated > 0) {
-                const thornsDmg = GS.runes.defend.filter(r => r.effect === 'thorns').reduce((s, r) => s + r.value, 0);
-                if (thornsDmg > 0) {
-                    GS.enemy.currentHp -= thornsDmg;
-                    if (GS.challengeMode) GS.challengeDmg += thornsDmg;
-                    log(`🌿 Thorns: reflect ${thornsDmg} damage!`, 'damage');
+                // Thorn Mail artifact
+                const thornMail = GS.artifacts.filter(a => a.effect === 'thornMail').reduce((s, a) => s + a.value, 0);
+                if (thornMail > 0) {
+                    GS.enemy.currentHp -= thornMail;
+                    if (GS.challengeMode) GS.challengeDmg += thornMail;
+                    log(`🌿 Thorn Mail: ${thornMail} back!`, 'info');
                     Combat.renderEnemy();
                     if (GS.enemy.currentHp <= 0) { Combat.enemyDefeated(); return; }
                 }
@@ -768,6 +954,8 @@ export const Combat = {
                     Combat.renderEnemy();
                     if (GS.enemy.currentHp <= 0) { Combat.enemyDefeated(); return; }
                 }
+                // Toxic Blood: apply poison to attacker
+                if (GS.artifacts.some(a => a.effect === 'toxicBlood')) applyEnemyPoison(2);
             }
 
             // transformBuffs: Vampiric Ward — heal from blocked damage
@@ -802,8 +990,10 @@ export const Combat = {
 
         // Demon Hellfire: 5 unblockable damage in addition to normal attack
         if (baseEName === 'Demon') {
-            GS.hp = Math.max(0, GS.hp - 5);
-            log(`🔥 Hellfire: 5 unblockable damage!`, 'damage');
+            let hellfire = 5;
+            if (GS.artifacts.some(a => a.effect === 'soulMirror')) hellfire = Math.floor(hellfire * 0.5);
+            GS.hp = Math.max(0, GS.hp - hellfire);
+            log(`🔥 Hellfire: ${hellfire} unblockable damage!`, 'damage');
             if (GS.hp <= 0) {
                 GS.hp = 0;
                 updateStats();
@@ -824,6 +1014,10 @@ export const Combat = {
 
     // Apply Void Lord Entropy: remove highest face from a random die (min 3 faces)
     _applyEntropy() {
+        if (GS.artifacts.some(a => a.effect === 'ironWill')) {
+            log('🧠 Iron Will: Entropy resisted!', 'info');
+            return;
+        }
         const eligible = GS.dice.filter(d => d.faceValues.length > 3);
         if (eligible.length > 0) {
             const target = eligible[Math.floor(Math.random() * eligible.length)];
@@ -935,11 +1129,34 @@ export const Combat = {
             }
         }
 
+        // Enemy status modifiers on intent display
+        const esIntent = GS.enemyStatus;
+        if (esIntent) {
+            const mods = [];
+            if (esIntent.chill > 0) mods.push(`❄️−${esIntent.chill}`);
+            if (esIntent.freeze > 0) mods.push('🧊FROZEN');
+            if (esIntent.stun > 0) mods.push('⚡STUNNED');
+            if (esIntent.weaken > 0) mods.push('💔WEAKENED');
+            if (mods.length) text += ` [${mods.join(' ')}]`;
+        }
+
         e.intent = rageAtk;
         e.intentText = text;
     },
 
     newTurn() {
+        // ── BLOOD PACT DRAIN ──
+        if (GS.artifacts.some(a => a.effect === 'bloodPact')) {
+            GS.hp = Math.max(0, GS.hp - 3);
+            log('💀 Blood Pact: -3 HP', 'damage');
+            updateStats();
+            if (GS.hp <= 0) {
+                GS.hp = 0; updateStats();
+                setTimeout(() => window.Game.defeat(), 1000);
+                return;
+            }
+        }
+
         // ── CORRUPT DAMAGE ──
         if (GS.dice && GS.dice.length > 0) {
             const corruptCount = GS.dice.filter(d => d.corrupted).length;
@@ -958,7 +1175,8 @@ export const Combat = {
 
         // ── PLAYER POISON TICK ──
         if (GS.playerDebuffs.poison > 0 && GS.playerDebuffs.poisonTurns > 0) {
-            const dmg = GS.playerDebuffs.poison;
+            let dmg = GS.playerDebuffs.poison;
+            if (GS.artifacts.some(a => a.effect === 'burnproofCloak')) dmg = Math.floor(dmg * 0.5);
             GS.hp = Math.max(0, GS.hp - dmg);
             GS.playerDebuffs.poisonTurns--;
             if (GS.playerDebuffs.poisonTurns <= 0) {
@@ -974,6 +1192,36 @@ export const Combat = {
                 return;
             }
         }
+
+        // ── ENEMY BURN TICK ──
+        const esBurn = GS.enemyStatus;
+        if (esBurn && esBurn.burn > 0 && esBurn.burnTurns > 0) {
+            const bdmg = esBurn.burn;
+            GS.enemy.currentHp = Math.max(0, GS.enemy.currentHp - bdmg);
+            if (GS.challengeMode) GS.challengeDmg += bdmg;
+            esBurn.burnTurns--;
+            if (esBurn.burnTurns <= 0) esBurn.burn = 0;
+            log(`🔥 Enemy burn: ${bdmg} damage (${esBurn.burnTurns} turns remain)`, 'damage');
+            Combat.renderEnemy();
+            if (GS.enemy.currentHp <= 0) {
+                Combat.enemyDefeated();
+                return;
+            }
+        }
+
+        // ── ENEMY STATUS COUNTDOWNS ──
+        if (GS.enemyStatus) {
+            const esc = GS.enemyStatus;
+            if (esc.chillTurns > 0) { esc.chillTurns--; if (esc.chillTurns <= 0) esc.chill = 0; }
+            if (esc.markTurns > 0) { esc.markTurns--; if (esc.markTurns <= 0) esc.mark = 0; }
+            if (esc.weaken > 0) esc.weaken--;
+            if (esc.freeze > 0) esc.freeze--;
+            if (esc.stun > 0) esc.stun--;
+            esc.stunCooldown = false;
+        }
+
+        // Reset Echo Stone tracking for new turn
+        GS.echoStoneDieId = null;
 
         // ── SLOT DISABLE COUNTDOWN ──
         if (GS.playerDebuffs.slotDisabled) {
@@ -994,7 +1242,7 @@ export const Combat = {
         GS.rerollsLeft += GS.artifacts.filter(a => a.effect === 'bonusReroll').reduce((s, a) => s + a.value, 0);
 
         // ── PLAYER REGEN ──
-        let regenAmt = GS.runes.defend.filter(r => r.effect === 'regenPerTurn').reduce((s, r) => s + r.value, 0);
+        let regenAmt = 0; // regen rune removed; regen from passives only
         if (GS.passives.regen) regenAmt += GS.passives.regen;
         if (regenAmt > 0) {
             const h = heal(regenAmt);
@@ -1096,6 +1344,14 @@ export const Combat = {
         GS.enemiesKilled++;
         const g = gainGold(GS.enemy.gold);
         log(`${GS.enemy.name} defeated! +${g} gold`, 'info');
+
+        // Parasite: gain +1 max HP and +1 gold/combat per kill
+        if (GS.artifacts.some(a => a.effect === 'parasite')) {
+            GS.maxHp++;
+            GS.hp = Math.min(GS.hp + 1, GS.maxHp);
+            GS.parasiteGoldPerCombat += GS.artifacts.filter(a => a.effect === 'parasite').length;
+            log(`🦠 Parasite: +1 max HP (${GS.maxHp}), gold/combat now +${GS.parasiteGoldPerCombat}`, 'info');
+        }
 
         const taxGold = GS.artifacts.filter(a => a.effect === 'goldPerKill').reduce((s, a) => s + a.value, 0);
         if (taxGold > 0) {

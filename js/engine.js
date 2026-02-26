@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════
 //  ENGINE — dice, rendering, drag-and-drop
 // ════════════════════════════════════════════════════════════
-import { GS, $, log, gainGold } from './state.js';
+import { GS, $, log, gainGold, rand } from './state.js';
 import { getFloorType } from './constants.js';
 
 // ════════════════════════════════════════════════════════════
@@ -12,13 +12,13 @@ export function resetDieIdCounter(n = 0) { dieIdCounter = n; }
 
 export function createDieFromFaces(faceValues) {
     const sorted = [...faceValues].sort((a, b) => a - b);
-    return { id: dieIdCounter++, min: sorted[0], max: sorted[sorted.length - 1], sides: sorted.length, faceValues: sorted, value: 0, rolled: false, faces: [], location: 'pool' };
+    return { id: dieIdCounter++, min: sorted[0], max: sorted[sorted.length - 1], sides: sorted.length, faceValues: sorted, value: 0, rolled: false, faces: [], location: 'pool', rune: null };
 }
 
 export function createDie(min = 1, max = 6, sides = 6) {
     const step = (max - min) / (sides - 1);
     const faceValues = Array.from({length: sides}, (_, i) => Math.round(min + step * i));
-    return { id: dieIdCounter++, min, max, sides, faceValues, value: 0, rolled: false, faces: [], location: 'pool' };
+    return { id: dieIdCounter++, min, max, sides, faceValues, value: 0, rolled: false, faces: [], location: 'pool', rune: null };
 }
 
 export function upgradeDie(die) {
@@ -34,16 +34,24 @@ export function upgradeDie(die) {
 }
 
 export function rollSingleDie(die) {
-    const fIdx = Math.floor(Math.random() * die.faceValues.length);
+    let fIdx = Math.floor(Math.random() * die.faceValues.length);
     let val = die.faceValues[fIdx];
-    const flatBonus = GS.artifacts.filter(a => a.effect === 'diceFlat').reduce((s, a) => s + a.value, 0);
-    if (flatBonus > 0) val = Math.min(val + flatBonus, die.max + flatBonus);
-    if (die.max - die.min >= 9) {
-        const colossusBonus = GS.artifacts.filter(a => a.effect === 'colossusDice').reduce((s, a) => s + a.value, 0);
-        val += colossusBonus;
+    // Precision Lens: roll twice, keep higher
+    if (GS.artifacts.some(a => a.effect === 'precisionLens')) {
+        const fIdx2 = Math.floor(Math.random() * die.faceValues.length);
+        const val2 = die.faceValues[fIdx2];
+        if (val2 > val) { val = val2; fIdx = fIdx2; }
     }
     die.value = val;
     die.rolled = true;
+    // Volatile face mod: replace value with random(1, max×2)
+    const activeFace = die.faces.find(f => f.faceValue === val);
+    if (activeFace && activeFace.modifier.effect === 'volatile') {
+        die.value = rand(1, die.max * 2);
+    }
+    // Gambler's Coin: apply coin flip bonus/penalty
+    if (GS.gamblerCoinBonus) die.value = Math.max(1, die.value + GS.gamblerCoinBonus);
+    // infuseFloor: minimum roll floor
     if (die.infuseFloor && die.value < die.infuseFloor) {
         die.value = die.infuseFloor;
     }
@@ -109,9 +117,9 @@ export function updateStats() {
         if (gd) $(gd).textContent = GS.gold;
     });
     const slotsStr = `${GS.slots.attack}⚔️ ${GS.slots.defend}🛡️`;
-    const runeCount = GS.runes.attack.length + GS.runes.defend.length;
+    const runeCount = GS.dice.filter(d => d.rune).length;
     const runeStr = runeCount > 0 ? ` 🔮${runeCount}` : '';
-    const diceStr = `${GS.dice.length}`;
+    const diceStr = `${GS.dice.filter(d => !d.midasTemp).length}`;
     const rerollStr = GS.rerolls > 0 ? ` 🔄${GS.rerolls}` : '';
     ['s-dice', 'sh-dice'].forEach(id => { const el = $(id); if (el) el.innerHTML = `${diceStr} <span style="opacity:0.6; font-size:0.8em">(${slotsStr}${runeStr}${rerollStr})</span>`; });
     renderFloorProgress();
@@ -320,13 +328,6 @@ export function renderCombatDice() {
 
     const atkDice = $('slot-attack-dice');
     atkDice.innerHTML = '';
-    GS.runes.attack.forEach(r => {
-        const ph = document.createElement('div');
-        ph.className = 'slot-placeholder rune-slot';
-        ph.style.cssText = 'border-color: var(--gold); background: rgba(212,165,52,0.15); opacity: 1;';
-        ph.innerHTML = `<span title="${r.name}: ${r.desc}">${r.icon}</span>`;
-        atkDice.appendChild(ph);
-    });
     GS.allocated.attack.forEach(d => atkDice.appendChild(makeDieElement(d, 'attack')));
     for (let i = GS.allocated.attack.length; i < effectiveAtkSlots; i++) {
         const ph = document.createElement('div');
@@ -337,13 +338,6 @@ export function renderCombatDice() {
 
     const defDice = $('slot-defend-dice');
     defDice.innerHTML = '';
-    GS.runes.defend.forEach(r => {
-        const ph = document.createElement('div');
-        ph.className = 'slot-placeholder rune-slot';
-        ph.style.cssText = 'border-color: var(--gold); background: rgba(212,165,52,0.15); opacity: 1;';
-        ph.innerHTML = `<span title="${r.name}: ${r.desc}">${r.icon}</span>`;
-        defDice.appendChild(ph);
-    });
     GS.allocated.defend.forEach(d => defDice.appendChild(makeDieElement(d, 'defend')));
     for (let i = GS.allocated.defend.length; i < effectiveDefSlots; i++) {
         const ph = document.createElement('div');
@@ -394,8 +388,22 @@ export function makeDieElement(die, context) {
     el.innerHTML = `<span class="die-label">${rangeLabel}</span>${valueDisplay}${faceIcon}`;
     el.oncontextmenu = e => e.preventDefault();
 
+    // Rune indicator: coloured outline + floating icon
+    if (die.rune) {
+        el.style.position = 'relative';
+        el.style.overflow = 'visible';
+        el.style.outline = `2px solid ${die.rune.color}`;
+        el.style.boxShadow = (el.style.boxShadow || '') + `, 0 0 8px ${die.rune.color}60`;
+        const runeLabel = document.createElement('div');
+        runeLabel.style.cssText = `position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:0.6em;z-index:5;line-height:1;pointer-events:none;`;
+        runeLabel.title = `${die.rune.name}: ${die.rune.desc}`;
+        runeLabel.textContent = die.rune.icon;
+        el.appendChild(runeLabel);
+    }
+
     const tryReroll = () => {
         if (!die.rolled || GS.rerollsLeft <= 0) return false;
+        if (die.rune?.effect === 'leaden') return false; // Leaden: cannot reroll
         GS.rerollsLeft--;
         const oldVal = die.value;
         rollSingleDie(die);
@@ -527,7 +535,7 @@ export function makeDieElement(die, context) {
         el.title = 'Auto-triggered effect';
     }
 
-    if (die.rolled && GS.rerollsLeft > 0 && context !== 'auto') {
+    if (die.rolled && GS.rerollsLeft > 0 && context !== 'auto' && die.rune?.effect !== 'leaden') {
         const rerollBadge = document.createElement('div');
         rerollBadge.style.cssText = `
             position:absolute; bottom:-8px; right:-8px; width:20px; height:20px;
@@ -582,47 +590,62 @@ export function allocateDie(die, slot) {
         log(`🔒 ${slot} slot is disabled!`, 'damage');
         return;
     }
+    // Berserker's Mask: max 1 die in defend
+    if (slot === 'defend' && GS.artifacts.some(a => a.effect === 'berserkersMask') && GS.allocated.defend.length >= 1) {
+        log("😤 Berserker's Mask: only 1 die in defense!", 'damage');
+        return;
+    }
     const effectiveSlots = GS.slots[slot];
     if (GS.allocated[slot].length >= effectiveSlots) return;
     GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== die.id);
     GS.allocated.defend = GS.allocated.defend.filter(d => d.id !== die.id);
     die.location = slot;
     GS.allocated[slot].push(die);
+    // Echo Stone: track first die allocated this turn
+    if (GS.artifacts.some(a => a.effect === 'echoStone') && GS.echoStoneDieId === null) {
+        GS.echoStoneDieId = die.id;
+    }
     renderCombatDice();
 }
 
 export function updateSlotTotals() {
-    // Attack total
+    // ── ATTACK TOTAL ──
     let atkTotal = 0;
     let atkMultiplier = 1;
     let atkBonus = 0;
     const atkCount = GS.allocated.attack.length;
+    const echoId = GS.echoStoneDieId;
+    const hasEcho = GS.artifacts.some(a => a.effect === 'echoStone');
 
     GS.allocated.attack.forEach(d => {
         const face = getActiveFace(d);
         const m = face && !face.modifier.autoFire ? face.modifier : null;
+        let dieContrib = 0;
         if (m) {
-            if (m.effect === 'slotMultiply') { atkMultiplier *= m.value; atkTotal += d.value; }
+            if (m.effect === 'slotMultiply') { atkMultiplier *= m.value; dieContrib = d.value; }
             else if (m.effect === 'slotAdd') { atkBonus += m.value * atkCount; }
-            else if (m.effect === 'packTactics') { atkBonus += m.value * atkCount; atkTotal += d.value; }
-            else if (m.effect === 'volley') { if (atkCount >= 3) atkBonus += m.value; atkTotal += d.value; }
-            else if (m.effect === 'threshold') { atkTotal += d.value >= m.value ? d.value * 2 : d.value; }
-            else if (m.effect === 'defAdd') { atkTotal += d.value; }
-            else { atkTotal += d.value; }
+            else if (m.effect === 'packTactics') { atkBonus += m.value * atkCount; dieContrib = d.value; }
+            else if (m.effect === 'volley') { if (atkCount >= 3) atkBonus += m.value; dieContrib = d.value; }
+            else if (m.effect === 'threshold') { dieContrib = d.value >= m.value ? d.value * 2 : d.value; }
+            else { dieContrib = d.value; }
         } else {
-            atkTotal += d.value;
+            dieContrib = d.value;
         }
+        // Per-die rune effects
+        if (d.rune?.effect === 'amplifier') dieContrib *= 2;
+        if (d.rune?.effect === 'titanBlow' && atkCount === 1) dieContrib *= 3;
+        // Echo Stone: first allocated die counts twice
+        if (hasEcho && echoId !== null && d.id === echoId) dieContrib += d.value;
+        atkTotal += dieContrib;
     });
 
     atkBonus += GS.buffs.damageBoost;
-    atkBonus += GS.artifacts.filter(a => a.effect === 'flatAtk').reduce((s, a) => s + a.value, 0);
     const goldScalePreview = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
     if (goldScalePreview > 0) atkBonus += goldScalePreview;
     if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
-    atkBonus += GS.artifacts.filter(a => a.effect === 'dmgPerDie').reduce((s, a) => s + a.value, 0) * GS.dice.length;
-    atkBonus += GS.artifacts.filter(a => a.effect === 'giantDmg').reduce((s, a) => s + a.value, 0) * GS.dice.filter(d => d.max >= 10).length;
-    if (atkCount >= 4) atkBonus += GS.artifacts.filter(a => a.effect === 'swarmAtk').reduce((s, a) => s + a.value, 0);
-    if (atkCount === 1) atkMultiplier *= GS.artifacts.some(a => a.effect === 'executioner') ? 2 : 1;
+    atkBonus += GS.artifacts.filter(a => a.effect === 'hydrasCrest').reduce((s, a) => s + a.value * GS.dice.length, 0);
+    atkBonus += GS.enemyStatus?.mark || 0;
+    atkBonus += GS.artifacts.filter(a => a.effect === 'festeringWound').reduce((s, a) => s + a.value * (GS.enemy?.poison || 0), 0);
     if (GS.passives.packTactics) atkBonus += GS.passives.packTactics * atkCount;
     if (GS.passives.swarmMaster) atkBonus += GS.passives.swarmMaster * atkCount;
     if (GS.passives.volley && atkCount >= 3) atkBonus += GS.passives.volley;
@@ -630,26 +653,23 @@ export function updateSlotTotals() {
         GS.allocated.attack.forEach(d => { if (d.value >= 8) atkBonus += Math.floor(d.value * 0.5); });
     }
     if (GS.passives.titanWrath && atkCount === 1) atkMultiplier *= 3;
+    if (GS.artifacts.some(a => a.effect === 'berserkersMask')) atkMultiplier *= 1.5;
+    if (GS.artifacts.some(a => a.effect === 'bloodPact')) atkMultiplier *= 1.3;
+    if (atkCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) atkMultiplier *= 1.5;
 
-    const finalAtk = Math.floor(atkTotal * atkMultiplier) + atkBonus;
+    // TransformBuffs
+    atkMultiplier *= (GS.transformBuffs?.furyChambered || 1);
 
-    let runeAtkMult = 1;
-    let runeAtkBonus = 0;
-    GS.runes.attack.forEach(r => {
-        if (r.effect === 'furyPerDie') runeAtkBonus += r.value * atkCount;
-        if (r.effect === 'atkMultRune') runeAtkMult *= r.value;
-        if (r.effect === 'amplifier') runeAtkMult *= r.value;
-        if (r.effect === 'titanBlow' && atkCount === 1) runeAtkMult *= r.value;
-    });
-    const finalAtkWithRunes = Math.floor(finalAtk * runeAtkMult) + runeAtkBonus;
-    $('attack-total').textContent = finalAtkWithRunes;
+    let finalAtk = Math.floor(atkTotal * atkMultiplier) + atkBonus;
+    if (GS.artifacts.some(a => a.effect === 'sharpeningStone')) finalAtk = Math.ceil(finalAtk * 1.5);
+    $('attack-total').textContent = finalAtk;
 
     let atkSummary = '';
-    if (atkMultiplier > 1 || runeAtkMult > 1) atkSummary += `×${(atkMultiplier * runeAtkMult).toFixed(1).replace('.0','')} `;
-    if (atkBonus + runeAtkBonus > 0) atkSummary += `+${atkBonus + runeAtkBonus} bonus `;
+    if (atkMultiplier > 1) atkSummary += `×${atkMultiplier.toFixed(1).replace('.0','')} `;
+    if (atkBonus > 0) atkSummary += `+${atkBonus} bonus `;
     $('attack-summary').textContent = atkSummary;
 
-    // Defend total
+    // ── DEFEND TOTAL ──
     let defTotal = 0;
     let defMultiplier = 1;
     let defBonus = 0;
@@ -658,43 +678,45 @@ export function updateSlotTotals() {
     GS.allocated.defend.forEach(d => {
         const face = getActiveFace(d);
         const m = face && !face.modifier.autoFire ? face.modifier : null;
+        let dieContrib = 0;
         if (m) {
-            if (m.effect === 'slotMultiply') { defMultiplier *= m.value; defTotal += d.value; }
+            if (m.effect === 'slotMultiply') { defMultiplier *= m.value; dieContrib = d.value; }
             else if (m.effect === 'slotAdd') { defBonus += m.value * defCount; }
-            else if (m.effect === 'packTactics') { defBonus += m.value * defCount; defTotal += d.value; }
-            else if (m.effect === 'volley') { if (defCount >= 3) defBonus += m.value; defTotal += d.value; }
-            else if (m.effect === 'threshold') { defTotal += d.value >= m.value ? d.value * 2 : d.value; }
-            else if (m.effect === 'defAdd') { defBonus += m.value; defTotal += d.value; }
-            else { defTotal += d.value; }
+            else if (m.effect === 'packTactics') { defBonus += m.value * defCount; dieContrib = d.value; }
+            else if (m.effect === 'volley') { if (defCount >= 3) defBonus += m.value; dieContrib = d.value; }
+            else if (m.effect === 'threshold') { dieContrib = d.value >= m.value ? d.value * 2 : d.value; }
+            else if (m.effect === 'defAdd') { defBonus += m.value; dieContrib = d.value; }
+            else { dieContrib = d.value; }
         } else {
-            defTotal += d.value;
+            dieContrib = d.value;
         }
+        // Per-die rune effects
+        if (d.rune?.effect === 'amplifier') dieContrib *= 2;
+        if (d.rune?.effect === 'titanBlow' && defCount === 1) dieContrib *= 3;
+        if (d.rune?.effect === 'leaden') dieContrib *= 2;
+        // Echo Stone: first allocated die counts twice
+        if (hasEcho && echoId !== null && d.id === echoId) dieContrib += d.value;
+        defTotal += dieContrib;
     });
 
     defBonus += GS.buffs.armor;
-    defBonus += GS.artifacts.filter(a => a.effect === 'permArmor').reduce((s, a) => s + a.value, 0);
-    if (defCount >= 3) defBonus += GS.artifacts.filter(a => a.effect === 'swarmDef').reduce((s, a) => s + a.value, 0);
+    defBonus += GS.artifacts.filter(a => a.effect === 'goldenAegis').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
     if (GS.passives.swarmMaster) defBonus += GS.passives.swarmMaster * defCount;
     if (GS.passives.volley && defCount >= 3) defBonus += GS.passives.volley;
     if (GS.passives.threshold) {
         GS.allocated.defend.forEach(d => { if (d.value >= 8) defBonus += Math.floor(d.value * 0.5); });
     }
     if (GS.passives.titanWrath && defCount === 1) defMultiplier *= 3;
+    if (defCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) defMultiplier *= 1.5;
+
+    // TransformBuffs
+    defMultiplier *= (GS.transformBuffs?.fortified || 1);
 
     const finalDef = Math.floor(defTotal * defMultiplier) + defBonus;
-
-    let runeDefMult = 1;
-    let runeDefBonus = 0;
-    GS.runes.defend.forEach(r => {
-        if (r.effect === 'flatBlock') runeDefBonus += r.value;
-        if (r.effect === 'amplifier') runeDefMult *= r.value;
-        if (r.effect === 'titanBlow' && defCount === 1) runeDefMult *= r.value;
-    });
-    const finalDefWithRunes = Math.floor(finalDef * runeDefMult) + runeDefBonus;
-    $('defend-total').textContent = finalDefWithRunes;
+    $('defend-total').textContent = finalDef;
 
     let defSummary = '';
-    if (defMultiplier > 1 || runeDefMult > 1) defSummary += `×${(defMultiplier * runeDefMult).toFixed(1).replace('.0','')} `;
-    if (defBonus + runeDefBonus > 0) defSummary += `+${defBonus + runeDefBonus} armor `;
+    if (defMultiplier > 1) defSummary += `×${defMultiplier.toFixed(1).replace('.0','')} `;
+    if (defBonus > 0) defSummary += `+${defBonus} armor `;
     $('defend-summary').textContent = defSummary;
 }

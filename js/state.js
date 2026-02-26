@@ -12,7 +12,7 @@ export const GS = {
     xpNext: 50,
     dice: [],
     slots: { attack: 2, defend: 2 },
-    runes: { attack: [], defend: [] },
+    pendingRunes: [],
     passives: {},
     unlockedNodes: [],
     rerolls: 0,
@@ -53,6 +53,23 @@ export const GS = {
         vampiricWard: false, // heal 25% of blocked amount
     },
     ascendedDice: [],        // [{label: 'Ascended d6 (1-6)', bonus: 2}]
+    enemyStatus: {
+        chill: 0,            // stacks (reduces enemy ATK by this amount)
+        chillTurns: 0,
+        freeze: 0,           // turns remaining (skip attack)
+        mark: 0,             // stacks (+X dmg from all player sources)
+        markTurns: 0,
+        weaken: 0,           // turns remaining (enemy deals 25% less)
+        burn: 0,             // stacks (dmg/turn to enemy)
+        burnTurns: 0,
+        stun: 0,             // turns remaining (skip attack)
+        stunCooldown: false, // can't stun same enemy two turns in a row
+    },
+    echoStoneDieId: null,        // id of first die allocated this turn (Echo Stone artifact)
+    gamblerCoinBonus: 0,         // +2 or -1 for this combat (Gambler's Coin artifact)
+    hourglassFreeFirstTurn: false,
+    huntersMarkFired: false,
+    parasiteGoldPerCombat: 0,    // accumulates per-run from Parasite kills
 };
 
 // ════════════════════════════════════════════════════════════

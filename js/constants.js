@@ -201,64 +201,83 @@ export const FACE_MODS = [
     { name: 'Gold Rush', icon: '💰', desc: 'Gain 10 gold (auto)', effect: 'gold', value: 10, color: '#d4a534', autoFire: true },
     { name: 'Scavenger', icon: '🪤', desc: 'Gain 5 gold per combat (auto). Stacks.', effect: 'scavGold', value: 5, color: '#8a7a30', autoFire: true },
     { name: 'Midas Touch', icon: '👑', desc: 'Gain gold equal to die value when triggered', effect: 'midasGold', value: 1, color: '#d4a534', autoFire: false },
+
+    // ── STATUS EFFECT (apply on allocation) ──
+    { name: 'Volatile',  icon: '🎰', desc: 'When this face triggers, replace die value with a random number 1 to max×2', effect: 'volatile',  color: '#d07020', autoFire: false },
+    { name: 'Frostbite', icon: '❄️', desc: 'When in defend slot: apply 2 chill to enemy',  effect: 'frostbite', color: '#80c0e0', autoFire: false },
+    { name: 'Searing',   icon: '🔥', desc: 'When in attack slot: apply 2 burn to enemy (3 turns)', effect: 'searing',   color: '#d06020', autoFire: false },
+    { name: 'Marked',    icon: '🎯', desc: 'When in attack slot: apply 3 mark to enemy for 2 turns', effect: 'marked',    color: '#c04040', autoFire: false },
 ];
 
 // ════════════════════════════════════════════════════════════
 //  ARTIFACTS
 // ════════════════════════════════════════════════════════════
 export const ARTIFACT_POOL = [
-    // ── GENERAL ──
-    { name: 'Heart of Phoenix', icon: '🔥', desc: 'Heal 8 HP at start of each combat', effect: 'combatHeal', value: 8 },
-    { name: "Rabbit's Foot", icon: '🍀', desc: '+1 to all dice rolls', effect: 'diceFlat', value: 1 },
-    { name: 'War Drum', icon: '🥁', desc: 'First attack each combat deals +10 damage', effect: 'firstStrike', value: 10 },
-    { name: 'Vampiric Amulet', icon: '🩸', desc: '5% lifesteal on all attacks', effect: 'permLifesteal', value: 0.05 },
-    { name: 'Whetstone', icon: '🪨', desc: '+3 flat attack damage', effect: 'flatAtk', value: 3 },
-    { name: 'Iron Will', icon: '🛡️', desc: '+2 permanent armor', effect: 'permArmor', value: 2 },
-    { name: 'Ancient Tome', icon: '📖', desc: '+50% XP from all sources', effect: 'xpMult', value: 0.5 },
+    // ── BUILD ENABLERS: WIDE ──
+    { name: "Hydra's Crest",   icon: '🐉', desc: '+2 attack damage per die you own',                      effect: 'hydrasCrest',   value: 2,    category: 'enabler' },
+    { name: 'Swarm Banner',    icon: '🚩', desc: '4+ dice in a single slot: that slot deals ×1.5',        effect: 'swarmBanner',   value: 1.5,  category: 'enabler' },
+    { name: 'Echo Stone',      icon: '🔁', desc: 'The first die you allocate each turn is counted twice', effect: 'echoStone',     value: 0,    category: 'enabler' },
 
-    // ── WIDE BUILD ──
-    { name: "Hydra's Crest", icon: '🐉', desc: '+1 damage per die you own', effect: 'dmgPerDie', value: 1 },
-    { name: 'Swarm Banner', icon: '🚩', desc: 'If 4+ dice in attack slot, +10 damage', effect: 'swarmAtk', value: 10 },
-    { name: 'Legion Shield', icon: '🏰', desc: 'If 3+ dice in defend slot, +6 block', effect: 'swarmDef', value: 6 },
+    // ── BUILD ENABLERS: TALL ──
+    { name: 'Colossus Belt',   icon: '🏋️', desc: 'Dice with max face ≥9 gain +3 to all face values (applied immediately)', effect: 'colossussBelt', value: 3, category: 'enabler', onAcquire: true },
+    { name: 'Precision Lens',  icon: '🔍', desc: 'All dice roll twice and keep the higher result',        effect: 'precisionLens', value: 0,    category: 'enabler' },
+    { name: 'Sharpening Stone',icon: '⚔️', desc: 'All dice values gain +50% (round up) after runes',     effect: 'sharpeningStone',value: 0.5, category: 'enabler' },
 
-    // ── TALL BUILD ──
-    { name: "Giant's Belt", icon: '⛓️', desc: '+5 damage per die with max ≥10', effect: 'giantDmg', value: 5 },
-    { name: 'Colossus Ring', icon: '💎', desc: 'Dice with range ≥10 get +3 to rolls', effect: 'colossusDice', value: 3 },
-    { name: 'Executioner Blade', icon: '⚔️', desc: 'Single-die attacks deal double damage', effect: 'executioner', value: 2 },
+    // ── BUILD ENABLERS: POISON ──
+    { name: 'Venom Gland',     icon: '🧪', desc: 'All poison applied from any source is doubled',         effect: 'venomGland',    value: 2,    category: 'enabler' },
+    { name: 'Festering Wound', icon: '🩸', desc: 'Enemy takes +1 damage per poison stack on them',        effect: 'festeringWound',value: 1,    category: 'enabler' },
+    { name: 'Toxic Blood',     icon: '☠️', desc: 'When you take damage, apply 2 poison to the attacker', effect: 'toxicBlood',    value: 2,    category: 'enabler' },
 
-    // ── UTILITY BUILD ──
-    { name: "Gambler's Coin", icon: '🪙', desc: 'Each reroll used deals 3 damage', effect: 'rerollDmg', value: 3 },
-    { name: 'Lucky Charm', icon: '🎲', desc: '+1 reroll per combat', effect: 'bonusReroll', value: 1 },
-    { name: 'Merchant Ledger', icon: '📜', desc: 'Shop items cost 20% less', effect: 'shopDiscount', value: 0.2 },
-    { name: 'Golden Crown', icon: '👑', desc: '+25% gold from all sources', effect: 'goldMult', value: 0.25 },
-    { name: 'Gilded Gauntlet', icon: '✨', desc: 'Start of combat: spend 50 gold → deal 15 damage', effect: 'goldToDmg', value: 1 },
-    { name: "Merchant's Crown", icon: '💎', desc: '+1 attack damage per 20 gold held', effect: 'goldScaleDmg', value: 20 },
-    { name: 'Tax Collector', icon: '💰', desc: 'Gain 10 gold after every combat', effect: 'goldPerKill', value: 10 },
+    // ── BUILD ENABLERS: GOLD ──
+    { name: "Merchant's Crown",icon: '💎', desc: '+1 attack damage per 20 gold held',                     effect: 'goldScaleDmg',  value: 20,   category: 'enabler' },
+    { name: 'Golden Aegis',    icon: '🛡️', desc: '+1 block per 25 gold held',                             effect: 'goldenAegis',   value: 25,   category: 'enabler' },
+    { name: 'Midas Die',       icon: '🎲', desc: 'At the start of each combat, gain a temporary d6 that auto-fires gold equal to its value', effect: 'midasDie', value: 0, category: 'enabler' },
+    { name: 'Tax Collector',   icon: '💰', desc: 'Gain 10 gold after every combat',                       effect: 'goldPerKill',   value: 10,   category: 'enabler' },
+    { name: 'Gilded Gauntlet', icon: '✨', desc: 'Start of combat: spend 50 gold → deal 15 damage',       effect: 'goldToDmg',     value: 1,    category: 'enabler' },
 
-    // ── POISON BUILD ──
-    { name: 'Serpent Fang', icon: '🐍', desc: 'All attacks apply poison equal to 10% of damage', effect: 'poisonOnHit', value: 0.1 },
-    { name: 'Plague Bearer', icon: '🦠', desc: 'Poison ticks deal double damage', effect: 'poisonDouble', value: 2 },
+    // ── PROBLEM SOLVERS ──
+    { name: 'Anchored Slots',  icon: '⚓', desc: 'Your slots cannot be disabled by enemy abilities',       effect: 'anchoredSlots', value: 0,    category: 'solver' },
+    { name: 'Soul Mirror',     icon: '👻', desc: 'Unblockable damage is reduced by 50%',                  effect: 'soulMirror',    value: 0.5,  category: 'solver' },
+    { name: 'Iron Will',       icon: '🧠', desc: 'Your dice values and face counts cannot be reduced by enemy effects', effect: 'ironWill', value: 0, category: 'solver' },
+    { name: 'Burnproof Cloak', icon: '🧥', desc: 'Immune to burn; poison damage to you ticks for half (round down)', effect: 'burnproofCloak', value: 0, category: 'solver' },
+    { name: 'Thorn Mail',      icon: '🌿', desc: 'When you take damage, deal 3 back to the attacker',     effect: 'thornMail',     value: 3,    category: 'solver' },
+    { name: 'Overflow Chalice',icon: '🏆', desc: 'Overkill damage (beyond enemy remaining HP) heals you', effect: 'overflowChalice',value: 0,   category: 'solver' },
+
+    // ── STATUS EFFECT ARTIFACTS ──
+    { name: 'Frost Brand',     icon: '❄️', desc: 'When you block 10+ damage in a turn, apply 3 chill to the enemy', effect: 'frostBrand',   value: 3, category: 'status' },
+    { name: 'Frozen Heart',    icon: '🧊', desc: 'At 6+ chill stacks, enemy is frozen (skip next attack); chill resets to 0', effect: 'frozenHeart', value: 6, category: 'status' },
+    { name: "Hunter's Mark",   icon: '🎯', desc: 'First hit each combat applies 5 mark for 2 turns (+5 damage from all sources)', effect: 'huntersMark', value: 5, category: 'status' },
+    { name: "Witch's Hex",     icon: '💔', desc: 'When you apply poison, also apply weaken for 1 turn (enemy deals 25% less)', effect: 'witchsHex', value: 1, category: 'status' },
+    { name: 'Ember Crown',     icon: '🔥', desc: 'When you deal 15+ damage in a turn, apply 3 burn for 3 turns', effect: 'emberCrown', value: 3, category: 'status' },
+    { name: 'Thunder Strike',  icon: '⚡', desc: 'When you deal 25+ damage in a turn, stun the enemy (cannot trigger 2 turns in a row)', effect: 'thunderStrike', value: 0, category: 'status' },
+
+    // ── INTERESTING CHOICES ──
+    { name: "Berserker's Mask",icon: '😤', desc: '+50% attack damage but you cannot allocate more than 1 die to defense', effect: 'berserkersMask', value: 1.5, category: 'choice' },
+    { name: 'Glass Cannon',    icon: '💥', desc: 'All dice gain +3 to every face value permanently; max HP is halved (applied immediately)', effect: 'glassCannon', value: 3, category: 'choice', onAcquire: true },
+    { name: 'Hourglass',       icon: '⏳', desc: 'You get a free turn at the start of every combat before the enemy acts', effect: 'hourglass', value: 0, category: 'choice' },
+    { name: 'Parasite',        icon: '🦠', desc: 'Whenever you kill an enemy: +1 max HP and +1 gold per combat permanently', effect: 'parasite', value: 0, category: 'choice' },
+    { name: 'Blood Pact',      icon: '💀', desc: 'At the start of each turn, lose 3 HP. All your damage is increased by 30%', effect: 'bloodPact', value: 0.3, category: 'choice' },
+    { name: "Gambler's Coin",  icon: '🪙', desc: 'At the start of each combat: Heads = all dice +2 this fight, Tails = all dice -1 this fight', effect: 'gamblersCoin', value: 0, category: 'choice' },
 ];
 
+export function getArtifactPool(act) {
+    if (act === 1) return ARTIFACT_POOL.filter(a =>
+        !['berserkersMask', 'glassCannon', 'bloodPact'].includes(a.effect));
+    return ARTIFACT_POOL;
+}
+
 // ════════════════════════════════════════════════════════════
-//  SLOT RUNES
+//  DIE RUNES (attach to individual dice)
 // ════════════════════════════════════════════════════════════
-export const RUNES = {
-    attack: [
-        { name: 'Fury Rune', icon: '🔥', desc: 'Each attack die deals +3 damage', effect: 'furyPerDie', value: 3 },
-        { name: 'Berserker Mark', icon: '⚔️', desc: '×1.5 to all attack damage', effect: 'atkMultRune', value: 1.5 },
-        { name: 'Venom Edge', icon: '☠️', desc: 'Apply 3 poison every turn', effect: 'poisonPerTurn', value: 3 },
-    ],
-    defend: [
-        { name: 'Stone Ward', icon: '🪨', desc: '+5 block every turn', effect: 'flatBlock', value: 5 },
-        { name: 'Thorn Mantle', icon: '🌿', desc: 'Reflect 3 damage when hit', effect: 'thorns', value: 3 },
-        { name: 'Regeneration', icon: '💚', desc: 'Heal 3 HP at start of each turn', effect: 'regenPerTurn', value: 3 },
-    ],
-    either: [
-        { name: 'Amplifier', icon: '🔮', desc: '×2 to this slot\'s total', effect: 'amplifier', value: 2 },
-        { name: "Titan's Blow", icon: '🔨', desc: 'If only 1 die in this slot, ×3 its value', effect: 'titanBlow', value: 3 },
-    ]
-};
+export const RUNES = [
+    { name: 'Amplifier',    icon: '🔮', color: '#9060d0', slot: 'either', desc: 'Everything this die does is doubled (value ×2, face mod effects ×2)', effect: 'amplifier' },
+    { name: "Titan's Blow", icon: '💪', color: '#d07030', slot: 'either', desc: "If alone in its slot, this die's output is tripled",                  effect: 'titanBlow' },
+    { name: 'Siphon',       icon: '🩸', color: '#c02020', slot: 'attack', desc: "This die's damage also heals you for 100% of its contribution",        effect: 'siphon' },
+    { name: 'Regen Core',   icon: '💚', color: '#30a050', slot: 'defend', desc: "This die's block also heals you for 50% (round up)",                   effect: 'regenCore' },
+    { name: 'Mirror',       icon: '🪞', color: '#3060c0', slot: 'defend', desc: "Block from this die is also dealt as damage to the enemy",             effect: 'mirror' },
+    { name: 'Leaden',       icon: '⚓', color: '#606080', slot: 'defend', desc: "Double block from this die, but it cannot be rerolled",                effect: 'leaden' },
+    { name: 'Steadfast',    icon: '🛡️', color: '#4080b0', slot: 'defend', desc: "This die's block ignores all enemy reduction effects",                effect: 'steadfast' },
+];
 
 // ════════════════════════════════════════════════════════════
 //  PASSIVE SKILL TREE
@@ -285,7 +304,7 @@ export const SKILL_TREE = [
     { id: 't1', name: 'Precision', icon: '🔨', desc: '+1 Reroll per combat', row: 1, col: 4, requires: ['root'], effect: (gs) => { gs.rerolls++; } },
     { id: 't2', name: 'Forge', icon: '🔨', desc: 'Unlock Dice Merge at rest stops', row: 2, col: 4, requires: ['t1'], effect: (gs) => { gs.passives.canMerge = true; } },
     { id: 't3', name: 'Threshold', icon: '🔨', desc: 'Passive: dice ≥8 deal +50% value', row: 3, col: 4, requires: ['t2', 'wt', 'tv'], requiresAny: true, effect: (gs) => { gs.passives.threshold = true; } },
-    { id: 't4', name: 'Amplify', icon: '🔨', desc: 'Free Amplifier on attack slot', row: 4, col: 4, requires: ['t3'], effect: (gs) => { gs.runes.attack.push({ ...RUNES.either[0] }); } },
+    { id: 't4', name: 'Amplify', icon: '🔨', desc: 'Gain a free Amplifier rune to attach to a die', row: 4, col: 4, requires: ['t3'], effect: (gs) => { gs.pendingRunes.push({...RUNES.find(r => r.effect === 'amplifier')}); } },
     { id: 't5', name: "Titan's Wrath", icon: '👑', desc: 'Single-die slots deal ×3', row: 5, col: 4, requires: ['t4'], effect: (gs) => { gs.passives.titanWrath = true; } },
 
     // ── VENOM/UTILITY BRANCH (right, col 6) ──

@@ -2,7 +2,7 @@
 //  SCREENS — Game, Rewards, Shop, Events, Rest, Inventory
 //  Entry point: exposes all modules on window for onclick handlers
 // ════════════════════════════════════════════════════════════
-import { FACE_MODS, ARTIFACT_POOL, RUNES, SKILL_TREE, getAct, getFloorType } from './constants.js';
+import { FACE_MODS, ARTIFACT_POOL, RUNES, SKILL_TREE, getAct, getFloorType, getArtifactPool } from './constants.js';
 import { GS, $, rand, pick, shuffle, log, gainXP, gainGold, heal } from './state.js';
 import { createDie, createDieFromFaces, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice } from './engine.js';
 import { Combat } from './combat.js';
@@ -17,6 +17,47 @@ function applyUpgrade(die) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  RUNE ATTACHMENT — die picker shown on reward screen
+// ════════════════════════════════════════════════════════════
+function showRuneAttachment(rune, onDone) {
+    $('reward-title').textContent = `🔮 Attach ${rune.icon} ${rune.name} to a Die`;
+    const c = $('reward-cards');
+    c.innerHTML = '';
+
+    const info = document.createElement('div');
+    info.style.cssText = 'text-align:center; margin-bottom:16px; color:var(--text-dim); font-family:EB Garamond,serif;';
+    info.innerHTML = `<strong style="color:${rune.color};">${rune.icon} ${rune.name}</strong>: ${rune.desc}<br><span style="font-size:0.85em; opacity:0.7;">Best for: ${rune.slot === 'either' ? 'any slot' : rune.slot + ' slot'}</span>`;
+    c.appendChild(info);
+
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:flex; flex-wrap:wrap; gap:10px; justify-content:center;';
+
+    GS.dice.filter(d => !d.midasTemp).forEach(die => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.cssText = 'width:160px; cursor:pointer;';
+        const faces = die.faceValues ? die.faceValues.join(', ') : `${die.min}-${die.max}`;
+        const existingRuneNote = die.rune ? `<div style="color:#ff8080; font-size:0.78em; margin-top:4px;">⚠️ Replaces ${die.rune.icon} ${die.rune.name}</div>` : '';
+        const runeIcon = die.rune ? `<span style="color:${die.rune.color};">${die.rune.icon} </span>` : '';
+        card.innerHTML = `
+            <div class="card-title">${runeIcon}d${die.faceValues ? die.faceValues.length : die.sides} [${die.min}-${die.max}]</div>
+            <div class="card-desc" style="font-size:0.78em;">${faces}</div>
+            ${existingRuneNote}
+        `;
+        card.onclick = () => {
+            die.rune = { ...rune };
+            log(`🔮 ${rune.icon} ${rune.name} attached to d${die.faceValues ? die.faceValues.length : die.sides} [${die.min}-${die.max}]!`, 'info');
+            updateStats();
+            onDone?.();
+        };
+        grid.appendChild(card);
+    });
+
+    c.appendChild(grid);
+    show('screen-reward');
+}
+
+// ════════════════════════════════════════════════════════════
 //  GAME CONTROLLER
 // ════════════════════════════════════════════════════════════
 const Game = {
@@ -27,7 +68,13 @@ const Game = {
             level: 1, xp: 0, xpNext: 50,
             dice: [createDie(1,6), createDie(1,6), createDie(1,6)],
             slots: { attack: 2, defend: 2 },
-            runes: { attack: [], defend: [] },
+            pendingRunes: [],
+            enemyStatus: { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: false },
+            echoStoneDieId: null,
+            gamblerCoinBonus: 0,
+            hourglassFreeFirstTurn: false,
+            huntersMarkFired: false,
+            parasiteGoldPerCombat: 0,
             passives: {}, unlockedNodes: [],
             rerolls: 0, rerollsLeft: 0,
             enemy: null, enemiesKilled: 0, totalGold: 0,
@@ -485,7 +532,12 @@ const Rewards = {
                     node.effect(GS);
                     log(`🌟 ${node.name}: ${node.desc}`, 'info');
                     updateStats();
-                    callback();
+                    if (GS.pendingRunes && GS.pendingRunes.length > 0) {
+                        const rune = GS.pendingRunes.shift();
+                        showRuneAttachment(rune, callback);
+                    } else {
+                        callback();
+                    }
                 });
             }
 
@@ -498,7 +550,12 @@ const Rewards = {
                     node.effect(GS);
                     log(`🌟 ${node.name}: ${node.desc}`, 'info');
                     updateStats();
-                    callback();
+                    if (GS.pendingRunes && GS.pendingRunes.length > 0) {
+                        const rune = GS.pendingRunes.shift();
+                        showRuneAttachment(rune, callback);
+                    } else {
+                        callback();
+                    }
                 }
                 tapped = isAvailable;
             });
@@ -685,67 +742,34 @@ const Rewards = {
         show('screen-reward');
     },
 
-    showRuneSelection(callback, canAtk, canDef) {
-        $('reward-title').textContent = '🔮 Sacrifice Slot — Choose a Rune';
+    showRuneSelection(callback) {
+        $('reward-title').textContent = '🔮 Choose a Rune';
         const c = $('reward-cards');
         c.innerHTML = '';
 
         const info = document.createElement('div');
-        info.style.cssText = 'text-align:center; margin-bottom:16px; color: var(--text-dim); font-family: EB Garamond, serif;';
-        info.textContent = 'Choose a slot type to sacrifice, then pick a rune.';
+        info.style.cssText = 'text-align:center; margin-bottom:16px; color:var(--text-dim); font-family:EB Garamond,serif;';
+        info.textContent = 'Pick a rune to attach to one of your dice.';
         c.appendChild(info);
 
-        let selectedSlotType = null;
         const runeGrid = document.createElement('div');
         runeGrid.style.cssText = 'display:flex; flex-wrap:wrap; gap:10px; justify-content:center;';
 
-        const renderRunes = (slotType) => {
-            selectedSlotType = slotType;
-            runeGrid.innerHTML = '';
-            const available = [...RUNES[slotType], ...RUNES.either];
+        const choices = shuffle([...RUNES]).slice(0, 3);
+        choices.forEach(rune => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.style.cssText = `width:160px; border-color:${rune.color};`;
+            card.innerHTML = `
+                <div class="card-title" style="color:${rune.color};">${rune.icon} ${rune.name}</div>
+                <div class="card-desc">${rune.desc}</div>
+                <div class="card-effect" style="font-size:0.78em; opacity:0.7;">Best for: ${rune.slot === 'either' ? 'any slot' : rune.slot + ' slot'}</div>
+            `;
+            card.onclick = () => showRuneAttachment(rune, callback);
+            runeGrid.appendChild(card);
+        });
 
-            available.forEach(rune => {
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.style.width = '140px';
-                card.innerHTML = `
-                    <div class="card-title">${rune.icon} ${rune.name}</div>
-                    <div class="card-desc">${rune.desc}</div>
-                `;
-                card.onclick = () => {
-                    GS.runes[slotType].push({ ...rune });
-                    log(`🔮 ${rune.icon} ${rune.name} inscribed on ${slotType}! ${rune.desc}`, 'info');
-                    updateStats();
-                    callback();
-                };
-                runeGrid.appendChild(card);
-            });
-        };
-
-        const btnRow = document.createElement('div');
-        btnRow.style.cssText = 'display:flex; gap:12px; justify-content:center; margin-bottom:16px;';
-
-        if (canAtk) {
-            const atkBtn = document.createElement('button');
-            atkBtn.className = 'btn';
-            atkBtn.innerHTML = `⚔️ Attack Rune (${GS.slots.attack} attack slots)`;
-            atkBtn.onclick = () => renderRunes('attack');
-            btnRow.appendChild(atkBtn);
-        }
-        if (canDef) {
-            const defBtn = document.createElement('button');
-            defBtn.className = 'btn';
-            defBtn.innerHTML = `🛡️ Defend Rune (${GS.slots.defend} defend slots)`;
-            defBtn.onclick = () => renderRunes('defend');
-            btnRow.appendChild(defBtn);
-        }
-
-        c.appendChild(btnRow);
         c.appendChild(runeGrid);
-
-        if (canAtk) renderRunes('attack');
-        else renderRunes('defend');
-
         show('screen-reward');
     },
 
@@ -920,8 +944,9 @@ const Rewards = {
         c.innerHTML = '';
 
         const owned = new Set(GS.artifacts.map(a => a.name));
-        let available = ARTIFACT_POOL.filter(a => !owned.has(a.name));
-        if (available.length < 3) available = [...ARTIFACT_POOL];
+        const pool = getArtifactPool(GS.act);
+        let available = pool.filter(a => !owned.has(a.name));
+        if (available.length < 3) available = [...pool];
         const choices = shuffle(available).slice(0, 3);
 
         const afterPick = () => { updateStats(); if (thenReward) Rewards.show(); else Game.nextFloor(); };
@@ -935,42 +960,29 @@ const Rewards = {
             `;
             card.onclick = () => {
                 GS.artifacts.push(art);
-                if (art.effect === 'permArmor') GS.buffs.armor += art.value;
-                log(`Acquired ${art.name}!`, 'info');
+                // onAcquire effects
+                if (art.effect === 'colossussBelt') {
+                    GS.dice.forEach(d => {
+                        if (d.max >= 9) {
+                            d.faceValues = d.faceValues.map(v => v + art.value);
+                            d.min += art.value; d.max += art.value;
+                        }
+                    });
+                    log(`🏋️ Colossus Belt: dice with max≥9 gained +${art.value} to all faces!`, 'info');
+                } else if (art.effect === 'glassCannon') {
+                    GS.dice.forEach(d => {
+                        d.faceValues = d.faceValues.map(v => v + art.value);
+                        d.min += art.value; d.max += art.value;
+                    });
+                    GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2));
+                    GS.hp = Math.min(GS.hp, GS.maxHp);
+                    log(`💥 Glass Cannon: all dice +${art.value} faces, max HP halved to ${GS.maxHp}!`, 'damage');
+                }
+                log(`✨ Acquired ${art.icon} ${art.name}!`, 'info');
                 afterPick();
             };
             c.appendChild(card);
         });
-
-        const runePool = [];
-        const ownedRuneKeys = new Set([
-            ...GS.runes.attack.map(r => r.effect + ':attack'),
-            ...GS.runes.defend.map(r => r.effect + ':defend'),
-        ]);
-        if (GS.slots.attack >= 1) {
-            RUNES.attack.forEach(r => { if (!ownedRuneKeys.has(r.effect+':attack')) runePool.push({ rune: r, slotType: 'attack' }); });
-            RUNES.either.forEach(r => { if (!ownedRuneKeys.has(r.effect+':attack')) runePool.push({ rune: r, slotType: 'attack' }); });
-        }
-        if (GS.slots.defend >= 1) {
-            RUNES.defend.forEach(r => { if (!ownedRuneKeys.has(r.effect+':defend')) runePool.push({ rune: r, slotType: 'defend' }); });
-            RUNES.either.forEach(r => { if (!ownedRuneKeys.has(r.effect+':defend')) runePool.push({ rune: r, slotType: 'defend' }); });
-        }
-        if (runePool.length > 0) {
-            const runeOfferItem = runePool[Math.floor(Math.random() * runePool.length)];  // renamed from 'pick' to avoid shadowing
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.style.borderColor = '#8040a0';
-            card.innerHTML = `
-                <div class="card-title" style="color:#c080ff;">${runeOfferItem.rune.icon} ${runeOfferItem.rune.name}</div>
-                <div class="card-desc">RUNE (${runeOfferItem.slotType}) — ${runeOfferItem.rune.desc}</div>
-            `;
-            card.onclick = () => {
-                GS.runes[runeOfferItem.slotType].push({ ...runeOfferItem.rune });
-                log(`Inscribed ${runeOfferItem.rune.name} on ${runeOfferItem.slotType}! ${runeOfferItem.rune.desc}`, 'info');
-                afterPick();
-            };
-            c.appendChild(card);
-        }
 
         show('screen-reward');
     }
@@ -1048,29 +1060,15 @@ const Shop = {
             });
         });
 
-        const allRunes = [];
-        if (GS.slots.attack >= 1) {
-            RUNES.attack.forEach(r => allRunes.push({ rune: r, slotType: 'attack' }));
-            RUNES.either.forEach(r => allRunes.push({ rune: r, slotType: 'attack' }));
-        }
-        if (GS.slots.defend >= 1) {
-            RUNES.defend.forEach(r => allRunes.push({ rune: r, slotType: 'defend' }));
-            RUNES.either.forEach(r => allRunes.push({ rune: r, slotType: 'defend' }));
-        }
-        const ownedRuneKeys = new Set([
-            ...GS.runes.attack.map(r => r.effect + ':attack'),
-            ...GS.runes.defend.map(r => r.effect + ':defend'),
-        ]);
-        const availableRunes = allRunes.filter(r => !ownedRuneKeys.has(r.rune.effect + ':' + r.slotType));
-        const runeOffers = shuffle(availableRunes).slice(0, GS.act >= 2 ? 2 : 1);
-        runeOffers.forEach(({ rune, slotType }) => {
+        const runeOffers = shuffle([...RUNES]).slice(0, GS.act >= 2 ? 2 : 1);
+        runeOffers.forEach(rune => {
             const price = GS.act >= 2 ? 80 : 100;
             all.push({
-                title: `${rune.icon} ${rune.name}`, desc: `Rune (${slotType}) — ${rune.desc}`, price,
+                title: `${rune.icon} ${rune.name}`, desc: `Rune — ${rune.desc}`, price,
                 type: 'RUNE', effect: rune.desc,
                 action: () => {
-                    GS.runes[slotType].push({ ...rune });
-                    log(`Inscribed ${rune.name} on ${slotType} slot! ${rune.desc}`, 'info');
+                    showRuneAttachment(rune, () => { Shop.render(); show('screen-shop'); });
+                    return false;
                 },
             });
         });
@@ -1365,14 +1363,24 @@ const Events = {
     // ── Utility helpers ──
     _gainArtifact(art) {
         GS.artifacts.push({ ...art });
-        if (art.effect === 'permArmor') GS.buffs.armor += art.value;
+        if (art.effect === 'colossussBelt') {
+            GS.dice.forEach(d => {
+                if (d.max >= 9) { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; }
+            });
+            log(`🏋️ Colossus Belt: dice with max≥9 gained +${art.value} to all faces!`, 'info');
+        } else if (art.effect === 'glassCannon') {
+            GS.dice.forEach(d => { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; });
+            GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2)); GS.hp = Math.min(GS.hp, GS.maxHp);
+            log(`💥 Glass Cannon: all dice +${art.value} faces, max HP halved!`, 'damage');
+        }
         log(`Found ${art.icon} ${art.name}!`, 'info');
     },
 
     _gainRandomArtifacts(n) {
         const owned = new Set(GS.artifacts.map(a => a.name));
-        let pool = ARTIFACT_POOL.filter(a => !owned.has(a.name));
-        if (pool.length < n) pool = [...ARTIFACT_POOL];
+        const actPool = getArtifactPool(GS.act);
+        let pool = actPool.filter(a => !owned.has(a.name));
+        if (pool.length < n) pool = [...actPool];
         shuffle([...pool]).slice(0, n).forEach(art => Events._gainArtifact(art));
     },
 
@@ -1449,8 +1457,9 @@ const Events = {
     // Show N artifacts from pool, call cb(art)
     _chooseArtifact(n, cb) {
         const owned = new Set(GS.artifacts.map(a => a.name));
-        let pool = ARTIFACT_POOL.filter(a => !owned.has(a.name));
-        if (pool.length < n) pool = [...ARTIFACT_POOL];
+        const actPool = getArtifactPool(GS.act);
+        let pool = actPool.filter(a => !owned.has(a.name));
+        if (pool.length < n) pool = [...actPool];
         const choices = shuffle([...pool]).slice(0, n);
         const panel = $('event-panel');
         panel.innerHTML = '<div class="event-text">Choose an artifact:</div><div class="card-grid" id="event-art-cards"></div>';
@@ -1703,8 +1712,7 @@ const Events = {
     },
 
     _forgottenForge() {
-        const allRunes = [...GS.runes.attack, ...GS.runes.defend];
-        const hasRunes = allRunes.length > 0;
+        const hasRunes = GS.dice.some(d => d.rune && !d.midasTemp);
         Events._render(
             'The Forgotten Forge',
             'An ancient forge still burns. Tools of remarkable craft surround it...',
@@ -1724,24 +1732,22 @@ const Events = {
                     }
                 },
                 {
-                    text: hasRunes ? 'Enhance a rune — double one rune\'s effect value' : 'Enhance a rune — No runes equipped',
+                    text: hasRunes ? 'Enhance a rune — choose a die\'s rune to double its value' : 'Enhance a rune — No runes on dice',
                     disabled: !hasRunes,
                     action: () => {
                         const panel = $('event-panel');
-                        panel.innerHTML = '<div class="event-text">Choose a rune to enhance:</div><div class="card-grid" id="event-rune-cards"></div>';
-                        const addRuneCard = (rune, slotLabel) => {
+                        panel.innerHTML = '<div class="event-text">Choose a die whose rune to enhance:</div><div class="card-grid" id="event-rune-cards"></div>';
+                        GS.dice.filter(d => d.rune && !d.midasTemp).forEach(die => {
                             const card = document.createElement('div');
                             card.className = 'card';
-                            card.innerHTML = `<div class="card-title">${rune.icon} ${rune.name}</div><div class="card-effect">${rune.desc} (${slotLabel}) → value doubled</div>`;
+                            card.innerHTML = `<div class="card-title" style="color:${die.rune.color};">${die.rune.icon} ${die.rune.name}</div><div class="card-effect">d${die.faceValues ? die.faceValues.length : die.sides} [${die.min}-${die.max}] → rune value doubled</div>`;
                             card.onclick = () => {
-                                rune.value = rune.value * 2;
-                                log(`Enhanced ${rune.icon} ${rune.name}! New value: ${rune.value}`, 'info');
+                                die.rune.value = (die.rune.value || 1) * 2;
+                                log(`Enhanced ${die.rune.icon} ${die.rune.name}! Value doubled.`, 'info');
                                 updateStats(); Game.nextFloor();
                             };
                             $('event-rune-cards').appendChild(card);
-                        };
-                        GS.runes.attack.forEach(r => addRuneCard(r, 'attack'));
-                        GS.runes.defend.forEach(r => addRuneCard(r, 'defend'));
+                        });
                         show('screen-event');
                     }
                 },
@@ -2081,14 +2087,14 @@ const Rest = {
         const atkMin = GS.slots.attack <= 1;
         const atkCard = document.createElement('div');
         atkCard.className = 'card' + (atkMin ? ' disabled' : '');
-        atkCard.innerHTML = `<div class="card-title">⚔️ Sacrifice Attack Slot</div><div class="card-desc">${GS.slots.attack} → ${GS.slots.attack - 1}${atkMin ? ' (MINIMUM)' : ''}${GS.runes.attack.length > 0 ? '<br><span style="color:#ff8080; font-size:0.85em;">⚠️ Loses 1 attack rune</span>' : ''}</div>`;
+        atkCard.innerHTML = `<div class="card-title">⚔️ Sacrifice Attack Slot</div><div class="card-desc">${GS.slots.attack} → ${GS.slots.attack - 1}${atkMin ? ' (MINIMUM)' : ''}</div>`;
         if (!atkMin) atkCard.onclick = () => Rest.showSacrificeEnhancements('attack');
         grid.appendChild(atkCard);
 
         const defMin = GS.slots.defend <= 1;
         const defCard = document.createElement('div');
         defCard.className = 'card' + (defMin ? ' disabled' : '');
-        defCard.innerHTML = `<div class="card-title">🛡️ Sacrifice Defend Slot</div><div class="card-desc">${GS.slots.defend} → ${GS.slots.defend - 1}${defMin ? ' (MINIMUM)' : ''}${GS.runes.defend.length > 0 ? '<br><span style="color:#ff8080; font-size:0.85em;">⚠️ Loses 1 defend rune</span>' : ''}</div>`;
+        defCard.innerHTML = `<div class="card-title">🛡️ Sacrifice Defend Slot</div><div class="card-desc">${GS.slots.defend} → ${GS.slots.defend - 1}${defMin ? ' (MINIMUM)' : ''}</div>`;
         if (!defMin) defCard.onclick = () => Rest.showSacrificeEnhancements('defend');
         grid.appendChild(defCard);
 
@@ -2124,10 +2130,6 @@ const Rest = {
             card.innerHTML = `<div class="card-title">${enh.icon} ${enh.name}</div><div class="card-desc">${enh.desc}</div>`;
             card.onclick = () => {
                 GS.slots[slotType]--;
-                if (GS.runes[slotType].length > 0) {
-                    const lost = GS.runes[slotType].pop();
-                    log(`🔮 ${lost.name} rune lost with the sacrificed slot!`, 'info');
-                }
                 if (enh.effect === 'furyChambered') GS.transformBuffs.furyChambered *= enh.value;
                 else if (enh.effect === 'conduit') GS.transformBuffs.conduit += enh.value;
                 else if (enh.effect === 'goldForge') GS.transformBuffs.goldForge = true;
@@ -2432,18 +2434,17 @@ const Inventory = {
 
         let html = '';
 
-        const atkRuneStr = GS.runes.attack.length > 0 ? ` (${GS.runes.attack.length} rune${GS.runes.attack.length > 1 ? 's' : ''})` : '';
-        const defRuneStr = GS.runes.defend.length > 0 ? ` (${GS.runes.defend.length} rune${GS.runes.defend.length > 1 ? 's' : ''})` : '';
+        const runeCount = GS.dice.filter(d => d.rune && !d.midasTemp).length;
 
         html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
             <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">⚙️ STATS</div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; font-size:0.85em;">
                 <span>❤️ HP: ${GS.hp}/${GS.maxHp}${GS.regenStacks > 0 ? ` (+${GS.regenStacks} regen)` : ''}</span>
                 <span>💰 Gold: ${GS.gold}</span>
-                <span>⚔️ Atk Slots: ${GS.slots.attack}${atkRuneStr}</span>
-                <span>🛡️ Def Slots: ${GS.slots.defend}${defRuneStr}</span>
+                <span>⚔️ Atk Slots: ${GS.slots.attack}</span>
+                <span>🛡️ Def Slots: ${GS.slots.defend}</span>
                 <span>🎲 Dice: ${GS.dice.length}</span>
-                <span>🔄 Rerolls: ${GS.rerolls}</span>
+                <span>🔮 Runes: ${runeCount}</span>
                 <span>⚔️ Dmg Boost: +${GS.buffs.damageBoost}</span>
                 <span>🛡️ Armor: ${GS.buffs.armor}</span>
             </div>
@@ -2451,26 +2452,15 @@ const Inventory = {
 
         html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
             <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">🎲 DICE (${GS.dice.length})</div>`;
-        GS.dice.forEach((die, i) => {
+        GS.dice.filter(d => !d.midasTemp).forEach((die, i) => {
             const faces = die.faceValues ? die.faceValues.join(', ') : `${die.min}-${die.max}`;
             const mods = die.faces.length ? die.faces.map(f => `<span style="color:${f.modifier.color};" title="${f.modifier.name}: ${f.modifier.desc}">  ${f.faceValue}:${f.modifier.icon}${f.modifier.name}</span>`).join('') : '<span style="opacity:0.4;">no mods</span>';
+            const runeStr = die.rune ? `<span style="color:${die.rune.color}; font-size:0.85em;" title="${die.rune.name}: ${die.rune.desc}"> ${die.rune.icon} ${die.rune.name}</span>` : '<span style="opacity:0.4; font-size:0.85em;"> no rune</span>';
             html += `<div style="margin:4px 0; font-size:0.82em; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
-                <strong>d${die.faceValues ? die.faceValues.length : die.sides}</strong> [${faces}] ${mods}
+                <strong>d${die.faceValues ? die.faceValues.length : die.sides}</strong> [${faces}]${runeStr} ${mods}
             </div>`;
         });
         html += `</div>`;
-
-        if (GS.runes.attack.length > 0 || GS.runes.defend.length > 0) {
-            html += `<div style="background:var(--bg-surface); border:1px solid #8040a0; border-radius:8px; padding:14px; margin-bottom:12px;">
-                <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:#bb77ff; margin-bottom:8px;">🔮 RUNES</div>`;
-            GS.runes.attack.forEach(r => {
-                html += `<div style="font-size:0.82em; margin:3px 0;">${r.icon} <strong>${r.name}</strong> <span style="color:var(--attack-color);">(attack)</span> — ${r.desc}</div>`;
-            });
-            GS.runes.defend.forEach(r => {
-                html += `<div style="font-size:0.82em; margin:3px 0;">${r.icon} <strong>${r.name}</strong> <span style="color:var(--defend-color);">(defend)</span> — ${r.desc}</div>`;
-            });
-            html += `</div>`;
-        }
 
         if (GS.artifacts.length > 0) {
             html += `<div style="background:var(--bg-surface); border:1px solid var(--gold); border-radius:8px; padding:14px; margin-bottom:12px;">

@@ -2179,7 +2179,7 @@ const Rest = {
 
         const enhancements = slotType === 'attack' ? [
             { name: 'Fury Chamber', icon: '🔥', desc: `All ${remaining} remaining attack slots deal ×1.5 damage${GS.transformBuffs.furyChambered > 1 ? ' (stacks × existing)' : ''}`, effect: 'furyChambered', value: 1.5 },
-            { name: 'Conduit', icon: '☠️', desc: `Each attack die applies +3 poison per turn (currently: ${GS.transformBuffs.conduit} → ${GS.transformBuffs.conduit + 3})`, effect: 'conduit', value: 3 },
+            { name: 'Conduit', icon: '☠️', desc: `Each attack die applies +2 poison per turn (currently: ${GS.transformBuffs.conduit} → ${GS.transformBuffs.conduit + 2})`, effect: 'conduit', value: 2 },
             { name: 'Gold Forge', icon: '⚒️', desc: `Each attack die generates gold equal to its rolled value after you attack`, effect: 'goldForge', value: true },
         ] : [
             { name: 'Fortification', icon: '🏰', desc: `All ${remaining} remaining defend slots block ×1.5${GS.transformBuffs.fortified > 1 ? ' (stacks × existing)' : ''}`, effect: 'fortified', value: 1.5 },

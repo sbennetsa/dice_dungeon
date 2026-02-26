@@ -2805,11 +2805,13 @@ const Inventory = {
 const EncounterChoice = {
     show(encounter) {
         GS.encounter = encounter;
-        const { enemy, environment, anomaly, eliteModifiers, floor, isBossFloor } = encounter;
+        const { enemy, environment, anomaly, eliteModifiers, floor, isBossFloor, eliteOffered, eliteChance } = encounter;
 
-        $('encounter-header').innerHTML = this._buildHeader(floor, isBossFloor, anomaly);
-        $('encounter-standard-panel').innerHTML = this._buildStandardPanel(enemy, isBossFloor, environment);
-        $('encounter-elite-panel').innerHTML = this._buildElitePanel(enemy, eliteModifiers, isBossFloor);
+        $('encounter-header').innerHTML = this._buildHeader(floor, isBossFloor, anomaly, environment);
+        $('encounter-standard-panel').innerHTML = this._buildStandardPanel(enemy, isBossFloor);
+        $('encounter-elite-panel').innerHTML = eliteOffered
+            ? this._buildElitePanel(enemy, eliteModifiers, isBossFloor)
+            : this._buildLockedElitePanel(eliteChance);
 
         show('screen-encounter');
     },
@@ -2855,27 +2857,26 @@ const EncounterChoice = {
         $('screen-encounter').appendChild(overlay);
     },
 
-    _buildHeader(floor, isBossFloor, anomaly) {
+    _buildHeader(floor, isBossFloor, anomaly, environment) {
         const floorLabel = isBossFloor ? `⚔️ Floor ${floor} — BOSS` : `⚔️ Floor ${floor}`;
         const anomalyBadge = anomaly
             ? `<span style="background:#663300; color:#ffaa44; border-radius:4px; padding:2px 8px; font-size:0.8em; margin-left:8px;">⚠️ ${anomaly.name}</span>`
             : '';
-        return `<div style="text-align:center; padding:12px 0 8px; font-family:EB Garamond,serif; font-size:1.1em;">${floorLabel}${anomalyBadge}</div>`;
+        const envBar = environment
+            ? `<div style="background:rgba(255,255,255,0.05); border-radius:6px; padding:6px 10px; margin-top:6px; font-size:0.82em; text-align:left;">
+                   <span style="color:var(--gold);">${environment.icon} ${environment.name}</span>
+                   <span style="color:var(--text-dim); margin-left:6px;">· ${environment.desc}</span>
+               </div>`
+            : '';
+        return `<div style="padding:12px 0 8px; font-family:EB Garamond,serif; font-size:1.1em; text-align:center;">${floorLabel}${anomalyBadge}</div>${envBar}`;
     },
 
-    _buildStandardPanel(enemy, isBossFloor, environment) {
+    _buildStandardPanel(enemy, isBossFloor) {
         const diceStr    = this._formatDicePool(enemy.dice);
         const abilities  = Object.values(enemy.abilities || {}).map(a => `${a.icon} ${a.name}`).join(', ') || '—';
         const passives   = (enemy.passives || []).map(p => p.name).join(', ') || '—';
         const goldRange  = Array.isArray(enemy.gold) ? `${enemy.gold[0]}–${enemy.gold[1]}` : enemy.gold;
         const xpRange    = Array.isArray(enemy.xp)   ? `${enemy.xp[0]}–${enemy.xp[1]}`   : enemy.xp;
-
-        const envSection = environment
-            ? `<div style="background:rgba(255,255,255,0.05); border-radius:6px; padding:8px; margin:8px 0; font-size:0.82em;">
-                   <span style="color:var(--gold);">${environment.icon} ${environment.name}</span>
-                   <div style="color:var(--text-dim); margin-top:2px;">${environment.desc}</div>
-               </div>`
-            : '';
 
         const phaseSection = isBossFloor && enemy.phases && enemy.phases.length
             ? `<div style="font-size:0.8em; color:#ff8888; margin-top:4px;">📊 ${enemy.phases.length} phase(s)</div>`
@@ -2889,7 +2890,6 @@ const EncounterChoice = {
                 ${phaseSection}
                 <div style="font-size:0.8em; color:var(--text-dim); margin-top:4px;">Abilities: ${abilities}</div>
                 <div style="font-size:0.8em; color:var(--text-dim); margin-top:2px;">Passives: ${passives}</div>
-                ${envSection}
                 <div style="margin-top:10px; font-size:0.82em; color:var(--gold);">Rewards: ${goldRange}g · ${xpRange} XP${isBossFloor ? ' · Boss artifact' : ''}</div>
                 <button class="btn btn-primary" style="width:100%; margin-top:12px;" onclick="EncounterChoice.chooseStandard()">Fight (Standard)</button>
             </div>`;
@@ -2923,6 +2923,19 @@ const EncounterChoice = {
                 <div style="font-size:0.82em; color:var(--text-dim);">Est: ${previewEnemy.hp} HP · ${previewDice} · ~${previewAvg} dmg/turn <span style="font-size:0.85em;">(+hidden)</span></div>
                 <div style="margin-top:10px; font-size:0.82em; color:var(--gold);">Rewards: ${goldRange}g · ${xpRange} XP · ${artifactNote}</div>
                 <button class="btn" style="width:100%; margin-top:12px; border-color:#c060ff; color:#c060ff;" onclick="EncounterChoice.chooseElite()">Fight (Elite)</button>
+            </div>`;
+    },
+
+    _buildLockedElitePanel(eliteChance) {
+        const pct = Math.round(eliteChance * 100);
+        const nextAct = pct <= 33 ? 'Act 2' : 'Act 3';
+        return `
+            <div style="background:var(--bg-surface); border:1px solid #555; border-radius:8px; padding:14px; flex:1; opacity:0.5;">
+                <div style="font-size:1em; font-weight:bold; margin-bottom:10px; color:#888;">💀 Elite</div>
+                <div style="font-size:0.9em; color:#888; margin-bottom:8px;">No elite challenge this floor.</div>
+                <div style="font-size:0.82em; color:var(--text-dim);">Elite encounters grow more common as you descend deeper.</div>
+                <div style="font-size:0.8em; color:#888; margin-top:8px;">${nextAct}: ${Math.min(pct + 33, 100)}% chance · Act 3: always</div>
+                <button class="btn" style="width:100%; margin-top:12px; border-color:#555; color:#555; cursor:not-allowed;" disabled>Not Available</button>
             </div>`;
     },
 

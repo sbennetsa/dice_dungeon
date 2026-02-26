@@ -261,6 +261,7 @@ export const Combat = {
         Combat.renderEnemy();
         renderCombatDice();
         renderConsumables();
+        Combat.renderEnvironmentBar();
 
         const label = isBoss ? '👑 BOSS' : isElite ? '⚡ ELITE' : `Floor ${GS.floor}`;
         const diceDesc = GS.enemy.dice.map(d => `d${d}`).join('+');
@@ -268,6 +269,17 @@ export const Combat = {
 
         show('screen-combat');
         setTimeout(() => Combat.roll(), 300);
+    },
+
+    renderEnvironmentBar() {
+        const bar = document.getElementById('combat-environment-bar');
+        const env = GS.environment;
+        if (!env) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
+        bar.style.display = 'block';
+        bar.innerHTML = `<div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,200,80,0.25); border-radius:6px; padding:5px 10px; font-size:0.8em; display:flex; align-items:baseline; gap:6px;">
+            <span style="color:var(--gold); white-space:nowrap;">${env.icon} ${env.name}</span>
+            <span style="color:var(--text-dim);">· ${env.desc}</span>
+        </div>`;
     },
 
     renderEnemy() {
@@ -340,11 +352,24 @@ export const Combat = {
         }
     },
 
+    // Ability types that don't scale with dice — skip rolling entirely for these.
+    _abilityNeedsRoll(type) {
+        return type !== 'charge' && type !== 'summon_die' && type !== 'decay';
+    },
+
     _rollEnemyTurn() {
         const e = GS.enemy;
         const abilityKey = e.pattern[e.patternIdx % e.pattern.length];
         e.currentAbilityKey = abilityKey;
         const ability = e.abilities[abilityKey];
+
+        // Abilities with fixed effects don't roll dice
+        if (!Combat._abilityNeedsRoll(ability.type)) {
+            e.diceResults = [];
+            e.intentValue = 0;
+            e.charged = false; // still consume charge token if pending
+            return;
+        }
 
         // Turn-temporary bonus dice (not stored in extraDice)
         const turnBonusDice = [];
@@ -440,9 +465,9 @@ export const Combat = {
                 if (ab.immune) return `${ab.icon} ${ab.name}: Vanishes! Immune this turn — next strike DOUBLED`;
                 return `${ab.icon} ${ab.name}: Charging... next attack DOUBLED`;
             case 'decay':
-                return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → all your dice lose 1 max value!`;
+                return `${ab.icon} ${ab.name}: All your dice lose 1 max value!`;
             case 'summon_die':
-                return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → permanently gains +1d${ab.dieSize || 6}!`;
+                return `${ab.icon} ${ab.name}: Permanently gains +1d${ab.dieSize || 6}!`;
             default:
                 return `${ab.icon} ${ab.name}: ${diceStr} = ${sum}`;
         }

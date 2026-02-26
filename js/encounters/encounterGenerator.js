@@ -45,6 +45,11 @@ export function generateEncounter(floor) {
         ? selectBossEliteModifiers()
         : selectEliteModifiers();
 
+    // Elite offer probability scales with act: 33% → 67% → 100%
+    const act          = Math.ceil(floor / 5);
+    const eliteChance  = act >= 3 ? 1.0 : act / 3;
+    const eliteOffered = Math.random() < eliteChance;
+
     return {
         enemy,
         environment,
@@ -52,7 +57,9 @@ export function generateEncounter(floor) {
         eliteModifiers,
         floor,
         isBossFloor,
-        isElite: false, // set by player choice
+        isElite:      false, // set by player choice
+        eliteOffered,
+        eliteChance,  // stored for display on choice screen
     };
 }
 

@@ -630,8 +630,9 @@ export const Combat = {
         }
         // Ember Crown: 15+ damage → 3 burn
         if (finalAtk >= 15 && GS.artifacts.some(a => a.effect === 'emberCrown')) applyStatus('burn', 3, 3);
-        // Thunder Strike: 25+ damage → stun
-        if (finalAtk >= 25 && GS.artifacts.some(a => a.effect === 'thunderStrike')) applyStatus('stun', 1);
+        // Thunder Strike: 25%+ of enemy max HP → stun
+        const tsArt = GS.artifacts.find(a => a.effect === 'thunderStrike');
+        if (tsArt && finalAtk >= Math.ceil(GS.enemy.hp * tsArt.value)) applyStatus('stun', 1);
         // Mirror: deal block as damage
         if (mirrorDmg > 0) {
             GS.enemy.currentHp = Math.max(0, GS.enemy.currentHp - mirrorDmg);

@@ -810,8 +810,8 @@ const Rewards = {
             Rewards.showDieUpgrade();
         }});
 
-        rewards.push({ title: '💰 Loot', desc: `Gain ${20 + GS.floor * 5} gold`, action: () => {
-            const g = gainGold(20 + GS.floor * 5);
+        rewards.push({ title: '💰 Loot', desc: `Gain ${12 + GS.floor * 4} gold`, action: () => {
+            const g = gainGold(12 + GS.floor * 4);
             log(`+${g} gold`, 'info');
             updateStats();
             Game.nextFloor();
@@ -1386,7 +1386,33 @@ const Events = {
         const actPool = getArtifactPool(GS.act);
         let pool = actPool.filter(a => !owned.has(a.name));
         if (pool.length < n) pool = [...actPool];
-        shuffle([...pool]).slice(0, n).forEach(art => Events._gainArtifact(art));
+        const gained = shuffle([...pool]).slice(0, n);
+        gained.forEach(art => Events._gainArtifact(art));
+        return gained;
+    },
+
+    // Show an outcome screen on the event panel before proceeding
+    _showOutcome(title, lines, callback) {
+        $('event-title').textContent = title;
+        const panel = $('event-panel');
+        panel.innerHTML = '';
+        const body = document.createElement('div');
+        body.style.cssText = 'padding: 16px 8px; text-align: center;';
+        lines.forEach(line => {
+            const p = document.createElement('div');
+            p.innerHTML = line;
+            p.style.cssText = 'margin: 10px 0; font-size: 1.05em;';
+            body.appendChild(p);
+        });
+        panel.appendChild(body);
+        const choices = $('event-choices');
+        choices.innerHTML = '';
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.textContent = 'Continue';
+        btn.style.cssText = 'margin-top: 12px;';
+        btn.onclick = () => { updateStats(); callback(); };
+        choices.appendChild(btn);
     },
 
     // Show 3 random face mod choices, call cb(mod)
@@ -1509,8 +1535,10 @@ const Events = {
                         const opts = [{min:1,max:4},{min:2,max:6},{min:1,max:6},{min:2,max:8},{min:1,max:8}];
                         const {min, max} = pick(opts);
                         GS.dice.push(createDie(min, max));
-                        log(`Bought a mystery die (${min}-${max})!`, 'info');
-                        updateStats(); Game.nextFloor();
+                        Events._showOutcome('🎲 Mystery Die Revealed!', [
+                            `You received: <strong>d${max} (${min}–${max})</strong>`,
+                            `<span style="color:var(--text-dim); font-size:0.9em;">Added to your dice pool</span>`
+                        ], () => Game.nextFloor());
                     }
                 },
                 {
@@ -1531,14 +1559,15 @@ const Events = {
                 {
                     text: 'Decline and pickpocket (50%: +25 gold | 50%: -10 HP)',
                     action: () => {
+                        let lines;
                         if (Math.random() < 0.5) {
                             const g = gainGold(25);
-                            log(`Nimble fingers! +${g} gold!`, 'info');
+                            lines = [`<span style="color:var(--gold)">🤫 Nimble fingers! +${g} gold!</span>`];
                         } else {
                             GS.hp = Math.max(1, GS.hp - 10);
-                            log('Caught! -10 HP', 'damage');
+                            lines = [`<span style="color:var(--red-bright)">😤 Caught! -10 HP</span>`];
                         }
-                        updateStats(); Game.nextFloor();
+                        Events._showOutcome('🎲 Pickpocket Attempt', lines, () => Game.nextFloor());
                     }
                 },
             ]
@@ -1597,8 +1626,12 @@ const Events = {
                     text: 'Force it open (-8 HP, gain a random artifact)',
                     action: () => {
                         GS.hp = Math.max(1, GS.hp - 8);
-                        Events._gainRandomArtifacts(1);
-                        updateStats(); Game.nextFloor();
+                        const gained = Events._gainRandomArtifacts(1);
+                        const art = gained[0];
+                        Events._showOutcome('🎁 Chest Forced Open!', [
+                            `<span style="color:var(--red-bright)">-8 HP</span>`,
+                            art ? `Found: <strong>${art.icon} ${art.name}</strong><br><span style="opacity:0.8; font-size:0.9em">${art.desc}</span>` : 'Nothing inside...'
+                        ], () => Game.nextFloor());
                     }
                 },
                 {
@@ -1677,14 +1710,15 @@ const Events = {
                             GS.dice = GS.dice.filter(d => d.id !== die.id);
                             const avg = (die.min + die.max) / 2;
                             const roll = die.min + Math.floor(Math.random() * (die.max - die.min + 1));
-                            log(`Rolled ${roll} on your ${die.min}-${die.max} die (avg ${avg.toFixed(1)})`, 'info');
-                            if (roll > avg) {
-                                log('Above average! Won 2 artifacts!', 'info');
-                                Events._gainRandomArtifacts(2);
-                            } else {
-                                log('Below average... Got nothing.', 'damage');
-                            }
-                            updateStats(); Game.nextFloor();
+                            const won = roll > avg;
+                            const gained = won ? Events._gainRandomArtifacts(2) : [];
+                            const outcomeLines = [
+                                `Rolled <strong>${roll}</strong> on your ${die.min}–${die.max} die (avg ${avg.toFixed(1)})`,
+                                won
+                                    ? `<span style="color:var(--gold)">🎉 Above average! Won 2 artifacts!</span><br>${gained.map(a => `${a.icon} <strong>${a.name}</strong>`).join(' · ')}`
+                                    : `<span style="color:var(--red-bright)">💀 Below average... got nothing.</span>`
+                            ];
+                            Events._showOutcome('🎲 The Die is Cast', outcomeLines, () => Game.nextFloor());
                         });
                     }
                 },
@@ -1693,13 +1727,14 @@ const Events = {
                     disabled: GS.gold < 50,
                     action: () => {
                         GS.gold -= 50;
+                        let outcomeLines;
                         if (Math.random() < 0.5) {
                             const g = gainGold(100);
-                            log(`Lucky! Won ${g} gold!`, 'info');
+                            outcomeLines = [`<span style="color:var(--gold)">🎉 Heads! Won +${g} gold!</span>`, `Gold: ${GS.gold}`];
                         } else {
-                            log('Lost it all!', 'damage');
+                            outcomeLines = [`<span style="color:var(--red-bright)">💀 Tails! Lost everything.</span>`, `Gold: ${GS.gold}`];
                         }
-                        updateStats(); Game.nextFloor();
+                        Events._showOutcome('🪙 The Coin Flip', outcomeLines, () => Game.nextFloor());
                     }
                 },
                 {
@@ -1872,8 +1907,11 @@ const Events = {
                     disabled: GS.gold < 100,
                     action: () => {
                         GS.gold -= 100;
-                        Events._gainRandomArtifacts(3);
-                        updateStats(); Game.nextFloor();
+                        const gained = Events._gainRandomArtifacts(3);
+                        Events._showOutcome('💎 Merchant Prince Deal', [
+                            `<span style="color:var(--gold)">You received 3 artifacts:</span>`,
+                            ...gained.map(a => `${a.icon} <strong>${a.name}</strong> — <span style="opacity:0.8; font-size:0.9em">${a.desc}</span>`)
+                        ], () => Game.nextFloor());
                     }
                 },
                 {

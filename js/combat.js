@@ -110,6 +110,7 @@ export const Combat = {
         GS.gamblerCoinBonus = 0;
         GS.huntersMarkFired = false;
         GS.hourglassFreeFirstTurn = false;
+        GS.furyCharges = 0;
 
         // Remove Midas Die temp dice from previous combat
         GS.dice = GS.dice.filter(d => !d.midasTemp);
@@ -376,15 +377,36 @@ export const Combat = {
         let poisonToApply = 0;
         let siphonHealing = 0;
 
+        // Pack Tactics: pre-compute bonus per attack die (face mods + passive)
+        const ptAtkFace = GS.allocated.attack.reduce((sum, d) => {
+            const f = getActiveFace(d); const mo = f && !f.modifier.autoFire ? f.modifier : null;
+            return mo?.effect === 'packTactics' ? sum + mo.value : sum;
+        }, 0);
+        const ptAtkPerDie = ptAtkFace + (GS.passives.packTactics || 0);
+        // Non-utility attack count for Titan's Blow
+        const nonUtilAtkCount = GS.allocated.attack.filter(d => { const f = getActiveFace(d); return !f?.modifier?.autoFire; }).length;
+
+        // Battle Fury: boost highest attack die if 3+ fury charges
+        let furyBoostDieId = null;
+        if (GS.furyCharges >= 3 && atkCount > 0) {
+            const topDie = GS.allocated.attack.reduce((best, d) => d.value > (best?.value || -1) ? d : best, null);
+            furyBoostDieId = topDie?.id || null;
+            if (furyBoostDieId) {
+                log(`🔥 Battle Fury! Highest attack die ×2 this turn!`, 'info');
+                GS.furyCharges = 0;
+            }
+        }
+
         GS.allocated.attack.forEach(d => {
             const face = getActiveFace(d);
             const m = face && !face.modifier.autoFire ? face.modifier : null;
 
             // Per-slot rune: apply before contributing to base
             const atkRune = getSlotById(d.slotId)?.rune;
-            let dieVal = d.value;
+            let dieVal = d.value + ptAtkPerDie;  // pack tactics lifts each die's effective value
             if (atkRune?.effect === 'amplifier') dieVal *= 2;
-            if (atkRune?.effect === 'titanBlow' && atkCount === 1) dieVal *= 3;
+            if (atkRune?.effect === 'titanBlow' && nonUtilAtkCount === 1) dieVal *= 3;
+            if (d.id === furyBoostDieId) dieVal *= 2;
             if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
 
             if (m) {
@@ -396,9 +418,9 @@ export const Combat = {
 
                 if (m.effect === 'slotMultiply') { atkMult *= m.value; atkBase += dieVal; }
                 else if (m.effect === 'slotAdd') { atkBase += dieVal + m.value * atkCount; }
-                else if (m.effect === 'packTactics') { atkBase += dieVal + m.value * atkCount; }
+                else if (m.effect === 'packTactics') { atkBase += dieVal; }  // bonus already in dieVal
                 else if (m.effect === 'volley') { atkBase += dieVal + (atkCount >= 3 ? m.value : 0); }
-                else if (m.effect === 'threshold') { atkBase += d.value >= m.value ? dieVal * 2 : dieVal; }
+                else if (m.effect === 'threshold') { atkBase += dieVal >= m.value ? dieVal * 2 : dieVal; }
                 else if (m.effect === 'defAdd') { atkBase += dieVal; }
                 else if (m.effect === 'poison') { atkBase += dieVal; }
                 else { atkBase += dieVal; }
@@ -422,7 +444,6 @@ export const Combat = {
         const goldScale = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
         if (goldScale > 0) atkBonus += goldScale;
         if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
-        if (GS.passives.packTactics) atkBase += GS.passives.packTactics * atkCount;
         if (GS.passives.swarmMaster) atkBase += GS.passives.swarmMaster * atkCount;
         if (GS.passives.volley && atkCount >= 3) atkBase += GS.passives.volley;
         if (GS.passives.threshold) {
@@ -454,15 +475,23 @@ export const Combat = {
         let defBase = 0, defMult = 1, defBonus = 0;
         let mirrorDmg = 0, regenCoreHeal = 0, steadfastContrib = 0;
 
+        // Pack Tactics: pre-compute bonus per defend die (face mods only)
+        const ptDefFace = GS.allocated.defend.reduce((sum, d) => {
+            const f = getActiveFace(d); const mo = f && !f.modifier.autoFire ? f.modifier : null;
+            return mo?.effect === 'packTactics' ? sum + mo.value : sum;
+        }, 0);
+        // Non-utility defend count for Titan's Blow
+        const nonUtilDefCount = GS.allocated.defend.filter(d => { const f = getActiveFace(d); return !f?.modifier?.autoFire; }).length;
+
         GS.allocated.defend.forEach(d => {
             const face = getActiveFace(d);
             const m = face && !face.modifier.autoFire ? face.modifier : null;
 
             // Per-slot rune: apply before contributing to base
             const defRune = getSlotById(d.slotId)?.rune;
-            let dieVal = d.value;
+            let dieVal = d.value + ptDefFace;  // pack tactics lifts each defend die's value
             if (defRune?.effect === 'amplifier') dieVal *= 2;
-            if (defRune?.effect === 'titanBlow' && defCount === 1) dieVal *= 3;
+            if (defRune?.effect === 'titanBlow' && nonUtilDefCount === 1) dieVal *= 3;
             if (defRune?.effect === 'leaden') dieVal *= 2;
             if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
 
@@ -474,9 +503,9 @@ export const Combat = {
 
                 if (m.effect === 'slotMultiply') { defMult *= m.value; defBase += dieVal; }
                 else if (m.effect === 'slotAdd') { defBase += dieVal + m.value * defCount; }
-                else if (m.effect === 'packTactics') { defBase += dieVal + m.value * defCount; }
+                else if (m.effect === 'packTactics') { defBase += dieVal; }  // bonus already in dieVal
                 else if (m.effect === 'volley') { defBase += dieVal + (defCount >= 3 ? m.value : 0); }
-                else if (m.effect === 'threshold') { defBase += d.value >= m.value ? dieVal * 2 : dieVal; }
+                else if (m.effect === 'threshold') { defBase += dieVal >= m.value ? dieVal * 2 : dieVal; }
                 else if (m.effect === 'defAdd') { defBase += dieVal + m.value; }
                 else if (m.effect === 'poison') { defBase += dieVal; }
                 else { defBase += dieVal; }
@@ -1229,6 +1258,13 @@ export const Combat = {
             const h = heal(GS.regenStacks);
             if (h > 0) log(`❤️ Rejuvenate: +${h} HP (${GS.regenStacks - 1} next turn)`, 'heal');
             GS.regenStacks--;
+        }
+
+        // ── BATTLE FURY CHARGE ──
+        if (GS.artifacts.some(a => a.effect === 'battleFury')) {
+            GS.furyCharges = (GS.furyCharges || 0) + 1;
+            const needed = 3;
+            log(`🔥 Fury: ${GS.furyCharges}/${needed}${GS.furyCharges >= needed ? ' — READY!' : ''}`, 'info');
         }
 
         // ── ENEMY TURN COUNTER & ENRAGE ──

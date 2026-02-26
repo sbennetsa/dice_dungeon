@@ -167,6 +167,10 @@ export function renderBuffs() {
     const tags = [];
     if (GS.buffs.damageBoost > 0) tags.push(`⚔️ +${GS.buffs.damageBoost} ATK`);
     if (GS.buffs.armor > 0) tags.push(`🛡️ ${GS.buffs.armor} Armor`);
+    if (GS.artifacts && GS.artifacts.some(a => a.effect === 'battleFury') && (GS.furyCharges || 0) > 0) {
+        const ready = GS.furyCharges >= 3;
+        tags.push(`🔥 Fury ${GS.furyCharges}/3${ready ? ' ✓' : ''}`);
+    }
     c.innerHTML = tags.map(t => `<span class="buff-tag">${t}</span>`).join('');
 }
 
@@ -645,24 +649,34 @@ export function updateSlotTotals() {
     const echoId = GS.echoStoneDieId;
     const hasEcho = GS.artifacts.some(a => a.effect === 'echoStone');
 
+    // Pack Tactics: pre-compute bonus per attack die (face mods + passive)
+    const ptAtkFace = GS.allocated.attack.reduce((sum, d) => {
+        const f = getActiveFace(d); const mo = f && !f.modifier.autoFire ? f.modifier : null;
+        return mo?.effect === 'packTactics' ? sum + mo.value : sum;
+    }, 0);
+    const ptAtkPerDie = ptAtkFace + (GS.passives.packTactics || 0);
+    // Non-utility attack count for Titan's Blow
+    const nonUtilAtkCount = GS.allocated.attack.filter(d => { const f = getActiveFace(d); return !f?.modifier?.autoFire; }).length;
+
     GS.allocated.attack.forEach(d => {
         const face = getActiveFace(d);
         const m = face && !face.modifier.autoFire ? face.modifier : null;
+        const baseVal = d.value + ptAtkPerDie;  // pack tactics lifts each die's effective value
         let dieContrib = 0;
         if (m) {
-            if (m.effect === 'slotMultiply') { atkMultiplier *= m.value; dieContrib = d.value; }
-            else if (m.effect === 'slotAdd') { dieContrib = d.value + m.value * atkCount; }
-            else if (m.effect === 'packTactics') { dieContrib = d.value + m.value * atkCount; }
-            else if (m.effect === 'volley') { dieContrib = d.value + (atkCount >= 3 ? m.value : 0); }
-            else if (m.effect === 'threshold') { dieContrib = d.value >= m.value ? d.value * 2 : d.value; }
-            else { dieContrib = d.value; }
+            if (m.effect === 'slotMultiply') { atkMultiplier *= m.value; dieContrib = baseVal; }
+            else if (m.effect === 'slotAdd') { dieContrib = baseVal + m.value * atkCount; }
+            else if (m.effect === 'packTactics') { dieContrib = baseVal; }  // bonus already in baseVal
+            else if (m.effect === 'volley') { dieContrib = baseVal + (atkCount >= 3 ? m.value : 0); }
+            else if (m.effect === 'threshold') { dieContrib = baseVal >= m.value ? baseVal * 2 : baseVal; }
+            else { dieContrib = baseVal; }
         } else {
-            dieContrib = d.value;
+            dieContrib = baseVal;
         }
         // Per-slot rune effects
         const atkDieRune = getSlotById(d.slotId)?.rune;
         if (atkDieRune?.effect === 'amplifier') dieContrib *= 2;
-        if (atkDieRune?.effect === 'titanBlow' && atkCount === 1) dieContrib *= 3;
+        if (atkDieRune?.effect === 'titanBlow' && nonUtilAtkCount === 1) dieContrib *= 3;
         // Echo Stone: first allocated die counts twice
         if (hasEcho && echoId !== null && d.id === echoId) dieContrib += d.value;
         atkTotal += dieContrib;
@@ -675,7 +689,6 @@ export function updateSlotTotals() {
     atkBonus += GS.artifacts.filter(a => a.effect === 'hydrasCrest').reduce((s, a) => s + a.value * GS.dice.length, 0);
     atkBonus += GS.enemyStatus?.mark || 0;
     atkBonus += GS.artifacts.filter(a => a.effect === 'festeringWound').reduce((s, a) => s + a.value * (GS.enemy?.poison || 0), 0);
-    if (GS.passives.packTactics) atkTotal += GS.passives.packTactics * atkCount;
     if (GS.passives.swarmMaster) atkTotal += GS.passives.swarmMaster * atkCount;
     if (GS.passives.volley && atkCount >= 3) atkTotal += GS.passives.volley;
     if (GS.passives.threshold) {
@@ -704,25 +717,34 @@ export function updateSlotTotals() {
     let defBonus = 0;
     const defCount = GS.allocated.defend.length;
 
+    // Pack Tactics: pre-compute bonus per defend die (face mods only — passive is attack-side)
+    const ptDefFace = GS.allocated.defend.reduce((sum, d) => {
+        const f = getActiveFace(d); const mo = f && !f.modifier.autoFire ? f.modifier : null;
+        return mo?.effect === 'packTactics' ? sum + mo.value : sum;
+    }, 0);
+    // Non-utility defend count for Titan's Blow
+    const nonUtilDefCount = GS.allocated.defend.filter(d => { const f = getActiveFace(d); return !f?.modifier?.autoFire; }).length;
+
     GS.allocated.defend.forEach(d => {
         const face = getActiveFace(d);
         const m = face && !face.modifier.autoFire ? face.modifier : null;
+        const baseVal = d.value + ptDefFace;
         let dieContrib = 0;
         if (m) {
-            if (m.effect === 'slotMultiply') { defMultiplier *= m.value; dieContrib = d.value; }
-            else if (m.effect === 'slotAdd') { dieContrib = d.value + m.value * defCount; }
-            else if (m.effect === 'packTactics') { dieContrib = d.value + m.value * defCount; }
-            else if (m.effect === 'volley') { dieContrib = d.value + (defCount >= 3 ? m.value : 0); }
-            else if (m.effect === 'threshold') { dieContrib = d.value >= m.value ? d.value * 2 : d.value; }
-            else if (m.effect === 'defAdd') { dieContrib = d.value + m.value; }
-            else { dieContrib = d.value; }
+            if (m.effect === 'slotMultiply') { defMultiplier *= m.value; dieContrib = baseVal; }
+            else if (m.effect === 'slotAdd') { dieContrib = baseVal + m.value * defCount; }
+            else if (m.effect === 'packTactics') { dieContrib = baseVal; }  // bonus already in baseVal
+            else if (m.effect === 'volley') { dieContrib = baseVal + (defCount >= 3 ? m.value : 0); }
+            else if (m.effect === 'threshold') { dieContrib = baseVal >= m.value ? baseVal * 2 : baseVal; }
+            else if (m.effect === 'defAdd') { dieContrib = baseVal + m.value; }
+            else { dieContrib = baseVal; }
         } else {
-            dieContrib = d.value;
+            dieContrib = baseVal;
         }
         // Per-slot rune effects
         const defDieRune = getSlotById(d.slotId)?.rune;
         if (defDieRune?.effect === 'amplifier') dieContrib *= 2;
-        if (defDieRune?.effect === 'titanBlow' && defCount === 1) dieContrib *= 3;
+        if (defDieRune?.effect === 'titanBlow' && nonUtilDefCount === 1) dieContrib *= 3;
         if (defDieRune?.effect === 'leaden') dieContrib *= 2;
         // Echo Stone: first allocated die counts twice
         if (hasEcho && echoId !== null && d.id === echoId) dieContrib += d.value;

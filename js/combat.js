@@ -1,7 +1,8 @@
 // ════════════════════════════════════════════════════════════
 //  COMBAT
 // ════════════════════════════════════════════════════════════
-import { BOSSES, ENEMIES, ELITES, pickEnemy, pickWeightedConsumable } from './constants.js';
+import { pickWeightedConsumable } from './constants.js';
+import { calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { GS, $, log, gainXP, gainGold, heal, pick, rand } from './state.js';
 import { rollSingleDie, getActiveFace, renderCombatDice, renderConsumables, updateStats, setupDropZones, show, createDie, getSlotById, enterRerollMode, exitRerollMode } from './engine.js';
 
@@ -59,38 +60,88 @@ function removeConsumableByIdx(i) {
     renderConsumables();
 }
 
+// ── ENVIRONMENT HELPERS ──
+
+/**
+ * Build the combat context object passed to environment callbacks.
+ * player.hp is a live getter/setter over GS.hp.
+ */
+function combatCtx() {
+    const playerProxy = {
+        get hp()      { return GS.hp; },
+        set hp(v)     { GS.hp = v; },
+        get maxHp()   { return GS.maxHp; },
+        name: 'Player',
+        dice: GS.dice,
+    };
+    return {
+        player:       playerProxy,
+        enemy:        GS.enemy,
+        environment:  GS.environment,
+        firstAttacker: GS._firstAttacker,
+        get chaosStormActive()  { return GS._chaosStormActive; },
+        set chaosStormActive(v) { GS._chaosStormActive = v; },
+        log: (msg) => log(msg, 'info'),
+    };
+}
+
+/**
+ * Apply consecrated ground modifier to enemy HP and dice at combat start.
+ * Undead enemies are weakened; all others are empowered.
+ */
+function applyConsecratedGround(enemy) {
+    const UNDEAD = ['Skeleton', 'Lich', 'The Bone King'];
+    const isUndead = UNDEAD.some(n => enemy.name.includes(n));
+    if (isUndead) {
+        enemy.hp       = Math.floor(enemy.hp * 0.7);
+        enemy.maxHp    = enemy.hp;
+        enemy.currentHp = enemy.hp;
+        enemy.dice     = enemy.dice.map(d => Math.max(1, Math.floor(d * 0.7)));
+        log('✝️ Consecrated Ground: undead weakened! (−30%)', 'info');
+    } else {
+        enemy.hp       = Math.floor(enemy.hp * 1.15);
+        enemy.maxHp    = enemy.hp;
+        enemy.currentHp = enemy.hp;
+        enemy.dice     = enemy.dice.map(d => Math.floor(d * 1.15));
+        log('✝️ Consecrated Ground: enemy empowered! (+15%)', 'info');
+    }
+}
+
+/**
+ * Apply starting curse from the 'cursed' elite modifier.
+ * All player dice are penalised by −1 this fight.
+ */
+function applyStartingCurse() {
+    GS.dice.forEach(d => { d.cursed = true; });
+    log('💜 Cursed! All your dice show −1 this fight.', 'damage');
+}
+
 export const Combat = {
-    start(isElite = false, isBoss = false) {
-        const src = isBoss ? BOSSES[GS.floor] : pickEnemy(GS.floor);
-        const template = JSON.parse(JSON.stringify(src));
+    start() {
+        const enc      = GS.encounter;  // always set by EncounterChoice before calling start()
+        const template = enc.enemy;     // already deep-cloned, floor-scaled, elite mods applied
+        const isElite  = enc.isElite;
+        const isBoss   = enc.isBossFloor;
 
-        // Scale HP by floor
-        let scaledHp = Math.round(template.hp * Math.pow(1.04, GS.floor - 1));
-
-        // Apply elite modifier
+        // Reward multipliers from applied elite modifiers
         let eliteGoldMult = 1, eliteXpMult = 1;
-        if (isElite) {
-            const mod = pick(ELITES);
-            scaledHp = Math.round(scaledHp * mod.hpMult);
-            if (mod.diceUpgrade) template.dice = template.dice.map(d => d + mod.diceUpgrade);
-            if (mod.extraDice)   template.dice.push(...mod.extraDice);
-            if (mod.addPassive)  template.passives.push(mod.addPassive);
-            eliteGoldMult = mod.goldMult || 1;
-            eliteXpMult   = mod.xpMult   || 1;
-            template.name = `${mod.prefix} ${template.name}`;
+        if (isElite && template.appliedModifiers && template.appliedModifiers.length) {
+            const mults   = calculateRewardMultipliers(template.appliedModifiers);
+            eliteGoldMult = mults.gold;
+            eliteXpMult   = mults.xp;
         }
 
         GS.enemy = {
             name:        template.name,
-            hp:          scaledHp,
-            maxHp:       scaledHp,
-            currentHp:   scaledHp,
+            hp:          template.hp,
+            maxHp:       template.hp,
+            currentHp:   template.hp,
             dice:        [...template.dice],
             extraDice:   [],
             abilities:   template.abilities,
-            passives:    template.passives,
+            passives:    [...(template.passives || [])],
             pattern:     template.pattern,
-            phases:      template.phases || null,
+            phases:      template.phases ? JSON.parse(JSON.stringify(template.phases)) : null,
             patternIdx:  0,
             storedBonus: 0,
             turnsAlive:  0,
@@ -113,6 +164,21 @@ export const Combat = {
             isElite, isBoss,
             poison: 0,
         };
+
+        // Set active environment for hook calls during combat
+        GS.environment        = enc.environment || null;
+        GS._chaosStormActive  = false;
+        GS._firstAttacker     = 'enemy'; // enemy always acts first in execute()
+
+        // Apply consecrated ground stat modifier at combat init
+        if (GS.environment?.id === 'consecratedGround') {
+            applyConsecratedGround(GS.enemy);
+        }
+
+        // Apply starting curse from elite modifier
+        if (template.cursePlayerOnStart) {
+            applyStartingCurse();
+        }
 
         // Reset player debuffs for new combat
         GS.playerDebuffs = { poison: 0, poisonTurns: 0, slotDisabled: null, slotDisabledTurns: 0, diceReduction: 0 };
@@ -300,6 +366,22 @@ export const Combat = {
         e.charged = false;
 
         e.diceResults = effectivePool.map(sides => rand(1, sides));
+
+        // Environment: modify enemy dice results
+        if (GS.environment?.onDiceRoll) {
+            e.diceResults = GS.environment.onDiceRoll([...e.diceResults], false, combatCtx());
+        }
+
+        // Chaos Storm: reroll one random enemy die
+        if (GS._chaosStormActive) {
+            const idx = Math.floor(Math.random() * e.diceResults.length);
+            if (effectivePool[idx]) {
+                e.diceResults[idx] = rand(1, effectivePool[idx]);
+                log(`⚡ Chaos storm rerolls enemy die ${idx + 1}: ${e.diceResults[idx]}`, 'info');
+            }
+            // Don't reset here — reset after player dice roll (both combatants processed)
+        }
+
         const rawSum = e.diceResults.reduce((a, b) => a + b, 0);
         const chillReduction = GS.enemyStatus ? (GS.enemyStatus.chill || 0) : 0;
 
@@ -434,6 +516,25 @@ export const Combat = {
                 }
             }
         });
+
+        // Environment: modify player dice results
+        if (GS.environment?.onDiceRoll) {
+            const rollable = GS.dice.filter(d => d.rolled && d.location !== 'auto');
+            const raw      = rollable.map(d => d.value);
+            const modified = GS.environment.onDiceRoll(raw, true, combatCtx());
+            modified.forEach((v, i) => { if (rollable[i]) rollable[i].value = v; });
+        }
+
+        // Chaos Storm: reroll one player die (resets the flag after both combatants processed)
+        if (GS._chaosStormActive) {
+            const rollable = GS.dice.filter(d => d.rolled && d.location !== 'auto');
+            if (rollable.length > 0) {
+                const idx = Math.floor(Math.random() * rollable.length);
+                rollable[idx].value = rand(1, rollable[idx].max);
+                log(`⚡ Chaos storm rerolls your die ${idx + 1}: ${rollable[idx].value}`, 'info');
+            }
+            GS._chaosStormActive = false;
+        }
 
         const dieEls = document.querySelectorAll('.die');
         dieEls.forEach(el => el.classList.add('rolling'));
@@ -747,6 +848,12 @@ export const Combat = {
         }
 
         // ── PLAYER ATTACKS ENEMY ──
+        // Environment: modify damage before applying (e.g. narrowCorridor +5, thornsAura recoil)
+        if (GS.environment?.onDamageDealt && finalAtk > 0) {
+            const ctx = combatCtx();
+            finalAtk = GS.environment.onDamageDealt(finalAtk, ctx.player, GS.enemy, ctx) ?? finalAtk;
+            updateStats();
+        }
         e.currentHp -= finalAtk;
         if (GS.challengeMode) GS.challengeDmg += finalAtk;
         if (finalAtk > 0) log(`You deal ${finalAtk} damage to ${e.name}!`, 'damage');
@@ -863,6 +970,18 @@ export const Combat = {
 
         updateStats();
         if (e.currentHp <= 0) { Combat.enemyDefeated(); return; }
+
+        // Environment: end-of-turn hook (e.g. burning ground damage, chaos storm flag)
+        if (GS.environment?.onTurnEnd) {
+            GS.environment.onTurnEnd(combatCtx());
+            updateStats();
+            // Re-check for combat end after environment effects
+            if (GS.hp <= 0) {
+                GS.hp = 0; updateStats();
+                setTimeout(() => window.Game.defeat(), 1000); return;
+            }
+            if (GS.enemy.currentHp <= 0) { Combat.enemyDefeated(); return; }
+        }
 
         Combat.newTurn();
     },
@@ -1010,7 +1129,13 @@ export const Combat = {
             }
         } else {
             const blocked = Math.min(enemyDmg, effectiveDef);
-            const mitigated = enemyDmg - blocked;
+            let mitigated = enemyDmg - blocked;
+
+            // Environment: modify enemy damage before applying
+            if (GS.environment?.onDamageDealt && mitigated > 0) {
+                const ctx = combatCtx();
+                mitigated = GS.environment.onDamageDealt(mitigated, GS.enemy, ctx.player, ctx) ?? mitigated;
+            }
             GS.hp -= mitigated;
 
             if (blocked > 0) log(`${e.name} attacks for ${enemyDmg} — you block ${blocked}, take ${mitigated}`, 'defend');
@@ -1236,6 +1361,17 @@ export const Combat = {
     },
 
     newTurn() {
+        // ── ENVIRONMENT: TURN START ──
+        if (GS.environment?.onTurnStart) {
+            GS.environment.onTurnStart(combatCtx());
+            updateStats();
+            if (GS.hp <= 0) {
+                GS.hp = 0; updateStats();
+                setTimeout(() => window.Game.defeat(), 1000); return;
+            }
+            if (GS.enemy && GS.enemy.currentHp <= 0) { Combat.enemyDefeated(); return; }
+        }
+
         // ── BLOOD PACT DRAIN ──
         if (GS.artifacts.some(a => a.effect === 'bloodPact')) {
             GS.hp = Math.max(0, GS.hp - 3);
@@ -1456,8 +1592,10 @@ export const Combat = {
             const baseXP   = Array.isArray(e.xp)   ? rand(e.xp[0],  e.xp[1])  : e.xp;
             earnedGold = e.isElite ? Math.floor(baseGold * (e.eliteGoldMult || 1)) : baseGold;
             earnedXP   = e.isElite ? Math.floor(baseXP   * (e.eliteXpMult   || 1)) : baseXP;
-            // Gold scales with floor, XP does not
-            earnedGold = Math.floor(earnedGold * Math.pow(1.04, GS.floor - 1));
+            // Gold and XP both scale with floor (4% compound per floor)
+            const floorScale = Math.pow(1.04, GS.floor - 1);
+            earnedGold = Math.floor(earnedGold * floorScale);
+            earnedXP   = Math.floor(earnedXP   * floorScale);
         }
 
         const g = gainGold(earnedGold);

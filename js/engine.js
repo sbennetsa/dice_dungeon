@@ -425,7 +425,7 @@ export function makeDieElement(die, context) {
 
     if (die.rolled && context === 'pool') {
         el.style.cursor = 'pointer';
-        el.title = GS.rerollsLeft > 0 ? 'L-click → Attack | R-click → Defend | Middle → Reroll' : 'Left-click → Attack | Right-click → Defend';
+        el.title = GS.rerollsLeft > 0 ? 'L-click → Attack | R-click → Defend | Tap 🔄 to Reroll' : 'Left-click → Attack | Right-click → Defend';
 
         el.onmousedown = e => {
             e.preventDefault();
@@ -478,7 +478,7 @@ export function makeDieElement(die, context) {
 
     } else if (die.rolled && (context === 'attack' || context === 'defend')) {
         el.style.cursor = 'pointer';
-        el.title = GS.rerollsLeft > 0 ? 'Click to return | Middle-click to reroll' : 'Click to return to pool';
+        el.title = GS.rerollsLeft > 0 ? 'Click to return | Tap 🔄 to reroll' : 'Click to return to pool';
         el.onmousedown = e => {
             e.preventDefault();
             if (e.button === 1 && tryReroll()) return;
@@ -538,11 +538,12 @@ export function makeDieElement(die, context) {
     if (die.rolled && GS.rerollsLeft > 0 && context !== 'auto' && die.rune?.effect !== 'leaden') {
         const rerollBadge = document.createElement('div');
         rerollBadge.style.cssText = `
-            position:absolute; bottom:-8px; right:-8px; width:20px; height:20px;
-            background:rgba(212,165,52,0.9); border-radius:50%; display:flex;
-            align-items:center; justify-content:center; font-size:0.5em;
-            cursor:pointer; z-index:5; border:1px solid rgba(255,255,255,0.3);
-            box-shadow: 0 0 6px rgba(212,165,52,0.5);
+            position:absolute; bottom:-14px; right:-14px; width:36px; height:36px;
+            background:rgba(212,165,52,0.95); border-radius:50%; display:flex;
+            align-items:center; justify-content:center; font-size:0.85em;
+            cursor:pointer; z-index:5; border:2px solid rgba(255,255,255,0.5);
+            box-shadow: 0 0 8px rgba(212,165,52,0.7);
+            touch-action:none;
         `;
         rerollBadge.textContent = '🔄';
         rerollBadge.title = `Reroll this die (${GS.rerollsLeft} left)`;

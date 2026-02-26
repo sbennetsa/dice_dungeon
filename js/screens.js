@@ -2078,7 +2078,7 @@ const Rest = {
         content.innerHTML = '<div class="section-title">🔥 Sacrifice — Choose a slot to destroy</div>';
         const info = document.createElement('div');
         info.style.cssText = 'text-align:center; margin-bottom:12px; font-size:0.85em; color:var(--text-dim);';
-        info.innerHTML = `Current: ${GS.slots.attack} Attack / ${GS.slots.defend} Defend (minimum 1 each)`;
+        info.innerHTML = `Slots are <em>dice capacity</em> — how many dice you can place in that category.<br>Sacrifice 1 slot to unlock a permanent buff for all remaining slots of that type.`;
         content.appendChild(info);
 
         const grid = document.createElement('div');
@@ -2087,14 +2087,22 @@ const Rest = {
         const atkMin = GS.slots.attack <= 1;
         const atkCard = document.createElement('div');
         atkCard.className = 'card' + (atkMin ? ' disabled' : '');
-        atkCard.innerHTML = `<div class="card-title">⚔️ Sacrifice Attack Slot</div><div class="card-desc">${GS.slots.attack} → ${GS.slots.attack - 1}${atkMin ? ' (MINIMUM)' : ''}</div>`;
+        atkCard.innerHTML = `
+            <div class="card-title">⚔️ Sacrifice Attack Slot</div>
+            <div class="card-desc">Attack capacity: ${GS.slots.attack} → ${GS.slots.attack - 1} dice${atkMin ? ' (MINIMUM — cannot sacrifice)' : ''}</div>
+            ${!atkMin ? `<div class="card-effect" style="font-size:0.8em; margin-top:6px; color:var(--attack-color);">Choose one buff for all remaining attack slots:<br>🔥 Fury Chamber · ☠️ Conduit · ⚒️ Gold Forge</div>` : ''}
+        `;
         if (!atkMin) atkCard.onclick = () => Rest.showSacrificeEnhancements('attack');
         grid.appendChild(atkCard);
 
         const defMin = GS.slots.defend <= 1;
         const defCard = document.createElement('div');
         defCard.className = 'card' + (defMin ? ' disabled' : '');
-        defCard.innerHTML = `<div class="card-title">🛡️ Sacrifice Defend Slot</div><div class="card-desc">${GS.slots.defend} → ${GS.slots.defend - 1}${defMin ? ' (MINIMUM)' : ''}</div>`;
+        defCard.innerHTML = `
+            <div class="card-title">🛡️ Sacrifice Defend Slot</div>
+            <div class="card-desc">Defend capacity: ${GS.slots.defend} → ${GS.slots.defend - 1} dice${defMin ? ' (MINIMUM — cannot sacrifice)' : ''}</div>
+            ${!defMin ? `<div class="card-effect" style="font-size:0.8em; margin-top:6px; color:var(--defend-color);">Choose one buff for all remaining defend slots:<br>🏰 Fortification · 🌿 Thorns Aura · 🧛 Vampiric Ward</div>` : ''}
+        `;
         if (!defMin) defCard.onclick = () => Rest.showSacrificeEnhancements('defend');
         grid.appendChild(defCard);
 

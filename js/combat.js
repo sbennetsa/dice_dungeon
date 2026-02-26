@@ -456,7 +456,7 @@ export const Combat = {
         }
 
         // ── FUNGAL CREEP SPORE CLOUD: every 2nd player turn ──
-        const sporeOnThisTurn = baseEName === 'Fungal Creep' && GS.enemy.turn > 0 && GS.enemy.turn % 2 === 0;
+        const sporeOnThisTurn = baseEName === 'Fungal Creep' && GS.enemy.turn > 0 && GS.enemy.turn % 2 === 1;
         if (sporeOnThisTurn) {
             GS.playerDebuffs.poison = Math.max(GS.playerDebuffs.poison, 2);
             GS.playerDebuffs.poisonTurns = Math.max(GS.playerDebuffs.poisonTurns, 3);
@@ -465,10 +465,17 @@ export const Combat = {
             skipEnemyAttack = true;
         }
 
-        // ── DRAGON WHELP BREATH CHARGE: every 4 turns, turn 3 = charge ──
-        if (baseEName === 'Dragon Whelp' && GS.enemy.turn % 4 === 3) {
+        // ── DRAGON WHELP BREATH CHARGE: every 4 turns, charge aligns with Inhaling intent ──
+        if (baseEName === 'Dragon Whelp' && GS.enemy.turn % 4 === 2) {
             as.breathCharging = true;
             log(`🔥 Dragon Whelp inhales deeply...`, 'info');
+            Combat.renderEnemy();
+            skipEnemyAttack = true;
+        }
+
+        // ── ORC WARRIOR WIND-UP: skip attack while winding up ──
+        if (baseEName === 'Orc Warrior' && !as.warCryReady && (GS.enemy.turn + 1) % 3 === 2) {
+            log(`🔥 The Orc Warrior winds up for a powerful blow!`, 'info');
             Combat.renderEnemy();
             skipEnemyAttack = true;
         }
@@ -497,7 +504,7 @@ export const Combat = {
         let attackTimes = 1;
 
         // Dark Mage: apply Curse (debuff affects next turn)
-        if (baseEName === 'Dark Mage' && GS.enemy.turn > 0 && GS.enemy.turn % 3 === 0) {
+        if (baseEName === 'Dark Mage' && GS.enemy.turn > 0 && GS.enemy.turn % 3 === 2) {
             if (GS.artifacts.some(a => a.effect === 'anchoredSlots')) {
                 log('⚓ Anchored Slots: Curse prevented!', 'info');
             } else {
@@ -937,8 +944,8 @@ export const Combat = {
 
         // ── POST-ATTACK ABILITY CHECKS ──
 
-        // Iron Golem Overcharge: stun if player dealt 20+
-        if (baseEName === 'Iron Golem' && finalAtk >= 20) {
+        // Iron Golem Overcharge: stun if player dealt 25+
+        if (baseEName === 'Iron Golem' && finalAtk >= 25) {
             as.stunned = true;
             log(`⚡ Overcharged! The Golem staggers — skips next attack!`, 'damage');
         }
@@ -1061,8 +1068,8 @@ export const Combat = {
             const nextTurn = e.turn + 1;
             if (nextTurn > 0 && nextTurn % 2 === 0) text = '🟢 Releasing spores...';
         }
-        if ((baseEName === 'Slime' || eName === 'Slimeling Swarm') && !as.transformed && e.turn < 3) {
-            const turnsLeft = 2 - e.turn;
+        if ((baseEName === 'Slime' || eName === 'Slimeling Swarm') && !as.transformed && e.turn <= 3) {
+            const turnsLeft = 3 - e.turn;
             text = turnsLeft > 0 ? `⏳ Splitting in ${turnsLeft}...` : `⏳ Splitting now!`;
         }
         if (baseEName === 'Orc Warrior') {

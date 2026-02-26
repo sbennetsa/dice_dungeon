@@ -115,7 +115,7 @@ export function gainXP(amount) {
         GS.xpNext = Math.floor(GS.xpNext * 1.25);
         GS.maxHp += 5;
         GS.hp = Math.min(GS.hp + 5, GS.maxHp);
-        GS.pendingSlotChoice = true;
+        GS.pendingSkillPoints = (GS.pendingSkillPoints || 0) + 1;
         log(`⭐ Level ${GS.level}! +5 Max HP — Skill point available!`, 'info');
     }
     // updateStats is called by callers

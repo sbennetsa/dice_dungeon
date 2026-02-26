@@ -161,6 +161,7 @@ const Game = {
             ironSkinActive: false,
             ragePotionActive: false,
             hasteDiceBonus: 0,
+            pendingSkillPoints: 0,
             encounter: null,
             environment: null,
             _chaosStormActive: false,
@@ -413,7 +414,7 @@ const Game = {
 // ════════════════════════════════════════════════════════════
 const Rewards = {
     slotChoice(callback) {
-        GS.pendingSlotChoice = false;
+        GS.pendingSkillPoints = Math.max(0, (GS.pendingSkillPoints || 0) - 1);
         updateStats();
         $('reward-title').textContent = `⭐ Level ${GS.level} — Skill Tree`;
         const c = $('reward-cards');

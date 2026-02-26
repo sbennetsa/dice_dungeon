@@ -1667,19 +1667,17 @@ export const Combat = {
         }
 
         setTimeout(() => {
-            if (GS.pendingSlotChoice) {
-                window.Rewards.slotChoice(() => {
-                    if (GS.enemy.isElite) window.Rewards.artifactChoice();
-                    else if (GS.enemy.isBoss) window.Rewards.artifactChoice(true);
-                    else window.Rewards.show();
-                });
-            } else if (GS.enemy.isElite) {
-                window.Rewards.artifactChoice();
-            } else if (GS.enemy.isBoss) {
-                window.Rewards.artifactChoice(true);
-            } else {
-                window.Rewards.show();
-            }
+            const finalReward = () => {
+                if (GS.enemy.isElite) window.Rewards.artifactChoice();
+                else if (GS.enemy.isBoss) window.Rewards.artifactChoice(true);
+                else window.Rewards.show();
+            };
+            const drainSkillPoints = () => {
+                if (GS.pendingSkillPoints > 0) window.Rewards.slotChoice(drainSkillPoints);
+                else finalReward();
+            };
+            if (GS.pendingSkillPoints > 0) window.Rewards.slotChoice(drainSkillPoints);
+            else finalReward();
         }, 1200);
     }
 };

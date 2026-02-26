@@ -23,13 +23,13 @@ export const ENEMIES = {
     // Index order matters: [Goblin=0, Dire Rat=1, Fungal Creep=2, Slime=3, Skeleton=4]
     1: [
         {
-            name: 'Goblin', hp: 20, atk: 5, gold: 17,
+            name: 'Goblin', hp: 20, atk: 4, gold: 17,
             abilities: []
         },
         {
-            name: 'Dire Rat', hp: 14, atk: 4, gold: 15,
+            name: 'Dire Rat', hp: 14, atk: 3, gold: 15,
             abilities: [
-                { name: 'Frenzy', icon: '⚔️', passive: true, desc: 'Attacks twice per turn (4+4)' }
+                { name: 'Frenzy', icon: '⚔️', passive: true, desc: 'Attacks twice per turn (3+3)' }
             ]
         },
         {
@@ -45,7 +45,7 @@ export const ENEMIES = {
             ]
         },
         {
-            name: 'Skeleton', hp: 18, atk: 6, gold: 17,
+            name: 'Skeleton', hp: 18, atk: 5, gold: 17,
             abilities: [
                 { name: 'Brittle', icon: '💀', passive: true, desc: '+3 damage taken from every source' }
             ]
@@ -136,7 +136,7 @@ export const ELITES = [
 
 export const BOSSES = {
     5:  {
-        name: 'The Bone King', hp: 85, atk: 9, gold: 80,
+        name: 'The Bone King', hp: 75, atk: 9, gold: 80,
         abilities: [
             { name: 'Bone Wall', icon: '🦴', passive: false, desc: 'Gains 15 shield that absorbs damage' },
             { name: 'Raise Dead', icon: '💀', passive: false, desc: 'ATK permanently +3 (represents summoned skeleton)' }

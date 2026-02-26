@@ -390,7 +390,7 @@ export const Combat = {
 
             // Per-slot rune: apply before contributing to base
             const defRune = getSlotById(d.slotId)?.rune;
-            let dieVal = d.value + ptDefFace;  // pack tactics lifts each defend die's value
+            let dieVal = d.value + ptDefFace + (GS.passives.swarmMaster || 0);  // pack tactics + swarm master lift each defend die's value
             if (defRune?.effect === 'amplifier') dieVal *= 2;
             if (defRune?.effect === 'titanBlow' && nonUtilDefCount === 1) dieVal *= 3;
             if (defRune?.effect === 'leaden') dieVal *= 2;
@@ -427,7 +427,6 @@ export const Combat = {
         if (GS.ascendedDice && GS.ascendedDice.length > 0) {
             defBonus += GS.ascendedDice.reduce((s, a) => s + a.bonus, 0);
         }
-        if (GS.passives.swarmMaster) defBase += GS.passives.swarmMaster * defCount;
         if (GS.passives.volley && defCount >= 3) defBase += GS.passives.volley;
         if (GS.passives.threshold) {
             GS.allocated.defend.forEach(d => { if (d.value >= 8) defBase += Math.floor(d.value * 0.5); });
@@ -776,7 +775,7 @@ export const Combat = {
 
             // Per-slot rune: apply before contributing to base
             const atkRune = getSlotById(d.slotId)?.rune;
-            let dieVal = d.value + ptAtkPerDie;  // pack tactics lifts each die's effective value
+            let dieVal = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0);  // pack tactics + swarm master lift each die's effective value
             if (atkRune?.effect === 'amplifier') dieVal *= 2;
             if (atkRune?.effect === 'titanBlow' && nonUtilAtkCount === 1) dieVal *= 3;
             if (d.id === furyBoostDieId) dieVal *= 2;
@@ -818,7 +817,6 @@ export const Combat = {
         const goldScale = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
         if (goldScale > 0) atkBonus += goldScale;
         if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
-        if (GS.passives.swarmMaster) atkBase += GS.passives.swarmMaster * atkCount;
         if (GS.passives.volley && atkCount >= 3) atkBase += GS.passives.volley;
         if (GS.passives.threshold) {
             GS.allocated.attack.forEach(d => { if (d.value >= 8) atkBase += Math.floor(d.value * 0.5); });

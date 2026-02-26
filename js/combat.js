@@ -427,7 +427,8 @@ export const Combat = {
                 else if (m.effect === 'volley') { atkBase += dieVal + (atkCount >= 3 ? m.value : 0); }
                 else if (m.effect === 'threshold') { atkBase += dieVal >= m.value ? dieVal * 2 : dieVal; }
                 else if (m.effect === 'defAdd') { atkBase += dieVal; }
-                else if (m.effect === 'poison') { atkBase += dieVal; }
+                else if (m.effect === 'lucky' || m.effect === 'poison' || m.effect === 'midasGold'
+                      || m.effect === 'searing' || m.effect === 'marked' || m.effect === 'frostbite') { /* utility: no value contribution */ }
                 else { atkBase += dieVal; }
             } else {
                 atkBase += dieVal;
@@ -512,7 +513,8 @@ export const Combat = {
                 else if (m.effect === 'volley') { defBase += dieVal + (defCount >= 3 ? m.value : 0); }
                 else if (m.effect === 'threshold') { defBase += dieVal >= m.value ? dieVal * 2 : dieVal; }
                 else if (m.effect === 'defAdd') { defBase += dieVal + m.value; }
-                else if (m.effect === 'poison') { defBase += dieVal; }
+                else if (m.effect === 'lucky' || m.effect === 'poison' || m.effect === 'midasGold'
+                      || m.effect === 'searing' || m.effect === 'marked' || m.effect === 'frostbite') { /* utility: no value contribution */ }
                 else { defBase += dieVal; }
             } else {
                 defBase += dieVal;
@@ -934,9 +936,11 @@ export const Combat = {
         }
 
         // ── DEAL DAMAGE TO PLAYER (once per attackTimes) ──
+        let remainingDef = effectiveDef;
         for (let i = 0; i < attackTimes; i++) {
-            const mitigated = Math.max(0, enemyDmg - effectiveDef);
-            const blocked = enemyDmg - mitigated;
+            const blocked = Math.min(enemyDmg, remainingDef);
+            const mitigated = enemyDmg - blocked;
+            remainingDef -= blocked;
 
             GS.hp -= mitigated;
 

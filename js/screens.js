@@ -1359,7 +1359,10 @@ const Events = {
             btn.style.cssText = 'width:100%; text-align:left; margin:5px 0; padding:11px 16px;';
             if (ch.disabled) btn.style.cssText += 'opacity:0.45; cursor:not-allowed;';
             btn.textContent = ch.text;
-            if (!ch.disabled) btn.onclick = ch.action;
+            if (!ch.disabled) btn.onclick = () => {
+                panel.querySelectorAll('button').forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
+                ch.action();
+            };
             panel.appendChild(btn);
         });
         show('screen-event');
@@ -1393,9 +1396,12 @@ const Events = {
 
     // Show an outcome screen on the event panel before proceeding
     _showOutcome(title, lines, callback) {
-        $('event-title').textContent = title;
         const panel = $('event-panel');
         panel.innerHTML = '';
+        const titleEl = document.createElement('div');
+        titleEl.style.cssText = 'font-size:1.15em; font-family:EB Garamond,serif; color:var(--gold); margin-bottom:10px; font-weight:bold;';
+        titleEl.textContent = title;
+        panel.appendChild(titleEl);
         const body = document.createElement('div');
         body.style.cssText = 'padding: 16px 8px; text-align: center;';
         lines.forEach(line => {
@@ -1405,14 +1411,13 @@ const Events = {
             body.appendChild(p);
         });
         panel.appendChild(body);
-        const choices = $('event-choices');
-        choices.innerHTML = '';
         const btn = document.createElement('button');
         btn.className = 'btn';
         btn.textContent = 'Continue';
         btn.style.cssText = 'margin-top: 12px;';
         btn.onclick = () => { updateStats(); callback(); };
-        choices.appendChild(btn);
+        panel.appendChild(btn);
+        show('screen-event');
     },
 
     // Show 3 random face mod choices, call cb(mod)
@@ -1542,18 +1547,20 @@ const Events = {
                     }
                 },
                 {
-                    text: GS.dice.length >= 2 ? 'Trade a die — sacrifice your worst, gain your best +2/+2' : 'Trade a die — need 2+ dice',
+                    text: GS.dice.length >= 2 ? 'Trade a die — sacrifice one, boost another +2/+2' : 'Trade a die — need 2+ dice',
                     disabled: GS.dice.length < 2,
                     action: () => {
-                        const sorted = [...GS.dice].sort((a, b) => a.max - b.max);
-                        const worst = sorted[0];
-                        const best = sorted[sorted.length - 1];
-                        GS.dice = GS.dice.filter(d => d.id !== worst.id);
-                        const newMin = Math.max(1, best.min + 2);
-                        const newMax = Math.min(12, best.max + 2);
-                        GS.dice.push(createDie(newMin, newMax));
-                        log(`Traded away ${worst.min}-${worst.max} die, gained ${newMin}-${newMax} die!`, 'info');
-                        updateStats(); Game.nextFloor();
+                        Events._chooseDie('Choose a die to sacrifice:', sacDie => {
+                            GS.dice = GS.dice.filter(d => d.id !== sacDie.id);
+                            Events._chooseDie('Choose a die to boost (+2/+2):', boostDie => {
+                                const newMin = Math.max(1, boostDie.min + 2);
+                                const newMax = Math.min(12, boostDie.max + 2);
+                                GS.dice = GS.dice.filter(d => d.id !== boostDie.id);
+                                GS.dice.push(createDie(newMin, newMax));
+                                log(`Traded ${sacDie.min}-${sacDie.max} die, boosted to ${newMin}-${newMax}!`, 'info');
+                                updateStats(); Game.nextFloor();
+                            });
+                        });
                     }
                 },
                 {

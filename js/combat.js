@@ -379,24 +379,26 @@ export const Combat = {
 
             // Per-slot rune: apply before contributing to base
             const defRune = getSlotById(d.slotId)?.rune;
+            const isAmplified = defRune?.effect === 'amplifier';
+            const ampMul = isAmplified ? 2 : 1;
             let dieVal = d.value + ptDefFace + (GS.passives.swarmMaster || 0) + defAscendBonus;
-            if (defRune?.effect === 'amplifier') dieVal *= 2;
+            if (isAmplified) dieVal *= 2;
             if (defRune?.effect === 'titanBlow' && nonUtilDefCount === 1) dieVal *= 3;
             if (defRune?.effect === 'leaden') dieVal *= 2;
             if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
 
             if (m) {
-                if (m.effect === 'lucky') { GS.rerollsLeft += m.value; log(`🎰 Lucky! +${m.value} reroll`, 'info'); }
-                if (m.effect === 'poison') { poisonToApply += m.value * (defRune?.effect === 'amplifier' ? 2 : 1); }
+                if (m.effect === 'lucky') { GS.rerollsLeft += m.value * ampMul; log(`🎰 Lucky! +${m.value * ampMul} reroll`, 'info'); }
+                if (m.effect === 'poison') { poisonToApply += m.value * ampMul; }
                 if (m.effect === 'midasGold') { const mg = gainGold(dieVal); log(`👑 Midas: +${mg} gold`, 'info'); }
-                if (m.effect === 'frostbite') { applyStatus('chill', 2); }
+                if (m.effect === 'frostbite') { applyStatus('chill', 2 * ampMul); }
 
-                if (m.effect === 'slotMultiply') { defMult *= m.value; defBase += dieVal; }
-                else if (m.effect === 'slotAdd') { defBase += dieVal + m.value * defCount; }
+                if (m.effect === 'slotMultiply') { defMult *= m.value * ampMul; defBase += dieVal; }
+                else if (m.effect === 'slotAdd') { defBase += dieVal + m.value * defCount * ampMul; }
                 else if (m.effect === 'packTactics') { defBase += dieVal; }  // bonus already in dieVal
-                else if (m.effect === 'volley') { defBase += dieVal + (defCount >= 3 ? m.value : 0); }
+                else if (m.effect === 'volley') { defBase += dieVal + (defCount >= 3 ? m.value * ampMul : 0); }
                 else if (m.effect === 'threshold') { defBase += dieVal * m.value; }
-                else if (m.effect === 'defAdd') { defBase += dieVal + m.value; }
+                else if (m.effect === 'defAdd') { defBase += dieVal + m.value * ampMul; }
                 else if (m.effect === 'lucky' || m.effect === 'poison' || m.effect === 'midasGold'
                       || m.effect === 'searing' || m.effect === 'marked' || m.effect === 'frostbite') { /* utility: no value contribution */ }
                 else { defBase += dieVal; }
@@ -775,23 +777,25 @@ export const Combat = {
 
             // Per-slot rune: apply before contributing to base
             const atkRune = getSlotById(d.slotId)?.rune;
+            const isAmplified = atkRune?.effect === 'amplifier';
+            const ampMul = isAmplified ? 2 : 1;
             let dieVal = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0) + atkAscendBonus;
-            if (atkRune?.effect === 'amplifier') dieVal *= 2;
+            if (isAmplified) dieVal *= 2;
             if (atkRune?.effect === 'titanBlow' && nonUtilAtkCount === 1) dieVal *= 3;
             if (d.id === furyBoostDieId) dieVal *= 2;
             if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
 
             if (m) {
-                if (m.effect === 'lucky') { GS.rerollsLeft += m.value; log(`🎰 Lucky! +${m.value} reroll`, 'info'); }
-                if (m.effect === 'poison') { poisonToApply += m.value * (atkRune?.effect === 'amplifier' ? 2 : 1); }
+                if (m.effect === 'lucky') { GS.rerollsLeft += m.value * ampMul; log(`🎰 Lucky! +${m.value * ampMul} reroll`, 'info'); }
+                if (m.effect === 'poison') { poisonToApply += m.value * ampMul; }
                 if (m.effect === 'midasGold') { const mg = gainGold(dieVal); log(`👑 Midas: +${mg} gold`, 'info'); }
-                if (m.effect === 'searing') { applyStatus('burn', 2, 3); }
-                if (m.effect === 'marked') { applyStatus('mark', 3, 2); }
+                if (m.effect === 'searing') { applyStatus('burn', 2 * ampMul, 3); }
+                if (m.effect === 'marked') { applyStatus('mark', 3 * ampMul, 2); }
 
-                if (m.effect === 'slotMultiply') { atkMult *= m.value; atkBase += dieVal; }
-                else if (m.effect === 'slotAdd') { atkBase += dieVal + m.value * atkCount; }
+                if (m.effect === 'slotMultiply') { atkMult *= m.value * ampMul; atkBase += dieVal; }
+                else if (m.effect === 'slotAdd') { atkBase += dieVal + m.value * atkCount * ampMul; }
                 else if (m.effect === 'packTactics') { atkBase += dieVal; }  // bonus already in dieVal
-                else if (m.effect === 'volley') { atkBase += dieVal + (atkCount >= 3 ? m.value : 0); }
+                else if (m.effect === 'volley') { atkBase += dieVal + (atkCount >= 3 ? m.value * ampMul : 0); }
                 else if (m.effect === 'threshold') { atkBase += dieVal * m.value; }
                 else if (m.effect === 'defAdd') { atkBase += dieVal; }
                 else if (m.effect === 'lucky' || m.effect === 'poison' || m.effect === 'midasGold'

@@ -81,7 +81,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'warCry'],
         },
         {
-            name: 'Dark Mage', hp: 32, dice: [6, 6], gold: [22, 35], xp: [16, 24],
+            name: 'Dark Mage', hp: 32, dice: [6, 6], gold: [22, 35], xp: [40, 60],
             abilities: {
                 bolt:  { name: 'Shadow Bolt', icon: '🔮', type: 'attack', desc: 'Deal damage (penetrates 3 block)', penetrate: 3 },
                 curse: { name: 'Curse', icon: '💀', type: 'curse', desc: 'Disable your attack slot', durationDivisor: 3 },
@@ -90,7 +90,7 @@ export const ENEMIES = {
             pattern: ['bolt', 'bolt', 'curse'],
         },
         {
-            name: 'Troll', hp: 55, dice: [8, 8], gold: [20, 30], xp: [14, 22],
+            name: 'Troll', hp: 55, dice: [8, 8], gold: [20, 30], xp: [35, 55],
             abilities: {
                 strike: { name: 'Smash', icon: '💪', type: 'attack', desc: 'Deal damage' },
                 heal:   { name: 'Regenerate', icon: '💚', type: 'heal', desc: 'Heal HP equal to dice sum' },
@@ -102,7 +102,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'heal'],
         },
         {
-            name: 'Vampire', hp: 38, dice: [6, 6, 6], gold: [25, 40], xp: [18, 26],
+            name: 'Vampire', hp: 38, dice: [6, 6, 6], gold: [25, 40], xp: [45, 65],
             abilities: {
                 drain: { name: 'Drain', icon: '🩸', type: 'attack', desc: 'Deal damage and heal 50% of amount dealt' },
             },
@@ -113,7 +113,7 @@ export const ENEMIES = {
             pattern: ['drain'],
         },
         {
-            name: 'Mimic', hp: 35, dice: [6, 6], gold: [20, 30], xp: [14, 20],
+            name: 'Mimic', hp: 35, dice: [6, 6], gold: [20, 30], xp: [35, 50],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 steal:  { name: 'Gold Snatch', icon: '💰', type: 'steal', desc: 'Steal gold equal to dice sum' },
@@ -127,7 +127,7 @@ export const ENEMIES = {
     // ── ACT 3 ──
     3: [
         {
-            name: 'Demon', hp: 75, dice: [8, 8, 8], gold: [35, 55], xp: [22, 32],
+            name: 'Demon', hp: 75, dice: [8, 8, 8], gold: [35, 55], xp: [55, 80],
             abilities: {
                 strike:   { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 hellfire: { name: 'Hellfire', icon: '🔥', type: 'unblockable', desc: 'Deal unblockable damage' },
@@ -138,7 +138,7 @@ export const ENEMIES = {
             pattern: ['strike', 'hellfire'],
         },
         {
-            name: 'Lich', hp: 65, dice: [8, 8], gold: [40, 60], xp: [24, 34],
+            name: 'Lich', hp: 65, dice: [8, 8], gold: [40, 60], xp: [60, 85],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 decay:  { name: 'Decay', icon: '💀', type: 'decay', desc: 'All your dice permanently lose 1 max value this fight' },
@@ -149,7 +149,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'decay'],
         },
         {
-            name: 'Dragon Whelp', hp: 85, dice: [8, 8, 8, 8], gold: [45, 65], xp: [26, 36],
+            name: 'Dragon Whelp', hp: 85, dice: [8, 8, 8, 8], gold: [45, 65], xp: [65, 90],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 charge: { name: 'Breath Charge', icon: '🔥', type: 'charge', desc: 'Charging... next attack is doubled!' },
@@ -161,7 +161,7 @@ export const ENEMIES = {
             pattern: ['strike', 'charge', 'breath'],
         },
         {
-            name: 'Shadow Assassin', hp: 45, dice: [8, 8, 8], gold: [35, 55], xp: [22, 34],
+            name: 'Shadow Assassin', hp: 45, dice: [8, 8, 8], gold: [35, 55], xp: [55, 85],
             abilities: {
                 strike: { name: 'Strike', icon: '🗡️', type: 'attack', desc: 'Deal damage' },
                 vanish: { name: 'Vanish', icon: '💨', type: 'charge', desc: 'Disappears — immune to damage this turn. Next strike is doubled.', immune: true },
@@ -173,7 +173,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'vanish'],
         },
         {
-            name: 'Iron Golem', hp: 100, dice: [6, 6], gold: [50, 70], xp: [28, 38],
+            name: 'Iron Golem', hp: 100, dice: [6, 6], gold: [50, 70], xp: [70, 95],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },

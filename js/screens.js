@@ -20,7 +20,7 @@ function applyUpgrade(die) {
 //  RUNE ATTACHMENT — die picker shown on reward screen
 // ════════════════════════════════════════════════════════════
 function showRuneAttachment(rune, onDone) {
-    $('reward-title').textContent = `🔮 Attach ${rune.icon} ${rune.name} to a Die`;
+    $('reward-title').textContent = `🔮 Attach ${rune.icon} ${rune.name} to a Slot`;
     const c = $('reward-cards');
     c.innerHTML = '';
 
@@ -32,21 +32,26 @@ function showRuneAttachment(rune, onDone) {
     const grid = document.createElement('div');
     grid.style.cssText = 'display:flex; flex-wrap:wrap; gap:10px; justify-content:center;';
 
-    GS.dice.filter(d => !d.midasTemp).forEach(die => {
+    const allSlots = [
+        ...GS.slots.attack.map((s, i) => ({ ...s, type: 'attack', label: `⚔️ Attack Slot ${i + 1}` })),
+        ...GS.slots.defend.map((s, i) => ({ ...s, type: 'defend', label: `🛡️ Defend Slot ${i + 1}` })),
+    ];
+
+    allSlots.forEach(slotInfo => {
+        const compatible = rune.slot === 'either' || rune.slot === slotInfo.type;
         const card = document.createElement('div');
         card.className = 'card';
-        card.style.cssText = 'width:160px; cursor:pointer;';
-        const faces = die.faceValues ? die.faceValues.join(', ') : `${die.min}-${die.max}`;
-        const existingRuneNote = die.rune ? `<div style="color:#ff8080; font-size:0.78em; margin-top:4px;">⚠️ Replaces ${die.rune.icon} ${die.rune.name}</div>` : '';
-        const runeIcon = die.rune ? `<span style="color:${die.rune.color};">${die.rune.icon} </span>` : '';
+        card.style.cssText = `width:160px; cursor:pointer;${!compatible ? ' opacity:0.6;' : ''}`;
+        const existingRuneNote = slotInfo.rune ? `<div style="color:#ff8080; font-size:0.78em; margin-top:4px;">⚠️ Replaces ${slotInfo.rune.icon} ${slotInfo.rune.name}</div>` : '<div style="opacity:0.5; font-size:0.78em; margin-top:4px;">empty slot</div>';
+        const compatNote = !compatible ? `<div style="color:#ff8080; font-size:0.78em; margin-top:4px;">⚠️ Not ideal for ${slotInfo.type}</div>` : '';
         card.innerHTML = `
-            <div class="card-title">${runeIcon}d${die.faceValues ? die.faceValues.length : die.sides} [${die.min}-${die.max}]</div>
-            <div class="card-desc" style="font-size:0.78em;">${faces}</div>
-            ${existingRuneNote}
+            <div class="card-title">${slotInfo.label}</div>
+            ${existingRuneNote}${compatNote}
         `;
         card.onclick = () => {
-            die.rune = { ...rune };
-            log(`🔮 ${rune.icon} ${rune.name} attached to d${die.faceValues ? die.faceValues.length : die.sides} [${die.min}-${die.max}]!`, 'info');
+            const slot = GS.slots[slotInfo.type].find(s => s.id === slotInfo.id);
+            if (slot) slot.rune = { ...rune };
+            log(`🔮 ${rune.icon} ${rune.name} attached to ${slotInfo.label}!`, 'info');
             updateStats();
             onDone?.();
         };
@@ -67,7 +72,10 @@ const Game = {
             floor: 1, act: 1, hp: 50, maxHp: 50, gold: 15,
             level: 1, xp: 0, xpNext: 50,
             dice: [createDie(1,6), createDie(1,6), createDie(1,6)],
-            slots: { attack: 2, defend: 2 },
+            slots: {
+                attack: [{ id: 'atk-0', rune: null }, { id: 'atk-1', rune: null }],
+                defend: [{ id: 'def-0', rune: null }, { id: 'def-1', rune: null }],
+            },
             pendingRunes: [],
             enemyStatus: { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: false },
             echoStoneDieId: null,
@@ -197,7 +205,7 @@ const Game = {
             };
         }});
 
-        const totalSlots = GS.slots.attack + GS.slots.defend;
+        const totalSlots = GS.slots.attack.length + GS.slots.defend.length;
         rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
             GS.dice.push(createDie(1, 6));
             log('Added new D6!', 'info');
@@ -781,7 +789,7 @@ const Rewards = {
 
         const rewards = [];
 
-        const totalSlots = GS.slots.attack + GS.slots.defend;
+        const totalSlots = GS.slots.attack.length + GS.slots.defend.length;
         rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — you have ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
             GS.dice.push(createDie(1, 6));
             log('Added new D6!', 'info');
@@ -915,16 +923,16 @@ const Rewards = {
             btn.innerHTML = label;
             btn.onclick = () => {
                 selected.sort((a, b) => b - a).forEach(i => GS.dice.splice(i, 1));
-                if (type === 'attack') GS.slots.attack++;
-                else GS.slots.defend++;
+                if (type === 'attack') GS.slots.attack.push({ id: `atk-${Date.now()}`, rune: null });
+                else GS.slots.defend.push({ id: `def-${Date.now()}`, rune: null });
                 log(`🔨 Sacrificed 3 dice for +1 ${type} slot!`, 'info');
                 updateStats();
                 callback();
             };
             return btn;
         };
-        slotBtns.appendChild(makeBtn(`⚔️ +1 Attack Slot (${GS.slots.attack} → ${GS.slots.attack + 1})`, 'attack'));
-        slotBtns.appendChild(makeBtn(`🛡️ +1 Defend Slot (${GS.slots.defend} → ${GS.slots.defend + 1})`, 'defend'));
+        slotBtns.appendChild(makeBtn(`⚔️ +1 Attack Slot (${GS.slots.attack.length} → ${GS.slots.attack.length + 1})`, 'attack'));
+        slotBtns.appendChild(makeBtn(`🛡️ +1 Defend Slot (${GS.slots.defend.length} → ${GS.slots.defend.length + 1})`, 'defend'));
         c.appendChild(slotBtns);
 
         const back = document.createElement('div');
@@ -1009,7 +1017,7 @@ const Shop = {
         if (GS.passives.shopDiscount) discount += GS.passives.shopDiscount;
         if (GS.tempBuffs && GS.tempBuffs.merchantEscort) discount += 0.5;
         const applyDiscount = p => Math.floor(p * (1 - Math.min(discount, 0.5)));
-        const totalSlots = GS.slots.attack + GS.slots.defend;
+        const totalSlots = GS.slots.attack.length + GS.slots.defend.length;
 
         const all = [
             { title: '🎲 Weighted Die', desc: `A die that rolls 2-7 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 35, type: 'DICE',
@@ -1712,7 +1720,7 @@ const Events = {
     },
 
     _forgottenForge() {
-        const hasRunes = GS.dice.some(d => d.rune && !d.midasTemp);
+        const hasRunes = GS.slots.attack.some(s => s.rune) || GS.slots.defend.some(s => s.rune);
         Events._render(
             'The Forgotten Forge',
             'An ancient forge still burns. Tools of remarkable craft surround it...',
@@ -1732,18 +1740,22 @@ const Events = {
                     }
                 },
                 {
-                    text: hasRunes ? 'Enhance a rune — choose a die\'s rune to double its value' : 'Enhance a rune — No runes on dice',
+                    text: hasRunes ? 'Enhance a rune — choose a slot\'s rune to double its value' : 'Enhance a rune — No runes on slots',
                     disabled: !hasRunes,
                     action: () => {
                         const panel = $('event-panel');
-                        panel.innerHTML = '<div class="event-text">Choose a die whose rune to enhance:</div><div class="card-grid" id="event-rune-cards"></div>';
-                        GS.dice.filter(d => d.rune && !d.midasTemp).forEach(die => {
+                        panel.innerHTML = '<div class="event-text">Choose a slot whose rune to enhance:</div><div class="card-grid" id="event-rune-cards"></div>';
+                        const slotsWithRunes = [
+                            ...GS.slots.attack.map((s, i) => ({ slot: s, label: `⚔️ Attack Slot ${i + 1}` })),
+                            ...GS.slots.defend.map((s, i) => ({ slot: s, label: `🛡️ Defend Slot ${i + 1}` })),
+                        ].filter(x => x.slot.rune);
+                        slotsWithRunes.forEach(({ slot, label }) => {
                             const card = document.createElement('div');
                             card.className = 'card';
-                            card.innerHTML = `<div class="card-title" style="color:${die.rune.color};">${die.rune.icon} ${die.rune.name}</div><div class="card-effect">d${die.faceValues ? die.faceValues.length : die.sides} [${die.min}-${die.max}] → rune value doubled</div>`;
+                            card.innerHTML = `<div class="card-title" style="color:${slot.rune.color};">${slot.rune.icon} ${slot.rune.name}</div><div class="card-effect">${label} → rune value doubled</div>`;
                             card.onclick = () => {
-                                die.rune.value = (die.rune.value || 1) * 2;
-                                log(`Enhanced ${die.rune.icon} ${die.rune.name}! Value doubled.`, 'info');
+                                slot.rune.value = (slot.rune.value || 1) * 2;
+                                log(`Enhanced ${slot.rune.icon} ${slot.rune.name}! Value doubled.`, 'info');
                                 updateStats(); Game.nextFloor();
                             };
                             $('event-rune-cards').appendChild(card);
@@ -1929,13 +1941,13 @@ const Rest = {
             const expandCard = document.createElement('div');
             expandCard.className = 'card';
             expandCard.style.cssText = 'width:140px; cursor:pointer;';
-            const atkCap = GS.slots.attack >= 6, defCap = GS.slots.defend >= 6;
-            expandCard.innerHTML = `<div class="card-title">➕ Expand</div><div class="card-desc">+1 slot<br>${atkCap && defCap ? '<span style="color:#ff8080;">Max slots reached</span>' : `${GS.slots.attack}⚔️ / ${GS.slots.defend}🛡️`}</div>`;
+            const atkCap = GS.slots.attack.length >= 6, defCap = GS.slots.defend.length >= 6;
+            expandCard.innerHTML = `<div class="card-title">➕ Expand</div><div class="card-desc">+1 slot<br>${atkCap && defCap ? '<span style="color:#ff8080;">Max slots reached</span>' : `${GS.slots.attack.length}⚔️ / ${GS.slots.defend.length}🛡️`}</div>`;
             if (!(atkCap && defCap)) expandCard.onclick = () => Rest.showExpand();
             else expandCard.classList.add('disabled');
             transGrid.appendChild(expandCard);
 
-            const canSacAtk = GS.slots.attack > 1, canSacDef = GS.slots.defend > 1;
+            const canSacAtk = GS.slots.attack.length > 1, canSacDef = GS.slots.defend.length > 1;
             const sacCard = document.createElement('div');
             sacCard.className = 'card' + (canSacAtk || canSacDef ? '' : ' disabled');
             sacCard.style.cssText = 'width:140px; cursor:pointer;';
@@ -2044,24 +2056,24 @@ const Rest = {
         content.innerHTML = '<div class="section-title">➕ Expand — Choose a slot type</div>';
         const info = document.createElement('div');
         info.style.cssText = 'text-align:center; margin-bottom:12px; font-size:0.85em; color:var(--text-dim);';
-        info.innerHTML = `Current: ${GS.slots.attack} Attack slots / ${GS.slots.defend} Defend slots`;
+        info.innerHTML = `Current: ${GS.slots.attack.length} Attack slots / ${GS.slots.defend.length} Defend slots`;
         content.appendChild(info);
 
         const grid = document.createElement('div');
         grid.className = 'card-grid';
 
-        const atkCapped = GS.slots.attack >= 6;
+        const atkCapped = GS.slots.attack.length >= 6;
         const atkCard = document.createElement('div');
         atkCard.className = 'card' + (atkCapped ? ' disabled' : '');
-        atkCard.innerHTML = `<div class="card-title">⚔️ +1 Attack Slot</div><div class="card-desc">${GS.slots.attack} → ${GS.slots.attack + 1}${atkCapped ? ' (MAX)' : ''}</div>`;
-        if (!atkCapped) atkCard.onclick = () => { GS.slots.attack++; log('➕ +1 attack slot!', 'info'); updateStats(); Rest._transformDone = true; Rest._render(); };
+        atkCard.innerHTML = `<div class="card-title">⚔️ +1 Attack Slot</div><div class="card-desc">${GS.slots.attack.length} → ${GS.slots.attack.length + 1}${atkCapped ? ' (MAX)' : ''}</div>`;
+        if (!atkCapped) atkCard.onclick = () => { GS.slots.attack.push({ id: `atk-${Date.now()}`, rune: null }); log('➕ +1 attack slot!', 'info'); updateStats(); Rest._transformDone = true; Rest._render(); };
         grid.appendChild(atkCard);
 
-        const defCapped = GS.slots.defend >= 6;
+        const defCapped = GS.slots.defend.length >= 6;
         const defCard = document.createElement('div');
         defCard.className = 'card' + (defCapped ? ' disabled' : '');
-        defCard.innerHTML = `<div class="card-title">🛡️ +1 Defend Slot</div><div class="card-desc">${GS.slots.defend} → ${GS.slots.defend + 1}${defCapped ? ' (MAX)' : ''}</div>`;
-        if (!defCapped) defCard.onclick = () => { GS.slots.defend++; log('➕ +1 defend slot!', 'info'); updateStats(); Rest._transformDone = true; Rest._render(); };
+        defCard.innerHTML = `<div class="card-title">🛡️ +1 Defend Slot</div><div class="card-desc">${GS.slots.defend.length} → ${GS.slots.defend.length + 1}${defCapped ? ' (MAX)' : ''}</div>`;
+        if (!defCapped) defCard.onclick = () => { GS.slots.defend.push({ id: `def-${Date.now()}`, rune: null }); log('➕ +1 defend slot!', 'info'); updateStats(); Rest._transformDone = true; Rest._render(); };
         grid.appendChild(defCard);
 
         const back = document.createElement('div');
@@ -2075,36 +2087,40 @@ const Rest = {
     // ── SACRIFICE ──
     showSacrifice() {
         const content = $('rest-content');
-        content.innerHTML = '<div class="section-title">🔥 Sacrifice — Choose a slot to destroy</div>';
+        content.innerHTML = '<div class="section-title">🔥 Sacrifice — Choose a specific slot to destroy</div>';
         const info = document.createElement('div');
-        info.style.cssText = 'text-align:center; margin-bottom:12px; font-size:0.85em; color:var(--text-dim);';
-        info.innerHTML = `Slots are <em>dice capacity</em> — how many dice you can place in that category.<br>Sacrifice 1 slot to unlock a permanent buff for all remaining slots of that type.`;
+        info.style.cssText = 'text-align:center; margin-bottom:14px; font-size:0.85em; color:var(--text-dim); line-height:1.5;';
+        info.innerHTML = `
+            Pick the exact slot you want to sacrifice.<br>
+            Any rune on that slot is also lost.<br>
+            <span style="color:var(--gold);">In return, choose a permanent buff for the remaining slots.</span>
+        `;
         content.appendChild(info);
 
         const grid = document.createElement('div');
         grid.className = 'card-grid';
 
-        const atkMin = GS.slots.attack <= 1;
-        const atkCard = document.createElement('div');
-        atkCard.className = 'card' + (atkMin ? ' disabled' : '');
-        atkCard.innerHTML = `
-            <div class="card-title">⚔️ Sacrifice Attack Slot</div>
-            <div class="card-desc">Attack capacity: ${GS.slots.attack} → ${GS.slots.attack - 1} dice${atkMin ? ' (MINIMUM — cannot sacrifice)' : ''}</div>
-            ${!atkMin ? `<div class="card-effect" style="font-size:0.8em; margin-top:6px; color:var(--attack-color);">Choose one buff for all remaining attack slots:<br>🔥 Fury Chamber · ☠️ Conduit · ⚒️ Gold Forge</div>` : ''}
-        `;
-        if (!atkMin) atkCard.onclick = () => Rest.showSacrificeEnhancements('attack');
-        grid.appendChild(atkCard);
+        const allSlots = [
+            ...GS.slots.attack.map((s, i) => ({ ...s, type: 'attack', label: `⚔️ Attack Slot ${i + 1}`, isMin: GS.slots.attack.length <= 1 })),
+            ...GS.slots.defend.map((s, i) => ({ ...s, type: 'defend', label: `🛡️ Defend Slot ${i + 1}`, isMin: GS.slots.defend.length <= 1 })),
+        ];
 
-        const defMin = GS.slots.defend <= 1;
-        const defCard = document.createElement('div');
-        defCard.className = 'card' + (defMin ? ' disabled' : '');
-        defCard.innerHTML = `
-            <div class="card-title">🛡️ Sacrifice Defend Slot</div>
-            <div class="card-desc">Defend capacity: ${GS.slots.defend} → ${GS.slots.defend - 1} dice${defMin ? ' (MINIMUM — cannot sacrifice)' : ''}</div>
-            ${!defMin ? `<div class="card-effect" style="font-size:0.8em; margin-top:6px; color:var(--defend-color);">Choose one buff for all remaining defend slots:<br>🏰 Fortification · 🌿 Thorns Aura · 🧛 Vampiric Ward</div>` : ''}
-        `;
-        if (!defMin) defCard.onclick = () => Rest.showSacrificeEnhancements('defend');
-        grid.appendChild(defCard);
+        allSlots.forEach(slotInfo => {
+            const card = document.createElement('div');
+            card.className = 'card' + (slotInfo.isMin ? ' disabled' : '');
+            const runeNote = slotInfo.rune
+                ? `<div style="color:${slotInfo.rune.color}; font-size:0.85em; margin-top:4px;">${slotInfo.rune.icon} ${slotInfo.rune.name} <span style="color:#ff8080;">(will be lost)</span></div>`
+                : '<div style="opacity:0.5; font-size:0.85em; margin-top:4px;">no rune</div>';
+            const slotTypeLabel = slotInfo.type === 'attack' ? 'attack' : 'defend';
+            const enhancements = slotInfo.type === 'attack' ? '🔥 Fury Chamber · ☠️ Conduit · ⚒️ Gold Forge' : '🏰 Fortification · 🌿 Thorns Aura · 🧛 Vampiric Ward';
+            card.innerHTML = `
+                <div class="card-title">${slotInfo.label}</div>
+                ${runeNote}
+                ${!slotInfo.isMin ? `<div class="card-effect" style="font-size:0.8em; margin-top:6px; color:var(--${slotTypeLabel}-color);">Gain: ${enhancements}</div>` : '<div style="color:#ff8080; font-size:0.8em; margin-top:4px;">MINIMUM — cannot sacrifice</div>'}
+            `;
+            if (!slotInfo.isMin) card.onclick = () => Rest.showSacrificeEnhancements(slotInfo.type, slotInfo.id);
+            grid.appendChild(card);
+        });
 
         const back = document.createElement('div');
         back.className = 'card';
@@ -2114,10 +2130,10 @@ const Rest = {
         content.appendChild(grid);
     },
 
-    showSacrificeEnhancements(slotType) {
+    showSacrificeEnhancements(slotType, slotId) {
         const content = $('rest-content');
         content.innerHTML = `<div class="section-title">🔥 Sacrifice ${slotType} slot — Choose Enhancement</div>`;
-        const remaining = GS.slots[slotType] - 1;
+        const remaining = GS.slots[slotType].length - 1;
 
         const enhancements = slotType === 'attack' ? [
             { name: 'Fury Chamber', icon: '🔥', desc: `All ${remaining} remaining attack slots deal ×1.5 damage${GS.transformBuffs.furyChambered > 1 ? ' (stacks × existing)' : ''}`, effect: 'furyChambered', value: 1.5 },
@@ -2137,7 +2153,7 @@ const Rest = {
             card.className = 'card';
             card.innerHTML = `<div class="card-title">${enh.icon} ${enh.name}</div><div class="card-desc">${enh.desc}</div>`;
             card.onclick = () => {
-                GS.slots[slotType]--;
+                GS.slots[slotType] = GS.slots[slotType].filter(s => s.id !== slotId);
                 if (enh.effect === 'furyChambered') GS.transformBuffs.furyChambered *= enh.value;
                 else if (enh.effect === 'conduit') GS.transformBuffs.conduit += enh.value;
                 else if (enh.effect === 'goldForge') GS.transformBuffs.goldForge = true;
@@ -2442,15 +2458,15 @@ const Inventory = {
 
         let html = '';
 
-        const runeCount = GS.dice.filter(d => d.rune && !d.midasTemp).length;
+        const runeCount = [...GS.slots.attack, ...GS.slots.defend].filter(s => s.rune).length;
 
         html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
             <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">⚙️ STATS</div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; font-size:0.85em;">
                 <span>❤️ HP: ${GS.hp}/${GS.maxHp}${GS.regenStacks > 0 ? ` (+${GS.regenStacks} regen)` : ''}</span>
                 <span>💰 Gold: ${GS.gold}</span>
-                <span>⚔️ Atk Slots: ${GS.slots.attack}</span>
-                <span>🛡️ Def Slots: ${GS.slots.defend}</span>
+                <span>⚔️ Atk Slots: ${GS.slots.attack.length}</span>
+                <span>🛡️ Def Slots: ${GS.slots.defend.length}</span>
                 <span>🎲 Dice: ${GS.dice.length}</span>
                 <span>🔮 Runes: ${runeCount}</span>
                 <span>⚔️ Dmg Boost: +${GS.buffs.damageBoost}</span>
@@ -2463,10 +2479,21 @@ const Inventory = {
         GS.dice.filter(d => !d.midasTemp).forEach((die, i) => {
             const faces = die.faceValues ? die.faceValues.join(', ') : `${die.min}-${die.max}`;
             const mods = die.faces.length ? die.faces.map(f => `<span style="color:${f.modifier.color};" title="${f.modifier.name}: ${f.modifier.desc}">  ${f.faceValue}:${f.modifier.icon}${f.modifier.name}</span>`).join('') : '<span style="opacity:0.4;">no mods</span>';
-            const runeStr = die.rune ? `<span style="color:${die.rune.color}; font-size:0.85em;" title="${die.rune.name}: ${die.rune.desc}"> ${die.rune.icon} ${die.rune.name}</span>` : '<span style="opacity:0.4; font-size:0.85em;"> no rune</span>';
             html += `<div style="margin:4px 0; font-size:0.82em; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
-                <strong>d${die.faceValues ? die.faceValues.length : die.sides}</strong> [${faces}]${runeStr} ${mods}
+                <strong>d${die.faceValues ? die.faceValues.length : die.sides}</strong> [${faces}] ${mods}
             </div>`;
+        });
+        html += `</div>`;
+
+        html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
+            <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">🔮 SLOT RUNES</div>`;
+        GS.slots.attack.forEach((slot, i) => {
+            const rs = slot.rune ? `<span style="color:${slot.rune.color};" title="${slot.rune.name}: ${slot.rune.desc}">${slot.rune.icon} ${slot.rune.name}</span>` : '<span style="opacity:0.4;">no rune</span>';
+            html += `<div style="font-size:0.82em; margin:3px 0;">⚔️ Attack Slot ${i + 1}: ${rs}</div>`;
+        });
+        GS.slots.defend.forEach((slot, i) => {
+            const rs = slot.rune ? `<span style="color:${slot.rune.color};" title="${slot.rune.name}: ${slot.rune.desc}">${slot.rune.icon} ${slot.rune.name}</span>` : '<span style="opacity:0.4;">no rune</span>';
+            html += `<div style="font-size:0.82em; margin:3px 0;">🛡️ Defend Slot ${i + 1}: ${rs}</div>`;
         });
         html += `</div>`;
 

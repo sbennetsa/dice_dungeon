@@ -3,7 +3,7 @@
 // ════════════════════════════════════════════════════════════
 import { BOSSES, ENEMIES, ELITES, pickEnemy } from './constants.js';
 import { GS, $, log, gainXP, gainGold, heal, pick } from './state.js';
-import { rollSingleDie, getActiveFace, renderCombatDice, updateStats, setupDropZones, show, createDie } from './engine.js';
+import { rollSingleDie, getActiveFace, renderCombatDice, updateStats, setupDropZones, show, createDie, getSlotById } from './engine.js';
 
 // window.Game and window.Rewards are set by screens.js at load time
 // to avoid circular module dependencies
@@ -130,7 +130,7 @@ export const Combat = {
             log(`Fortification Elixir: +${GS.tempBuffs.armorBonus} armor this combat! (${GS.tempBuffs.armorCombats} combats remain)`, 'info');
         }
 
-        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; });
+        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; delete d.slotId; });
         GS.allocated = { attack: [], defend: [] };
         GS.rolled = false;
         GS.autoLifesteal = 0;
@@ -387,15 +387,16 @@ export const Combat = {
             const face = getActiveFace(d);
             const m = face && !face.modifier.autoFire ? face.modifier : null;
 
-            // Per-die rune: apply before contributing to base
+            // Per-slot rune: apply before contributing to base
+            const atkRune = getSlotById(d.slotId)?.rune;
             let dieVal = d.value;
-            if (d.rune?.effect === 'amplifier') dieVal *= 2;
-            if (d.rune?.effect === 'titanBlow' && atkCount === 1) dieVal *= 3;
+            if (atkRune?.effect === 'amplifier') dieVal *= 2;
+            if (atkRune?.effect === 'titanBlow' && atkCount === 1) dieVal *= 3;
             if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
 
             if (m) {
                 if (m.effect === 'lucky') { GS.rerollsLeft += m.value; log(`🎰 Lucky! +${m.value} reroll`, 'info'); }
-                if (m.effect === 'poison') { poisonToApply += m.value * (d.rune?.effect === 'amplifier' ? 2 : 1); }
+                if (m.effect === 'poison') { poisonToApply += m.value * (atkRune?.effect === 'amplifier' ? 2 : 1); }
                 if (m.effect === 'midasGold') { const mg = gainGold(dieVal); log(`👑 Midas: +${mg} gold`, 'info'); }
                 if (m.effect === 'searing') { applyStatus('burn', 2, 3); }
                 if (m.effect === 'marked') { applyStatus('mark', 3, 2); }
@@ -411,7 +412,7 @@ export const Combat = {
             } else {
                 atkBase += dieVal;
             }
-            if (d.rune?.effect === 'siphon') siphonHealing += dieVal;
+            if (atkRune?.effect === 'siphon') siphonHealing += dieVal;
         });
 
         atkBonus += GS.buffs.damageBoost;
@@ -476,16 +477,17 @@ export const Combat = {
             const face = getActiveFace(d);
             const m = face && !face.modifier.autoFire ? face.modifier : null;
 
-            // Per-die rune: apply before contributing to base
+            // Per-slot rune: apply before contributing to base
+            const defRune = getSlotById(d.slotId)?.rune;
             let dieVal = d.value;
-            if (d.rune?.effect === 'amplifier') dieVal *= 2;
-            if (d.rune?.effect === 'titanBlow' && defCount === 1) dieVal *= 3;
-            if (d.rune?.effect === 'leaden') dieVal *= 2;
+            if (defRune?.effect === 'amplifier') dieVal *= 2;
+            if (defRune?.effect === 'titanBlow' && defCount === 1) dieVal *= 3;
+            if (defRune?.effect === 'leaden') dieVal *= 2;
             if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
 
             if (m) {
                 if (m.effect === 'lucky') { GS.rerollsLeft += m.value; log(`🎰 Lucky! +${m.value} reroll`, 'info'); }
-                if (m.effect === 'poison') { poisonToApply += m.value * (d.rune?.effect === 'amplifier' ? 2 : 1); }
+                if (m.effect === 'poison') { poisonToApply += m.value * (defRune?.effect === 'amplifier' ? 2 : 1); }
                 if (m.effect === 'midasGold') { const mg = gainGold(dieVal); log(`👑 Midas: +${mg} gold`, 'info'); }
                 if (m.effect === 'frostbite') { applyStatus('chill', 2); }
 
@@ -500,10 +502,10 @@ export const Combat = {
             } else {
                 defBase += dieVal;
             }
-            // Track rune secondary effects
-            if (d.rune?.effect === 'regenCore') regenCoreHeal += Math.ceil(dieVal * 0.5);
-            if (d.rune?.effect === 'mirror') mirrorDmg += dieVal;
-            if (d.rune?.effect === 'steadfast') steadfastContrib += dieVal;
+            // Track slot rune secondary effects
+            if (defRune?.effect === 'regenCore') regenCoreHeal += Math.ceil(dieVal * 0.5);
+            if (defRune?.effect === 'mirror') mirrorDmg += dieVal;
+            if (defRune?.effect === 'steadfast') steadfastContrib += dieVal;
         });
 
         defBonus += GS.buffs.armor;
@@ -1068,7 +1070,7 @@ export const Combat = {
             text = `🩸 Blood Frenzy! Attacks twice for ${rageAtk}`;
         }
         if (baseEName === 'Shadow Assassin') {
-            const emptySlots = Math.max(0, GS.slots.attack - GS.allocated.attack.length);
+            const emptySlots = Math.max(0, GS.slots.attack.length - GS.allocated.attack.length);
             const exposeBonus = emptySlots * 5;
             text = `⚔️ Attacks for ${rageAtk + exposeBonus}${exposeBonus > 0 ? ` (+${exposeBonus} Expose)` : ''}`;
         }
@@ -1234,7 +1236,7 @@ export const Combat = {
         }
 
         // ── RESET DICE FOR NEW TURN ──
-        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; });
+        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; delete d.slotId; });
         GS.allocated = { attack: [], defend: [] };
         GS.rolled = false;
         GS.autoLifesteal = 0;

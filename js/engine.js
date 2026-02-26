@@ -4,6 +4,12 @@
 import { GS, $, log, gainGold, rand } from './state.js';
 import { getFloorType } from './constants.js';
 
+export function getSlotById(id) {
+    return GS.slots.attack.find(s => s.id === id)
+        || GS.slots.defend.find(s => s.id === id)
+        || null;
+}
+
 // ════════════════════════════════════════════════════════════
 //  DICE CREATION & MANAGEMENT
 // ════════════════════════════════════════════════════════════
@@ -12,13 +18,13 @@ export function resetDieIdCounter(n = 0) { dieIdCounter = n; }
 
 export function createDieFromFaces(faceValues) {
     const sorted = [...faceValues].sort((a, b) => a - b);
-    return { id: dieIdCounter++, min: sorted[0], max: sorted[sorted.length - 1], sides: sorted.length, faceValues: sorted, value: 0, rolled: false, faces: [], location: 'pool', rune: null };
+    return { id: dieIdCounter++, min: sorted[0], max: sorted[sorted.length - 1], sides: sorted.length, faceValues: sorted, value: 0, rolled: false, faces: [], location: 'pool' };
 }
 
 export function createDie(min = 1, max = 6, sides = 6) {
     const step = (max - min) / (sides - 1);
     const faceValues = Array.from({length: sides}, (_, i) => Math.round(min + step * i));
-    return { id: dieIdCounter++, min, max, sides, faceValues, value: 0, rolled: false, faces: [], location: 'pool', rune: null };
+    return { id: dieIdCounter++, min, max, sides, faceValues, value: 0, rolled: false, faces: [], location: 'pool' };
 }
 
 export function upgradeDie(die) {
@@ -116,8 +122,8 @@ export function updateStats() {
         }
         if (gd) $(gd).textContent = GS.gold;
     });
-    const slotsStr = `${GS.slots.attack}⚔️ ${GS.slots.defend}🛡️`;
-    const runeCount = GS.dice.filter(d => d.rune).length;
+    const slotsStr = `${GS.slots.attack.length}⚔️ ${GS.slots.defend.length}🛡️`;
+    const runeCount = [...GS.slots.attack, ...GS.slots.defend].filter(s => s.rune).length;
     const runeStr = runeCount > 0 ? ` 🔮${runeCount}` : '';
     const diceStr = `${GS.dice.filter(d => !d.midasTemp).length}`;
     const rerollStr = GS.rerolls > 0 ? ` 🔄${GS.rerolls}` : '';
@@ -256,8 +262,8 @@ export function renderCombatDice() {
 
     const rollHint = $('roll-hint');
     const allRolled = GS.dice.every(d => d.rolled);
-    const effectiveAtkSlots = GS.slots.attack;
-    const effectiveDefSlots = GS.slots.defend;
+    const effectiveAtkSlots = GS.slots.attack.length;
+    const effectiveDefSlots = GS.slots.defend.length;
     const atkFull = GS.allocated.attack.length >= effectiveAtkSlots;
     const defFull = GS.allocated.defend.length >= effectiveDefSlots;
     const hasAttack = GS.allocated.attack.length > 0;
@@ -328,23 +334,53 @@ export function renderCombatDice() {
 
     const atkDice = $('slot-attack-dice');
     atkDice.innerHTML = '';
-    GS.allocated.attack.forEach(d => atkDice.appendChild(makeDieElement(d, 'attack')));
-    for (let i = GS.allocated.attack.length; i < effectiveAtkSlots; i++) {
-        const ph = document.createElement('div');
-        ph.className = 'slot-placeholder';
-        ph.innerHTML = '<span style="font-family: JetBrains Mono, monospace;">⚔️</span>';
-        atkDice.appendChild(ph);
-    }
+    GS.slots.attack.forEach(slot => {
+        const slotEl = document.createElement('div');
+        slotEl.className = 'individual-slot';
+        if (slot.rune) {
+            const ri = document.createElement('div');
+            ri.className = 'slot-rune-indicator';
+            ri.style.color = slot.rune.color;
+            ri.title = `${slot.rune.name}: ${slot.rune.desc}`;
+            ri.textContent = slot.rune.icon;
+            slotEl.appendChild(ri);
+        }
+        const allocatedDie = GS.allocated.attack.find(d => d.slotId === slot.id);
+        if (allocatedDie) {
+            slotEl.appendChild(makeDieElement(allocatedDie, 'attack'));
+        } else {
+            const ph = document.createElement('div');
+            ph.className = 'slot-placeholder';
+            ph.innerHTML = '<span style="font-family: JetBrains Mono, monospace;">⚔️</span>';
+            slotEl.appendChild(ph);
+        }
+        atkDice.appendChild(slotEl);
+    });
 
     const defDice = $('slot-defend-dice');
     defDice.innerHTML = '';
-    GS.allocated.defend.forEach(d => defDice.appendChild(makeDieElement(d, 'defend')));
-    for (let i = GS.allocated.defend.length; i < effectiveDefSlots; i++) {
-        const ph = document.createElement('div');
-        ph.className = 'slot-placeholder';
-        ph.innerHTML = '<span style="font-family: JetBrains Mono, monospace;">🛡️</span>';
-        defDice.appendChild(ph);
-    }
+    GS.slots.defend.forEach(slot => {
+        const slotEl = document.createElement('div');
+        slotEl.className = 'individual-slot';
+        if (slot.rune) {
+            const ri = document.createElement('div');
+            ri.className = 'slot-rune-indicator';
+            ri.style.color = slot.rune.color;
+            ri.title = `${slot.rune.name}: ${slot.rune.desc}`;
+            ri.textContent = slot.rune.icon;
+            slotEl.appendChild(ri);
+        }
+        const allocatedDie = GS.allocated.defend.find(d => d.slotId === slot.id);
+        if (allocatedDie) {
+            slotEl.appendChild(makeDieElement(allocatedDie, 'defend'));
+        } else {
+            const ph = document.createElement('div');
+            ph.className = 'slot-placeholder';
+            ph.innerHTML = '<span style="font-family: JetBrains Mono, monospace;">🛡️</span>';
+            slotEl.appendChild(ph);
+        }
+        defDice.appendChild(slotEl);
+    });
 
     updateSlotTotals();
 
@@ -388,22 +424,9 @@ export function makeDieElement(die, context) {
     el.innerHTML = `<span class="die-label">${rangeLabel}</span>${valueDisplay}${faceIcon}`;
     el.oncontextmenu = e => e.preventDefault();
 
-    // Rune indicator: coloured outline + floating icon
-    if (die.rune) {
-        el.style.position = 'relative';
-        el.style.overflow = 'visible';
-        el.style.outline = `2px solid ${die.rune.color}`;
-        el.style.boxShadow = (el.style.boxShadow || '') + `, 0 0 8px ${die.rune.color}60`;
-        const runeLabel = document.createElement('div');
-        runeLabel.style.cssText = `position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-size:0.6em;z-index:5;line-height:1;pointer-events:none;`;
-        runeLabel.title = `${die.rune.name}: ${die.rune.desc}`;
-        runeLabel.textContent = die.rune.icon;
-        el.appendChild(runeLabel);
-    }
-
     const tryReroll = () => {
         if (!die.rolled || GS.rerollsLeft <= 0) return false;
-        if (die.rune?.effect === 'leaden') return false; // Leaden: cannot reroll
+        if (die.slotId && getSlotById(die.slotId)?.rune?.effect === 'leaden') return false; // Leaden slot: cannot reroll
         GS.rerollsLeft--;
         const oldVal = die.value;
         rollSingleDie(die);
@@ -535,7 +558,8 @@ export function makeDieElement(die, context) {
         el.title = 'Auto-triggered effect';
     }
 
-    if (die.rolled && GS.rerollsLeft > 0 && context !== 'auto' && die.rune?.effect !== 'leaden') {
+    const inLeadenSlot = die.slotId && getSlotById(die.slotId)?.rune?.effect === 'leaden';
+    if (die.rolled && GS.rerollsLeft > 0 && context !== 'auto' && !inLeadenSlot) {
         const rerollBadge = document.createElement('div');
         rerollBadge.style.cssText = `
             position:absolute; bottom:-14px; right:-14px; width:36px; height:36px;
@@ -596,10 +620,13 @@ export function allocateDie(die, slot) {
         log("😤 Berserker's Mask: only 1 die in defense!", 'damage');
         return;
     }
-    const effectiveSlots = GS.slots[slot];
-    if (GS.allocated[slot].length >= effectiveSlots) return;
+    if (GS.allocated[slot].length >= GS.slots[slot].length) return;
     GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== die.id);
     GS.allocated.defend = GS.allocated.defend.filter(d => d.id !== die.id);
+    const occupiedIds = GS.allocated[slot].map(d => d.slotId);
+    const targetSlot = GS.slots[slot].find(s => !occupiedIds.includes(s.id));
+    if (!targetSlot) return;
+    die.slotId = targetSlot.id;
     die.location = slot;
     GS.allocated[slot].push(die);
     // Echo Stone: track first die allocated this turn
@@ -632,9 +659,10 @@ export function updateSlotTotals() {
         } else {
             dieContrib = d.value;
         }
-        // Per-die rune effects
-        if (d.rune?.effect === 'amplifier') dieContrib *= 2;
-        if (d.rune?.effect === 'titanBlow' && atkCount === 1) dieContrib *= 3;
+        // Per-slot rune effects
+        const atkDieRune = getSlotById(d.slotId)?.rune;
+        if (atkDieRune?.effect === 'amplifier') dieContrib *= 2;
+        if (atkDieRune?.effect === 'titanBlow' && atkCount === 1) dieContrib *= 3;
         // Echo Stone: first allocated die counts twice
         if (hasEcho && echoId !== null && d.id === echoId) dieContrib += d.value;
         atkTotal += dieContrib;
@@ -691,10 +719,11 @@ export function updateSlotTotals() {
         } else {
             dieContrib = d.value;
         }
-        // Per-die rune effects
-        if (d.rune?.effect === 'amplifier') dieContrib *= 2;
-        if (d.rune?.effect === 'titanBlow' && defCount === 1) dieContrib *= 3;
-        if (d.rune?.effect === 'leaden') dieContrib *= 2;
+        // Per-slot rune effects
+        const defDieRune = getSlotById(d.slotId)?.rune;
+        if (defDieRune?.effect === 'amplifier') dieContrib *= 2;
+        if (defDieRune?.effect === 'titanBlow' && defCount === 1) dieContrib *= 3;
+        if (defDieRune?.effect === 'leaden') dieContrib *= 2;
         // Echo Stone: first allocated die counts twice
         if (hasEcho && echoId !== null && d.id === echoId) dieContrib += d.value;
         defTotal += dieContrib;

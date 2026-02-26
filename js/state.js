@@ -11,7 +11,10 @@ export const GS = {
     xp: 0,
     xpNext: 50,
     dice: [],
-    slots: { attack: 2, defend: 2 },
+    slots: {
+        attack: [{ id: 'atk-0', rune: null }, { id: 'atk-1', rune: null }],
+        defend: [{ id: 'def-0', rune: null }, { id: 'def-1', rune: null }],
+    },
     pendingRunes: [],
     passives: {},
     unlockedNodes: [],

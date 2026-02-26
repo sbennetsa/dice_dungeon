@@ -379,6 +379,22 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 
 .slot-dice-grid .die { width: 58px; height: 58px; font-size: 1.3em; }
 
+/* Individual named slot container */
+.individual-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    position: relative;
+}
+
+.slot-rune-indicator {
+    font-size: 1em;
+    line-height: 1;
+    cursor: default;
+    user-select: none;
+}
+
 /* Empty slot placeholder */
 .slot-placeholder {
     width: 58px;

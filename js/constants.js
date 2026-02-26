@@ -82,7 +82,7 @@ export const ENEMIES = {
         {
             name: 'Mimic', hp: 35, atk: 10, gold: 25,
             abilities: [
-                { name: 'Surprise', icon: '💰', passive: false, desc: 'Turn 1: attacks first and steals 15 gold' },
+                { name: 'Surprise', icon: '💰', passive: false, desc: 'Turn 1: steals 15 gold' },
                 { name: 'Greed Tax', icon: '💰', passive: true, desc: '+1 ATK per 50 gold you hold (recalculated each turn)' }
             ]
         },

@@ -184,7 +184,7 @@ export const Combat = {
         log(`${label}: ${GS.enemy.name} appears!`, 'info');
         log(`HP: ${GS.enemy.hp} | ATK: ${GS.enemy.atk}`, 'info');
         if (eName === 'Lich') log('💀 Decay Aura: All your dice are -1 after rolling!', 'damage');
-        if (eName === 'Mimic') log('💰 A Mimic! It attacks first and steals gold!', 'damage');
+        if (eName === 'Mimic') log('💰 A Mimic! It will try to steal your gold!', 'damage');
 
         show('screen-combat');
 
@@ -346,25 +346,13 @@ export const Combat = {
         const baseEName = eName.replace(/^(💀 Deadly|🛡️ Armored|⚡ Swift|🔥 Enraged) /, '');
         const es = GS.enemyStatus;
 
-        // ── MIMIC SURPRISE (turn 0 only) ──
-        let mimicSurprised = false;
+        // ── MIMIC SURPRISE (turn 0 only) — steals gold ──
         if ((eName === 'Mimic' || eName.includes('Mimic')) && GS.isFirstTurn && !as.surpriseDone) {
             as.surpriseDone = true;
-            mimicSurprised = true;
             const stolen = Math.min(15, GS.gold);
             GS.gold -= stolen;
-            let surpriseDmg = GS.enemy.intent;
-            if (GS.artifacts.some(a => a.effect === 'soulMirror')) surpriseDmg = Math.floor(surpriseDmg * 0.5);
-            GS.hp = Math.max(0, GS.hp - surpriseDmg);
-            log(`💰 The Mimic strikes first! Takes ${surpriseDmg} unblocked damage. -${stolen} gold stolen!`, 'damage');
+            log(`💰 The Mimic ambushes you! -${stolen} gold stolen!`, 'damage');
             updateStats();
-            if (GS.hp <= 0) {
-                GS.hp = 0;
-                updateStats();
-                setTimeout(() => window.Game.defeat(), 1000);
-                return;
-            }
-            // Continue to normal combat — player's attack still resolves
         }
 
         const atkCount = GS.allocated.attack.length;
@@ -442,7 +430,7 @@ export const Combat = {
         // ══════════════════════════════════════════════════════
         // ── ENEMY ATTACK PHASE (enemies attack first) ──
         // ══════════════════════════════════════════════════════
-        let skipEnemyAttack = mimicSurprised;
+        let skipEnemyAttack = false;
 
         // ── IRON GOLEM STUN: skip attack ──
         if (baseEName === 'Iron Golem' && as.stunned) {

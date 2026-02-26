@@ -1719,8 +1719,9 @@ const Events = {
                     action: () => {
                         Events._chooseDie('Which die will you sacrifice?', die => {
                             GS.dice = GS.dice.filter(d => d.id !== die.id);
-                            const avg = (die.min + die.max) / 2;
-                            const roll = die.min + Math.floor(Math.random() * (die.max - die.min + 1));
+                            const fv = die.faceValues;
+                            const avg = fv.reduce((s, v) => s + v, 0) / fv.length;
+                            const roll = fv[Math.floor(Math.random() * fv.length)];
                             const won = roll > avg;
                             const gained = won ? Events._gainRandomArtifacts(2) : [];
                             const outcomeLines = [

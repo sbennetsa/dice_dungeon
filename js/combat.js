@@ -1068,7 +1068,7 @@ export const Combat = {
         }
         if ((baseEName === 'Slime' || eName === 'Slimeling Swarm') && !as.transformed && e.turn <= 3) {
             const turnsLeft = 3 - e.turn;
-            text = turnsLeft > 0 ? `⏳ Splitting in ${turnsLeft}...` : `⏳ Splitting now!`;
+            text = turnsLeft > 0 ? `⚔️ Attacks for ${rageAtk} · ⏳ Splitting in ${turnsLeft}...` : `⏳ Splitting now!`;
         }
         if (baseEName === 'Orc Warrior') {
             if (as.warCryReady) text = `🔥 War Cry! Attacks for ${rageAtk * 2}`;

@@ -345,8 +345,10 @@ export const Combat = {
         const as = GS.enemy.abilityState;
 
         // ── MIMIC SURPRISE (turn 0 only) ──
+        let mimicSurprised = false;
         if ((eName === 'Mimic' || eName.includes('Mimic')) && GS.isFirstTurn && !as.surpriseDone) {
             as.surpriseDone = true;
+            mimicSurprised = true;
             const stolen = Math.min(15, GS.gold);
             GS.gold -= stolen;
             let surpriseDmg = GS.enemy.intent;
@@ -360,8 +362,7 @@ export const Combat = {
                 setTimeout(() => window.Game.defeat(), 1000);
                 return;
             }
-            Combat.newTurn();
-            return;
+            // Continue to normal combat — player's attack still resolves
         }
 
         // ── SHADOW ASSASSIN EVASION: negate one random attack die ──
@@ -774,7 +775,10 @@ export const Combat = {
             return;
         }
 
-        // ── ENEMY ATTACKS PLAYER ──
+        // ── ENEMY ATTACKS PLAYER (skip if Mimic surprise already dealt damage) ──
+        if (mimicSurprised) {
+            // Surprise already applied enemy damage — skip normal enemy attack
+        } else {
         let enemyDmg = GS.enemy.intent;
         // Chill: reduce ATK by chill stacks
         if (es && es.chill > 0) {
@@ -1016,6 +1020,7 @@ export const Combat = {
                 return;
             }
         }
+        } // end mimicSurprised skip
 
         updateStats();
 

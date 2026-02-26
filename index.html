@@ -71,7 +71,10 @@
         <div style="text-align:center; margin-top: 10px;">
             <span id="roll-hint" class="mono" style="color: var(--gold); font-size: 0.85em;">Click dice or press Roll to begin</span>
         </div>
-        <div style="text-align:center; margin-top: 8px;">
+        <div class="dice-actions" style="display:flex; justify-content:center; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap;">
+            <button class="btn btn-reroll" id="btn-reroll-mode" onclick="Combat.enterRerollMode()" style="display:none;">🔄 Reroll</button>
+            <button class="btn" id="btn-reroll-cancel" onclick="Combat.exitRerollMode()" style="display:none;">✕ Cancel</button>
+            <button class="btn" id="btn-return-all" onclick="Combat.returnAll()" style="display:none;">↩ Return All</button>
             <button class="btn btn-execute-main" id="btn-execute" onclick="Combat.execute()" style="display:none;">⚔️ Execute Turn</button>
         </div>
     </div>
@@ -103,12 +106,6 @@
             <div class="slot-dice-grid" id="slot-defend-dice"></div>
             <div class="slot-summary" id="defend-summary"></div>
         </div>
-    </div>
-
-    <div class="action-bar">
-        <button class="btn" id="btn-return-all" onclick="Combat.returnAll()" style="display:none;">↩ Return All</button>
-        <button class="btn btn-reroll" id="btn-reroll-mode" onclick="Combat.enterRerollMode()" style="display:none;">🔄 Reroll</button>
-        <button class="btn" id="btn-reroll-cancel" onclick="Combat.exitRerollMode()" style="display:none;">✕ Cancel</button>
     </div>
 
     <div class="combat-log" id="combat-log"></div>

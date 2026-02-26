@@ -284,12 +284,12 @@ export const RUNES = [
 // ════════════════════════════════════════════════════════════
 export const SKILL_TREE = [
     // ── ROOT (row 0) ──
-    { id: 'root', name: 'Adventurer', icon: '⭐', desc: '+1 Attack Slot, +1 Defend Slot', row: 0, col: 3, requires: [], effect: (gs) => { gs.slots.attack++; gs.slots.defend++; } },
+    { id: 'root', name: 'Adventurer', icon: '⭐', desc: '+1 Attack Slot, +1 Defend Slot', row: 0, col: 3, requires: [], effect: (gs) => { gs.slots.attack.push({ id: `atk-${Date.now()}`, rune: null }); gs.slots.defend.push({ id: `def-${Date.now()}`, rune: null }); } },
 
     // ── WIDE BRANCH (left, col 0) ──
-    { id: 'w1', name: 'Extra Arms', icon: '🐺', desc: '+1 Attack Slot', row: 1, col: 0, requires: ['root'], effect: (gs) => { gs.slots.attack++; } },
+    { id: 'w1', name: 'Extra Arms', icon: '🐺', desc: '+1 Attack Slot', row: 1, col: 0, requires: ['root'], effect: (gs) => { gs.slots.attack.push({ id: `atk-${Date.now()}`, rune: null }); } },
     { id: 'w2', name: 'Pack Tactics', icon: '🐺', desc: 'Passive: +1 dmg per die in attack slot', row: 2, col: 0, requires: ['w1'], effect: (gs) => { gs.passives.packTactics = (gs.passives.packTactics || 0) + 1; } },
-    { id: 'w3', name: 'Shield Wall', icon: '🐺', desc: '+1 Defend Slot', row: 3, col: 0, requires: ['w2', 'wt'], requiresAny: true, effect: (gs) => { gs.slots.defend++; } },
+    { id: 'w3', name: 'Shield Wall', icon: '🐺', desc: '+1 Defend Slot', row: 3, col: 0, requires: ['w2', 'wt'], requiresAny: true, effect: (gs) => { gs.slots.defend.push({ id: `def-${Date.now()}`, rune: null }); } },
     { id: 'w4', name: 'Volley', icon: '🐺', desc: 'Passive: 3+ dice in slot = +8 bonus', row: 4, col: 0, requires: ['w3'], effect: (gs) => { gs.passives.volley = (gs.passives.volley || 0) + 8; } },
     { id: 'w5', name: 'Swarm Master', icon: '👑', desc: 'Passive: +2 per die in ANY slot', row: 5, col: 0, requires: ['w4'], effect: (gs) => { gs.passives.swarmMaster = (gs.passives.swarmMaster || 0) + 2; } },
 
@@ -316,8 +316,8 @@ export const SKILL_TREE = [
 
     // ── CROSS-BRANCH BRIDGES ──
     { id: 'wt', name: 'Battle Fury', icon: '🔗', desc: '+2 Dmg, +1 Reroll', row: 3, col: 1, requires: ['w2', 'g2'], requiresAny: true, effect: (gs) => { gs.buffs.damageBoost += 2; gs.rerolls++; } },
-    { id: 'tv', name: 'Toxic Blade', icon: '🔗', desc: '+1 Atk Slot, apply 1 poison', row: 3, col: 5, requires: ['t2', 'v2'], requiresAny: true, effect: (gs) => { gs.slots.attack++; gs.passives.poisonOnAtk = (gs.passives.poisonOnAtk || 0) + 1; } },
-    { id: 'wv', name: 'Endurance', icon: '🔗', desc: '+1 Def Slot, +15 Max HP', row: 5, col: 1, requires: ['w4', 'g4'], requiresAny: true, effect: (gs) => { gs.slots.defend++; gs.maxHp += 15; gs.hp = Math.min(gs.hp + 15, gs.maxHp); } },
+    { id: 'tv', name: 'Toxic Blade', icon: '🔗', desc: '+1 Atk Slot, apply 1 poison', row: 3, col: 5, requires: ['t2', 'v2'], requiresAny: true, effect: (gs) => { gs.slots.attack.push({ id: `atk-${Date.now()}`, rune: null }); gs.passives.poisonOnAtk = (gs.passives.poisonOnAtk || 0) + 1; } },
+    { id: 'wv', name: 'Endurance', icon: '🔗', desc: '+1 Def Slot, +15 Max HP', row: 5, col: 1, requires: ['w4', 'g4'], requiresAny: true, effect: (gs) => { gs.slots.defend.push({ id: `def-${Date.now()}`, rune: null }); gs.maxHp += 15; gs.hp = Math.min(gs.hp + 15, gs.maxHp); } },
     { id: 'gt', name: 'War Chest', icon: '🔗', desc: '+30 gold, +1 Reroll', row: 5, col: 3, requires: ['g4', 't4'], requiresAny: true, effect: (gs) => { gs.gold += 30; gs.rerolls++; } },
-    { id: 'tv2', name: 'Versatility', icon: '🔗', desc: '+1 to both slot types', row: 5, col: 5, requires: ['t4', 'v4'], requiresAny: true, effect: (gs) => { gs.slots.attack++; gs.slots.defend++; } },
+    { id: 'tv2', name: 'Versatility', icon: '🔗', desc: '+1 to both slot types', row: 5, col: 5, requires: ['t4', 'v4'], requiresAny: true, effect: (gs) => { gs.slots.attack.push({ id: `atk-${Date.now()}`, rune: null }); gs.slots.defend.push({ id: `def-${Date.now()}`, rune: null }); } },
 ];

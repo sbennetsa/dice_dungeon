@@ -656,11 +656,12 @@ export function updateSlotTotals() {
     const ptAtkPerDie = ptAtkFace + (GS.passives.packTactics || 0);
     // Non-utility attack count for Titan's Blow
     const nonUtilAtkCount = GS.allocated.attack.filter(d => { const f = getActiveFace(d); return !f?.modifier?.autoFire; }).length;
+    const atkAscendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
 
     GS.allocated.attack.forEach(d => {
         const face = getActiveFace(d);
         const m = face && !face.modifier.autoFire ? face.modifier : null;
-        const baseVal = d.value + ptAtkPerDie;  // pack tactics lifts each die's effective value
+        const baseVal = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0) + atkAscendBonus;
         let dieContrib = 0;
         if (m) {
             if (m.effect === 'slotMultiply') { atkMultiplier *= m.value; dieContrib = baseVal; }
@@ -690,7 +691,6 @@ export function updateSlotTotals() {
     atkBonus += GS.artifacts.filter(a => a.effect === 'hydrasCrest').reduce((s, a) => s + a.value * GS.dice.length, 0);
     atkBonus += GS.enemyStatus?.mark || 0;
     atkBonus += GS.artifacts.filter(a => a.effect === 'festeringWound').reduce((s, a) => s + a.value * (GS.enemy?.poison || 0), 0);
-    if (GS.passives.swarmMaster) atkTotal += GS.passives.swarmMaster * atkCount;
     if (GS.passives.volley && atkCount >= 3) atkTotal += GS.passives.volley;
     if (GS.passives.threshold) {
         GS.allocated.attack.forEach(d => { if (d.value >= 8) atkTotal += Math.floor(d.value * 0.5); });
@@ -725,11 +725,12 @@ export function updateSlotTotals() {
     }, 0);
     // Non-utility defend count for Titan's Blow
     const nonUtilDefCount = GS.allocated.defend.filter(d => { const f = getActiveFace(d); return !f?.modifier?.autoFire; }).length;
+    const defAscendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
 
     GS.allocated.defend.forEach(d => {
         const face = getActiveFace(d);
         const m = face && !face.modifier.autoFire ? face.modifier : null;
-        const baseVal = d.value + ptDefFace;
+        const baseVal = d.value + ptDefFace + (GS.passives.swarmMaster || 0) + defAscendBonus;
         let dieContrib = 0;
         if (m) {
             if (m.effect === 'slotMultiply') { defMultiplier *= m.value; dieContrib = baseVal; }
@@ -756,7 +757,6 @@ export function updateSlotTotals() {
 
     defBonus += GS.buffs.armor;
     defBonus += GS.artifacts.filter(a => a.effect === 'goldenAegis').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
-    if (GS.passives.swarmMaster) defTotal += GS.passives.swarmMaster * defCount;
     if (GS.passives.volley && defCount >= 3) defTotal += GS.passives.volley;
     if (GS.passives.threshold) {
         GS.allocated.defend.forEach(d => { if (d.value >= 8) defTotal += Math.floor(d.value * 0.5); });

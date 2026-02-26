@@ -383,6 +383,8 @@ export const Combat = {
         }, 0);
         // Non-utility defend count for Titan's Blow
         const nonUtilDefCount = GS.allocated.defend.filter(d => { const f = getActiveFace(d); return !f?.modifier?.autoFire; }).length;
+        // Ascend aura: pre-compute per-die bonus (applied to each die so runes amplify it)
+        const defAscendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
 
         GS.allocated.defend.forEach(d => {
             const face = getActiveFace(d);
@@ -390,7 +392,7 @@ export const Combat = {
 
             // Per-slot rune: apply before contributing to base
             const defRune = getSlotById(d.slotId)?.rune;
-            let dieVal = d.value + ptDefFace;  // pack tactics lifts each defend die's value
+            let dieVal = d.value + ptDefFace + (GS.passives.swarmMaster || 0) + defAscendBonus;
             if (defRune?.effect === 'amplifier') dieVal *= 2;
             if (defRune?.effect === 'titanBlow' && nonUtilDefCount === 1) dieVal *= 3;
             if (defRune?.effect === 'leaden') dieVal *= 2;
@@ -423,11 +425,6 @@ export const Combat = {
         defBonus += GS.buffs.armor;
         // transformBuffs: Fortification defend multiplier
         if (GS.transformBuffs && GS.transformBuffs.fortified > 1) defMult *= GS.transformBuffs.fortified;
-        // Ascended dice aura bonus to defend
-        if (GS.ascendedDice && GS.ascendedDice.length > 0) {
-            defBonus += GS.ascendedDice.reduce((s, a) => s + a.bonus, 0);
-        }
-        if (GS.passives.swarmMaster) defBase += GS.passives.swarmMaster * defCount;
         if (GS.passives.volley && defCount >= 3) defBase += GS.passives.volley;
         if (GS.passives.threshold) {
             GS.allocated.defend.forEach(d => { if (d.value >= 8) defBase += Math.floor(d.value * 0.5); });
@@ -456,7 +453,7 @@ export const Combat = {
         }
 
         // ── FUNGAL CREEP SPORE CLOUD: every 2nd player turn ──
-        const sporeOnThisTurn = baseEName === 'Fungal Creep' && GS.enemy.turn > 0 && GS.enemy.turn % 2 === 0;
+        const sporeOnThisTurn = baseEName === 'Fungal Creep' && GS.enemy.turn > 0 && GS.enemy.turn % 2 === 1;
         if (sporeOnThisTurn) {
             GS.playerDebuffs.poison = Math.max(GS.playerDebuffs.poison, 2);
             GS.playerDebuffs.poisonTurns = Math.max(GS.playerDebuffs.poisonTurns, 3);
@@ -465,10 +462,17 @@ export const Combat = {
             skipEnemyAttack = true;
         }
 
-        // ── DRAGON WHELP BREATH CHARGE: every 4 turns, turn 3 = charge ──
-        if (baseEName === 'Dragon Whelp' && GS.enemy.turn % 4 === 3) {
+        // ── DRAGON WHELP BREATH CHARGE: every 4 turns, charge aligns with Inhaling intent ──
+        if (baseEName === 'Dragon Whelp' && GS.enemy.turn % 4 === 2) {
             as.breathCharging = true;
             log(`🔥 Dragon Whelp inhales deeply...`, 'info');
+            Combat.renderEnemy();
+            skipEnemyAttack = true;
+        }
+
+        // ── ORC WARRIOR WIND-UP: skip attack while winding up ──
+        if (baseEName === 'Orc Warrior' && !as.warCryReady && (GS.enemy.turn + 1) % 3 === 2) {
+            log(`🔥 The Orc Warrior winds up for a powerful blow!`, 'info');
             Combat.renderEnemy();
             skipEnemyAttack = true;
         }
@@ -497,7 +501,7 @@ export const Combat = {
         let attackTimes = 1;
 
         // Dark Mage: apply Curse (debuff affects next turn)
-        if (baseEName === 'Dark Mage' && GS.enemy.turn > 0 && GS.enemy.turn % 3 === 0) {
+        if (baseEName === 'Dark Mage' && GS.enemy.turn > 0 && GS.enemy.turn % 3 === 2) {
             if (GS.artifacts.some(a => a.effect === 'anchoredSlots')) {
                 log('⚓ Anchored Slots: Curse prevented!', 'info');
             } else {
@@ -763,13 +767,16 @@ export const Combat = {
             }
         }
 
+        // Ascend aura: pre-compute per-die bonus (applied to each die so runes amplify it)
+        const atkAscendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
+
         GS.allocated.attack.forEach(d => {
             const face = getActiveFace(d);
             const m = face && !face.modifier.autoFire ? face.modifier : null;
 
             // Per-slot rune: apply before contributing to base
             const atkRune = getSlotById(d.slotId)?.rune;
-            let dieVal = d.value + ptAtkPerDie;  // pack tactics lifts each die's effective value
+            let dieVal = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0) + atkAscendBonus;
             if (atkRune?.effect === 'amplifier') dieVal *= 2;
             if (atkRune?.effect === 'titanBlow' && nonUtilAtkCount === 1) dieVal *= 3;
             if (d.id === furyBoostDieId) dieVal *= 2;
@@ -800,10 +807,6 @@ export const Combat = {
         atkBonus += GS.buffs.damageBoost;
         // transformBuffs: Fury Chamber attack multiplier
         if (GS.transformBuffs && GS.transformBuffs.furyChambered > 1) atkMult *= GS.transformBuffs.furyChambered;
-        // Ascended dice aura bonus to attack
-        if (GS.ascendedDice && GS.ascendedDice.length > 0) {
-            atkBonus += GS.ascendedDice.reduce((s, a) => s + a.bonus, 0);
-        }
         // Conduit: extra poison per attack die
         if (GS.transformBuffs && GS.transformBuffs.conduit > 0 && atkCount > 0) {
             poisonToApply += GS.transformBuffs.conduit * atkCount;
@@ -811,7 +814,6 @@ export const Combat = {
         const goldScale = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
         if (goldScale > 0) atkBonus += goldScale;
         if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
-        if (GS.passives.swarmMaster) atkBase += GS.passives.swarmMaster * atkCount;
         if (GS.passives.volley && atkCount >= 3) atkBase += GS.passives.volley;
         if (GS.passives.threshold) {
             GS.allocated.attack.forEach(d => { if (d.value >= 8) atkBase += Math.floor(d.value * 0.5); });
@@ -937,8 +939,8 @@ export const Combat = {
 
         // ── POST-ATTACK ABILITY CHECKS ──
 
-        // Iron Golem Overcharge: stun if player dealt 20+
-        if (baseEName === 'Iron Golem' && finalAtk >= 20) {
+        // Iron Golem Overcharge: stun if player dealt 25+
+        if (baseEName === 'Iron Golem' && finalAtk >= 25) {
             as.stunned = true;
             log(`⚡ Overcharged! The Golem staggers — skips next attack!`, 'damage');
         }
@@ -1061,8 +1063,8 @@ export const Combat = {
             const nextTurn = e.turn + 1;
             if (nextTurn > 0 && nextTurn % 2 === 0) text = '🟢 Releasing spores...';
         }
-        if ((baseEName === 'Slime' || eName === 'Slimeling Swarm') && !as.transformed && e.turn < 3) {
-            const turnsLeft = 2 - e.turn;
+        if ((baseEName === 'Slime' || eName === 'Slimeling Swarm') && !as.transformed && e.turn <= 3) {
+            const turnsLeft = 3 - e.turn;
             text = turnsLeft > 0 ? `⏳ Splitting in ${turnsLeft}...` : `⏳ Splitting now!`;
         }
         if (baseEName === 'Orc Warrior') {

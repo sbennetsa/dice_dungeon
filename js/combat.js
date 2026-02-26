@@ -805,7 +805,7 @@ export const Combat = {
             } else if (action === 'raisedead') {
                 GS.enemy.baseAtk += 3;
                 GS.enemy.atk += 3;
-                log(`💀 Raise Dead! Bone King ATK permanently +3 (now ${GS.enemy.baseAtk + GS.enemy.rage})!`, 'damage');
+                log(`💀 Raise Dead! Bone King ATK permanently +3 (now ${Math.floor(GS.enemy.baseAtk * Math.pow(1.2, GS.enemy.rage))})!`, 'damage');
                 Combat.renderEnemy();
                 Combat.newTurn();
                 return;
@@ -1008,7 +1008,7 @@ export const Combat = {
         if (!e) return;
         const eName = e.name;
         const as = e.abilityState || {};
-        const rageAtk = e.baseAtk + e.rage;
+        const rageAtk = Math.floor(e.baseAtk * Math.pow(1.2, e.rage));
 
         let text = `⚔️ Attacks for ${rageAtk}`;
 
@@ -1238,12 +1238,14 @@ export const Combat = {
             const enrageEvery = GS.enemy.turn >= 6 ? 1 : 2;
             if (GS.enemy.turn > 0 && GS.enemy.turn % enrageEvery === 0) {
                 GS.enemy.rage++;
+                const newAtk = Math.floor(GS.enemy.baseAtk * Math.pow(1.2, GS.enemy.rage));
                 const warning = GS.enemy.turn >= 6 ? ' (accelerating!)' : '';
-                log(`🔥 The Guardian grows stronger! (+${GS.enemy.rage} ATK)${warning}`, 'damage');
+                log(`🔥 The Guardian grows stronger! (ATK → ${newAtk})${warning}`, 'damage');
             }
         } else if ((GS.enemy.isBoss || GS.enemy.isElite) && GS.enemy.turn > 0 && GS.enemy.turn % 3 === 0) {
             GS.enemy.rage++;
-            log(`🔥 ${GS.enemy.name} grows enraged! (+${GS.enemy.rage} ATK)`, 'damage');
+            const newAtk = Math.floor(GS.enemy.baseAtk * Math.pow(1.2, GS.enemy.rage));
+            log(`🔥 ${GS.enemy.name} grows enraged! (ATK → ${newAtk})`, 'damage');
         }
 
         // ── ENEMY PASSIVE/TURN EFFECTS ──
@@ -1264,7 +1266,7 @@ export const Combat = {
         if (baseEName === 'Iron Golem' && GS.enemy.turn % 2 === 0) {
             GS.enemy.baseAtk += 2;
             GS.enemy.atk += 2;
-            log(`⚙️ Iron Golem escalates! (+2 ATK, now ${GS.enemy.baseAtk + GS.enemy.rage})`, 'damage');
+            log(`⚙️ Iron Golem escalates! (+2 ATK, now ${Math.floor(GS.enemy.baseAtk * Math.pow(1.2, GS.enemy.rage))})`, 'damage');
         }
 
         // Orc Warrior War Cry wind-up
@@ -1307,7 +1309,7 @@ export const Combat = {
         }
 
         // Update intent for upcoming turn
-        const rageAtk = GS.enemy.baseAtk + GS.enemy.rage;
+        const rageAtk = Math.floor(GS.enemy.baseAtk * Math.pow(1.2, GS.enemy.rage));
         GS.enemy.intent = rageAtk;
         Combat.updateIntent();
 

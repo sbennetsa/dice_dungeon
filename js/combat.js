@@ -2,7 +2,7 @@
 //  COMBAT
 // ════════════════════════════════════════════════════════════
 import { BOSSES, ENEMIES, ELITES, pickEnemy } from './constants.js';
-import { GS, $, log, gainXP, gainGold, heal, pick } from './state.js';
+import { GS, $, log, gainXP, gainGold, heal, pick, rand } from './state.js';
 import { rollSingleDie, getActiveFace, renderCombatDice, updateStats, setupDropZones, show, createDie, getSlotById, enterRerollMode, exitRerollMode } from './engine.js';
 
 // window.Game and window.Rewards are set by screens.js at load time
@@ -59,14 +59,13 @@ export const Combat = {
         const scale = Math.pow(1.04, GS.floor - 1);
         template.hp = Math.floor(template.hp * scale);
         template.atk = Math.floor(template.atk * scale);
-        template.gold = Math.floor(template.gold * scale);
 
         let elite = null;
         if (isElite) {
             elite = pick(ELITES);
             template.hp = Math.floor(template.hp * elite.hpM);
             template.atk = Math.floor(template.atk * elite.atkM);
-            template.gold = Math.floor(template.gold * elite.goldM);
+            template.eliteGoldM = elite.goldM;
             template.name = `${elite.prefix} ${template.name}`;
         }
 
@@ -184,7 +183,7 @@ export const Combat = {
         log(`${label}: ${GS.enemy.name} appears!`, 'info');
         log(`HP: ${GS.enemy.hp} | ATK: ${GS.enemy.atk}`, 'info');
         if (eName === 'Lich') log('💀 Decay Aura: All your dice are -1 after rolling!', 'damage');
-        if (eName === 'Mimic') log('💰 A Mimic! It attacks first and steals gold!', 'damage');
+        if (eName === 'Mimic') log('💰 A Mimic! It will try to steal your gold!', 'damage');
 
         show('screen-combat');
 
@@ -346,25 +345,13 @@ export const Combat = {
         const baseEName = eName.replace(/^(💀 Deadly|🛡️ Armored|⚡ Swift|🔥 Enraged) /, '');
         const es = GS.enemyStatus;
 
-        // ── MIMIC SURPRISE (turn 0 only) ──
-        let mimicSurprised = false;
+        // ── MIMIC SURPRISE (turn 0 only) — steals gold ──
         if ((eName === 'Mimic' || eName.includes('Mimic')) && GS.isFirstTurn && !as.surpriseDone) {
             as.surpriseDone = true;
-            mimicSurprised = true;
             const stolen = Math.min(15, GS.gold);
             GS.gold -= stolen;
-            let surpriseDmg = GS.enemy.intent;
-            if (GS.artifacts.some(a => a.effect === 'soulMirror')) surpriseDmg = Math.floor(surpriseDmg * 0.5);
-            GS.hp = Math.max(0, GS.hp - surpriseDmg);
-            log(`💰 The Mimic strikes first! Takes ${surpriseDmg} unblocked damage. -${stolen} gold stolen!`, 'damage');
+            log(`💰 The Mimic ambushes you! -${stolen} gold stolen!`, 'damage');
             updateStats();
-            if (GS.hp <= 0) {
-                GS.hp = 0;
-                updateStats();
-                setTimeout(() => window.Game.defeat(), 1000);
-                return;
-            }
-            // Continue to normal combat — player's attack still resolves
         }
 
         const atkCount = GS.allocated.attack.length;
@@ -392,24 +379,26 @@ export const Combat = {
 
             // Per-slot rune: apply before contributing to base
             const defRune = getSlotById(d.slotId)?.rune;
+            const isAmplified = defRune?.effect === 'amplifier';
+            const ampMul = isAmplified ? 2 : 1;
             let dieVal = d.value + ptDefFace + (GS.passives.swarmMaster || 0) + defAscendBonus;
-            if (defRune?.effect === 'amplifier') dieVal *= 2;
+            if (isAmplified) dieVal *= 2;
             if (defRune?.effect === 'titanBlow' && nonUtilDefCount === 1) dieVal *= 3;
             if (defRune?.effect === 'leaden') dieVal *= 2;
             if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
 
             if (m) {
-                if (m.effect === 'lucky') { GS.rerollsLeft += m.value; log(`🎰 Lucky! +${m.value} reroll`, 'info'); }
-                if (m.effect === 'poison') { poisonToApply += m.value * (defRune?.effect === 'amplifier' ? 2 : 1); }
+                if (m.effect === 'lucky') { GS.rerollsLeft += m.value * ampMul; log(`🎰 Lucky! +${m.value * ampMul} reroll`, 'info'); }
+                if (m.effect === 'poison') { poisonToApply += m.value * ampMul; }
                 if (m.effect === 'midasGold') { const mg = gainGold(dieVal); log(`👑 Midas: +${mg} gold`, 'info'); }
-                if (m.effect === 'frostbite') { applyStatus('chill', 2); }
+                if (m.effect === 'frostbite') { applyStatus('chill', 2 * ampMul); }
 
-                if (m.effect === 'slotMultiply') { defMult *= m.value; defBase += dieVal; }
-                else if (m.effect === 'slotAdd') { defBase += dieVal + m.value * defCount; }
+                if (m.effect === 'slotMultiply') { defMult *= m.value * ampMul; defBase += dieVal; }
+                else if (m.effect === 'slotAdd') { defBase += dieVal + m.value * defCount * ampMul; }
                 else if (m.effect === 'packTactics') { defBase += dieVal; }  // bonus already in dieVal
-                else if (m.effect === 'volley') { defBase += dieVal + (defCount >= 3 ? m.value : 0); }
-                else if (m.effect === 'threshold') { defBase += dieVal >= m.value ? dieVal * 2 : dieVal; }
-                else if (m.effect === 'defAdd') { defBase += dieVal + m.value; }
+                else if (m.effect === 'volley') { defBase += dieVal + (defCount >= 3 ? m.value * ampMul : 0); }
+                else if (m.effect === 'threshold') { defBase += dieVal * m.value; }
+                else if (m.effect === 'defAdd') { defBase += dieVal + m.value * ampMul; }
                 else if (m.effect === 'lucky' || m.effect === 'poison' || m.effect === 'midasGold'
                       || m.effect === 'searing' || m.effect === 'marked' || m.effect === 'frostbite') { /* utility: no value contribution */ }
                 else { defBase += dieVal; }
@@ -442,7 +431,7 @@ export const Combat = {
         // ══════════════════════════════════════════════════════
         // ── ENEMY ATTACK PHASE (enemies attack first) ──
         // ══════════════════════════════════════════════════════
-        let skipEnemyAttack = mimicSurprised;
+        let skipEnemyAttack = false;
 
         // ── IRON GOLEM STUN: skip attack ──
         if (baseEName === 'Iron Golem' && as.stunned) {
@@ -570,24 +559,36 @@ export const Combat = {
             as.patternIdx++;
             if (action === 'breath') {
                 const breathDmg = 18;
+                const blocked = Math.min(breathDmg, totalDef);
+                const dmg = breathDmg - blocked;
                 GS.playerDebuffs.poison = Math.max(GS.playerDebuffs.poison, 3);
                 GS.playerDebuffs.poisonTurns = Math.max(GS.playerDebuffs.poisonTurns, 3);
-                GS.hp = Math.max(0, GS.hp - breathDmg);
-                log(`🔥 Fire Breath! ${breathDmg} damage + 3 burn/turn for 3 turns!`, 'damage');
+                GS.hp = Math.max(0, GS.hp - dmg);
+                if (blocked > 0) {
+                    log(`🔥 Fire Breath! ${breathDmg} damage — blocked ${blocked}, took ${dmg} + 3 burn/turn for 3 turns!`, 'damage');
+                } else {
+                    log(`🔥 Fire Breath! ${breathDmg} damage + 3 burn/turn for 3 turns!`, 'damage');
+                }
                 updateStats();
                 if (GS.hp <= 0) { setTimeout(() => window.Game.defeat(), 1000); return; }
                 Combat.renderEnemy();
                 bossSkippedNormalAttack = true;
             } else if (action === 'wingbuffet') {
                 const buffetDmg = 10;
+                const blocked = Math.min(buffetDmg, totalDef);
+                const dmg = buffetDmg - blocked;
                 if (GS.artifacts.some(a => a.effect === 'anchoredSlots')) {
                     log('⚓ Anchored Slots: Wing Buffet slot disable prevented!', 'info');
                 } else {
                     GS.playerDebuffs.slotDisabled = 'attack';
                     GS.playerDebuffs.slotDisabledTurns = 1;
                 }
-                GS.hp = Math.max(0, GS.hp - buffetDmg);
-                log(`💨 Wing Buffet! ${buffetDmg} damage${!GS.artifacts.some(a => a.effect === 'anchoredSlots') ? ' + attack slot disabled 1 turn' : ''}!`, 'damage');
+                GS.hp = Math.max(0, GS.hp - dmg);
+                if (blocked > 0) {
+                    log(`💨 Wing Buffet! ${buffetDmg} damage — blocked ${blocked}, took ${dmg}${!GS.artifacts.some(a => a.effect === 'anchoredSlots') ? ' + attack slot disabled 1 turn' : ''}!`, 'damage');
+                } else {
+                    log(`💨 Wing Buffet! ${buffetDmg} damage${!GS.artifacts.some(a => a.effect === 'anchoredSlots') ? ' + attack slot disabled 1 turn' : ''}!`, 'damage');
+                }
                 updateStats();
                 if (GS.hp <= 0) { setTimeout(() => window.Game.defeat(), 1000); return; }
                 Combat.renderEnemy();
@@ -776,24 +777,26 @@ export const Combat = {
 
             // Per-slot rune: apply before contributing to base
             const atkRune = getSlotById(d.slotId)?.rune;
+            const isAmplified = atkRune?.effect === 'amplifier';
+            const ampMul = isAmplified ? 2 : 1;
             let dieVal = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0) + atkAscendBonus;
-            if (atkRune?.effect === 'amplifier') dieVal *= 2;
+            if (isAmplified) dieVal *= 2;
             if (atkRune?.effect === 'titanBlow' && nonUtilAtkCount === 1) dieVal *= 3;
             if (d.id === furyBoostDieId) dieVal *= 2;
             if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
 
             if (m) {
-                if (m.effect === 'lucky') { GS.rerollsLeft += m.value; log(`🎰 Lucky! +${m.value} reroll`, 'info'); }
-                if (m.effect === 'poison') { poisonToApply += m.value * (atkRune?.effect === 'amplifier' ? 2 : 1); }
+                if (m.effect === 'lucky') { GS.rerollsLeft += m.value * ampMul; log(`🎰 Lucky! +${m.value * ampMul} reroll`, 'info'); }
+                if (m.effect === 'poison') { poisonToApply += m.value * ampMul; }
                 if (m.effect === 'midasGold') { const mg = gainGold(dieVal); log(`👑 Midas: +${mg} gold`, 'info'); }
-                if (m.effect === 'searing') { applyStatus('burn', 2, 3); }
-                if (m.effect === 'marked') { applyStatus('mark', 3, 2); }
+                if (m.effect === 'searing') { applyStatus('burn', 2 * ampMul, 3); }
+                if (m.effect === 'marked') { applyStatus('mark', 3 * ampMul, 2); }
 
-                if (m.effect === 'slotMultiply') { atkMult *= m.value; atkBase += dieVal; }
-                else if (m.effect === 'slotAdd') { atkBase += dieVal + m.value * atkCount; }
+                if (m.effect === 'slotMultiply') { atkMult *= m.value * ampMul; atkBase += dieVal; }
+                else if (m.effect === 'slotAdd') { atkBase += dieVal + m.value * atkCount * ampMul; }
                 else if (m.effect === 'packTactics') { atkBase += dieVal; }  // bonus already in dieVal
-                else if (m.effect === 'volley') { atkBase += dieVal + (atkCount >= 3 ? m.value : 0); }
-                else if (m.effect === 'threshold') { atkBase += dieVal >= m.value ? dieVal * 2 : dieVal; }
+                else if (m.effect === 'volley') { atkBase += dieVal + (atkCount >= 3 ? m.value * ampMul : 0); }
+                else if (m.effect === 'threshold') { atkBase += dieVal * m.value; }
                 else if (m.effect === 'defAdd') { atkBase += dieVal; }
                 else if (m.effect === 'lucky' || m.effect === 'poison' || m.effect === 'midasGold'
                       || m.effect === 'searing' || m.effect === 'marked' || m.effect === 'frostbite') { /* utility: no value contribution */ }
@@ -1100,8 +1103,8 @@ export const Combat = {
                 return `⚔️ Strike (${rageAtk})`;
             }
             if (boss === 'wyrm') {
-                if (action === 'breath') return '🔥 Fire Breath';
-                if (action === 'wingbuffet') return '💨 Wing Buffet';
+                if (action === 'breath') return '🔥 Fire Breath (18)';
+                if (action === 'wingbuffet') return '💨 Wing Buffet (10)';
                 return `⚔️ Strike (${rageAtk})`;
             }
             if (boss === 'void') {
@@ -1126,8 +1129,8 @@ export const Combat = {
         if (eName === 'Crimson Wyrm') {
             const idx = as.patternIdx || 0;
             const nextAction = as.pattern && as.pattern[idx % 4];
-            if (nextAction === 'breath') text = '🔥 Fire Breath incoming!';
-            else if (nextAction === 'wingbuffet') text = '💨 Wing Buffet incoming!';
+            if (nextAction === 'breath') text = '🔥 Fire Breath: 18 dmg + burn!';
+            else if (nextAction === 'wingbuffet') text = '💨 Wing Buffet: 10 dmg + disable!';
             else text = `⚔️ Attacks for ${rageAtk}${as.phase2 ? ' + burn' : ''}`;
             if (foresight && as.pattern) {
                 const after = _bossActionLabel(as.pattern[(idx + 1) % 4], 'wyrm');
@@ -1369,8 +1372,24 @@ export const Combat = {
 
     enemyDefeated() {
         GS.enemiesKilled++;
-        const g = gainGold(GS.enemy.gold);
-        log(`${GS.enemy.name} defeated! +${g} gold`, 'info');
+        const e = GS.enemy;
+
+        // Roll gold & XP — bosses use fixed values, others roll from range
+        let earnedGold, earnedXP;
+        if (e.isBoss) {
+            earnedGold = e.gold;
+            earnedXP = e.xp;
+        } else {
+            const baseGold = rand(e.goldMin, e.goldMax);
+            const baseXP = rand(e.xpMin, e.xpMax);
+            earnedGold = e.isElite ? Math.floor(baseGold * (e.eliteGoldM || 1)) : baseGold;
+            earnedXP = e.isElite ? Math.floor(baseXP * 2) : baseXP;
+            // Gold scales with floor, XP does not
+            earnedGold = Math.floor(earnedGold * Math.pow(1.04, GS.floor - 1));
+        }
+
+        const g = gainGold(earnedGold);
+        log(`${e.name} defeated! +${g} gold, +${earnedXP} XP`, 'info');
 
         // Parasite: gain +1 max HP and +1 gold/combat per kill
         if (GS.artifacts.some(a => a.effect === 'parasite')) {
@@ -1396,7 +1415,7 @@ export const Combat = {
                 log(`💰 Interest: +${ig} gold (${Math.round(GS.passives.goldInterest * 100)}%)`, 'info');
             }
         }
-        gainXP(Math.floor(GS.enemy.hp * 2.5));
+        gainXP(earnedXP);
         updateStats();
 
         // Clear player debuffs at end of combat

@@ -1597,7 +1597,11 @@ const Events = {
                         die.faces = die.faces.filter(f => f.faceValue !== v);
                         die.faces.push({ faceValue: v, modifier: mod });
                         log(`The shrine bestows ${mod.icon} ${mod.name} on face ${v}!`, 'info');
-                        updateStats(); Game.nextFloor();
+                        const dieIdx = GS.dice.indexOf(die);
+                        Events._showOutcome('Cursed Shrine', [
+                            `<span style="color:${mod.color}">${mod.icon} ${mod.name}</span> was placed on face <strong>${v}</strong> of Die #${dieIdx + 1} (d${die.max})`,
+                            `<span style="font-size:0.9em; opacity:0.8;">${mod.desc}</span>`
+                        ], () => Game.nextFloor());
                     }
                 },
                 {
@@ -1715,8 +1719,9 @@ const Events = {
                     action: () => {
                         Events._chooseDie('Which die will you sacrifice?', die => {
                             GS.dice = GS.dice.filter(d => d.id !== die.id);
-                            const avg = (die.min + die.max) / 2;
-                            const roll = die.min + Math.floor(Math.random() * (die.max - die.min + 1));
+                            const fv = die.faceValues;
+                            const avg = fv.reduce((s, v) => s + v, 0) / fv.length;
+                            const roll = fv[Math.floor(Math.random() * fv.length)];
                             const won = roll > avg;
                             const gained = won ? Events._gainRandomArtifacts(2) : [];
                             const outcomeLines = [
@@ -2179,7 +2184,7 @@ const Rest = {
 
         const enhancements = slotType === 'attack' ? [
             { name: 'Fury Chamber', icon: '🔥', desc: `All ${remaining} remaining attack slots deal ×1.5 damage${GS.transformBuffs.furyChambered > 1 ? ' (stacks × existing)' : ''}`, effect: 'furyChambered', value: 1.5 },
-            { name: 'Conduit', icon: '☠️', desc: `Each attack die applies +3 poison per turn (currently: ${GS.transformBuffs.conduit} → ${GS.transformBuffs.conduit + 3})`, effect: 'conduit', value: 3 },
+            { name: 'Conduit', icon: '☠️', desc: `Each attack die applies +2 poison per turn (currently: ${GS.transformBuffs.conduit} → ${GS.transformBuffs.conduit + 2})`, effect: 'conduit', value: 2 },
             { name: 'Gold Forge', icon: '⚒️', desc: `Each attack die generates gold equal to its rolled value after you attack`, effect: 'goldForge', value: true },
         ] : [
             { name: 'Fortification', icon: '🏰', desc: `All ${remaining} remaining defend slots block ×1.5${GS.transformBuffs.fortified > 1 ? ' (stacks × existing)' : ''}`, effect: 'fortified', value: 1.5 },

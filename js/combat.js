@@ -2,7 +2,7 @@
 //  COMBAT
 // ════════════════════════════════════════════════════════════
 import { BOSSES, ENEMIES, ELITES, pickEnemy } from './constants.js';
-import { GS, $, log, gainXP, gainGold, heal, pick } from './state.js';
+import { GS, $, log, gainXP, gainGold, heal, pick, rand } from './state.js';
 import { rollSingleDie, getActiveFace, renderCombatDice, updateStats, setupDropZones, show, createDie, getSlotById, enterRerollMode, exitRerollMode } from './engine.js';
 
 // window.Game and window.Rewards are set by screens.js at load time
@@ -59,14 +59,13 @@ export const Combat = {
         const scale = Math.pow(1.04, GS.floor - 1);
         template.hp = Math.floor(template.hp * scale);
         template.atk = Math.floor(template.atk * scale);
-        template.gold = Math.floor(template.gold * scale);
 
         let elite = null;
         if (isElite) {
             elite = pick(ELITES);
             template.hp = Math.floor(template.hp * elite.hpM);
             template.atk = Math.floor(template.atk * elite.atkM);
-            template.gold = Math.floor(template.gold * elite.goldM);
+            template.eliteGoldM = elite.goldM;
             template.name = `${elite.prefix} ${template.name}`;
         }
 
@@ -1369,8 +1368,24 @@ export const Combat = {
 
     enemyDefeated() {
         GS.enemiesKilled++;
-        const g = gainGold(GS.enemy.gold);
-        log(`${GS.enemy.name} defeated! +${g} gold`, 'info');
+        const e = GS.enemy;
+
+        // Roll gold & XP — bosses use fixed values, others roll from range
+        let earnedGold, earnedXP;
+        if (e.isBoss) {
+            earnedGold = e.gold;
+            earnedXP = e.xp;
+        } else {
+            const baseGold = rand(e.goldMin, e.goldMax);
+            const baseXP = rand(e.xpMin, e.xpMax);
+            earnedGold = e.isElite ? Math.floor(baseGold * (e.eliteGoldM || 1)) : baseGold;
+            earnedXP = e.isElite ? Math.floor(baseXP * 2) : baseXP;
+            // Gold scales with floor, XP does not
+            earnedGold = Math.floor(earnedGold * Math.pow(1.04, GS.floor - 1));
+        }
+
+        const g = gainGold(earnedGold);
+        log(`${e.name} defeated! +${g} gold, +${earnedXP} XP`, 'info');
 
         // Parasite: gain +1 max HP and +1 gold/combat per kill
         if (GS.artifacts.some(a => a.effect === 'parasite')) {
@@ -1396,7 +1411,7 @@ export const Combat = {
                 log(`💰 Interest: +${ig} gold (${Math.round(GS.passives.goldInterest * 100)}%)`, 'info');
             }
         }
-        gainXP(Math.floor(GS.enemy.hp * 2.5));
+        gainXP(earnedXP);
         updateStats();
 
         // Clear player debuffs at end of combat

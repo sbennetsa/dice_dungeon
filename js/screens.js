@@ -69,7 +69,7 @@ const Game = {
     start() {
         resetDieIdCounter(0);
         Object.assign(GS, {
-            floor: 1, act: 1, hp: 60, maxHp: 60, gold: 15,
+            floor: 1, act: 1, hp: 50, maxHp: 50, gold: 15,
             level: 1, xp: 0, xpNext: 50,
             dice: [createDie(1,6), createDie(1,6), createDie(1,6)],
             slots: {
@@ -84,7 +84,7 @@ const Game = {
             huntersMarkFired: false,
             parasiteGoldPerCombat: 0,
             passives: {}, unlockedNodes: [],
-            rerolls: 1, rerollsLeft: 0,
+            rerolls: 0, rerollsLeft: 0,
             enemy: null, enemiesKilled: 0, totalGold: 0,
             artifacts: [], buffs: { damageBoost: 0, armor: 0 },
             allocated: { attack: [], defend: [] }, rolled: false,
@@ -796,7 +796,7 @@ const Rewards = {
             Game.nextFloor();
         }});
 
-        const healAmt = Math.min(25, GS.maxHp - GS.hp);
+        const healAmt = Math.min(20, GS.maxHp - GS.hp);
         if (healAmt > 0) {
             rewards.push({ title: '❤️ Heal', desc: `Restore ${healAmt} HP`, action: () => {
                 heal(healAmt);

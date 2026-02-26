@@ -6,6 +6,8 @@ import { FACE_MODS, ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, getAct, getFl
 import { GS, $, rand, pick, shuffle, log, gainXP, gainGold, heal } from './state.js';
 import { createDie, createDieFromFaces, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables } from './engine.js';
 import { Combat } from './combat.js';
+import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } from './encounters/encounterGenerator.js';
+import { applyEliteModifier, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 
 // ════════════════════════════════════════════════════════════
 //  HELPERS
@@ -159,6 +161,10 @@ const Game = {
             ironSkinActive: false,
             ragePotionActive: false,
             hasteDiceBonus: 0,
+            encounter: null,
+            environment: null,
+            _chaosStormActive: false,
+            _firstAttacker: null,
         });
         Game.enterFloor();
     },
@@ -167,10 +173,14 @@ const Game = {
         GS.act = getAct(GS.floor);
         const type = getFloorType(GS.floor);
 
-        if (type === 'combat' || type === 'elite') Combat.start(type === 'elite');
-        else if (type === 'boss') Combat.start(false, true);
-        else if (type === 'shop') Shop.enter();
-        else if (type === 'event') Events.enter();
+        if (type === 'combat' || type === 'boss') {
+            const encounter = generateEncounter(GS.floor);
+            EncounterChoice.show(encounter);
+        } else if (type === 'shop') {
+            Shop.enter();
+        } else if (type === 'event') {
+            Events.enter();
+        }
     },
 
     nextFloor() {
@@ -2789,6 +2799,159 @@ const Inventory = {
 };
 
 // ════════════════════════════════════════════════════════════
+//  ENCOUNTER CHOICE SCREEN
+// ════════════════════════════════════════════════════════════
+const EncounterChoice = {
+    show(encounter) {
+        GS.encounter = encounter;
+        const { enemy, environment, anomaly, eliteModifiers, floor, isBossFloor } = encounter;
+
+        $('encounter-header').innerHTML = this._buildHeader(floor, isBossFloor, anomaly);
+        $('encounter-standard-panel').innerHTML = this._buildStandardPanel(enemy, isBossFloor, environment);
+        $('encounter-elite-panel').innerHTML = this._buildElitePanel(enemy, eliteModifiers, isBossFloor);
+
+        show('screen-encounter');
+    },
+
+    chooseStandard() {
+        GS.encounter.isElite = false;
+        Combat.start();
+    },
+
+    chooseElite() {
+        const enc = GS.encounter;
+        const revealData = applyEliteChoice(enc.enemy, enc.eliteModifiers);
+        enc.isElite = true;
+        this._showReveal(revealData, () => Combat.start());
+    },
+
+    _showReveal(revealData, onDone) {
+        const { visibleModifier, hiddenModifier, finalStats } = revealData;
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:absolute; inset:0; background:rgba(0,0,0,0.85); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; z-index:10; padding:20px; text-align:center;';
+        overlay.innerHTML = `
+            <div style="font-size:1.1em; color:var(--gold); font-family:EB Garamond,serif;">⚔️ Elite Challenge Accepted!</div>
+            <div style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap;">
+                <div style="background:var(--bg-surface); border:1px solid var(--gold); border-radius:8px; padding:12px; min-width:120px;">
+                    <div style="color:var(--gold); margin-bottom:4px;">${visibleModifier.prefix}</div>
+                    <div style="font-size:0.8em; color:var(--text-dim);">Known modifier</div>
+                </div>
+                <div style="background:var(--bg-surface); border:1px solid #c060ff; border-radius:8px; padding:12px; min-width:120px;">
+                    <div style="color:#c060ff; margin-bottom:4px;">${hiddenModifier.prefix}</div>
+                    <div style="font-size:0.8em; color:var(--text-dim);">Hidden modifier revealed!</div>
+                </div>
+            </div>
+            <div style="font-size:0.85em; color:var(--text-dim);">
+                Final: ${finalStats.hp} HP · ${this._formatDicePool(finalStats.dice)} · ~${finalStats.avgDamage} dmg/turn
+            </div>
+            <button class="btn btn-primary" style="margin-top:8px;">Fight!</button>
+        `;
+        overlay.querySelector('button').onclick = () => {
+            overlay.remove();
+            onDone();
+        };
+        $('screen-encounter').style.position = 'relative';
+        $('screen-encounter').appendChild(overlay);
+    },
+
+    _buildHeader(floor, isBossFloor, anomaly) {
+        const floorLabel = isBossFloor ? `⚔️ Floor ${floor} — BOSS` : `⚔️ Floor ${floor}`;
+        const anomalyBadge = anomaly
+            ? `<span style="background:#663300; color:#ffaa44; border-radius:4px; padding:2px 8px; font-size:0.8em; margin-left:8px;">⚠️ ${anomaly.name}</span>`
+            : '';
+        return `<div style="text-align:center; padding:12px 0 8px; font-family:EB Garamond,serif; font-size:1.1em;">${floorLabel}${anomalyBadge}</div>`;
+    },
+
+    _buildStandardPanel(enemy, isBossFloor, environment) {
+        const diceStr    = this._formatDicePool(enemy.dice);
+        const abilities  = Object.values(enemy.abilities || {}).map(a => `${a.icon} ${a.name}`).join(', ') || '—';
+        const passives   = (enemy.passives || []).map(p => p.name).join(', ') || '—';
+        const goldRange  = Array.isArray(enemy.gold) ? `${enemy.gold[0]}–${enemy.gold[1]}` : enemy.gold;
+        const xpRange    = Array.isArray(enemy.xp)   ? `${enemy.xp[0]}–${enemy.xp[1]}`   : enemy.xp;
+
+        const envSection = environment
+            ? `<div style="background:rgba(255,255,255,0.05); border-radius:6px; padding:8px; margin:8px 0; font-size:0.82em;">
+                   <span style="color:var(--gold);">${environment.icon} ${environment.name}</span>
+                   <div style="color:var(--text-dim); margin-top:2px;">${environment.desc}</div>
+               </div>`
+            : '';
+
+        const phaseSection = isBossFloor && enemy.phases && enemy.phases.length
+            ? `<div style="font-size:0.8em; color:#ff8888; margin-top:4px;">📊 ${enemy.phases.length} phase(s)</div>`
+            : '';
+
+        return `
+            <div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; flex:1;">
+                <div style="font-size:1em; font-weight:bold; margin-bottom:10px; color:var(--text);">⚔️ Standard</div>
+                <div style="font-size:1.05em; font-family:EB Garamond,serif; margin-bottom:6px;">${enemy.name}</div>
+                <div style="font-size:0.85em; color:var(--text-dim); margin-bottom:4px;">❤️ ${enemy.hp} HP · 🎲 ${diceStr}</div>
+                ${phaseSection}
+                <div style="font-size:0.8em; color:var(--text-dim); margin-top:4px;">Abilities: ${abilities}</div>
+                <div style="font-size:0.8em; color:var(--text-dim); margin-top:2px;">Passives: ${passives}</div>
+                ${envSection}
+                <div style="margin-top:10px; font-size:0.82em; color:var(--gold);">Rewards: ${goldRange}g · ${xpRange} XP${isBossFloor ? ' · Boss artifact' : ''}</div>
+                <button class="btn btn-primary" style="width:100%; margin-top:12px;" onclick="EncounterChoice.chooseStandard()">Fight (Standard)</button>
+            </div>`;
+    },
+
+    _buildElitePanel(enemy, eliteModifiers, isBossFloor) {
+        const { visible, hidden } = eliteModifiers;
+        const effects = this._formatModifierEffects(visible, enemy);
+
+        // Preview stats with visible modifier only
+        const previewEnemy = deepClone(enemy);
+        applyEliteModifier(previewEnemy, visible);
+        const previewDice = this._formatDicePool(previewEnemy.dice);
+        const previewAvg  = calculateAvgDamage(previewEnemy);
+
+        // Rewards with both modifiers applied
+        const mults     = calculateRewardMultipliers([visible, hidden]);
+        const goldRange = Array.isArray(enemy.gold) ? `${Math.floor(enemy.gold[0] * mults.gold)}–${Math.floor(enemy.gold[1] * mults.gold)}` : Math.floor(enemy.gold * mults.gold);
+        const xpRange   = Array.isArray(enemy.xp)   ? `${Math.floor(enemy.xp[0] * mults.xp)}–${Math.floor(enemy.xp[1] * mults.xp)}`       : Math.floor(enemy.xp   * mults.xp);
+
+        const artifactNote = isBossFloor
+            ? (visible.artifactPicks ? `${visible.artifactPicks} boss artifacts` + (visible.legendaryChance ? ` + ${Math.round(visible.legendaryChance * 100)}% legendary` : '') : 'Boss artifact')
+            : 'Artifact pick (1 of 3)';
+
+        return `
+            <div style="background:var(--bg-surface); border:1px solid #c060ff; border-radius:8px; padding:14px; flex:1;">
+                <div style="font-size:1em; font-weight:bold; margin-bottom:10px; color:#c060ff;">💀 Elite</div>
+                <div style="color:var(--gold); font-size:0.95em; margin-bottom:6px;">${visible.prefix}</div>
+                ${effects.length ? `<div style="font-size:0.82em; color:var(--text-dim); margin-bottom:6px;">${effects.join(' · ')}</div>` : ''}
+                <div style="font-size:0.8em; color:#c060ff; margin-bottom:8px;">+ 1 hidden modifier</div>
+                <div style="font-size:0.82em; color:var(--text-dim);">Est: ${previewEnemy.hp} HP · ${previewDice} · ~${previewAvg} dmg/turn <span style="font-size:0.85em;">(+hidden)</span></div>
+                <div style="margin-top:10px; font-size:0.82em; color:var(--gold);">Rewards: ${goldRange}g · ${xpRange} XP · ${artifactNote}</div>
+                <button class="btn" style="width:100%; margin-top:12px; border-color:#c060ff; color:#c060ff;" onclick="EncounterChoice.chooseElite()">Fight (Elite)</button>
+            </div>`;
+    },
+
+    _formatDicePool(dice) {
+        const counts = {};
+        dice.forEach(d => { counts[d] = (counts[d] || 0) + 1; });
+        return Object.entries(counts).map(([d, n]) => `${n}×d${d}`).join(' + ') || '—';
+    },
+
+    _formatModifierEffects(modifier, enemy) {
+        const effects = [];
+        if (modifier.diceUpgrade) {
+            const ex = enemy.dice[0] || '?';
+            effects.push(`Dice: d${ex} → d${ex + modifier.diceUpgrade}`);
+        }
+        if (modifier.extraDice) {
+            effects.push(`+${modifier.extraDice.map(d => `d${d}`).join(', ')}`);
+        }
+        if (modifier.hpMult && modifier.hpMult !== 1.0) {
+            const pct = Math.round((modifier.hpMult - 1.0) * 100);
+            effects.push(`HP ${pct > 0 ? '+' : ''}${pct}%`);
+        }
+        if (modifier.addPassive) effects.push(modifier.addPassive.desc);
+        if (modifier.applyStartingCurse) effects.push('Curses player at start');
+        if (modifier.doublePhases) effects.push('Phase triggers earlier');
+        return effects;
+    },
+};
+
+// ════════════════════════════════════════════════════════════
 //  INIT — expose modules on window for inline onclick handlers
 // ════════════════════════════════════════════════════════════
 window.Game = Game;
@@ -2799,6 +2962,7 @@ window.Events = Events;
 window.Rest = Rest;
 window.Inventory = Inventory;
 window.addConsumableToInventory = addConsumableToInventory;
+window.EncounterChoice = EncounterChoice;
 
 // Prevent right-click context menu on combat screen
 document.getElementById('screen-combat').addEventListener('contextmenu', e => e.preventDefault());

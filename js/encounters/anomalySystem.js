@@ -1,0 +1,113 @@
+// ════════════════════════════════════════════════════════════
+//  ANOMALY SYSTEM
+//  Rare encounter variations that override normal generation
+// ════════════════════════════════════════════════════════════
+import { getEnvironmentById } from './environmentSystem.js';
+
+export const ANOMALIES = {
+    perfectStorm: {
+        id: 'perfectStorm',
+        name: 'Perfect Storm',
+        chance: 0.05,
+        rewardMult: 1.5,
+        apply(enemy, currentEnvironment) {
+            let synergyEnv = null;
+
+            if (enemy.passives && enemy.passives.some(p => p.id === 'regen')) {
+                synergyEnv = getEnvironmentById('healingAura');
+            } else if (enemy.abilities && Object.values(enemy.abilities).some(a => a.type === 'poison')) {
+                synergyEnv = getEnvironmentById('thornsAura');
+            } else if (enemy.dice && enemy.dice.length >= 4) {
+                synergyEnv = getEnvironmentById('arcaneNexus');
+            }
+
+            return {
+                environment: synergyEnv || currentEnvironment,
+                logMessage: `The stars align — a perfect storm of power!`,
+            };
+        },
+    },
+
+    wounded: {
+        id: 'wounded',
+        name: 'Wounded Prey',
+        chance: 0.08,
+        rewardMult: 0.8,
+        apply(enemy) {
+            enemy.hp    = Math.floor(enemy.hp * 0.7);
+            enemy.maxHp = enemy.hp;
+            return { logMessage: `The ${enemy.name} is already wounded!` };
+        },
+    },
+
+    enraged: {
+        id: 'enraged',
+        name: 'Enraged Beast',
+        chance: 0.06,
+        rewardMult: 1.4,
+        apply(enemy) {
+            enemy.dice = enemy.dice.map(d => d + 2);
+            return { logMessage: `The ${enemy.name} is consumed by fury!` };
+        },
+    },
+
+    doubleTrouble: {
+        id: 'doubleTrouble',
+        name: 'Double Trouble',
+        chance: 0.03,
+        rewardMult: 2.0,
+        apply(enemy) {
+            enemy.doubleAction = true;
+            return { logMessage: `Two ${enemy.name}s coordinate their assault!` };
+        },
+    },
+
+    glitched: {
+        id: 'glitched',
+        name: 'Reality Glitch',
+        chance: 0.04,
+        rewardMult: 1.6,
+        apply(enemy) {
+            const keys = Object.keys(enemy.abilities || {});
+            if (keys.length === 0) return { logMessage: `Reality flickers around the ${enemy.name}...` };
+
+            const randomKey = keys[Math.floor(Math.random() * keys.length)];
+            const types     = ['attack', 'heal', 'buff', 'poison', 'shield'];
+            const newType   = types[Math.floor(Math.random() * types.length)];
+            enemy.abilities[randomKey] = { ...enemy.abilities[randomKey], type: newType };
+
+            return { logMessage: `Reality fractures — the ${enemy.name}'s abilities shift unpredictably!` };
+        },
+    },
+};
+
+// ────────────────────────────────────────────────────────────
+//  Rolling
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Roll to see if an anomaly occurs.
+ * @param {number} floor
+ * @returns {object|null} Anomaly definition or null
+ */
+export function rollForAnomaly(floor) {
+    const actBonus = Math.ceil(floor / 5) * 0.01;
+
+    for (const anomaly of Object.values(ANOMALIES)) {
+        if (Math.random() < anomaly.chance + actBonus) {
+            return anomaly;
+        }
+    }
+    return null;
+}
+
+/**
+ * Apply an anomaly to the enemy template.
+ * @param {object} enemy - Mutable enemy template
+ * @param {object} anomaly
+ * @param {object|null} currentEnvironment
+ * @returns {{ environment?: object, logMessage: string }}
+ */
+export function applyAnomaly(enemy, anomaly, currentEnvironment = null) {
+    return anomaly.apply(enemy, currentEnvironment);
+}

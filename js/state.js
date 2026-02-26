@@ -82,6 +82,11 @@ export const GS = {
     ironSkinActive: false,
     ragePotionActive: false,
     hasteDiceBonus: 0,
+    // ── ENCOUNTER / ENVIRONMENT ──
+    encounter: null,          // current encounter object (set before choice screen)
+    environment: null,        // active environment during combat (for hook calls)
+    _chaosStormActive: false, // set by chaosStorm environment onTurnEnd
+    _firstAttacker: null,     // 'player' or 'enemy' — used by narrowCorridor env
 };
 
 // ════════════════════════════════════════════════════════════
@@ -123,7 +128,9 @@ export function gainGold(amount) {
 }
 
 export function heal(amount) {
-    const actual = Math.min(amount, GS.maxHp - GS.hp);
+    const mult   = GS.environment?.healingMultiplier || 1.0;
+    const scaled = Math.floor(amount * mult);
+    const actual = Math.min(scaled, GS.maxHp - GS.hp);
     GS.hp += actual;
     return actual;
 }

@@ -3,9 +3,9 @@
 // ════════════════════════════════════════════════════════════
 export function getFloorType(floor) {
     const layout = {
-        1: 'combat', 2: 'event', 3: 'combat', 4: 'shop', 5: 'boss',
-        6: 'event', 7: 'combat', 8: 'elite', 9: 'shop', 10: 'boss',
-        11: 'event', 12: 'combat', 13: 'elite', 14: 'shop', 15: 'boss',
+        1: 'combat', 2: 'event', 3: 'combat', 4: 'shop',  5: 'boss',
+        6: 'event',  7: 'combat', 8: 'combat', 9: 'shop', 10: 'boss',
+        11: 'event', 12: 'combat', 13: 'combat', 14: 'shop', 15: 'boss',
     };
     return layout[floor] || 'combat';
 }
@@ -23,7 +23,7 @@ export const ENEMIES = {
     // ── ACT 1 ──
     1: [
         {
-            name: 'Goblin', hp: 20, dice: [4, 4], gold: [15, 25], xp: [8, 12],
+            name: 'Goblin', hp: 20, dice: [4, 4], gold: [15, 25], xp: [20, 30],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
@@ -31,7 +31,7 @@ export const ENEMIES = {
             pattern: ['strike'],
         },
         {
-            name: 'Dire Rat', hp: 14, dice: [3, 3, 3], gold: [12, 20], xp: [6, 10],
+            name: 'Dire Rat', hp: 14, dice: [3, 3, 3], gold: [12, 20], xp: [15, 25],
             abilities: {
                 frenzy: { name: 'Frenzy', icon: '🐀', type: 'attack', desc: 'Each die hits separately', multiHit: true },
             },
@@ -39,7 +39,7 @@ export const ENEMIES = {
             pattern: ['frenzy'],
         },
         {
-            name: 'Fungal Creep', hp: 22, dice: [4, 4], gold: [15, 22], xp: [8, 14],
+            name: 'Fungal Creep', hp: 22, dice: [4, 4], gold: [15, 22], xp: [20, 35],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 spore:  { name: 'Spore Cloud', icon: '🍄', type: 'poison', desc: 'Apply poison equal to dice sum' },
@@ -48,7 +48,7 @@ export const ENEMIES = {
             pattern: ['strike', 'spore'],
         },
         {
-            name: 'Slime', hp: 28, dice: [4, 4], gold: [18, 28], xp: [10, 16],
+            name: 'Slime', hp: 28, dice: [4, 4], gold: [18, 28], xp: [25, 40],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
@@ -59,7 +59,7 @@ export const ENEMIES = {
             pattern: ['strike'],
         },
         {
-            name: 'Skeleton', hp: 18, dice: [6, 6], gold: [14, 22], xp: [8, 12],
+            name: 'Skeleton', hp: 18, dice: [6, 6], gold: [14, 22], xp: [20, 30],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
@@ -72,7 +72,7 @@ export const ENEMIES = {
     // ── ACT 2 ──
     2: [
         {
-            name: 'Orc Warrior', hp: 45, dice: [6, 6, 6], gold: [20, 30], xp: [14, 20],
+            name: 'Orc Warrior', hp: 45, dice: [6, 6, 6], gold: [20, 30], xp: [35, 50],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 warCry: { name: 'War Cry', icon: '📯', type: 'buff', desc: 'Store dice sum, add to next Strike', buffTarget: 'strike' },
@@ -187,12 +187,7 @@ export const ENEMIES = {
     ],
 };
 
-export const ELITES = [
-    { prefix: '💀 Deadly',  diceUpgrade: 2, hpMult: 1.3, goldMult: 2.0, xpMult: 1.5 },
-    { prefix: '🛡️ Armored', addPassive: { id: 'armor', name: 'Iron Hide', desc: 'Reduces all damage by 3', params: { reduction: 3 } }, hpMult: 1.5, goldMult: 1.5, xpMult: 1.5 },
-    { prefix: '⚡ Swift',    extraDice: [6], hpMult: 1.0, goldMult: 1.8, xpMult: 1.5 },
-    { prefix: '🔥 Enraged', diceUpgrade: 4, hpMult: 1.0, goldMult: 2.5, xpMult: 2.0 },
-];
+// ELITES removed — replaced by ELITE_MODIFIERS in js/encounters/eliteModifierSystem.js
 
 export const BOSSES = {
     5: {

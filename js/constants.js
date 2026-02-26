@@ -179,7 +179,7 @@ export function pickEnemy(floor) {
 export const FACE_MODS = [
     // ── GENERAL ──
     { name: '×2 Strike', icon: '⚡', desc: 'Doubles total damage/block of this slot', effect: 'slotMultiply', value: 2, color: '#d4a534', autoFire: false },
-    { name: '+5 Bonus', icon: '💎', desc: '+5 per die in this slot (this die contributes bonus only)', effect: 'slotAdd', value: 5, color: '#40a060', autoFire: false },
+    { name: '+5 Bonus', icon: '💎', desc: '+5 per die allocated alongside this one (this die contributes bonus only)', effect: 'slotAdd', value: 5, color: '#40a060', autoFire: false },
     { name: 'Shield', icon: '🛡', desc: 'Blocks 4 extra damage (defend slot only)', effect: 'defAdd', value: 4, color: '#4060c0', autoFire: false },
 
     // ── WIDE BUILD (many dice/slots) ──

@@ -668,7 +668,7 @@ export function updateSlotTotals() {
             else if (m.effect === 'slotAdd') { dieContrib = baseVal + m.value * atkCount; }
             else if (m.effect === 'packTactics') { dieContrib = baseVal; }  // bonus already in baseVal
             else if (m.effect === 'volley') { dieContrib = baseVal + (atkCount >= 3 ? m.value : 0); }
-            else if (m.effect === 'threshold') { dieContrib = baseVal >= m.value ? baseVal * 2 : baseVal; }
+            else if (m.effect === 'threshold') { dieContrib = baseVal * m.value; }
             else if (m.effect === 'lucky' || m.effect === 'poison' || m.effect === 'midasGold'
                   || m.effect === 'searing' || m.effect === 'marked' || m.effect === 'frostbite') { /* utility: no value contribution */ }
             else { dieContrib = baseVal; }
@@ -737,7 +737,7 @@ export function updateSlotTotals() {
             else if (m.effect === 'slotAdd') { dieContrib = baseVal + m.value * defCount; }
             else if (m.effect === 'packTactics') { dieContrib = baseVal; }  // bonus already in baseVal
             else if (m.effect === 'volley') { dieContrib = baseVal + (defCount >= 3 ? m.value : 0); }
-            else if (m.effect === 'threshold') { dieContrib = baseVal >= m.value ? baseVal * 2 : baseVal; }
+            else if (m.effect === 'threshold') { dieContrib = baseVal * m.value; }
             else if (m.effect === 'defAdd') { dieContrib = baseVal + m.value; }
             else if (m.effect === 'lucky' || m.effect === 'poison' || m.effect === 'midasGold'
                   || m.effect === 'searing' || m.effect === 'marked' || m.effect === 'frostbite') { /* utility: no value contribution */ }

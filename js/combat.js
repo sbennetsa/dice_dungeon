@@ -396,7 +396,7 @@ export const Combat = {
                 else if (m.effect === 'slotAdd') { defBase += dieVal + m.value * defCount; }
                 else if (m.effect === 'packTactics') { defBase += dieVal; }  // bonus already in dieVal
                 else if (m.effect === 'volley') { defBase += dieVal + (defCount >= 3 ? m.value : 0); }
-                else if (m.effect === 'threshold') { defBase += dieVal >= m.value ? dieVal * 2 : dieVal; }
+                else if (m.effect === 'threshold') { defBase += dieVal * m.value; }
                 else if (m.effect === 'defAdd') { defBase += dieVal + m.value; }
                 else if (m.effect === 'lucky' || m.effect === 'poison' || m.effect === 'midasGold'
                       || m.effect === 'searing' || m.effect === 'marked' || m.effect === 'frostbite') { /* utility: no value contribution */ }
@@ -781,7 +781,7 @@ export const Combat = {
                 else if (m.effect === 'slotAdd') { atkBase += dieVal + m.value * atkCount; }
                 else if (m.effect === 'packTactics') { atkBase += dieVal; }  // bonus already in dieVal
                 else if (m.effect === 'volley') { atkBase += dieVal + (atkCount >= 3 ? m.value : 0); }
-                else if (m.effect === 'threshold') { atkBase += dieVal >= m.value ? dieVal * 2 : dieVal; }
+                else if (m.effect === 'threshold') { atkBase += dieVal * m.value; }
                 else if (m.effect === 'defAdd') { atkBase += dieVal; }
                 else if (m.effect === 'lucky' || m.effect === 'poison' || m.effect === 'midasGold'
                       || m.effect === 'searing' || m.effect === 'marked' || m.effect === 'frostbite') { /* utility: no value contribution */ }

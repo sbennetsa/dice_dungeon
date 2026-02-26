@@ -187,7 +187,7 @@ export const FACE_MODS = [
     { name: 'Volley', icon: '🏹', desc: 'If 3+ dice in this slot, +8 bonus', effect: 'volley', value: 8, color: '#7a6f3f', autoFire: false },
 
     // ── TALL BUILD (few big dice) ──
-    { name: 'Threshold', icon: '🔶', desc: 'If this die rolled ≥8, double its value', effect: 'threshold', value: 8, color: '#c06020', autoFire: false },
+    { name: 'Threshold', icon: '🔶', desc: 'Doubles this die\'s value when this face is rolled', effect: 'threshold', value: 2, color: '#c06020', autoFire: false },
 
     // ── UTILITY BUILD ──
     { name: 'Lucky', icon: '🎰', desc: 'When this face triggers, +1 reroll this combat', effect: 'lucky', value: 1, color: '#30a0a0', autoFire: false },

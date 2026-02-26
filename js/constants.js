@@ -249,7 +249,7 @@ export const ARTIFACT_POOL = [
     { name: "Hunter's Mark",   icon: '🎯', desc: 'First hit each combat applies 5 mark for 2 turns (+5 damage from all sources)', effect: 'huntersMark', value: 5, category: 'status' },
     { name: "Witch's Hex",     icon: '💔', desc: 'When you apply poison, also apply weaken for 1 turn (enemy deals 25% less)', effect: 'witchsHex', value: 1, category: 'status' },
     { name: 'Ember Crown',     icon: '🔥', desc: 'When you deal 15+ damage in a turn, apply 3 burn for 3 turns', effect: 'emberCrown', value: 3, category: 'status' },
-    { name: 'Thunder Strike',  icon: '⚡', desc: 'When you deal 25+ damage in a turn, stun the enemy (cannot trigger 2 turns in a row)', effect: 'thunderStrike', value: 0, category: 'status' },
+    { name: 'Thunder Strike',  icon: '⚡', desc: 'When you deal 25%+ of enemy max HP in a turn, stun the enemy (cannot trigger 2 turns in a row)', effect: 'thunderStrike', value: 0.25, category: 'status' },
 
     // ── INTERESTING CHOICES ──
     { name: "Berserker's Mask",icon: '😤', desc: '+50% attack damage but you cannot allocate more than 1 die to defense', effect: 'berserkersMask', value: 1.5, category: 'choice' },

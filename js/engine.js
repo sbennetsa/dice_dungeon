@@ -122,6 +122,11 @@ export function updateStats() {
         }
         if (gd) $(gd).textContent = GS.gold;
     });
+    const hpFill = $('player-hp-fill');
+    if (hpFill) {
+        hpFill.style.width = `${Math.max(0, (GS.hp / GS.maxHp) * 100)}%`;
+        $('player-hp-text').textContent = `${GS.hp}/${GS.maxHp}`;
+    }
     const slotsStr = `${GS.slots.attack.length}⚔️ ${GS.slots.defend.length}🛡️`;
     const runeCount = [...GS.slots.attack, ...GS.slots.defend].filter(s => s.rune).length;
     const runeStr = runeCount > 0 ? ` 🔮${runeCount}` : '';

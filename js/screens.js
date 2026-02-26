@@ -1597,7 +1597,11 @@ const Events = {
                         die.faces = die.faces.filter(f => f.faceValue !== v);
                         die.faces.push({ faceValue: v, modifier: mod });
                         log(`The shrine bestows ${mod.icon} ${mod.name} on face ${v}!`, 'info');
-                        updateStats(); Game.nextFloor();
+                        const dieIdx = GS.dice.indexOf(die);
+                        Events._showOutcome('Cursed Shrine', [
+                            `<span style="color:${mod.color}">${mod.icon} ${mod.name}</span> was placed on face <strong>${v}</strong> of Die #${dieIdx + 1} (d${die.max})`,
+                            `<span style="font-size:0.9em; opacity:0.8;">${mod.desc}</span>`
+                        ], () => Game.nextFloor());
                     }
                 },
                 {

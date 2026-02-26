@@ -461,17 +461,23 @@ export function makeDieElement(die, context) {
         el.classList.add('special');
         el.style.borderColor = face.modifier.color;
         el.style.boxShadow = `0 0 10px ${face.modifier.color}40`;
+        el.title = `${face.modifier.name}: ${face.modifier.desc}`;
+    } else if (die.faces.length > 0) {
+        el.title = die.faces.map(f => `${f.modifier.icon} ${f.modifier.name}: ${f.modifier.desc}`).join('\n');
     }
 
     const rangeLabel = `${die.min}-${die.max}`;
-    let valueDisplay = die.rolled ? (face ? face.modifier.icon : die.value) : '?';
+    let valueDisplay = die.rolled ? (face ? `<span title="${face.modifier.name}: ${face.modifier.desc}">${face.modifier.icon}</span>` : die.value) : '?';
 
     let faceIcon = '';
     if (die.faces.length > 0) {
+        const faceSpans = die.faces.map(f =>
+            `<span title="${f.modifier.name}: ${f.modifier.desc}">${f.modifier.icon}</span>`
+        ).join('');
         if (!die.rolled) {
-            faceIcon = `<span class="die-face-icon">${die.faces.map(f=>f.modifier.icon).join('')}</span>`;
+            faceIcon = `<span class="die-face-icon">${faceSpans}</span>`;
         } else if (!face) {
-            faceIcon = `<span class="die-face-icon" style="opacity:0.4">${die.faces.map(f=>f.modifier.icon).join('')}</span>`;
+            faceIcon = `<span class="die-face-icon" style="opacity:0.4">${faceSpans}</span>`;
         }
     }
 
@@ -503,7 +509,7 @@ export function makeDieElement(die, context) {
 
     if (die.rolled && context === 'pool') {
         el.style.cursor = 'pointer';
-        el.title = 'Left-click → Attack | Right-click → Defend';
+        el.title = (el.title ? el.title + '\n\n' : '') + 'Left-click → Attack | Right-click → Defend';
 
         el.onmousedown = e => {
             e.preventDefault();

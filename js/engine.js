@@ -651,9 +651,9 @@ export function updateSlotTotals() {
         let dieContrib = 0;
         if (m) {
             if (m.effect === 'slotMultiply') { atkMultiplier *= m.value; dieContrib = d.value; }
-            else if (m.effect === 'slotAdd') { atkBonus += m.value * atkCount; }
-            else if (m.effect === 'packTactics') { atkBonus += m.value * atkCount; dieContrib = d.value; }
-            else if (m.effect === 'volley') { if (atkCount >= 3) atkBonus += m.value; dieContrib = d.value; }
+            else if (m.effect === 'slotAdd') { dieContrib = d.value + m.value * atkCount; }
+            else if (m.effect === 'packTactics') { dieContrib = d.value + m.value * atkCount; }
+            else if (m.effect === 'volley') { dieContrib = d.value + (atkCount >= 3 ? m.value : 0); }
             else if (m.effect === 'threshold') { dieContrib = d.value >= m.value ? d.value * 2 : d.value; }
             else { dieContrib = d.value; }
         } else {
@@ -675,11 +675,11 @@ export function updateSlotTotals() {
     atkBonus += GS.artifacts.filter(a => a.effect === 'hydrasCrest').reduce((s, a) => s + a.value * GS.dice.length, 0);
     atkBonus += GS.enemyStatus?.mark || 0;
     atkBonus += GS.artifacts.filter(a => a.effect === 'festeringWound').reduce((s, a) => s + a.value * (GS.enemy?.poison || 0), 0);
-    if (GS.passives.packTactics) atkBonus += GS.passives.packTactics * atkCount;
-    if (GS.passives.swarmMaster) atkBonus += GS.passives.swarmMaster * atkCount;
-    if (GS.passives.volley && atkCount >= 3) atkBonus += GS.passives.volley;
+    if (GS.passives.packTactics) atkTotal += GS.passives.packTactics * atkCount;
+    if (GS.passives.swarmMaster) atkTotal += GS.passives.swarmMaster * atkCount;
+    if (GS.passives.volley && atkCount >= 3) atkTotal += GS.passives.volley;
     if (GS.passives.threshold) {
-        GS.allocated.attack.forEach(d => { if (d.value >= 8) atkBonus += Math.floor(d.value * 0.5); });
+        GS.allocated.attack.forEach(d => { if (d.value >= 8) atkTotal += Math.floor(d.value * 0.5); });
     }
     if (GS.passives.titanWrath && atkCount === 1) atkMultiplier *= 3;
     if (GS.artifacts.some(a => a.effect === 'berserkersMask')) atkMultiplier *= 1.5;
@@ -710,11 +710,11 @@ export function updateSlotTotals() {
         let dieContrib = 0;
         if (m) {
             if (m.effect === 'slotMultiply') { defMultiplier *= m.value; dieContrib = d.value; }
-            else if (m.effect === 'slotAdd') { defBonus += m.value * defCount; }
-            else if (m.effect === 'packTactics') { defBonus += m.value * defCount; dieContrib = d.value; }
-            else if (m.effect === 'volley') { if (defCount >= 3) defBonus += m.value; dieContrib = d.value; }
+            else if (m.effect === 'slotAdd') { dieContrib = d.value + m.value * defCount; }
+            else if (m.effect === 'packTactics') { dieContrib = d.value + m.value * defCount; }
+            else if (m.effect === 'volley') { dieContrib = d.value + (defCount >= 3 ? m.value : 0); }
             else if (m.effect === 'threshold') { dieContrib = d.value >= m.value ? d.value * 2 : d.value; }
-            else if (m.effect === 'defAdd') { defBonus += m.value; dieContrib = d.value; }
+            else if (m.effect === 'defAdd') { dieContrib = d.value + m.value; }
             else { dieContrib = d.value; }
         } else {
             dieContrib = d.value;
@@ -731,10 +731,10 @@ export function updateSlotTotals() {
 
     defBonus += GS.buffs.armor;
     defBonus += GS.artifacts.filter(a => a.effect === 'goldenAegis').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
-    if (GS.passives.swarmMaster) defBonus += GS.passives.swarmMaster * defCount;
-    if (GS.passives.volley && defCount >= 3) defBonus += GS.passives.volley;
+    if (GS.passives.swarmMaster) defTotal += GS.passives.swarmMaster * defCount;
+    if (GS.passives.volley && defCount >= 3) defTotal += GS.passives.volley;
     if (GS.passives.threshold) {
-        GS.allocated.defend.forEach(d => { if (d.value >= 8) defBonus += Math.floor(d.value * 0.5); });
+        GS.allocated.defend.forEach(d => { if (d.value >= 8) defTotal += Math.floor(d.value * 0.5); });
     }
     if (GS.passives.titanWrath && defCount === 1) defMultiplier *= 3;
     if (defCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) defMultiplier *= 1.5;

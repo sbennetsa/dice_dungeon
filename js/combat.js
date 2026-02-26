@@ -395,9 +395,9 @@ export const Combat = {
                 if (m.effect === 'marked') { applyStatus('mark', 3, 2); }
 
                 if (m.effect === 'slotMultiply') { atkMult *= m.value; atkBase += dieVal; }
-                else if (m.effect === 'slotAdd') { atkBonus += m.value * atkCount; atkBase += dieVal; }
-                else if (m.effect === 'packTactics') { atkBonus += m.value * atkCount; atkBase += dieVal; }
-                else if (m.effect === 'volley') { if (atkCount >= 3) atkBonus += m.value; atkBase += dieVal; }
+                else if (m.effect === 'slotAdd') { atkBase += dieVal + m.value * atkCount; }
+                else if (m.effect === 'packTactics') { atkBase += dieVal + m.value * atkCount; }
+                else if (m.effect === 'volley') { atkBase += dieVal + (atkCount >= 3 ? m.value : 0); }
                 else if (m.effect === 'threshold') { atkBase += d.value >= m.value ? dieVal * 2 : dieVal; }
                 else if (m.effect === 'defAdd') { atkBase += dieVal; }
                 else if (m.effect === 'poison') { atkBase += dieVal; }
@@ -422,11 +422,11 @@ export const Combat = {
         const goldScale = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
         if (goldScale > 0) atkBonus += goldScale;
         if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
-        if (GS.passives.packTactics) atkBonus += GS.passives.packTactics * atkCount;
-        if (GS.passives.swarmMaster) atkBonus += GS.passives.swarmMaster * atkCount;
-        if (GS.passives.volley && atkCount >= 3) atkBonus += GS.passives.volley;
+        if (GS.passives.packTactics) atkBase += GS.passives.packTactics * atkCount;
+        if (GS.passives.swarmMaster) atkBase += GS.passives.swarmMaster * atkCount;
+        if (GS.passives.volley && atkCount >= 3) atkBase += GS.passives.volley;
         if (GS.passives.threshold) {
-            GS.allocated.attack.forEach(d => { if (d.value >= 8) atkBonus += Math.floor(d.value * 0.5); });
+            GS.allocated.attack.forEach(d => { if (d.value >= 8) atkBase += Math.floor(d.value * 0.5); });
         }
         if (GS.passives.titanWrath && atkCount === 1) atkMult *= 3;
         const rerollsUsed = GS.rerolls - GS.rerollsLeft;
@@ -473,11 +473,11 @@ export const Combat = {
                 if (m.effect === 'frostbite') { applyStatus('chill', 2); }
 
                 if (m.effect === 'slotMultiply') { defMult *= m.value; defBase += dieVal; }
-                else if (m.effect === 'slotAdd') { defBonus += m.value * defCount; defBase += dieVal; }
-                else if (m.effect === 'packTactics') { defBonus += m.value * defCount; defBase += dieVal; }
-                else if (m.effect === 'volley') { if (defCount >= 3) defBonus += m.value; defBase += dieVal; }
+                else if (m.effect === 'slotAdd') { defBase += dieVal + m.value * defCount; }
+                else if (m.effect === 'packTactics') { defBase += dieVal + m.value * defCount; }
+                else if (m.effect === 'volley') { defBase += dieVal + (defCount >= 3 ? m.value : 0); }
                 else if (m.effect === 'threshold') { defBase += d.value >= m.value ? dieVal * 2 : dieVal; }
-                else if (m.effect === 'defAdd') { defBonus += m.value; defBase += dieVal; }
+                else if (m.effect === 'defAdd') { defBase += dieVal + m.value; }
                 else if (m.effect === 'poison') { defBase += dieVal; }
                 else { defBase += dieVal; }
             } else {
@@ -496,10 +496,10 @@ export const Combat = {
         if (GS.ascendedDice && GS.ascendedDice.length > 0) {
             defBonus += GS.ascendedDice.reduce((s, a) => s + a.bonus, 0);
         }
-        if (GS.passives.swarmMaster) defBonus += GS.passives.swarmMaster * defCount;
-        if (GS.passives.volley && defCount >= 3) defBonus += GS.passives.volley;
+        if (GS.passives.swarmMaster) defBase += GS.passives.swarmMaster * defCount;
+        if (GS.passives.volley && defCount >= 3) defBase += GS.passives.volley;
         if (GS.passives.threshold) {
-            GS.allocated.defend.forEach(d => { if (d.value >= 8) defBonus += Math.floor(d.value * 0.5); });
+            GS.allocated.defend.forEach(d => { if (d.value >= 8) defBase += Math.floor(d.value * 0.5); });
         }
         if (GS.passives.titanWrath && defCount === 1) defMult *= 3;
         // New artifact defend bonuses

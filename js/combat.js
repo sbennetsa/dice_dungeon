@@ -558,24 +558,36 @@ export const Combat = {
             as.patternIdx++;
             if (action === 'breath') {
                 const breathDmg = 18;
+                const blocked = Math.min(breathDmg, totalDef);
+                const dmg = breathDmg - blocked;
                 GS.playerDebuffs.poison = Math.max(GS.playerDebuffs.poison, 3);
                 GS.playerDebuffs.poisonTurns = Math.max(GS.playerDebuffs.poisonTurns, 3);
-                GS.hp = Math.max(0, GS.hp - breathDmg);
-                log(`🔥 Fire Breath! ${breathDmg} damage + 3 burn/turn for 3 turns!`, 'damage');
+                GS.hp = Math.max(0, GS.hp - dmg);
+                if (blocked > 0) {
+                    log(`🔥 Fire Breath! ${breathDmg} damage — blocked ${blocked}, took ${dmg} + 3 burn/turn for 3 turns!`, 'damage');
+                } else {
+                    log(`🔥 Fire Breath! ${breathDmg} damage + 3 burn/turn for 3 turns!`, 'damage');
+                }
                 updateStats();
                 if (GS.hp <= 0) { setTimeout(() => window.Game.defeat(), 1000); return; }
                 Combat.renderEnemy();
                 bossSkippedNormalAttack = true;
             } else if (action === 'wingbuffet') {
                 const buffetDmg = 10;
+                const blocked = Math.min(buffetDmg, totalDef);
+                const dmg = buffetDmg - blocked;
                 if (GS.artifacts.some(a => a.effect === 'anchoredSlots')) {
                     log('⚓ Anchored Slots: Wing Buffet slot disable prevented!', 'info');
                 } else {
                     GS.playerDebuffs.slotDisabled = 'attack';
                     GS.playerDebuffs.slotDisabledTurns = 1;
                 }
-                GS.hp = Math.max(0, GS.hp - buffetDmg);
-                log(`💨 Wing Buffet! ${buffetDmg} damage${!GS.artifacts.some(a => a.effect === 'anchoredSlots') ? ' + attack slot disabled 1 turn' : ''}!`, 'damage');
+                GS.hp = Math.max(0, GS.hp - dmg);
+                if (blocked > 0) {
+                    log(`💨 Wing Buffet! ${buffetDmg} damage — blocked ${blocked}, took ${dmg}${!GS.artifacts.some(a => a.effect === 'anchoredSlots') ? ' + attack slot disabled 1 turn' : ''}!`, 'damage');
+                } else {
+                    log(`💨 Wing Buffet! ${buffetDmg} damage${!GS.artifacts.some(a => a.effect === 'anchoredSlots') ? ' + attack slot disabled 1 turn' : ''}!`, 'damage');
+                }
                 updateStats();
                 if (GS.hp <= 0) { setTimeout(() => window.Game.defeat(), 1000); return; }
                 Combat.renderEnemy();
@@ -1088,8 +1100,8 @@ export const Combat = {
                 return `⚔️ Strike (${rageAtk})`;
             }
             if (boss === 'wyrm') {
-                if (action === 'breath') return '🔥 Fire Breath';
-                if (action === 'wingbuffet') return '💨 Wing Buffet';
+                if (action === 'breath') return '🔥 Fire Breath (18)';
+                if (action === 'wingbuffet') return '💨 Wing Buffet (10)';
                 return `⚔️ Strike (${rageAtk})`;
             }
             if (boss === 'void') {
@@ -1114,8 +1126,8 @@ export const Combat = {
         if (eName === 'Crimson Wyrm') {
             const idx = as.patternIdx || 0;
             const nextAction = as.pattern && as.pattern[idx % 4];
-            if (nextAction === 'breath') text = '🔥 Fire Breath incoming!';
-            else if (nextAction === 'wingbuffet') text = '💨 Wing Buffet incoming!';
+            if (nextAction === 'breath') text = '🔥 Fire Breath: 18 dmg + burn!';
+            else if (nextAction === 'wingbuffet') text = '💨 Wing Buffet: 10 dmg + disable!';
             else text = `⚔️ Attacks for ${rageAtk}${as.phase2 ? ' + burn' : ''}`;
             if (foresight && as.pattern) {
                 const after = _bossActionLabel(as.pattern[(idx + 1) % 4], 'wyrm');

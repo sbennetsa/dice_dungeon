@@ -179,6 +179,11 @@ export function renderBuffs() {
 // ════════════════════════════════════════════════════════════
 let dragDie = null;
 
+// Reroll mode: player clicks which dice to reroll
+let rerollMode = false;
+export function enterRerollMode() { rerollMode = true; renderCombatDice(); }
+export function exitRerollMode() { rerollMode = false; renderCombatDice(); }
+
 // Touch drag state
 let touchGhost = null;
 let touchDragDie = null;
@@ -388,15 +393,15 @@ export function renderCombatDice() {
 
     updateSlotTotals();
 
-    const rerollEl = $('reroll-counter');
-    if (rerollEl) {
-        if (GS.rerolls > 0) {
-            rerollEl.style.display = 'inline';
-            rerollEl.textContent = `🔄 ${GS.rerollsLeft}/${GS.rerolls}`;
-            rerollEl.style.color = GS.rerollsLeft > 0 ? 'var(--gold)' : 'var(--text-dim)';
-        } else {
-            rerollEl.style.display = 'none';
-        }
+    const rerollBtn = $('btn-reroll-mode');
+    const rerollCancelBtn = $('btn-reroll-cancel');
+    const canReroll = GS.rolled && GS.rerollsLeft > 0;
+    if (rerollBtn) {
+        rerollBtn.style.display = (canReroll && !rerollMode) ? 'inline-block' : 'none';
+        rerollBtn.textContent = `🔄 Reroll (${GS.rerollsLeft})`;
+    }
+    if (rerollCancelBtn) {
+        rerollCancelBtn.style.display = rerollMode ? 'inline-block' : 'none';
     }
 }
 
@@ -432,6 +437,7 @@ export function makeDieElement(die, context) {
         if (!die.rolled || GS.rerollsLeft <= 0) return false;
         if (die.slotId && getSlotById(die.slotId)?.rune?.effect === 'leaden') return false; // Leaden slot: cannot reroll
         GS.rerollsLeft--;
+        if (GS.rerollsLeft === 0) rerollMode = false;
         const oldVal = die.value;
         rollSingleDie(die);
         const newFace = getActiveFace(die);
@@ -452,18 +458,20 @@ export function makeDieElement(die, context) {
 
     if (die.rolled && context === 'pool') {
         el.style.cursor = 'pointer';
-        el.title = GS.rerollsLeft > 0 ? 'L-click → Attack | R-click → Defend | Tap 🔄 to Reroll' : 'Left-click → Attack | Right-click → Defend';
+        el.title = 'Left-click → Attack | Right-click → Defend';
 
         el.onmousedown = e => {
             e.preventDefault();
+            if (rerollMode) { tryReroll(); return; }
             if (e.button === 1 && tryReroll()) return;
             if (e.button === 0) allocateDie(die, 'attack');
             else if (e.button === 2) allocateDie(die, 'defend');
         };
 
-        // Touch: tap=attack, long-press=defend, double-tap=reroll, drag=drag-to-slot
+        // Touch: tap=attack, long-press=defend, drag=drag-to-slot; in reroll mode: tap=reroll
         el.ontouchstart = e => {
             e.preventDefault();
+            if (rerollMode) { tryReroll(); touchHandled = true; return; }
             const now = Date.now();
             const lastTap = touchLastTap[die.id] || 0;
             if (now - lastTap < 300 && tryReroll()) {
@@ -505,9 +513,10 @@ export function makeDieElement(die, context) {
 
     } else if (die.rolled && (context === 'attack' || context === 'defend')) {
         el.style.cursor = 'pointer';
-        el.title = GS.rerollsLeft > 0 ? 'Click to return | Tap 🔄 to reroll' : 'Click to return to pool';
+        el.title = 'Click to return to pool';
         el.onmousedown = e => {
             e.preventDefault();
+            if (rerollMode) { tryReroll(); return; }
             if (e.button === 1 && tryReroll()) return;
             die.location = 'pool';
             GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== die.id);
@@ -515,10 +524,11 @@ export function makeDieElement(die, context) {
             renderCombatDice();
         };
 
-        // Touch in slot: double-tap=reroll, single-tap=return, drag=drag-to-pool
+        // Touch in slot: single-tap=return, drag=drag-to-pool; in reroll mode: tap=reroll
         let lastSlotTap = 0;
         el.ontouchstart = e => {
             e.preventDefault();
+            if (rerollMode) { tryReroll(); touchHandled = true; return; }
             const now = Date.now();
             if (now - lastSlotTap < 300 && tryReroll()) { lastSlotTap = 0; return; }
             lastSlotTap = now;
@@ -563,24 +573,8 @@ export function makeDieElement(die, context) {
     }
 
     const inLeadenSlot = die.slotId && getSlotById(die.slotId)?.rune?.effect === 'leaden';
-    if (die.rolled && GS.rerollsLeft > 0 && context !== 'auto' && !inLeadenSlot) {
-        const rerollBadge = document.createElement('div');
-        rerollBadge.style.cssText = `
-            position:absolute; bottom:-14px; right:-14px; width:36px; height:36px;
-            background:rgba(212,165,52,0.95); border-radius:50%; display:flex;
-            align-items:center; justify-content:center; font-size:0.85em;
-            cursor:pointer; z-index:5; border:2px solid rgba(255,255,255,0.5);
-            box-shadow: 0 0 8px rgba(212,165,52,0.7);
-            touch-action:none;
-        `;
-        rerollBadge.textContent = '🔄';
-        rerollBadge.title = `Reroll this die (${GS.rerollsLeft} left)`;
-        rerollBadge.onclick = (e) => { e.stopPropagation(); e.preventDefault(); tryReroll(); };
-        rerollBadge.onmousedown = (e) => { e.stopPropagation(); };
-        rerollBadge.ontouchstart = (e) => { e.stopPropagation(); e.preventDefault(); tryReroll(); };
-        el.style.position = 'relative';
-        el.style.overflow = 'visible';
-        el.appendChild(rerollBadge);
+    if (rerollMode && die.rolled && context !== 'auto' && !inLeadenSlot) {
+        el.classList.add('reroll-selectable');
     }
 
     return el;

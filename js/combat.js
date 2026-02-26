@@ -3,7 +3,7 @@
 // ════════════════════════════════════════════════════════════
 import { BOSSES, ENEMIES, ELITES, pickEnemy } from './constants.js';
 import { GS, $, log, gainXP, gainGold, heal, pick } from './state.js';
-import { rollSingleDie, getActiveFace, renderCombatDice, updateStats, setupDropZones, show, createDie, getSlotById } from './engine.js';
+import { rollSingleDie, getActiveFace, renderCombatDice, updateStats, setupDropZones, show, createDie, getSlotById, enterRerollMode, exitRerollMode } from './engine.js';
 
 // window.Game and window.Rewards are set by screens.js at load time
 // to avoid circular module dependencies
@@ -111,6 +111,7 @@ export const Combat = {
         GS.huntersMarkFired = false;
         GS.hourglassFreeFirstTurn = false;
         GS.furyCharges = 0;
+        exitRerollMode();
 
         // Remove Midas Die temp dice from previous combat
         GS.dice = GS.dice.filter(d => !d.midasTemp);
@@ -332,9 +333,13 @@ export const Combat = {
         renderCombatDice();
     },
 
+    enterRerollMode,
+    exitRerollMode,
+
     execute() {
         if ($('btn-execute')) $('btn-execute').style.display = 'none';
         if ($('btn-return-all')) $('btn-return-all').style.display = 'none';
+        exitRerollMode();
 
         const eName = GS.enemy.name;
         const as = GS.enemy.abilityState;

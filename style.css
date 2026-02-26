@@ -312,6 +312,26 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     50% { filter: brightness(1.3); }
 }
 
+/* Reroll mode: selectable dice glow gold */
+.die.reroll-selectable {
+    border-color: var(--gold) !important;
+    box-shadow: 0 0 14px rgba(212, 165, 52, 0.6) !important;
+    cursor: crosshair !important;
+    animation: pulse-glow 1s ease infinite;
+}
+.die.reroll-selectable:hover {
+    box-shadow: 0 0 22px rgba(212, 165, 52, 0.85) !important;
+    transform: translateY(-3px) scale(1.06) !important;
+}
+
+/* Reroll button variant */
+.btn-reroll {
+    background: rgba(212, 165, 52, 0.15);
+    border-color: var(--gold);
+    color: var(--gold);
+}
+.btn-reroll:hover { background: var(--gold); color: var(--bg-deep); }
+
 /* ── Drag-over zones ── */
 .drag-over {
     border-color: var(--gold) !important;
@@ -837,26 +857,21 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 .tooltip-wrapper:hover .tooltip-text { visibility: visible; }
 
 /* ══════════════════════════════════════════════════════════
-   MOBILE: combat screen fits viewport — no scroll
+   MOBILE: non-combat screens scroll normally;
+           combat screen is a fixed full-viewport overlay
    ══════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
     body {
         padding: 0;
-        height: 100dvh;
-        overflow: hidden;
-        align-items: stretch;
         font-size: 16px;
+        align-items: flex-start;
     }
 
     #game {
-        height: 100dvh;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
         max-width: 100%;
     }
 
-    /* Non-combat screens scroll normally */
+    /* Non-combat screens: scroll naturally */
     #screen-start,
     #screen-reward,
     #screen-shop,
@@ -864,17 +879,20 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     #screen-rest,
     #screen-gameover {
         overflow-y: auto;
-        height: 100dvh;
+        -webkit-overflow-scrolling: touch;
         padding: 12px;
     }
 
-    /* Combat screen: flex column, no scroll except log */
+    /* Combat screen: fixed full-viewport overlay, flex column */
     #screen-combat.active {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
         display: flex;
         flex-direction: column;
-        height: 100dvh;
         overflow: hidden;
         padding: 8px;
+        background: var(--bg-deep);
     }
 
     /* Compact header */

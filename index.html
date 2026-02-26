@@ -30,7 +30,7 @@
             <div style="color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 0.8em; line-height: 2;">
                 ⚔️ &thinsp;3 Acts &middot; 15 Floors &middot; 3 Bosses<br>
                 🎲 &thinsp;Left-click → Attack &middot; Right-click → Defend<br>
-                📱 &thinsp;Mobile: Tap → Attack &middot; Hold → Defend &middot; Drag to slot<br>
+                📱 &thinsp;Mobile: Tap → Attack &middot; Hold → Defend &middot; Drag to slot &middot; 🔄 Reroll button<br>
                 🏗️ &thinsp;Level up to gain Attack or Defend slots
             </div>
         </div>
@@ -59,7 +59,7 @@
     <div id="enemy-panel" class="enemy-panel"></div>
 
     <div class="dice-tray" id="dice-tray-main">
-        <div class="tray-label">🎲 Your Dice — <span style="color:var(--attack-color)">Left-click → Attack</span> · <span style="color:var(--defend-color)">Right-click → Defend</span> · Click in slot to return <span id="reroll-counter" style="display:none; color: var(--gold); margin-left: 8px;">🔄 0</span></div>
+        <div class="tray-label">🎲 Your Dice — <span style="color:var(--attack-color)">Left-click → Attack</span> · <span style="color:var(--defend-color)">Right-click → Defend</span> · Click in slot to return</div>
         <div class="dice-pool" id="dice-pool" style="cursor: pointer;"></div>
         <div style="text-align:center; margin-top: 10px;">
             <span id="roll-hint" class="mono" style="color: var(--gold); font-size: 0.85em;">Click dice or press Roll to begin</span>
@@ -100,6 +100,8 @@
 
     <div class="action-bar">
         <button class="btn" id="btn-return-all" onclick="Combat.returnAll()" style="display:none;">↩ Return All</button>
+        <button class="btn btn-reroll" id="btn-reroll-mode" onclick="Combat.enterRerollMode()" style="display:none;">🔄 Reroll</button>
+        <button class="btn" id="btn-reroll-cancel" onclick="Combat.exitRerollMode()" style="display:none;">✕ Cancel</button>
     </div>
 
     <div class="combat-log" id="combat-log"></div>

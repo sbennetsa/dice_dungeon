@@ -2,9 +2,9 @@
 //  SCREENS — Game, Rewards, Shop, Events, Rest, Inventory
 //  Entry point: exposes all modules on window for onclick handlers
 // ════════════════════════════════════════════════════════════
-import { FACE_MODS, ARTIFACT_POOL, RUNES, SKILL_TREE, getAct, getFloorType, getArtifactPool } from './constants.js';
+import { FACE_MODS, ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, getAct, getFloorType, getArtifactPool, pickConsumablesForMarket, pickWeightedConsumable } from './constants.js';
 import { GS, $, rand, pick, shuffle, log, gainXP, gainGold, heal } from './state.js';
-import { createDie, createDieFromFaces, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice } from './engine.js';
+import { createDie, createDieFromFaces, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables } from './engine.js';
 import { Combat } from './combat.js';
 
 // ════════════════════════════════════════════════════════════
@@ -14,6 +14,60 @@ import { Combat } from './combat.js';
 function applyUpgrade(die) {
     upgradeDie(die);
     if (GS.tempBuffs && GS.tempBuffs.mastersHammer) upgradeDie(die);
+}
+
+// ════════════════════════════════════════════════════════════
+//  CONSUMABLE INVENTORY HELPER
+// ════════════════════════════════════════════════════════════
+function addConsumableToInventory(c, onDone) {
+    const filled = GS.consumables.filter(x => x !== null).length;
+    if (filled < GS.consumableSlots) {
+        // Add to first empty slot
+        let placed = false;
+        for (let i = 0; i < GS.consumableSlots; i++) {
+            if (!GS.consumables[i]) { GS.consumables[i] = c; placed = true; break; }
+        }
+        if (!placed) GS.consumables.push(c);
+        renderConsumables();
+        if (onDone) onDone();
+        return;
+    }
+    // Inventory full: show swap overlay
+    const overlay = document.getElementById('consumable-swap');
+    const cardsEl = document.getElementById('consumable-swap-cards');
+    const cancelBtn = document.getElementById('consumable-swap-cancel');
+    if (!overlay) { if (onDone) onDone(); return; }
+
+    const renderCard = (cons, label) => {
+        const d = document.createElement('div');
+        d.className = 'card';
+        d.style.cssText = 'width:130px; cursor:pointer; text-align:center;';
+        d.innerHTML = `<div style="font-size:1.5em; margin-bottom:4px;">${cons.icon}</div><div class="card-title" style="font-size:0.85em;">${cons.name}</div><div class="card-desc" style="font-size:0.75em;">${cons.description}</div><div style="margin-top:6px; font-size:0.7em; color:var(--text-dim);">${label}</div>`;
+        return d;
+    };
+
+    cardsEl.innerHTML = '';
+    const close = () => { overlay.style.display = 'none'; cancelBtn.onclick = null; if (onDone) onDone(); };
+    cancelBtn.onclick = close;
+
+    GS.consumables.forEach((existing, idx) => {
+        if (!existing) return;
+        const card = renderCard(existing, '← Replace this');
+        card.onclick = () => {
+            GS.consumables[idx] = c;
+            renderConsumables();
+            close();
+        };
+        cardsEl.appendChild(card);
+    });
+
+    // Show new item
+    const newCard = renderCard(c, '(new item)');
+    newCard.style.opacity = '0.5';
+    newCard.style.cursor = 'default';
+    cardsEl.appendChild(newCard);
+
+    overlay.style.display = 'block';
 }
 
 // ════════════════════════════════════════════════════════════
@@ -98,6 +152,13 @@ const Game = {
                 goldForge: false, thornsAura: 0, vampiricWard: false,
             },
             ascendedDice: [],
+            consumables: [],
+            consumableSlots: 2,
+            consumableBonus: 1,
+            consumableUsedThisTurn: false,
+            ironSkinActive: false,
+            ragePotionActive: false,
+            hasteDiceBonus: 0,
         });
         Game.enterFloor();
     },
@@ -1003,13 +1064,37 @@ const Shop = {
     items: [],
     purchased: new Set(),
     refreshCount: 0,
+    tab: 'forge',
+    marketItems: [],
+    marketPurchased: new Set(),
+    marketRefreshCount: 0,
 
     enter() {
         Shop.purchased = new Set();
         Shop.refreshCount = 0;
+        Shop.tab = 'forge';
+        Shop.marketPurchased = new Set();
+        Shop.marketRefreshCount = 0;
         Shop.generateItems();
+        Shop.generateMarket();
         Shop.render();
         show('screen-shop');
+    },
+
+    switchTab(tab) {
+        Shop.tab = tab;
+        const forgeBtn = document.getElementById('tab-forge');
+        const marketBtn = document.getElementById('tab-market');
+        const forgeEl = document.getElementById('shop-forge-content');
+        const marketEl = document.getElementById('shop-market-content');
+        if (forgeBtn) forgeBtn.classList.toggle('active', tab === 'forge');
+        if (marketBtn) marketBtn.classList.toggle('active', tab === 'market');
+        if (forgeEl) forgeEl.style.display = tab === 'forge' ? '' : 'none';
+        if (marketEl) marketEl.style.display = tab === 'market' ? '' : 'none';
+    },
+
+    generateMarket() {
+        Shop.marketItems = pickConsumablesForMarket(5);
     },
 
     generateItems() {
@@ -1019,20 +1104,18 @@ const Shop = {
         const totalSlots = GS.slots.attack.length + GS.slots.defend.length;
 
         const all = [
-            { title: '🎲 Weighted Die', desc: `A die that rolls 2-7 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 35, type: 'DICE',
-              effect: 'Adds 2-7 die to your pool',
+            { title: '🎲 Weighted Die', desc: `Rolls 2-7 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 35, type: 'DICE',
+              effect: 'Adds a 2-7 die to your pool',
               action: () => { GS.dice.push(createDie(2, 7)); log('Bought Weighted Die (2-7)!', 'info'); } },
-            { title: '💎 Power Die', desc: `A die that rolls 4-9 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 80, type: 'DICE',
-              effect: 'Adds 4-9 die to your pool',
+            { title: '💎 Power Die', desc: `Rolls 4-9 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 80, type: 'DICE',
+              effect: 'Adds a 4-9 die to your pool',
               action: () => { GS.dice.push(createDie(4, 9)); log('Bought Power Die (4-9)!', 'info'); } },
-            { title: '🛡️ Iron Plate', desc: 'Permanent damage reduction', price: 30, type: 'BUFF',
-              effect: '+2 armor', action: () => { GS.buffs.armor += 2; log('+2 armor!', 'info'); } },
-            { title: '❤️ Health Potion', desc: 'Restore vitality', price: 20, type: 'CONSUMABLE',
-              effect: 'Heal 25 HP', action: () => { const h = heal(25); log(`Healed ${h} HP`, 'heal'); } },
-            { title: '💪 Vitality Gem', desc: 'Increase your maximum', price: 35, type: 'BUFF',
-              effect: '+12 Max HP', action: () => { GS.maxHp += 12; GS.hp += 12; log('+12 Max HP!', 'heal'); } },
             { title: '⬆️ Die Upgrade', desc: 'Improve one die\'s range', price: 50, type: 'UPGRADE',
               effect: '+1/+1 to a die', action: () => { Shop.showUpgrade(); return false; } },
+            { title: '🗡️ Blade Oil', desc: 'Sharpen your blades permanently', price: 25, type: 'BUFF',
+              effect: '+3 attack damage', action: () => { GS.buffs.damageBoost += 3; log('+3 attack damage!', 'info'); } },
+            { title: '🛡️ Iron Plate', desc: 'Fortify your defences permanently', price: 30, type: 'BUFF',
+              effect: '+2 armor', action: () => { GS.buffs.armor += 2; log('+2 armor!', 'info'); } },
         ];
 
         const hasTrimmable = GS.dice.some(d => d.faceValues && d.faceValues.length > 3);
@@ -1045,13 +1128,9 @@ const Shop = {
 
         if (GS.act >= 2) {
             all.push(
-                { title: '⚡ Titan Die', desc: 'A die that rolls 6-11', price: 150, type: 'DICE',
-                  effect: 'Adds 6-11 die to your pool',
+                { title: '⚡ Titan Die', desc: `Rolls 6-11 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 150, type: 'DICE',
+                  effect: 'Adds a 6-11 die to your pool',
                   action: () => { GS.dice.push(createDie(6, 11)); log('Bought Titan Die (6-11)!', 'info'); } },
-                { title: '🗡️ Vorpal Edge', desc: 'Massive permanent boost', price: 120, type: 'BUFF',
-                  effect: '+6 attack damage', action: () => { GS.buffs.damageBoost += 6; log('+6 damage!', 'info'); } },
-                { title: '🏰 Fortress', desc: 'Major defense upgrade', price: 100, type: 'BUFF',
-                  effect: '+4 armor, +15 Max HP', action: () => { GS.buffs.armor += 4; GS.maxHp += 15; GS.hp += 15; log('+4 armor, +15 Max HP!', 'heal'); } },
             );
         }
 
@@ -1067,9 +1146,8 @@ const Shop = {
 
         const runeOffers = shuffle([...RUNES]).slice(0, GS.act >= 2 ? 2 : 1);
         runeOffers.forEach(rune => {
-            const price = GS.act >= 2 ? 80 : 100;
             all.push({
-                title: `${rune.icon} ${rune.name}`, desc: `Rune — ${rune.desc}`, price,
+                title: `${rune.icon} ${rune.name}`, desc: `Rune — ${rune.desc}`, price: 80,
                 type: 'RUNE', effect: rune.desc,
                 action: () => {
                     showRuneAttachment(rune, () => { Shop.render(); show('screen-shop'); });
@@ -1088,7 +1166,14 @@ const Shop = {
 
     render() {
         updateStats();
+        Shop.switchTab(Shop.tab);
+        Shop._renderForge();
+        Shop._renderMarket();
+    },
+
+    _renderForge() {
         const c = $('shop-cards');
+        if (!c) return;
         c.innerHTML = '';
 
         Shop.items.forEach((item, i) => {
@@ -1109,7 +1194,7 @@ const Shop = {
                     const result = item.action();
                     if (result !== false) {
                         updateStats();
-                        Shop.render();
+                        Shop._renderForge();
                     }
                 };
             }
@@ -1123,7 +1208,7 @@ const Shop = {
         refreshCard.className = 'card' + (canRefresh ? '' : ' disabled');
         refreshCard.style.borderColor = canRefresh ? 'var(--gold)' : '';
         refreshCard.innerHTML = `
-            <div class="card-title">🔄 Refresh Shop</div>
+            <div class="card-title">🔄 Refresh Forge</div>
             <div class="card-desc">Reroll all offerings</div>
             <div class="card-price">${isFreeRefresh ? '✨ FREE' : refreshCost + ' gold'}</div>
         `;
@@ -1134,11 +1219,80 @@ const Shop = {
                 Shop.purchased = new Set();
                 Shop.generateItems();
                 updateStats();
-                Shop.render();
-                log(`🔄 Shop refreshed!${refreshCost > 0 ? ` (-${refreshCost} gold)` : ' (free!)'}`, 'info');
+                Shop._renderForge();
+                log(`🔄 Forge refreshed!${refreshCost > 0 ? ` (-${refreshCost} gold)` : ' (free!)'}`, 'info');
             };
         }
         c.appendChild(refreshCard);
+    },
+
+    _renderMarket() {
+        const marketEl = document.getElementById('shop-market-content');
+        if (!marketEl) return;
+        marketEl.innerHTML = '';
+
+        // Current inventory display
+        const invBar = document.createElement('div');
+        invBar.className = 'market-inventory';
+        const invLabel = document.createElement('span');
+        invLabel.style.cssText = 'color:var(--text-dim); flex-shrink:0;';
+        invLabel.textContent = `🧴 Supplies (${GS.consumables.filter(x=>x).length}/${GS.consumableSlots}):`;
+        invBar.appendChild(invLabel);
+        for (let i = 0; i < GS.consumableSlots; i++) {
+            const c = GS.consumables[i];
+            const slot = document.createElement('div');
+            slot.className = 'market-inv-slot' + (c ? '' : ' empty');
+            slot.textContent = c ? `${c.icon} ${c.name}` : 'Empty';
+            invBar.appendChild(slot);
+        }
+        marketEl.appendChild(invBar);
+
+        // Consumable cards
+        const grid = document.createElement('div');
+        grid.className = 'card-grid';
+        Shop.marketItems.forEach((item, i) => {
+            const bought = Shop.marketPurchased.has(i);
+            const canBuy = GS.gold >= item.price && !bought;
+            const rarityColor = item.rarity === 'rare' ? '#e8c97a' : item.rarity === 'uncommon' ? '#7ab4e8' : '#aaa';
+            const card = document.createElement('div');
+            card.className = 'card' + (canBuy ? '' : ' disabled');
+            card.innerHTML = `
+                <div class="card-title">${item.icon} ${item.name}</div>
+                <div class="card-desc" style="color:${rarityColor}; font-size:0.75em; margin-bottom:4px;">[${item.rarity}] ${item.category}</div>
+                <div class="card-effect">${item.description}</div>
+                <div class="card-price">${bought ? '✓ SOLD' : item.price + ' gold'}</div>
+            `;
+            if (canBuy) {
+                card.onclick = () => {
+                    GS.gold -= item.price;
+                    Shop.marketPurchased.add(i);
+                    updateStats();
+                    addConsumableToInventory({ ...item }, () => Shop._renderMarket());
+                };
+            }
+            grid.appendChild(card);
+        });
+
+        // Market refresh button (10g flat)
+        const mRefreshCost = 10;
+        const canMRefresh = GS.gold >= mRefreshCost;
+        const mRefreshCard = document.createElement('div');
+        mRefreshCard.className = 'card' + (canMRefresh ? '' : ' disabled');
+        mRefreshCard.style.borderColor = canMRefresh ? 'var(--gold)' : '';
+        mRefreshCard.innerHTML = `<div class="card-title">🔄 Refresh Market</div><div class="card-desc">Restock consumables</div><div class="card-price">${mRefreshCost} gold</div>`;
+        if (canMRefresh) {
+            mRefreshCard.onclick = () => {
+                GS.gold -= mRefreshCost;
+                Shop.marketRefreshCount++;
+                Shop.marketPurchased = new Set();
+                Shop.generateMarket();
+                updateStats();
+                Shop._renderMarket();
+                log(`🔄 Market restocked! (-${mRefreshCost} gold)`, 'info');
+            };
+        }
+        grid.appendChild(mRefreshCard);
+        marketEl.appendChild(grid);
     },
 
     showUpgrade() {
@@ -1958,9 +2112,12 @@ const Rest = {
     _transformDone: false,
     _maintenanceDone: false,
 
+    _consumablePicked: false,
+
     enter() {
         Rest._transformDone = false;
         Rest._maintenanceDone = false;
+        Rest._consumablePicked = false;
         Rest._render();
     },
 
@@ -2084,14 +2241,54 @@ const Rest = {
         content.appendChild(maintGrid);
 
         if (Rest._transformDone && Rest._maintenanceDone) {
-            const contDiv = document.createElement('div');
-            contDiv.style.cssText = 'text-align:center; margin-top:16px;';
-            const contBtn = document.createElement('button');
-            contBtn.className = 'btn btn-primary';
-            contBtn.textContent = 'Continue →';
-            contBtn.onclick = () => Game.enterFloor();
-            contDiv.appendChild(contBtn);
-            content.appendChild(contDiv);
+            // ── CONSUMABLE PICK ──
+            if (!Rest._consumablePicked) {
+                const sep2 = document.createElement('hr');
+                sep2.style.cssText = 'border:none; border-top:1px solid var(--border); margin:12px 0;';
+                content.appendChild(sep2);
+
+                const supHeader = document.createElement('div');
+                supHeader.className = 'section-title';
+                supHeader.textContent = '🧴 TAKE A SUPPLY — Choose one (or skip)';
+                content.appendChild(supHeader);
+
+                const supGrid = document.createElement('div');
+                supGrid.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:8px;';
+                const offers = [pickWeightedConsumable(), pickWeightedConsumable(), pickWeightedConsumable()];
+                offers.forEach(item => {
+                    const rarityColor = item.rarity === 'rare' ? '#e8c97a' : item.rarity === 'uncommon' ? '#7ab4e8' : '#aaa';
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.style.cssText = 'width:140px; cursor:pointer;';
+                    card.innerHTML = `<div style="font-size:1.4em; text-align:center;">${item.icon}</div><div class="card-title" style="font-size:0.85em;">${item.name}</div><div class="card-desc" style="color:${rarityColor}; font-size:0.7em;">[${item.rarity}]</div><div class="card-effect" style="font-size:0.78em;">${item.description}</div>`;
+                    card.onclick = () => {
+                        addConsumableToInventory({ ...item });
+                        Rest._consumablePicked = true;
+                        Rest._render();
+                    };
+                    supGrid.appendChild(card);
+                });
+                content.appendChild(supGrid);
+
+                const skipSupBtn = document.createElement('button');
+                skipSupBtn.className = 'btn';
+                skipSupBtn.textContent = 'Skip supply';
+                skipSupBtn.style.cssText = 'display:block; margin:0 auto 12px;';
+                skipSupBtn.onclick = () => { Rest._consumablePicked = true; Rest._render(); };
+                content.appendChild(skipSupBtn);
+            }
+
+            // Only show Continue after supply pick (or skip)
+            if (Rest._consumablePicked) {
+                const contDiv = document.createElement('div');
+                contDiv.style.cssText = 'text-align:center; margin-top:16px;';
+                const contBtn = document.createElement('button');
+                contBtn.className = 'btn btn-primary';
+                contBtn.textContent = 'Continue →';
+                contBtn.onclick = () => Game.enterFloor();
+                contDiv.appendChild(contBtn);
+                content.appendChild(contDiv);
+            }
         }
 
         show('screen-rest');
@@ -2521,6 +2718,30 @@ const Inventory = {
             </div>
         </div>`;
 
+        // ── CONSUMABLES ──
+        const filledSlots = GS.consumables.filter(x => x);
+        html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
+            <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">🧴 SUPPLIES (${filledSlots.length}/${GS.consumableSlots})</div>`;
+        for (let i = 0; i < GS.consumableSlots; i++) {
+            const c = GS.consumables[i];
+            if (c) {
+                const rarityColor = c.rarity === 'rare' ? '#e8c97a' : c.rarity === 'uncommon' ? '#7ab4e8' : '#aaa';
+                html += `<div style="display:flex; align-items:center; gap:8px; font-size:0.82em; margin:4px 0; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+                    <span style="font-size:1.2em;">${c.icon}</span>
+                    <div>
+                        <strong>${c.name}</strong> <span style="color:${rarityColor}; font-size:0.8em;">[${c.rarity}]</span><br>
+                        <span style="opacity:0.7;">${c.description}</span>
+                    </div>`;
+                if (c.usableOutsideCombat && !GS.enemy) {
+                    html += `<button class="btn" style="font-size:0.7em; padding:3px 8px; margin-left:auto;" onclick="Combat._applyConsumable(${i}); Inventory.render();">Use</button>`;
+                }
+                html += `</div>`;
+            } else {
+                html += `<div style="font-size:0.82em; margin:3px 0; opacity:0.4;">Slot ${i+1}: Empty</div>`;
+            }
+        }
+        html += `</div>`;
+
         html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
             <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">🎲 DICE (${GS.dice.length})</div>`;
         GS.dice.filter(d => !d.midasTemp).forEach((die, i) => {
@@ -2577,6 +2798,7 @@ window.Shop = Shop;
 window.Events = Events;
 window.Rest = Rest;
 window.Inventory = Inventory;
+window.addConsumableToInventory = addConsumableToInventory;
 
 // Prevent right-click context menu on combat screen
 document.getElementById('screen-combat').addEventListener('contextmenu', e => e.preventDefault());

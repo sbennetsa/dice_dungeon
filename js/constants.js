@@ -322,3 +322,98 @@ export const SKILL_TREE = [
     { id: 'gt', name: 'War Chest', icon: '🔗', desc: '+30 gold, +1 Reroll', row: 5, col: 3, requires: ['g4', 't4'], requiresAny: true, effect: (gs) => { gs.gold += 30; gs.rerolls++; } },
     { id: 'tv2', name: 'Versatility', icon: '🔗', desc: '+1 to both slot types', row: 5, col: 5, requires: ['t4', 'v4'], requiresAny: true, effect: (gs) => { gs.slots.attack.push({ id: `atk-${Date.now()}`, rune: null }); gs.slots.defend.push({ id: `def-${Date.now()}`, rune: null }); } },
 ];
+
+// ════════════════════════════════════════════════════════════
+//  CONSUMABLES
+// ════════════════════════════════════════════════════════════
+export const CONSUMABLES = [
+    // ── POTIONS ──
+    { id: 'hp1',    name: 'Healing Potion',         icon: '❤️',    category: 'potion',  rarity: 'common',   price: 10,
+      description: 'Restore 20 HP', usableOutsideCombat: true,  usableOnBoss: true },
+    { id: 'hp2',    name: 'Greater Healing Potion',  icon: '❤️‍🔥', category: 'potion',  rarity: 'uncommon', price: 20,
+      description: 'Restore 40 HP', usableOutsideCombat: true,  usableOnBoss: true },
+    { id: 'iron',   name: 'Iron Skin Potion',        icon: '🛡️',   category: 'potion',  rarity: 'rare',     price: 20,
+      description: 'Completely block the next enemy attack', usableOutsideCombat: false, usableOnBoss: true },
+    { id: 'cleanse',name: 'Cleansing Tonic',         icon: '✨',    category: 'potion',  rarity: 'uncommon', price: 15,
+      description: 'Remove all temporary debuffs (poison, burn, slot disable, dice reduction)', usableOutsideCombat: false, usableOnBoss: true },
+    { id: 'rage',   name: 'Rage Potion',             icon: '😤',    category: 'potion',  rarity: 'rare',     price: 25,
+      description: 'Double total attack damage this turn (final multiplier)', usableOutsideCombat: false, usableOnBoss: true },
+    { id: 'haste',  name: 'Haste Elixir',            icon: '⚡',    category: 'potion',  rarity: 'uncommon', price: 20,
+      description: '+2 rerolls and +1 to all dice values this turn', usableOutsideCombat: false, usableOnBoss: true },
+    // ── SCROLLS ──
+    { id: 'frost',  name: 'Frost Bomb',              icon: '🧊',    category: 'scroll',  rarity: 'rare',     price: 25,
+      description: 'Apply 6 Chill and Freeze to enemy (enemy skips next attack)', usableOutsideCombat: false, usableOnBoss: true },
+    { id: 'venom',  name: 'Venom Flask',             icon: '🧪',    category: 'scroll',  rarity: 'common',   price: 15,
+      description: 'Apply 8 poison to enemy immediately', usableOutsideCombat: false, usableOnBoss: true },
+    { id: 'fire',   name: 'Fire Scroll',             icon: '🔥',    category: 'scroll',  rarity: 'uncommon', price: 20,
+      description: 'Deal 15 damage and apply 4 burn/turn for 3 turns', usableOutsideCombat: false, usableOnBoss: true },
+    { id: 'mark',   name: 'Scroll of Marking',       icon: '🎯',    category: 'scroll',  rarity: 'uncommon', price: 15,
+      description: 'Apply 8 Mark to enemy for 3 turns (+8 damage from all sources)', usableOutsideCombat: false, usableOnBoss: true },
+    { id: 'weaken', name: 'Scroll of Weakening',     icon: '💔',    category: 'scroll',  rarity: 'uncommon', price: 20,
+      description: 'Apply Weaken to enemy for 3 turns (enemy deals 25% less damage)', usableOutsideCombat: false, usableOnBoss: true },
+    // ── CHARMS (auto-trigger) ──
+    { id: 'ward',   name: 'Death Ward',              icon: '💀',    category: 'charm',   rarity: 'rare',     price: 25,
+      description: 'Prevent lethal damage — survive at 1 HP instead of dying', usableOutsideCombat: false, usableOnBoss: true,
+      trigger: { condition: 'lethal' } },
+    { id: 'retrib', name: 'Retribution Charm',       icon: '⚡',    category: 'charm',   rarity: 'uncommon', price: 20,
+      description: 'When hit for 15+ damage: deal 20 damage and stun enemy', usableOutsideCombat: false, usableOnBoss: true,
+      trigger: { condition: 'hit', threshold: 15 } },
+    { id: 'lucky',  name: 'Lucky Charm',             icon: '🍀',    category: 'charm',   rarity: 'common',   price: 15,
+      description: 'After rolling: if your lowest die shows 1 or 2, reroll it to match your highest', usableOutsideCombat: false, usableOnBoss: true,
+      trigger: { condition: 'lowRoll', threshold: 2 } },
+    { id: 'smoke',  name: 'Escape Smoke',            icon: '💨',    category: 'charm',   rarity: 'uncommon', price: 15,
+      description: 'At 20% HP or below: flee combat (no rewards). Cannot flee bosses', usableOutsideCombat: false, usableOnBoss: false,
+      trigger: { condition: 'lowHp', threshold: 0.20 } },
+];
+
+// Common pool for weighted random
+const _COMMON_POOL    = CONSUMABLES.filter(c => c.rarity === 'common');
+const _UNCOMMON_POOL  = CONSUMABLES.filter(c => c.rarity === 'uncommon');
+const _RARE_POOL      = CONSUMABLES.filter(c => c.rarity === 'rare');
+
+export function pickWeightedConsumable(forceRarity) {
+    let pool;
+    if (forceRarity === 'common') {
+        pool = _COMMON_POOL;
+    } else {
+        const roll = Math.random() * 100;
+        if (roll < 40)       pool = _COMMON_POOL;
+        else if (roll < 75)  pool = _UNCOMMON_POOL;
+        else                 pool = _RARE_POOL;
+    }
+    const template = pool[Math.floor(Math.random() * pool.length)];
+    return { ...template };
+}
+
+// Generate market stock: at least 1 common, 1 uncommon, rest weighted
+export function pickConsumablesForMarket(n = 5) {
+    const result = [];
+    const used = new Set();
+    const addFrom = (pool) => {
+        const avail = pool.filter(c => !used.has(c.id));
+        if (!avail.length) return;
+        const pick = avail[Math.floor(Math.random() * avail.length)];
+        used.add(pick.id);
+        result.push({ ...pick });
+    };
+    addFrom(_COMMON_POOL);
+    addFrom(_UNCOMMON_POOL);
+    while (result.length < n) {
+        const roll = Math.random() * 100;
+        let pool = roll < 40 ? _COMMON_POOL : roll < 75 ? _UNCOMMON_POOL : _RARE_POOL;
+        const avail = pool.filter(c => !used.has(c.id));
+        if (!avail.length) {
+            // fallback: pick any unused
+            const allUnused = CONSUMABLES.filter(c => !used.has(c.id));
+            if (!allUnused.length) break;
+            const pick = allUnused[Math.floor(Math.random() * allUnused.length)];
+            used.add(pick.id);
+            result.push({ ...pick });
+        } else {
+            const pick = avail[Math.floor(Math.random() * avail.length)];
+            used.add(pick.id);
+            result.push({ ...pick });
+        }
+    }
+    return result;
+}

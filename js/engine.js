@@ -103,6 +103,46 @@ export function show(screenId) {
     $(screenId).classList.add('active');
 }
 
+export function renderConsumables() {
+    for (let i = 0; i < GS.consumableSlots; i++) {
+        const slot = document.getElementById(`cslot-${i}`);
+        if (!slot) continue;
+        const c = GS.consumables[i] || null;
+        slot.innerHTML = '';
+        slot.className = 'consumable-slot';
+        slot.onclick = null;
+
+        if (!c) {
+            slot.innerHTML = '<span style="opacity:0.2; font-size:0.7em; font-family:JetBrains Mono,monospace;">+</span>';
+            continue;
+        }
+
+        slot.classList.add('filled');
+
+        const rarityColor = c.rarity === 'rare' ? '#e8c97a' : c.rarity === 'uncommon' ? '#7ab4e8' : '#aaa';
+        const catTag = c.category === 'potion' ? 'Potion' : c.category === 'scroll' ? 'Scroll' : 'Charm';
+
+        slot.innerHTML = `${c.icon}<span class="c-tooltip"><span style="color:${rarityColor}; font-size:0.85em;">[${catTag}]</span> <b>${c.name}</b><br><span style="opacity:0.75;">${c.description}</span></span>`;
+
+        if (c.category === 'charm') {
+            slot.classList.add('charm-slot');
+            // Pulse when close to trigger threshold
+            if (c.id === 'smoke' && GS.hp > 0 && GS.hp / GS.maxHp < 0.30) slot.classList.add('pulse');
+            if (c.id === 'ward'  && GS.hp > 0 && GS.hp / GS.maxHp < 0.25) slot.classList.add('pulse');
+        } else {
+            // Glow when player's turn is active and consumable not yet used
+            if (GS.rolled && !GS.consumableUsedThisTurn) {
+                slot.classList.add('usable');
+            }
+            slot.onclick = () => {
+                if (window.Combat && typeof window.Combat.promptUseConsumable === 'function') {
+                    window.Combat.promptUseConsumable(i);
+                }
+            };
+        }
+    }
+}
+
 export function updateStats() {
     const sets = [
         ['s-floor','s-level','s-xp','s-hp','s-gold'],

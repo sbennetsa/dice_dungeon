@@ -1,9 +1,9 @@
 // ════════════════════════════════════════════════════════════
 //  COMBAT
 // ════════════════════════════════════════════════════════════
-import { BOSSES, ENEMIES, ELITES, pickEnemy } from './constants.js';
+import { BOSSES, ENEMIES, ELITES, pickEnemy, pickWeightedConsumable } from './constants.js';
 import { GS, $, log, gainXP, gainGold, heal, pick, rand } from './state.js';
-import { rollSingleDie, getActiveFace, renderCombatDice, updateStats, setupDropZones, show, createDie, getSlotById, enterRerollMode, exitRerollMode } from './engine.js';
+import { rollSingleDie, getActiveFace, renderCombatDice, renderConsumables, updateStats, setupDropZones, show, createDie, getSlotById, enterRerollMode, exitRerollMode } from './engine.js';
 
 // window.Game and window.Rewards are set by screens.js at load time
 // to avoid circular module dependencies
@@ -45,6 +45,18 @@ function applyStatus(type, stacks, turns = 2) {
             log('⚡ Stunned!', 'info');
         }
     }
+}
+
+// ── CONSUMABLE HELPERS ──
+function findConsumableIdx(id) { return GS.consumables.findIndex(c => c && c.id === id); }
+function findConsumable(id) { return GS.consumables.find(c => c && c.id === id); }
+function removeConsumableByIdx(i) {
+    GS.consumables[i] = null;
+    // trim trailing nulls
+    while (GS.consumables.length > 0 && GS.consumables[GS.consumables.length - 1] === null) {
+        GS.consumables.pop();
+    }
+    renderConsumables();
 }
 
 export const Combat = {
@@ -110,6 +122,11 @@ export const Combat = {
         GS.huntersMarkFired = false;
         GS.hourglassFreeFirstTurn = false;
         GS.furyCharges = 0;
+        // Reset per-combat consumable flags
+        GS.ironSkinActive = false;
+        GS.ragePotionActive = false;
+        GS.hasteDiceBonus = 0;
+        GS.consumableUsedThisTurn = false;
         exitRerollMode();
 
         // Remove Midas Die temp dice from previous combat
@@ -178,6 +195,7 @@ export const Combat = {
         setupDropZones();
         Combat.renderEnemy();
         renderCombatDice();
+        renderConsumables();
 
         const label = isBoss ? '👑 BOSS' : isElite ? '⚡ ELITE' : `Floor ${GS.floor}`;
         log(`${label}: ${GS.enemy.name} appears!`, 'info');
@@ -285,6 +303,28 @@ export const Combat = {
             }
         }
 
+        // Haste Elixir: +1 to all dice values this turn
+        if (GS.hasteDiceBonus > 0) {
+            GS.dice.forEach(d => {
+                if (d.rolled) d.value = Math.min(d.max, d.value + GS.hasteDiceBonus);
+            });
+        }
+
+        // Lucky Charm: if lowest die ≤ 2, reroll it to match highest
+        const luckyIdx = findConsumableIdx('lucky');
+        if (luckyIdx >= 0) {
+            const rolledDice = GS.dice.filter(d => d.rolled && d.location !== 'auto');
+            const hasLow = rolledDice.some(d => d.value <= 2);
+            if (hasLow) {
+                const lowest = rolledDice.reduce((a, b) => a.value <= b.value ? a : b);
+                const highest = rolledDice.reduce((a, b) => a.value >= b.value ? a : b);
+                const newVal = Math.max(highest.value, 1);
+                lowest.value = newVal;
+                log(`🍀 Lucky Charm triggered! Die rerolled to ${newVal}!`, 'info');
+                removeConsumableByIdx(luckyIdx);
+            }
+        }
+
         GS.dice.forEach(d => {
             // Midas Die: auto-fire gold on roll
             if (d.midasTemp && d.rolled && d.location !== 'auto') {
@@ -320,6 +360,7 @@ export const Combat = {
         setTimeout(() => {
             renderCombatDice();
             updateStats();
+            renderConsumables();
             log('Rolled: ' + GS.dice.map(d => d.value).join(', '), 'info');
         }, 400);
     },
@@ -649,6 +690,14 @@ export const Combat = {
         // ── DEAL DAMAGE TO PLAYER (once per attackTimes) ──
         let remainingDef = effectiveDef;
         for (let i = 0; i < attackTimes; i++) {
+            // Iron Skin Potion: completely blocks the first hit
+            if (i === 0 && GS.ironSkinActive) {
+                GS.ironSkinActive = false;
+                log(`🛡️ Iron Skin blocked the attack!`, 'info');
+                updateStats();
+                continue;
+            }
+
             const blocked = Math.min(enemyDmg, remainingDef);
             const mitigated = enemyDmg - blocked;
             remainingDef -= blocked;
@@ -702,13 +751,48 @@ export const Combat = {
                 }
             }
 
+            // Death Ward: prevent lethal damage
             if (GS.hp <= 0) {
-                GS.hp = 0;
+                const wardIdx = findConsumableIdx('ward');
+                if (wardIdx >= 0) {
+                    GS.hp = 1;
+                    log(`💀 Death Ward activated! Survived with 1 HP!`, 'heal');
+                    removeConsumableByIdx(wardIdx);
+                    updateStats();
+                } else {
+                    GS.hp = 0;
+                    updateStats();
+                    setTimeout(() => {
+                        if (GS.challengeMode) window.Game.challengeResult();
+                        else window.Game.defeat();
+                    }, 1000);
+                    return;
+                }
+            }
+
+            // Retribution Charm: deal 20 + stun when hit for 15+
+            if (mitigated >= 15) {
+                const retribIdx = findConsumableIdx('retrib');
+                if (retribIdx >= 0) {
+                    GS.enemy.currentHp = Math.max(0, GS.enemy.currentHp - 20);
+                    if (GS.challengeMode) GS.challengeDmg += 20;
+                    applyStatus('stun', 1);
+                    log(`⚡ Retribution Charm! 20 damage + stun!`, 'damage');
+                    removeConsumableByIdx(retribIdx);
+                    Combat.renderEnemy();
+                    if (GS.enemy.currentHp <= 0) { Combat.enemyDefeated(); return; }
+                }
+            }
+        }
+
+        // Escape Smoke: flee when HP below 20%
+        if (!GS.enemy.isBoss) {
+            const smokeIdx = findConsumableIdx('smoke');
+            if (smokeIdx >= 0 && GS.hp > 0 && GS.hp / GS.maxHp < 0.20) {
+                log(`💨 Escape Smoke! Fled the battle!`, 'info');
+                removeConsumableByIdx(smokeIdx);
                 updateStats();
-                setTimeout(() => {
-                    if (GS.challengeMode) window.Game.challengeResult();
-                    else window.Game.defeat();
-                }, 1000);
+                setTimeout(() => { window.Game.nextFloor(); }, 800);
                 return;
             }
         }
@@ -842,6 +926,13 @@ export const Combat = {
         let totalAtk = Math.floor(atkBase * atkMult) + atkBonus;
         // Sharpening Stone: +50% after all other bonuses
         if (GS.artifacts.some(a => a.effect === 'sharpeningStone')) totalAtk = Math.ceil(totalAtk * 1.5);
+
+        // Rage Potion: double attack damage as FINAL multiplier
+        if (GS.ragePotionActive) {
+            totalAtk = Math.floor(totalAtk * 2);
+            GS.ragePotionActive = false;
+            log(`😤 Rage Potion: attack damage doubled!`, 'info');
+        }
 
         // ── ENEMY ABILITY MODIFIERS ON PLAYER ATTACK ──
         let finalAtk = totalAtk;
@@ -1046,6 +1137,117 @@ export const Combat = {
             target.max = target.faceValues[target.faceValues.length - 1];
             log(`🌀 Entropy consumes a die! Lost face value ${removed} from a d${target.sides}!`, 'damage');
         }
+    },
+
+    // ── CONSUMABLE USE ──
+    promptUseConsumable(slotIndex) {
+        const c = GS.consumables[slotIndex];
+        if (!c) return;
+        if (c.category === 'charm') return; // charms are auto-trigger only
+
+        if (GS.consumableUsedThisTurn) {
+            log('⚠️ Already used a consumable this turn!', 'info');
+            return;
+        }
+        if (!GS.enemy) {
+            // Outside combat: only usableOutsideCombat items
+            if (!c.usableOutsideCombat) { log('⚠️ Cannot use this outside combat.', 'info'); return; }
+            Combat._applyConsumable(slotIndex);
+            return;
+        }
+        if (GS.enemy.isBoss && !c.usableOnBoss) {
+            log('⚠️ Cannot use this on a boss!', 'info');
+            return;
+        }
+
+        const overlay = document.getElementById('consumable-confirm');
+        const textEl = document.getElementById('consumable-confirm-text');
+        const descEl = document.getElementById('consumable-confirm-desc');
+        if (!overlay) { Combat._applyConsumable(slotIndex); return; }
+
+        textEl.innerHTML = `${c.icon} <b>${c.name}</b>`;
+        descEl.textContent = c.description + ' — This cannot be undone.';
+        overlay.style.display = 'block';
+
+        const yesBtn = document.getElementById('consumable-confirm-yes');
+        const noBtn = document.getElementById('consumable-confirm-no');
+        const close = () => { overlay.style.display = 'none'; yesBtn.onclick = null; noBtn.onclick = null; };
+        yesBtn.onclick = () => { close(); Combat._applyConsumable(slotIndex); };
+        noBtn.onclick = close;
+    },
+
+    _applyConsumable(slotIndex) {
+        const c = GS.consumables[slotIndex];
+        if (!c) return;
+        const bonus = GS.consumableBonus || 1;
+        log(`${c.icon} Used ${c.name}: ${c.description}`, 'info');
+
+        switch (c.id) {
+            case 'hp1': {
+                const h = heal(Math.floor(20 * bonus));
+                log(`❤️ Healed ${h} HP`, 'heal');
+                break;
+            }
+            case 'hp2': {
+                const h = heal(Math.floor(40 * bonus));
+                log(`❤️ Healed ${h} HP`, 'heal');
+                break;
+            }
+            case 'iron':
+                GS.ironSkinActive = true;
+                break;
+            case 'cleanse':
+                GS.playerDebuffs.poison = 0;
+                GS.playerDebuffs.poisonTurns = 0;
+                GS.playerDebuffs.slotDisabled = null;
+                GS.playerDebuffs.slotDisabledTurns = 0;
+                GS.playerDebuffs.diceReduction = 0;
+                log(`✨ Cleansed all debuffs!`, 'heal');
+                break;
+            case 'rage':
+                GS.ragePotionActive = true;
+                break;
+            case 'haste':
+                GS.rerollsLeft += 2;
+                GS.hasteDiceBonus = 1;
+                log(`⚡ +2 rerolls and +1 to all dice this turn!`, 'info');
+                renderCombatDice();
+                break;
+            case 'frost':
+                applyStatus('chill', 6, 2);
+                applyStatus('freeze', 1, 1);
+                break;
+            case 'venom':
+                applyEnemyPoison(8);
+                break;
+            case 'fire': {
+                const dmg = 15;
+                GS.enemy.currentHp = Math.max(0, GS.enemy.currentHp - dmg);
+                if (GS.challengeMode) GS.challengeDmg += dmg;
+                log(`🔥 Fire Scroll: ${dmg} damage!`, 'damage');
+                applyStatus('burn', 4, 3);
+                Combat.renderEnemy();
+                if (GS.enemy.currentHp <= 0) {
+                    GS.consumables[slotIndex] = null;
+                    while (GS.consumables.length > 0 && GS.consumables[GS.consumables.length - 1] === null) GS.consumables.pop();
+                    Combat.enemyDefeated();
+                    return;
+                }
+                break;
+            }
+            case 'mark':
+                applyStatus('mark', 8, 3);
+                break;
+            case 'weaken':
+                applyStatus('weaken', 1, 3);
+                break;
+        }
+
+        GS.consumables[slotIndex] = null;
+        while (GS.consumables.length > 0 && GS.consumables[GS.consumables.length - 1] === null) GS.consumables.pop();
+        GS.consumableUsedThisTurn = true;
+        renderConsumables();
+        updateStats();
     },
 
     updateIntent() {
@@ -1254,6 +1456,11 @@ export const Combat = {
             }
         }
 
+        // ── RESET PER-TURN CONSUMABLE FLAGS ──
+        GS.consumableUsedThisTurn = false;
+        GS.ragePotionActive = false;
+        GS.hasteDiceBonus = 0;
+
         // ── RESET DICE FOR NEW TURN ──
         GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; delete d.slotId; });
         GS.allocated = { attack: [], defend: [] };
@@ -1367,6 +1574,7 @@ export const Combat = {
 
         Combat.renderEnemy();
         renderCombatDice();
+        renderConsumables();
         setTimeout(() => Combat.roll(), 300);
     },
 
@@ -1417,6 +1625,13 @@ export const Combat = {
         }
         gainXP(earnedXP);
         updateStats();
+
+        // Consumable drop: 20% chance from non-boss, non-elite enemies (common pool only)
+        if (!e.isBoss && !e.isElite && Math.random() < 0.20) {
+            const drop = pickWeightedConsumable('common');
+            log(`The enemy dropped a ${drop.icon} ${drop.name}!`, 'info');
+            if (window.addConsumableToInventory) window.addConsumableToInventory(drop);
+        }
 
         // Clear player debuffs at end of combat
         GS.playerDebuffs = { poison: 0, poisonTurns: 0, slotDisabled: null, slotDisabledTurns: 0, diceReduction: 0 };

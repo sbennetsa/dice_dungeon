@@ -189,8 +189,16 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     color: var(--red-bright);
 }
 
-.player-hp-bar {
+/* ── HP + CONSUMABLE ROW ── */
+.hp-consumable-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin-bottom: 8px;
+}
+.player-hp-bar {
+    flex: 1;
+    margin-bottom: 0;
 }
 .player-hp-container {
     width: 100%;
@@ -1009,3 +1017,148 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     .slot-placeholder { width: 42px; height: 42px; }
     .stats-row { gap: 6px; font-size: 0.75em; }
 }
+
+/* ════════════════════════════════════════════════════════════
+   CONSUMABLE SLOTS
+════════════════════════════════════════════════════════════ */
+.consumable-slots {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.consumable-slot {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    border: 2px dashed rgba(255,255,255,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2em;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background: var(--bg-raised);
+    user-select: none;
+}
+.consumable-slot.filled {
+    border-style: solid;
+    border-color: rgba(255,255,255,0.35);
+}
+.consumable-slot.usable {
+    animation: consumable-glow 1.5s ease-in-out infinite;
+}
+.consumable-slot.charm-slot {
+    cursor: default;
+    opacity: 0.85;
+}
+.consumable-slot.pulse {
+    animation: consumable-pulse 0.8s ease-in-out infinite;
+}
+.consumable-slot.greyed {
+    opacity: 0.35;
+    pointer-events: none;
+}
+@keyframes consumable-glow {
+    0%,100% { box-shadow: 0 0 4px rgba(255,220,100,0.4); border-color: rgba(255,220,100,0.5); }
+    50%      { box-shadow: 0 0 10px rgba(255,220,100,0.9); border-color: rgba(255,220,100,0.9); }
+}
+@keyframes consumable-pulse {
+    0%,100% { box-shadow: 0 0 4px rgba(255,80,80,0.4); border-color: rgba(255,80,80,0.5); }
+    50%      { box-shadow: 0 0 12px rgba(255,80,80,0.9); border-color: rgba(255,80,80,0.9); }
+}
+
+/* Consumable tooltip */
+.consumable-slot .c-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a1a2e;
+    border: 1px solid #555;
+    padding: 6px 8px;
+    border-radius: 6px;
+    min-width: 150px;
+    max-width: 200px;
+    font-size: 0.72em;
+    white-space: normal;
+    z-index: 60;
+    pointer-events: none;
+    line-height: 1.4;
+}
+.consumable-slot:hover .c-tooltip { display: block; }
+
+/* Consumable confirm overlay box */
+.consumable-confirm-box {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    max-width: 340px;
+    margin: 15vh auto;
+    text-align: center;
+    font-size: 0.9em;
+}
+
+/* Rarity tag colors */
+.rarity-common   { color: #aaa; }
+.rarity-uncommon { color: #7ab4e8; }
+.rarity-rare     { color: #e8c97a; }
+
+/* ════════════════════════════════════════════════════════════
+   SHOP TABS
+════════════════════════════════════════════════════════════ */
+.shop-tabs-row {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 0;
+}
+.shop-tab {
+    padding: 7px 18px;
+    border-radius: 6px 6px 0 0;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    background: var(--bg-raised);
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 0.85em;
+    font-family: 'JetBrains Mono', monospace;
+    transition: background 0.15s, color 0.15s;
+}
+.shop-tab.active {
+    background: var(--bg-surface);
+    color: var(--gold);
+    border-color: var(--border);
+}
+#shop-forge-content, #shop-market-content {
+    border: 1px solid var(--border);
+    border-radius: 0 6px 6px 6px;
+    padding: 12px;
+    background: var(--bg-surface);
+    margin-bottom: 4px;
+}
+
+/* Market inventory bar */
+.market-inventory {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px;
+    margin-bottom: 12px;
+    font-size: 0.82em;
+}
+.market-inv-slot {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    min-width: 60px;
+    font-size: 1em;
+    background: var(--bg-raised);
+}
+.market-inv-slot.empty { color: var(--text-dim); font-size: 0.8em; }

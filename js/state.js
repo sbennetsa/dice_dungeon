@@ -73,6 +73,15 @@ export const GS = {
     hourglassFreeFirstTurn: false,
     huntersMarkFired: false,
     parasiteGoldPerCombat: 0,    // accumulates per-run from Parasite kills
+    // ── CONSUMABLE INVENTORY ──
+    consumables: [],             // max length = consumableSlots; null entries = empty slots
+    consumableSlots: 2,
+    consumableBonus: 1,          // future hook: multiplier on consumable effects
+    // ── PER-COMBAT CONSUMABLE FLAGS ──
+    consumableUsedThisTurn: false,
+    ironSkinActive: false,
+    ragePotionActive: false,
+    hasteDiceBonus: 0,
 };
 
 // ════════════════════════════════════════════════════════════

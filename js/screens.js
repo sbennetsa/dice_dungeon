@@ -4,7 +4,7 @@
 // ════════════════════════════════════════════════════════════
 import { FACE_MODS, ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, getAct, getFloorType, getArtifactPool, pickConsumablesForMarket, pickWeightedConsumable } from './constants.js';
 import { GS, $, rand, pick, shuffle, log, gainXP, gainGold, heal } from './state.js';
-import { createDie, createDieFromFaces, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables } from './engine.js';
+import { createDie, createDieFromFaces, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones } from './engine.js';
 import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } from './encounters/encounterGenerator.js';
 import { applyEliteModifier, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
@@ -358,31 +358,84 @@ const Game = {
         GS.challengeDmg = 0;
         GS.challengeTurns = 0;
 
+        const eDie = s => createDie(1, s, s);
         GS.enemy = {
             name: '💀 The Eternal Guardian',
             hp: 999999,
+            maxHp: 999999,
             currentHp: 999999,
-            baseAtk: 8 + GS.level * 2,
-            intent: 8 + GS.level * 2,
+            dice: [10, 10, 10, 10].map(eDie),
+            extraDice: [],
+            abilities: {
+                strike: { name: 'Guardian Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+                gather: { name: 'Gather Power', icon: '💪', type: 'buff', desc: 'Store dice sum for next attack' },
+                crush:  { name: 'Crushing Blow', icon: '💥', type: 'attack', desc: 'Deal damage (3 pierce)', penetrate: 3 },
+            },
+            passives: [
+                { id: 'escalate', name: 'Eternal Wrath', desc: '+1d8 every 3 turns', params: { interval: 3, dieSize: 8 } },
+            ],
+            pattern: ['strike', 'strike', 'gather', 'crush'],
+            phases: null,
+            patternIdx: 0,
+            storedBonus: 0,
+            turnsAlive: 0,
+            phaseTriggered: [],
+            phylacteryUsed: false,
+            bloodFrenzyTriggered: false,
+            _mitosisTriggered: false,
+            _damageTakenMult: 1,
+            _doubleAction: false,
+            shield: 0,
+            charged: false,
+            immune: false,
+            diceResults: [],
+            intentValue: 0,
+            currentAbilityKey: null,
             gold: 0,
-            turn: 0,
-            rage: 0,
-            poison: 0,
+            xp: 0,
+            eliteGoldMult: 1,
+            eliteXpMult: 1,
             isElite: false,
             isBoss: true,
+            poison: 0,
         };
 
-        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; });
+        // Reset combat state (mirrors Combat.start)
+        GS.playerDebuffs = { poison: 0, poisonTurns: 0, slotDisabled: null, slotDisabledTurns: 0, diceReduction: 0 };
+        GS.enemyStatus = { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: false };
+        GS.echoStoneDieId = null;
+        GS.gamblerCoinBonus = 0;
+        GS.huntersMarkFired = false;
+        GS.hourglassFreeFirstTurn = false;
+        GS.furyCharges = 0;
+        GS.ironSkinActive = false;
+        GS.ragePotionActive = false;
+        GS.hasteDiceBonus = 0;
+        GS.consumableUsedThisTurn = false;
+        GS.environment = null;
+        GS._chaosStormActive = false;
+        GS.isFirstTurn = true;
+
+        // Reset dice and combat allocations
+        GS.dice = GS.dice.filter(d => !d.midasTemp);
+        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; delete d.slotId; });
         GS.allocated = { attack: [], defend: [] };
         GS.rolled = false;
         GS.rerollsLeft = GS.rerolls;
         GS.autoLifesteal = 0;
+        GS.regenStacks = 0;
 
+        // Roll first enemy intent and render
+        Combat._rollEnemyTurn();
         Combat.renderEnemy();
         renderCombatDice();
+        renderConsumables();
+        setupDropZones();
         updateStats();
         show('screen-combat');
         log('💀 The Eternal Guardian awakens. It cannot be killed — deal as much damage as you can!', 'damage');
+        const diceDesc = GS.enemy.dice.map(d => `d${d.max}`).join('+');
+        log(`💀 Challenge: The Eternal Guardian (${diceDesc} | Escalates every 3 turns)`, 'info');
         setTimeout(() => Combat.roll(), 300);
     },
 

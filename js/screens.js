@@ -7,7 +7,7 @@ import { GS, $, rand, pick, shuffle, log, gainXP, gainGold, heal } from './state
 import { createDie, createDieFromFaces, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones } from './engine.js';
 import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } from './encounters/encounterGenerator.js';
-import { applyEliteModifier, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
+import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 
 // ════════════════════════════════════════════════════════════
 //  HELPERS
@@ -3419,9 +3419,10 @@ const EncounterChoice = {
         const { visible, hidden } = eliteModifiers;
         const purple = '#c060ff';
 
-        // Preview enemy with visible modifier applied
+        // Preview enemy with visible modifier applied + scaled passives
         const previewEnemy = deepClone(enemy);
         applyEliteModifier(previewEnemy, visible);
+        scaleElitePassives(previewEnemy);
 
         // --- HP change ---
         const hpChanged = previewEnemy.hp !== enemy.hp;

@@ -233,7 +233,10 @@ const Game = {
         const challenge = document.createElement('button');
         challenge.className = 'btn btn-execute-main';
         challenge.textContent = '💀 Challenge the Eternal Guardian';
-        challenge.onclick = () => Game.startChallengeBoss();
+        challenge.onclick = () => {
+            challenge.disabled = true;
+            Game.startChallengeBoss();
+        };
         btns.appendChild(challenge);
 
         show('screen-gameover');
@@ -645,6 +648,25 @@ const Rewards = {
 
         wrapper.appendChild(svg);
         c.appendChild(wrapper);
+
+        // Check if any nodes are available to unlock
+        const anyAvailable = SKILL_TREE.some(node => {
+            if (GS.unlockedNodes.includes(node.id)) return false;
+            if (node.requires.length === 0) return true;
+            return node.requiresAny
+                ? node.requires.some(r => GS.unlockedNodes.includes(r))
+                : node.requires.every(r => GS.unlockedNodes.includes(r));
+        });
+
+        const skipDiv = document.createElement('div');
+        skipDiv.style.cssText = 'text-align:center; margin-top:12px;';
+        const skipBtn = document.createElement('button');
+        skipBtn.className = 'btn';
+        skipBtn.textContent = anyAvailable ? 'Skip' : 'No nodes available — Continue';
+        skipBtn.onclick = () => callback();
+        skipDiv.appendChild(skipBtn);
+        c.appendChild(skipDiv);
+
         show('screen-reward');
     },
 
@@ -2460,7 +2482,7 @@ const Rest = {
 
     _render() {
         updateStats();
-        $('rest-title').textContent = `Act ${GS.act - 1} Complete — Rest & Prepare`;
+        $('rest-title').textContent = `Act ${GS.act} Complete — Rest & Prepare`;
         const content = $('rest-content');
         content.innerHTML = '';
 

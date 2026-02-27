@@ -1729,6 +1729,10 @@ export const Combat = {
         summary.skillPoints = GS.pendingSkillPoints || 0;
         GS.battleSummary = summary;
 
+        if (GS.challengeMode) {
+            setTimeout(() => window.Game.challengeResult(), 1200);
+            return;
+        }
         if (GS.enemy.isBoss && GS.floor >= 15) {
             setTimeout(() => window.Game.victory(), 1200);
             return;

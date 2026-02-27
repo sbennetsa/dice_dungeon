@@ -329,6 +329,24 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     border-style: dashed;
 }
 
+.die.aura-boosted {
+    border-color: rgba(255, 200, 0, 0.4);
+    box-shadow: 0 0 10px rgba(255, 200, 0, 0.15);
+}
+.die.aura-boosted.special {
+    box-shadow: 0 0 10px rgba(255, 200, 0, 0.15), 0 0 8px rgba(212, 165, 52, 0.2);
+}
+
+.die .die-aura-badge {
+    position: absolute;
+    bottom: 2px;
+    right: 3px;
+    font-size: 0.35em;
+    font-weight: 700;
+    color: #ffe070;
+    text-shadow: 0 0 4px rgba(255, 200, 0, 0.6);
+}
+
 .die.special {
     border-color: var(--gold);
     box-shadow: 0 0 8px rgba(212, 165, 52, 0.2);

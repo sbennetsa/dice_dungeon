@@ -3272,13 +3272,56 @@ const Inventory = {
 const EncounterChoice = {
     show(encounter) {
         GS.encounter = encounter;
-        const { enemy, environment, anomaly, eliteModifiers, floor, isBossFloor, eliteOffered, eliteChance } = encounter;
+        const { enemy, environment, anomaly, eliteModifiers, floor, isBossFloor, eliteOffered } = encounter;
 
         $('encounter-header').innerHTML = this._buildHeader(floor, isBossFloor, anomaly, environment);
-        $('encounter-standard-panel').innerHTML = this._buildStandardPanel(enemy, isBossFloor);
-        $('encounter-elite-panel').innerHTML = eliteOffered
-            ? this._buildElitePanel(enemy, eliteModifiers, isBossFloor)
-            : this._buildLockedElitePanel(eliteChance);
+
+        const standardHtml = this._buildStandardPanel(enemy, isBossFloor);
+        const body = $('encounter-body');
+
+        if (eliteOffered) {
+            const eliteHtml = this._buildElitePanel(enemy, eliteModifiers, isBossFloor);
+            body.innerHTML = `
+                <div class="encounter-card-flipper">
+                    <span class="encounter-flip-label">View Elite</span>
+                    <button class="encounter-flip-btn" title="Flip to Elite / Standard">&#x21bb;</button>
+                    <div class="encounter-card-flipper__inner">
+                        <div class="encounter-card-flipper__face encounter-card-flipper__front">
+                            ${standardHtml}
+                        </div>
+                        <div class="encounter-card-flipper__face encounter-card-flipper__back">
+                            ${eliteHtml}
+                        </div>
+                    </div>
+                </div>`;
+
+            const flipper = body.querySelector('.encounter-card-flipper');
+            const flipBtn = body.querySelector('.encounter-flip-btn');
+            const flipLabel = body.querySelector('.encounter-flip-label');
+            flipBtn.addEventListener('click', () => {
+                const isFlipped = flipper.classList.toggle('flipped');
+                flipLabel.textContent = isFlipped ? 'View Standard' : 'View Elite';
+
+                // Match flipper height to the visible face
+                const inner = flipper.querySelector('.encounter-card-flipper__inner');
+                const front = flipper.querySelector('.encounter-card-flipper__front');
+                const back = flipper.querySelector('.encounter-card-flipper__back');
+                if (isFlipped) {
+                    inner.style.height = back.offsetHeight + 'px';
+                } else {
+                    inner.style.height = front.offsetHeight + 'px';
+                }
+            });
+
+            // Set initial height to match front face
+            requestAnimationFrame(() => {
+                const inner = flipper.querySelector('.encounter-card-flipper__inner');
+                const front = flipper.querySelector('.encounter-card-flipper__front');
+                inner.style.height = front.offsetHeight + 'px';
+            });
+        } else {
+            body.innerHTML = standardHtml;
+        }
 
         show('screen-encounter');
     },
@@ -3387,10 +3430,11 @@ const EncounterChoice = {
             : '';
         const patternDiv = patternStr ? `<div style="font-size:0.8em; color:var(--text-dim); margin-top:4px;">Pattern: ${patternStr}</div>` : '';
 
+        const cardVariant = isBossFloor ? 'encounter-card--boss' : 'encounter-card--standard';
         return `
-            <div class="encounter-card encounter-card--standard">
+            <div class="encounter-card ${cardVariant}">
               <div class="encounter-card__inner">
-                <div class="encounter-card__title">⚔️ Standard</div>
+                <div class="encounter-card__title">${isBossFloor ? '💀 Boss' : '⚔️ Standard'}</div>
                 <div class="encounter-card__art">
                     <div class="encounter-card__name">${enemy.name}</div>
                     <div class="encounter-card__stats">❤️ ${enemy.hp} HP &nbsp;·&nbsp; 🎲 ${diceStr}</div>

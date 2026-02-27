@@ -3,7 +3,7 @@
 // ════════════════════════════════════════════════════════════
 import { pickEnemy, BOSSES } from '../constants.js';
 import { selectEnvironment } from './environmentSystem.js';
-import { selectEliteModifiers, selectBossEliteModifiers, applyEliteModifier, calculateRewardMultipliers } from './eliteModifierSystem.js';
+import { selectEliteModifiers, selectBossEliteModifiers, applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './eliteModifierSystem.js';
 import { rollForAnomaly, applyAnomaly } from './anomalySystem.js';
 
 const BOSS_FLOORS = [5, 10, 15];
@@ -77,6 +77,7 @@ export function generateEncounter(floor) {
 export function applyEliteChoice(enemy, eliteModifiers) {
     applyEliteModifier(enemy, eliteModifiers.visible);
     applyEliteModifier(enemy, eliteModifiers.hidden);
+    scaleElitePassives(enemy);
 
     enemy.isElite          = true;
     enemy.appliedModifiers = [eliteModifiers.visible, eliteModifiers.hidden];

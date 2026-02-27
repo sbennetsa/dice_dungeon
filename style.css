@@ -1369,12 +1369,152 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 
 #encounter-body {
     display: flex;
-    gap: 12px;
+    gap: 16px;
     margin-top: 12px;
+    align-items: stretch;
+    justify-content: center;
 }
+
+/* ════════════════════════════════════════════════════════════
+   ENCOUNTER CARDS — TCG-style
+════════════════════════════════════════════════════════════ */
+.encounter-card {
+    flex: 1;
+    max-width: 340px;
+    display: flex;
+    flex-direction: column;
+    border-radius: 12px;
+    padding: 5px;
+    position: relative;
+    overflow: hidden;
+}
+.encounter-card--standard {
+    background: linear-gradient(160deg, #3a3a5a 0%, #2a2a44 40%, #1a1a2a 100%);
+    box-shadow: 0 0 12px rgba(200, 200, 216, 0.08), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.encounter-card--elite {
+    background: linear-gradient(160deg, #4a2a6a 0%, #2e1848 40%, #1a1028 100%);
+    box-shadow: 0 0 16px rgba(192, 96, 255, 0.15), inset 0 1px 0 rgba(192,96,255,0.12);
+}
+.encounter-card--locked {
+    background: linear-gradient(160deg, #2a2a3a 0%, #1a1a28 40%, #111118 100%);
+    box-shadow: 0 0 8px rgba(100, 100, 120, 0.08);
+    opacity: 0.55;
+}
+
+.encounter-card__inner {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-deep);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Title bar */
+.encounter-card__title {
+    padding: 10px 14px;
+    font-size: 1em;
+    font-weight: bold;
+    text-align: center;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.encounter-card--standard .encounter-card__title { color: var(--text-bright); }
+.encounter-card--elite .encounter-card__title { color: #c060ff; }
+.encounter-card--locked .encounter-card__title { color: #666; }
+
+/* Art / illustration area */
+.encounter-card__art {
+    padding: 12px 14px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    position: relative;
+}
+.encounter-card--standard .encounter-card__art {
+    background: linear-gradient(180deg, rgba(42,42,68,0.6) 0%, rgba(26,26,42,0.8) 100%);
+}
+.encounter-card--elite .encounter-card__art {
+    background: linear-gradient(180deg, rgba(74,42,106,0.3) 0%, rgba(26,16,40,0.5) 100%);
+}
+.encounter-card__name {
+    font-family: 'EB Garamond', serif;
+    font-size: 1.2em;
+    margin-bottom: 6px;
+}
+.encounter-card--elite .encounter-card__name { color: var(--text-bright); }
+.encounter-card__stats {
+    font-size: 0.85em;
+    color: var(--text-dim);
+}
+
+/* Body content */
+.encounter-card__body {
+    flex: 1;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.85em;
+}
+.encounter-card__section-label {
+    font-size: 0.78em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
+}
+.encounter-card__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+/* Modifier badge (elite only) */
+.encounter-card__mod-badge {
+    background: rgba(192,96,255,0.1);
+    border: 1px solid rgba(192,96,255,0.3);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.92em;
+}
+
+/* Rewards bar */
+.encounter-card__rewards {
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.82em;
+    color: var(--gold);
+}
+
+/* Footer / button */
+.encounter-card__footer {
+    padding: 10px 14px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.encounter-card__footer .btn { width: 100%; }
+.encounter-card--elite .encounter-card__footer .btn {
+    border-color: #c060ff;
+    color: #c060ff;
+}
+.encounter-card--elite .encounter-card__footer .btn:hover {
+    background: rgba(192,96,255,0.15);
+}
+.encounter-card--locked .encounter-card__footer .btn {
+    border-color: #555;
+    color: #555;
+    cursor: not-allowed;
+}
+
 @media (max-width: 768px) {
     #encounter-body {
         flex-direction: column;
+        align-items: center;
+    }
+    .encounter-card {
+        max-width: 100%;
+        width: 100%;
     }
     .encounter-ability-tag .enc-tooltip,
     .encounter-passive-tag .enc-tooltip {

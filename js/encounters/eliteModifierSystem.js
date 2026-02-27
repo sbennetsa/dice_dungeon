@@ -248,6 +248,76 @@ export function applyEliteModifier(enemy, modifier) {
 }
 
 // ────────────────────────────────────────────────────────────
+//  Elite passive scaling — buff the enemy's base passives
+// ────────────────────────────────────────────────────────────
+
+const ELITE_PASSIVE_SCALE = 1.5;
+
+/**
+ * Scale an enemy's existing passives to elite-tier values.
+ * Call once after elite modifiers are applied.
+ * @param {object} enemy
+ */
+export function scaleElitePassives(enemy) {
+    if (!enemy.passives) return;
+    const s = ELITE_PASSIVE_SCALE;
+    enemy.passives.forEach(p => {
+        const v = p.params;
+        switch (p.id) {
+            case 'thickHide':
+                v.threshold = Math.round(v.threshold * s);
+                p.desc = `Ignores slot damage below ${v.threshold}`;
+                break;
+            case 'regen':
+                v.amount = Math.round(v.amount * s);
+                p.desc = `Heals ${v.amount} HP per turn`;
+                break;
+            case 'armor':
+                v.reduction = Math.round(v.reduction * s);
+                p.desc = `Reduces ALL incoming damage by ${v.reduction}`;
+                break;
+            case 'scales':
+                v.perSlot = Math.round(v.perSlot * s);
+                p.desc = `First ${v.perSlot} damage from each slot is ignored`;
+                break;
+            case 'lifesteal':
+                v.percent = Math.min(0.75, +(v.percent * s).toFixed(2));
+                p.desc = `Heals ${Math.round(v.percent * 100)}% of damage dealt to player`;
+                break;
+            case 'brittle':
+                v.bonus = Math.round(v.bonus * s);
+                p.desc = `Takes +${v.bonus} damage from every hit`;
+                break;
+            case 'escalate':
+                v.interval = Math.max(2, v.interval - 1);
+                p.desc = `Gains +1d${v.dieSize} every ${v.interval} turns`;
+                break;
+            case 'phylactery':
+                v.revivePercent = Math.min(0.6, +(v.revivePercent * s).toFixed(2));
+                p.desc = `Revives once at ${Math.round(v.revivePercent * 100)}% HP`;
+                break;
+            case 'bloodFrenzy':
+                v.hpPercent = Math.min(0.5, +(v.hpPercent * s).toFixed(2));
+                p.desc = `Below ${Math.round(v.hpPercent * 100)}% HP, gains ${v.extraDice.length} extra d${v.extraDice[0]}`;
+                break;
+            case 'greedTax':
+                v.goldPer = Math.max(50, Math.round(v.goldPer / s));
+                p.desc = `Gains +1d${v.dieSize} per ${v.goldPer} gold player holds`;
+                break;
+            case 'overcharge':
+                v.threshold = Math.round(v.threshold * s);
+                p.desc = `If hit for ${v.threshold}+ in one turn, stunned next turn`;
+                break;
+            case 'mitosis':
+                v.turnTrigger = Math.max(2, v.turnTrigger - 1);
+                v.bonusHp = Math.round(v.bonusHp * s);
+                p.desc = `After ${v.turnTrigger} turns, evolves: gains bigger dice and +${v.bonusHp} HP`;
+                break;
+        }
+    });
+}
+
+// ────────────────────────────────────────────────────────────
 //  Reward multipliers
 // ────────────────────────────────────────────────────────────
 

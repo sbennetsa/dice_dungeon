@@ -7,7 +7,7 @@ import { GS, $, rand, pick, shuffle, log, gainXP, gainGold, heal } from './state
 import { createDie, createDieFromFaces, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones } from './engine.js';
 import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } from './encounters/encounterGenerator.js';
-import { applyEliteModifier, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
+import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 
 // ════════════════════════════════════════════════════════════
 //  HELPERS
@@ -1137,6 +1137,7 @@ const Rewards = {
                         if (d.max >= 9) {
                             d.faceValues = d.faceValues.map(v => v + art.value);
                             d.min += art.value; d.max += art.value;
+                            d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
                         }
                     });
                     log(`🏋️ Colossus Belt: dice with max≥9 gained +${art.value} to all faces!`, 'info');
@@ -1144,6 +1145,7 @@ const Rewards = {
                     GS.dice.forEach(d => {
                         d.faceValues = d.faceValues.map(v => v + art.value);
                         d.min += art.value; d.max += art.value;
+                        d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
                     });
                     GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2));
                     GS.hp = Math.min(GS.hp, GS.maxHp);
@@ -1365,12 +1367,14 @@ const BattleSummary = {
                         if (d.max >= 9) {
                             d.faceValues = d.faceValues.map(v => v + art.value);
                             d.min += art.value; d.max += art.value;
+                            d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
                         }
                     });
                 } else if (art.effect === 'glassCannon') {
                     GS.dice.forEach(d => {
                         d.faceValues = d.faceValues.map(v => v + art.value);
                         d.min += art.value; d.max += art.value;
+                        d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
                     });
                     GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2));
                     GS.hp = Math.min(GS.hp, GS.maxHp);
@@ -1955,11 +1959,11 @@ const Events = {
         GS.artifacts.push({ ...art });
         if (art.effect === 'colossussBelt') {
             GS.dice.forEach(d => {
-                if (d.max >= 9) { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; }
+                if (d.max >= 9) { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value })); }
             });
             log(`🏋️ Colossus Belt: dice with max≥9 gained +${art.value} to all faces!`, 'info');
         } else if (art.effect === 'glassCannon') {
-            GS.dice.forEach(d => { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; });
+            GS.dice.forEach(d => { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value })); });
             GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2)); GS.hp = Math.min(GS.hp, GS.maxHp);
             log(`💥 Glass Cannon: all dice +${art.value} faces, max HP halved!`, 'damage');
         }
@@ -2137,8 +2141,13 @@ const Events = {
                             Events._chooseDie('Choose a die to boost (+2/+2):', boostDie => {
                                 const newMin = Math.max(1, boostDie.min + 2);
                                 const newMax = Math.min(12, boostDie.max + 2);
-                                GS.dice = GS.dice.filter(d => d.id !== boostDie.id);
-                                GS.dice.push(createDie(newMin, newMax));
+                                const step = (newMax - newMin) / (boostDie.faceValues.length - 1);
+                                boostDie.faceValues = Array.from({length: boostDie.faceValues.length}, (_, i) => Math.round(newMin + step * i));
+                                boostDie.min = newMin; boostDie.max = newMax;
+                                boostDie.faces = boostDie.faces.map(f => {
+                                    const closest = boostDie.faceValues.reduce((best, v) => Math.abs(v - (f.faceValue + 2)) < Math.abs(best - (f.faceValue + 2)) ? v : best);
+                                    return { ...f, faceValue: closest };
+                                });
                                 log(`Traded ${sacDie.min}-${sacDie.max} die, boosted to ${newMin}-${newMax}!`, 'info');
                                 updateStats(); Game.nextFloor();
                             });
@@ -2930,6 +2939,18 @@ const Rest = {
             const facesB = sorted.filter((_, i) => i % 2 === 1);
             const dieA = createDieFromFaces(facesA);
             const dieB = createDieFromFaces(facesB);
+            // Distribute special face modifiers to the split dice
+            die.faces.forEach(f => {
+                if (dieA.faceValues.includes(f.faceValue)) {
+                    dieA.faces.push({ faceValue: f.faceValue, modifier: { ...f.modifier } });
+                } else if (dieB.faceValues.includes(f.faceValue)) {
+                    dieB.faces.push({ faceValue: f.faceValue, modifier: { ...f.modifier } });
+                } else {
+                    // Face value doesn't match exactly; assign to closest in dieA
+                    const closest = dieA.faceValues.reduce((best, v) => Math.abs(v - f.faceValue) < Math.abs(best - f.faceValue) ? v : best);
+                    dieA.faces.push({ faceValue: closest, modifier: { ...f.modifier } });
+                }
+            });
             GS.dice.splice(idx, 1, dieA, dieB);
             log(`💥 Fractured! d${sorted.length} → d${facesA.length} [${dieA.min}-${dieA.max}] + d${facesB.length} [${dieB.min}-${dieB.max}]`, 'info');
             updateStats();
@@ -3367,18 +3388,30 @@ const EncounterChoice = {
         const patternDiv = patternStr ? `<div style="font-size:0.8em; color:var(--text-dim); margin-top:4px;">Pattern: ${patternStr}</div>` : '';
 
         return `
-            <div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; flex:1;">
-                <div style="font-size:1em; font-weight:bold; margin-bottom:10px; color:var(--text);">⚔️ Standard</div>
-                <div style="font-size:1.05em; font-family:EB Garamond,serif; margin-bottom:6px;">${enemy.name}</div>
-                <div style="font-size:0.85em; color:var(--text-dim); margin-bottom:4px;">❤️ ${enemy.hp} HP · 🎲 ${diceStr}</div>
-                ${phaseSection}
-                <div style="font-size:0.8em; color:var(--text-dim); margin-top:8px;">Abilities:</div>
-                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">${abilityTags}</div>
-                <div style="font-size:0.8em; color:var(--text-dim); margin-top:6px;">Passives:</div>
-                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">${passiveTags}</div>
-                ${patternDiv}
-                <div style="margin-top:10px; font-size:0.82em; color:var(--gold);">Rewards: ${goldRange}g · ${xpRange} XP${isBossFloor ? ' · Boss artifact' : ''}</div>
-                <button class="btn btn-primary" style="width:100%; margin-top:12px;" onclick="EncounterChoice.chooseStandard()">Fight (Standard)</button>
+            <div class="encounter-card encounter-card--standard">
+              <div class="encounter-card__inner">
+                <div class="encounter-card__title">⚔️ Standard</div>
+                <div class="encounter-card__art">
+                    <div class="encounter-card__name">${enemy.name}</div>
+                    <div class="encounter-card__stats">❤️ ${enemy.hp} HP &nbsp;·&nbsp; 🎲 ${diceStr}</div>
+                    ${phaseSection}
+                </div>
+                <div class="encounter-card__body">
+                    <div>
+                        <div class="encounter-card__section-label">Abilities</div>
+                        <div class="encounter-card__tags">${abilityTags}</div>
+                    </div>
+                    <div>
+                        <div class="encounter-card__section-label">Passives</div>
+                        <div class="encounter-card__tags">${passiveTags}</div>
+                    </div>
+                    ${patternDiv}
+                    <div class="encounter-card__rewards">Rewards: ${goldRange}g · ${xpRange} XP${isBossFloor ? ' · Boss artifact' : ''}</div>
+                </div>
+                <div class="encounter-card__footer">
+                    <button class="btn btn-primary" onclick="EncounterChoice.chooseStandard()">Fight (Standard)</button>
+                </div>
+              </div>
             </div>`;
     },
 
@@ -3386,16 +3419,10 @@ const EncounterChoice = {
         const { visible, hidden } = eliteModifiers;
         const purple = '#c060ff';
 
-        // Preview enemy with visible modifier applied
+        // Preview enemy with visible modifier applied + scaled passives
         const previewEnemy = deepClone(enemy);
         applyEliteModifier(previewEnemy, visible);
-
-        // --- Modifier badge ---
-        const modBadge = `<div style="background:rgba(192,96,255,0.12); border:1px solid ${purple}; border-radius:6px; padding:6px 10px; margin-bottom:10px;">
-            <div style="color:${purple}; font-size:0.9em; font-weight:bold;">${visible.prefix}</div>
-            ${visible.addPassive ? `<div style="font-size:0.78em; color:var(--text-dim); margin-top:2px;">${visible.addPassive.desc}</div>` : ''}
-            <div style="font-size:0.75em; color:${purple}; margin-top:3px;">+ 1 hidden modifier (revealed on accept)</div>
-        </div>`;
+        scaleElitePassives(previewEnemy);
 
         // --- HP change ---
         const hpChanged = previewEnemy.hp !== enemy.hp;
@@ -3465,25 +3492,38 @@ const EncounterChoice = {
             ? (visible.artifactPicks ? `${visible.artifactPicks} boss artifacts` + (visible.legendaryChance ? ` + ${Math.round(visible.legendaryChance * 100)}% legendary` : '') : 'Boss artifact')
             : `<span style="color:${purple};">Artifact pick (1 of 3)</span>`;
 
-        // --- Hidden modifier note ---
-        const hiddenNote = `<div style="font-size:0.78em; color:${purple}; margin-top:8px; opacity:0.8; font-style:italic;">Estimated stats — hidden modifier will further change this enemy</div>`;
-
         return `
-            <div style="background:var(--bg-surface); border:1px solid ${purple}; border-radius:8px; padding:14px; flex:1;">
-                <div style="font-size:1em; font-weight:bold; margin-bottom:10px; color:${purple};">💀 Elite</div>
-                ${modBadge}
-                <div style="font-size:1.05em; font-family:EB Garamond,serif; margin-bottom:6px;">${enemy.name}</div>
-                <div style="font-size:0.85em; color:var(--text-dim); margin-bottom:4px;">❤️ ${previewEnemy.hp} HP${hpDelta} · 🎲 ${diceDisplay}</div>
-                ${phaseSection}
-                ${extraDiv}
-                <div style="font-size:0.8em; color:var(--text-dim); margin-top:8px;">Abilities:</div>
-                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">${abilityTags}</div>
-                <div style="font-size:0.8em; color:var(--text-dim); margin-top:6px;">Passives:</div>
-                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">${passiveTags}</div>
-                ${patternDiv}
-                <div style="margin-top:10px; font-size:0.82em; color:var(--gold);">Rewards: ${goldDisplay} · ${xpDisplay} · ${artifactNote}</div>
-                ${hiddenNote}
-                <button class="btn" style="width:100%; margin-top:12px; border-color:${purple}; color:${purple};" onclick="EncounterChoice.chooseElite()">Fight (Elite)</button>
+            <div class="encounter-card encounter-card--elite">
+              <div class="encounter-card__inner">
+                <div class="encounter-card__title">💀 Elite</div>
+                <div class="encounter-card__art">
+                    <div class="encounter-card__mod-badge">
+                        <div style="color:${purple}; font-weight:bold;">${visible.prefix}</div>
+                        ${visible.addPassive ? `<div style="font-size:0.78em; color:var(--text-dim); margin-top:2px;">${visible.addPassive.desc}</div>` : ''}
+                        <div style="font-size:0.75em; color:${purple}; margin-top:3px;">+ 1 hidden modifier (revealed on accept)</div>
+                    </div>
+                    <div class="encounter-card__name">${enemy.name}</div>
+                    <div class="encounter-card__stats">❤️ ${previewEnemy.hp} HP${hpDelta} &nbsp;·&nbsp; 🎲 ${diceDisplay}</div>
+                    ${phaseSection}
+                    ${extraDiv}
+                </div>
+                <div class="encounter-card__body">
+                    <div>
+                        <div class="encounter-card__section-label">Abilities</div>
+                        <div class="encounter-card__tags">${abilityTags}</div>
+                    </div>
+                    <div>
+                        <div class="encounter-card__section-label">Passives</div>
+                        <div class="encounter-card__tags">${passiveTags}</div>
+                    </div>
+                    ${patternDiv}
+                    <div class="encounter-card__rewards">Rewards: ${goldDisplay} · ${xpDisplay} · ${artifactNote}</div>
+                    <div style="font-size:0.78em; color:${purple}; opacity:0.8; font-style:italic;">Estimated stats — hidden modifier will further change this enemy</div>
+                </div>
+                <div class="encounter-card__footer">
+                    <button class="btn" onclick="EncounterChoice.chooseElite()">Fight (Elite)</button>
+                </div>
+              </div>
             </div>`;
     },
 
@@ -3491,12 +3531,21 @@ const EncounterChoice = {
         const pct = Math.round(eliteChance * 100);
         const nextAct = pct <= 33 ? 'Act 2' : 'Act 3';
         return `
-            <div style="background:var(--bg-surface); border:1px solid #555; border-radius:8px; padding:14px; flex:1; opacity:0.5;">
-                <div style="font-size:1em; font-weight:bold; margin-bottom:10px; color:#888;">💀 Elite</div>
-                <div style="font-size:0.9em; color:#888; margin-bottom:8px;">No elite challenge this floor.</div>
-                <div style="font-size:0.82em; color:var(--text-dim);">Elite encounters grow more common as you descend deeper.</div>
-                <div style="font-size:0.8em; color:#888; margin-top:8px;">${nextAct}: ${Math.min(pct + 33, 100)}% chance · Act 3: always</div>
-                <button class="btn" style="width:100%; margin-top:12px; border-color:#555; color:#555; cursor:not-allowed;" disabled>Not Available</button>
+            <div class="encounter-card encounter-card--locked">
+              <div class="encounter-card__inner">
+                <div class="encounter-card__title">💀 Elite</div>
+                <div class="encounter-card__art">
+                    <div class="encounter-card__name" style="color:#666;">No elite challenge</div>
+                    <div class="encounter-card__stats" style="color:#555;">this floor</div>
+                </div>
+                <div class="encounter-card__body">
+                    <div style="font-size:0.9em; color:#666;">Elite encounters grow more common as you descend deeper.</div>
+                    <div style="font-size:0.85em; color:#555;">${nextAct}: ${Math.min(pct + 33, 100)}% chance · Act 3: always</div>
+                </div>
+                <div class="encounter-card__footer">
+                    <button class="btn" disabled>Not Available</button>
+                </div>
+              </div>
             </div>`;
     },
 

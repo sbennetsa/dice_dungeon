@@ -416,10 +416,15 @@ const Game = {
 //  REWARDS
 // ════════════════════════════════════════════════════════════
 const Rewards = {
-    slotChoice(callback) {
-        GS.pendingSkillPoints = Math.max(0, (GS.pendingSkillPoints || 0) - 1);
+    slotChoice(callback, viewMode = false, backCallback = null) {
+        if (!viewMode) {
+            GS.pendingSkillPoints = Math.max(0, (GS.pendingSkillPoints || 0) - 1);
+        }
         updateStats();
-        $('reward-title').textContent = `⭐ Level ${GS.level} — Skill Tree`;
+        const pointsLeft = GS.pendingSkillPoints || 0;
+        $('reward-title').textContent = viewMode
+            ? `⭐ Passive Tree${pointsLeft > 0 ? ` (${pointsLeft} point${pointsLeft > 1 ? 's' : ''})` : ''}`
+            : `⭐ Level ${GS.level} — Skill Tree`;
         const c = $('reward-cards');
         c.innerHTML = '';
 
@@ -525,7 +530,8 @@ const Rewards = {
                 (node.requiresAny
                     ? node.requires.some(r => GS.unlockedNodes.includes(r))
                     : node.requires.every(r => GS.unlockedNodes.includes(r)));
-            const isAvailable = !isUnlocked && meetsReqs;
+            const canAllocate = viewMode ? (GS.pendingSkillPoints || 0) > 0 : true;
+            const isAvailable = !isUnlocked && meetsReqs && canAllocate;
             const isCapstone = node.icon === '👑';
             const glowKey = node.id === 'root' ? 'root' : node.id[0] === 'w' ? 'w' : node.id[0] === 'g' ? 'g' : node.id[0] === 't' ? 't' : node.id[0] === 'v' ? 'v' : 'bridge';
 
@@ -611,6 +617,7 @@ const Rewards = {
 
             if (isAvailable) {
                 hitbox.addEventListener('click', () => {
+                    if (viewMode) GS.pendingSkillPoints = Math.max(0, (GS.pendingSkillPoints || 0) - 1);
                     GS.unlockedNodes.push(node.id);
                     node.effect(GS);
                     log(`🌟 ${node.name}: ${node.desc}`, 'info');
@@ -629,6 +636,7 @@ const Rewards = {
                 e.preventDefault();
                 showDetail();
                 if (isAvailable && tapped) {
+                    if (viewMode) GS.pendingSkillPoints = Math.max(0, (GS.pendingSkillPoints || 0) - 1);
                     GS.unlockedNodes.push(node.id);
                     node.effect(GS);
                     log(`🌟 ${node.name}: ${node.desc}`, 'info');
@@ -650,20 +658,28 @@ const Rewards = {
         c.appendChild(wrapper);
 
         // Check if any nodes are available to unlock
-        const anyAvailable = SKILL_TREE.some(node => {
+        const anyAvailableNode = SKILL_TREE.some(node => {
             if (GS.unlockedNodes.includes(node.id)) return false;
             if (node.requires.length === 0) return true;
             return node.requiresAny
                 ? node.requires.some(r => GS.unlockedNodes.includes(r))
                 : node.requires.every(r => GS.unlockedNodes.includes(r));
         });
+        const anyAvailable = anyAvailableNode && (viewMode ? (GS.pendingSkillPoints || 0) > 0 : true);
 
         const skipDiv = document.createElement('div');
-        skipDiv.style.cssText = 'text-align:center; margin-top:12px;';
+        skipDiv.style.cssText = 'text-align:right; margin-top:4px; padding-right:4px;';
         const skipBtn = document.createElement('button');
-        skipBtn.className = 'btn';
-        skipBtn.textContent = anyAvailable ? 'Skip' : 'No nodes available — Continue';
-        skipBtn.onclick = () => callback();
+        skipBtn.style.cssText = 'background:none; border:none; color:var(--text-dim); font-size:0.78em; cursor:pointer; font-family:JetBrains Mono, monospace; padding:4px 8px; opacity:0.6;';
+        skipBtn.onmouseenter = () => { skipBtn.style.opacity = '1'; skipBtn.style.color = 'var(--text)'; };
+        skipBtn.onmouseleave = () => { skipBtn.style.opacity = '0.6'; skipBtn.style.color = 'var(--text-dim)'; };
+        if (viewMode) {
+            skipBtn.textContent = '← Back';
+            skipBtn.onclick = () => (backCallback || callback)();
+        } else {
+            skipBtn.textContent = anyAvailable ? 'Skip →' : 'Continue →';
+            skipBtn.onclick = () => callback();
+        }
         skipDiv.appendChild(skipBtn);
         c.appendChild(skipDiv);
 
@@ -3134,16 +3150,45 @@ const Inventory = {
         }
 
         const unlocked = SKILL_TREE.filter(n => GS.unlockedNodes.includes(n.id));
+        const pendingPts = GS.pendingSkillPoints || 0;
+        const treeBorder = pendingPts > 0 ? 'border:1px solid #80ff80;' : 'border:1px solid var(--border);';
+        html += `<div style="background:var(--bg-surface); ${treeBorder} border-radius:8px; padding:14px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold);">⭐ SKILL TREE (${unlocked.length} nodes)</div>
+                <button class="btn" style="font-size:0.72em; padding:3px 10px;" onclick="Inventory._openPassiveTree()">🌳 View Tree</button>
+            </div>`;
+        if (pendingPts > 0) {
+            html += `<div style="color:#80ff80; font-size:0.82em; margin-bottom:6px; font-weight:bold;">⬆ ${pendingPts} skill point${pendingPts > 1 ? 's' : ''} available — tap View Tree to allocate</div>`;
+        }
         if (unlocked.length > 0) {
-            html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
-                <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">⭐ SKILL TREE (${unlocked.length} nodes)</div>`;
             unlocked.forEach(n => {
                 html += `<div style="font-size:0.82em; margin:3px 0;">${n.icon} <strong>${n.name}</strong> — ${n.desc}</div>`;
             });
-            html += `</div>`;
+        } else {
+            html += `<div style="font-size:0.82em; margin:3px 0; opacity:0.5;">No nodes unlocked yet</div>`;
         }
+        html += `</div>`;
 
         c.innerHTML = html;
+    },
+    _openPassiveTree() {
+        // Remember current active screen to return to it
+        const prevScreen = document.querySelector('.screen.active');
+        const prevScreenId = prevScreen ? prevScreen.id : 'screen-combat';
+        Inventory.visible = false;
+        $('inventory-overlay').style.display = 'none';
+
+        const viewLoop = () => {
+            Rewards.slotChoice(viewLoop, true, goBack);
+        };
+        const goBack = () => {
+            show(prevScreenId);
+            // Re-open inventory
+            Inventory.visible = true;
+            Inventory.render();
+            $('inventory-overlay').style.display = 'block';
+        };
+        Rewards.slotChoice(viewLoop, true, goBack);
     }
 };
 

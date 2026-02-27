@@ -2,9 +2,11 @@
 //  ENCOUNTER GENERATOR
 // ════════════════════════════════════════════════════════════
 import { pickEnemy, BOSSES } from '../constants.js';
+import { GS } from '../state.js';
 import { selectEnvironment } from './environmentSystem.js';
 import { selectEliteModifiers, selectBossEliteModifiers, applyEliteModifier, calculateRewardMultipliers } from './eliteModifierSystem.js';
-import { rollForAnomaly, applyAnomaly } from './anomalySystem.js';
+import { rollForAnomaly, applyAnomaly, ANOMALIES } from './anomalySystem.js';
+import { getFloorBlueprint, encounterFromBlueprint } from './dungeonBlueprint.js';
 
 const BOSS_FLOORS = [5, 10, 15];
 
@@ -14,38 +16,61 @@ const BOSS_FLOORS = [5, 10, 15];
 
 /**
  * Generate a complete encounter for the given floor.
- * Returns a fully-prepared encounter object ready for the choice screen.
- * Elite modifiers are pre-selected but NOT applied — applied only if player chooses Elite.
+ * If a dungeon blueprint exists, returns the pre-built encounter from it.
+ * Otherwise falls back to the original random generation.
  * @param {number} floor
  * @returns {object} Encounter
  */
 export function generateEncounter(floor) {
+    // ── Blueprint path: use pre-generated encounter ──
+    if (GS.blueprint) {
+        const floorBP = getFloorBlueprint(GS.blueprint, floor);
+        if (floorBP && (floorBP.type === 'combat' || floorBP.type === 'boss')) {
+            const encounter = encounterFromBlueprint(floorBP);
+
+            // Apply anomaly effects (modifies enemy in place, same as original)
+            if (encounter.anomaly) {
+                const anomalyDef = _getAnomalyDef(encounter.anomaly.id);
+                if (anomalyDef) {
+                    const result = applyAnomaly(encounter.enemy, anomalyDef, encounter.environment);
+                    if (result.environment !== undefined) encounter.environment = result.environment;
+                    encounter.enemy._anomalyLog = result.logMessage;
+                }
+            }
+
+            return encounter;
+        }
+    }
+
+    // ── Legacy path: generate on the fly ──
+    return _generateEncounterLegacy(floor);
+}
+
+/**
+ * Original encounter generation (pre-blueprint).
+ * Kept as fallback for backwards compatibility.
+ */
+function _generateEncounterLegacy(floor) {
     const isBossFloor = BOSS_FLOORS.includes(floor);
 
-    // 1. Deep-clone the base enemy template
     const src      = isBossFloor ? BOSSES[floor] : pickEnemy(floor);
     const enemy    = deepClone(src);
 
-    // 2. Apply floor HP scaling
     applyFloorScaling(enemy, floor);
 
-    // 3. Roll for anomaly
     const anomaly = rollForAnomaly(floor);
     let environment = selectEnvironment(floor);
 
     if (anomaly) {
         const result = applyAnomaly(enemy, anomaly, environment);
         if (result.environment !== undefined) environment = result.environment;
-        // logMessage is stored for display on the encounter screen
         enemy._anomalyLog = result.logMessage;
     }
 
-    // 4. Pre-select elite modifiers (not applied yet)
     const eliteModifiers = isBossFloor
         ? selectBossEliteModifiers()
         : selectEliteModifiers();
 
-    // Elite offer probability scales with act: 33% → 67% → 100%
     const act          = Math.ceil(floor / 5);
     const eliteChance  = act >= 3 ? 1.0 : act / 3;
     const eliteOffered = Math.random() < eliteChance;
@@ -57,10 +82,15 @@ export function generateEncounter(floor) {
         eliteModifiers,
         floor,
         isBossFloor,
-        isElite:      false, // set by player choice
+        isElite:      false,
         eliteOffered,
-        eliteChance,  // stored for display on choice screen
+        eliteChance,
     };
+}
+
+/** Look up full anomaly definition by id (for applying effects). */
+function _getAnomalyDef(id) {
+    return ANOMALIES[id] || Object.values(ANOMALIES).find(a => a.id === id) || null;
 }
 
 // ────────────────────────────────────────────────────────────

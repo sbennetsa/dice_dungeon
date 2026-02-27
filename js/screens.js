@@ -8,6 +8,7 @@ import { createDie, createDieFromFaces, upgradeDie, renderFaceStrip, renderDieCa
 import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } from './encounters/encounterGenerator.js';
 import { applyEliteModifier, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
+import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
 
 // ════════════════════════════════════════════════════════════
 //  HELPERS
@@ -166,7 +167,18 @@ const Game = {
             environment: null,
             _chaosStormActive: false,
             _firstAttacker: null,
+            blueprint: null,
+            seed: null,
         });
+
+        // Generate dungeon blueprint (all 15 floors pre-determined)
+        const blueprint = generateDungeonBlueprint();
+        GS.blueprint = blueprint;
+        GS.seed      = blueprint.seed;
+        console.log(`[Dungeon] Seed: ${blueprint.seed} | Challenge Rating: ${blueprint.scoring.challengeRating}/10`);
+        console.log(`[Dungeon] Net Challenge: ${blueprint.scoring.netChallenge} (Combat: ${blueprint.scoring.totalCombatThreat}, Player Advantage: ${blueprint.scoring.totalPlayerAdvantage})`);
+        console.log(`[Dungeon] Schedules: ${blueprint.acts.map(a => a.schedule.join('-')).join(' | ')}`);
+
         Game.enterFloor();
     },
 
@@ -1921,8 +1933,35 @@ const Events = {
         ],
     },
 
+    // Map from eventId → event function for blueprint-driven events
+    _eventMap: {
+        wanderingMerchant: () => Events._wanderingMerchant(),
+        cursedShrine:      () => Events._cursedShrine(),
+        trappedChest:      () => Events._trappedChest(),
+        alchemistsLab:     () => Events._alchemistsLab(),
+        gamblingDen:       () => Events._gamblingDen(),
+        forgottenForge:    () => Events._forgottenForge(),
+        bloodAltar:        () => Events._bloodAltar(),
+        oracle:            () => Events._oracle(),
+        merchantPrince:    () => Events._merchantPrince(),
+    },
+
     enter() {
         updateStats();
+
+        // Blueprint path: use pre-selected event
+        if (GS.blueprint) {
+            const actIndex  = Math.min(Math.ceil(GS.floor / 5) - 1, 2);
+            const act       = GS.blueprint.acts[actIndex];
+            const baseFloor = actIndex * 5 + 1;
+            const fb        = act?.floors[GS.floor - baseFloor];
+            if (fb && fb.eventId && Events._eventMap[fb.eventId]) {
+                Events._eventMap[fb.eventId]();
+                return;
+            }
+        }
+
+        // Legacy path: random from act pool
         const act = getAct(GS.floor);
         const pool = Events.pools[act] || Events.pools[1];
         pick(pool)();

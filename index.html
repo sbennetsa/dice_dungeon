@@ -128,6 +128,21 @@
     <div class="combat-log" id="combat-log"></div>
 </div>
 
+<!-- ═══════════ BATTLE SUMMARY SCREEN ═══════════ -->
+<div id="screen-battle-summary" class="screen">
+    <div class="game-header">
+        <div class="header-title">Dice Dungeon</div>
+        <div class="stats-row">
+            <div class="stat-item"><span class="stat-label">Floor</span><span class="stat-val" id="bs-floor">1</span></div>
+            <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="bs-hp">50/50</span></div>
+            <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="bs-gold">0</span></div>
+        </div>
+        <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+    </div>
+    <div class="section-title" id="bs-title">Victory!</div>
+    <div id="bs-content"></div>
+</div>
+
 <!-- ═══════════ REWARD SCREEN ═══════════ -->
 <div id="screen-reward" class="screen">
     <div class="game-header">

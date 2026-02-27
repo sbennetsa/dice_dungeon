@@ -369,6 +369,18 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 }
 .btn-reroll:hover { background: var(--gold); color: var(--bg-deep); }
 
+/* Sort button */
+.btn-sort {
+    font-size: 0.8em;
+    padding: 6px 14px;
+}
+.btn-sort.sort-active {
+    background: rgba(212, 165, 52, 0.15);
+    border-color: var(--gold);
+    color: var(--gold);
+}
+.btn-sort.sort-active:hover { background: var(--gold); color: var(--bg-deep); }
+
 /* ── Drag-over zones ── */
 .drag-over {
     border-color: var(--gold) !important;

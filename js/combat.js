@@ -4,7 +4,7 @@
 import { pickWeightedConsumable } from './constants.js';
 import { calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { GS, $, log, gainXP, gainGold, heal, pick, rand } from './state.js';
-import { rollSingleDie, getActiveFace, renderCombatDice, renderConsumables, updateStats, setupDropZones, show, createDie, getSlotById, enterRerollMode, exitRerollMode } from './engine.js';
+import { rollSingleDie, getActiveFace, renderCombatDice, renderConsumables, updateStats, setupDropZones, show, createDie, getSlotById, enterRerollMode, exitRerollMode, sortPoolDice, resetSortMode } from './engine.js';
 
 // window.Game and window.Rewards are set by screens.js at load time
 // to avoid circular module dependencies
@@ -121,6 +121,7 @@ function applyStartingCurse() {
 
 export const Combat = {
     start() {
+        resetSortMode();
         const enc      = GS.encounter;  // always set by EncounterChoice before calling start()
         const template = enc.enemy;     // already deep-cloned, floor-scaled, elite mods applied
         const isElite  = enc.isElite;
@@ -584,6 +585,7 @@ export const Combat = {
 
     enterRerollMode,
     exitRerollMode,
+    sortDice: sortPoolDice,
 
     execute() {
         if ($('btn-execute')) $('btn-execute').style.display = 'none';

@@ -235,6 +235,16 @@ let rerollMode = false;
 export function enterRerollMode() { rerollMode = true; renderCombatDice(); }
 export function exitRerollMode() { rerollMode = false; renderCombatDice(); }
 
+// Sort mode: cycles through 'none' → 'desc' → 'asc'
+let sortMode = 'none';
+export function sortPoolDice() {
+    if (sortMode === 'none') sortMode = 'desc';
+    else if (sortMode === 'desc') sortMode = 'asc';
+    else sortMode = 'none';
+    renderCombatDice();
+}
+export function resetSortMode() { sortMode = 'none'; }
+
 // Touch drag state
 let touchGhost = null;
 let touchDragDie = null;
@@ -318,7 +328,9 @@ export function renderCombatDice() {
 
     const pool = $('dice-pool');
     pool.innerHTML = '';
-    poolDice.forEach(d => pool.appendChild(makeDieElement(d, 'pool')));
+    const sortedPool = sortMode === 'none' ? poolDice
+        : [...poolDice].sort((a, b) => sortMode === 'desc' ? b.value - a.value : a.value - b.value);
+    sortedPool.forEach(d => pool.appendChild(makeDieElement(d, 'pool')));
 
     const rollHint = $('roll-hint');
     const allRolled = GS.dice.every(d => d.rolled);
@@ -453,6 +465,14 @@ export function renderCombatDice() {
     }
     if (rerollCancelBtn) {
         rerollCancelBtn.style.display = rerollMode ? 'inline-block' : 'none';
+    }
+
+    const sortBtn = $('btn-sort-dice');
+    if (sortBtn) {
+        const showSort = GS.rolled && poolDice.length >= 2;
+        sortBtn.style.display = showSort ? 'inline-block' : 'none';
+        sortBtn.textContent = sortMode === 'desc' ? '⇅ Value ↓' : sortMode === 'asc' ? '⇅ Value ↑' : '⇅ Sort';
+        sortBtn.classList.toggle('sort-active', sortMode !== 'none');
     }
 }
 

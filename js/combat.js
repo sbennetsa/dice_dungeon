@@ -766,7 +766,7 @@ export const Combat = {
             } else {
                 atkBase += dieVal;
             }
-            if (atkRune?.effect === 'siphon') siphonHealing += dieVal;
+            if (atkRune?.effect === 'siphon') siphonHealing += dieVal * (atkRune.value || 1);
         });
 
         atkBonus += GS.buffs.damageBoost;
@@ -912,7 +912,7 @@ export const Combat = {
         // Siphon: heal from attack damage
         if (siphonHealing > 0 && finalAtk > 0) {
             const sh = heal(siphonHealing);
-            if (sh > 0) { log(`🩸 Siphon: +${sh} HP`, 'heal'); updateStats(); }
+            if (sh > 0) { log(`🩸 Siphon: +${sh} HP${siphonHealing !== sh ? ` (${siphonHealing} base)` : ''}`, 'heal'); updateStats(); }
         }
         // Hunter's Mark: first hit applies mark
         if (!GS.huntersMarkFired && finalAtk > 0 && GS.artifacts.some(a => a.effect === 'huntersMark')) {
@@ -1610,6 +1610,9 @@ export const Combat = {
             }
         });
 
+        // Collect battle summary data
+        const summary = { loot: [], bonuses: [] };
+
         // Roll gold & XP — bosses use fixed values, others roll from range
         let earnedGold, earnedXP;
         if (e.isBoss) {
@@ -1627,6 +1630,8 @@ export const Combat = {
         }
 
         const g = gainGold(earnedGold);
+        summary.loot.push({ icon: '💰', text: `+${g} Gold` });
+        summary.loot.push({ icon: '✨', text: `+${earnedXP} XP` });
         log(`${e.name} defeated! +${g} gold, +${earnedXP} XP`, 'info');
 
         // Parasite: gain +1 max HP and +1 gold/combat per kill
@@ -1634,33 +1639,44 @@ export const Combat = {
             GS.maxHp++;
             GS.hp = Math.min(GS.hp + 1, GS.maxHp);
             GS.parasiteGoldPerCombat += GS.artifacts.filter(a => a.effect === 'parasite').length;
+            summary.bonuses.push({ icon: '🦠', text: `Parasite: +1 max HP (${GS.maxHp})` });
             log(`🦠 Parasite: +1 max HP (${GS.maxHp}), gold/combat now +${GS.parasiteGoldPerCombat}`, 'info');
         }
 
         const taxGold = GS.artifacts.filter(a => a.effect === 'goldPerKill').reduce((s, a) => s + a.value, 0);
         if (taxGold > 0) {
             const tg = gainGold(taxGold);
+            summary.bonuses.push({ icon: '💰', text: `Tax Collector: +${tg} gold` });
             log(`💰 Tax Collector: +${tg} gold`, 'info');
         }
         if (GS.passives.goldPerCombat) {
             const pg = gainGold(GS.passives.goldPerCombat);
+            summary.bonuses.push({ icon: '💰', text: `Prospector: +${pg} gold` });
             log(`💰 Prospector: +${pg} gold`, 'info');
         }
         if (GS.passives.goldInterest) {
             const interest = Math.floor(GS.gold * GS.passives.goldInterest);
             if (interest > 0) {
                 const ig = gainGold(interest);
+                summary.bonuses.push({ icon: '💰', text: `Interest: +${ig} gold` });
                 log(`💰 Interest: +${ig} gold (${Math.round(GS.passives.goldInterest * 100)}%)`, 'info');
             }
         }
+
+        // Track level before XP so we can note level-ups
+        const levelBefore = GS.level;
         gainXP(earnedXP);
+        if (GS.level > levelBefore) {
+            summary.loot.push({ icon: '⭐', text: `Level Up! → Level ${GS.level}` });
+        }
         updateStats();
 
         // Consumable drop: 20% chance from non-boss, non-elite enemies (common pool only)
+        let consumableDrop = null;
         if (!e.isBoss && !e.isElite && Math.random() < 0.20) {
-            const drop = pickWeightedConsumable('common');
-            log(`The enemy dropped a ${drop.icon} ${drop.name}!`, 'info');
-            if (window.addConsumableToInventory) window.addConsumableToInventory(drop);
+            consumableDrop = pickWeightedConsumable('common');
+            summary.loot.push({ icon: consumableDrop.icon, text: `Dropped: ${consumableDrop.name}` });
+            log(`The enemy dropped a ${consumableDrop.icon} ${consumableDrop.name}!`, 'info');
         }
 
         // Clear player debuffs at end of combat
@@ -1685,9 +1701,18 @@ export const Combat = {
             }
             if (GS.tempBuffs.merchantEscort) {
                 const eg = gainGold(10);
+                summary.bonuses.push({ icon: '🤝', text: `Merchant Escort: +${eg} gold` });
                 log(`Merchant's Escort: +${eg} gold!`, 'info');
             }
         }
+
+        // Store summary data and determine reward type
+        summary.enemyName = e.name;
+        summary.isElite = e.isElite;
+        summary.isBoss = e.isBoss;
+        summary.consumableDrop = consumableDrop;
+        summary.skillPoints = GS.pendingSkillPoints || 0;
+        GS.battleSummary = summary;
 
         if (GS.enemy.isBoss && GS.floor >= 15) {
             setTimeout(() => window.Game.victory(), 1200);
@@ -1695,17 +1720,22 @@ export const Combat = {
         }
 
         setTimeout(() => {
-            const finalReward = () => {
-                if (GS.enemy.isElite) window.Rewards.artifactChoice();
-                else if (GS.enemy.isBoss) window.Rewards.artifactChoice(true);
-                else window.Rewards.show();
-            };
-            const drainSkillPoints = () => {
+            if (window.BattleSummary) {
+                window.BattleSummary.show();
+            } else {
+                // Fallback to old flow
+                const finalReward = () => {
+                    if (GS.enemy.isElite) window.Rewards.artifactChoice();
+                    else if (GS.enemy.isBoss) window.Rewards.artifactChoice(true);
+                    else window.Rewards.show();
+                };
+                const drainSkillPoints = () => {
+                    if (GS.pendingSkillPoints > 0) window.Rewards.slotChoice(drainSkillPoints);
+                    else finalReward();
+                };
                 if (GS.pendingSkillPoints > 0) window.Rewards.slotChoice(drainSkillPoints);
                 else finalReward();
-            };
-            if (GS.pendingSkillPoints > 0) window.Rewards.slotChoice(drainSkillPoints);
-            else finalReward();
+            }
         }, 1200);
     }
 };

@@ -18,7 +18,7 @@ export const ELITE_MODIFIERS = [
         prefix: '🛡️ Armored',
         addPassive: {
             id: 'armor',
-            name: 'Elite Armor',
+            name: '🛡️ Armored',
             desc: 'Reduces ALL incoming damage by 3',
             params: { reduction: 3 },
         },
@@ -50,7 +50,7 @@ export const ELITE_MODIFIERS = [
         prefix: '💚 Regenerating',
         addPassive: {
             id: 'regen',
-            name: 'Elite Regeneration',
+            name: '💚 Regenerating',
             desc: 'Heal 5 HP at start of each turn',
             params: { amount: 5 },
         },
@@ -64,7 +64,7 @@ export const ELITE_MODIFIERS = [
         prefix: '🩸 Vampiric',
         addPassive: {
             id: 'lifesteal',
-            name: 'Elite Lifesteal',
+            name: '🩸 Vampiric',
             desc: 'Heals 50% of damage dealt to player',
             params: { percent: 0.5 },
         },
@@ -78,7 +78,7 @@ export const ELITE_MODIFIERS = [
         prefix: '💎 Brittle',
         addPassive: {
             id: 'brittle',
-            name: 'Elite Brittleness',
+            name: '💎 Brittle',
             desc: 'Takes +5 bonus damage from every hit',
             params: { bonus: 5 },
         },
@@ -101,7 +101,7 @@ export const ELITE_MODIFIERS = [
         prefix: '😈 Berserker',
         addPassive: {
             id: 'bloodFrenzy',
-            name: 'Elite Frenzy',
+            name: '😈 Berserker',
             desc: 'Below 50% HP, gains 2d6',
             params: { hpPercent: 0.5, extraDice: [6, 6] },
         },
@@ -139,7 +139,7 @@ export const BOSS_ELITE_MODIFIERS = [
         prefix: '🌀 Phasing',
         addPassive: {
             id: 'phase',
-            name: 'Phase Shift',
+            name: '🌀 Phasing',
             desc: 'Alternates 50% damage resistance each turn',
             params: { resistPercent: 0.5 },
         },
@@ -166,7 +166,7 @@ export const BOSS_ELITE_MODIFIERS = [
         prefix: '🛡️ Armored',
         addPassive: {
             id: 'armor',
-            name: 'Boss Armor',
+            name: '🛡️ Armored',
             desc: 'Reduces ALL incoming damage by 5',
             params: { reduction: 5 },
         },

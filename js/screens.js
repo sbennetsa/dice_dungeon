@@ -1069,6 +1069,332 @@ const Rewards = {
 };
 
 // ════════════════════════════════════════════════════════════
+//  BATTLE SUMMARY — Unified post-battle screen
+// ════════════════════════════════════════════════════════════
+const BattleSummary = {
+    _pendingSections: 0,
+    _consumableHandled: false,
+
+    show() {
+        const summary = GS.battleSummary;
+        if (!summary) { Game.nextFloor(); return; }
+
+        updateStats();
+        $('bs-title').textContent = `${summary.enemyName} Defeated!`;
+        const content = $('bs-content');
+        content.innerHTML = '';
+
+        BattleSummary._pendingSections = 0;
+        BattleSummary._consumableHandled = false;
+
+        // ── LOOT SECTION ──
+        const lootSection = document.createElement('div');
+        lootSection.className = 'bs-section';
+        lootSection.innerHTML = `<div class="bs-section-title">Loot Earned</div>`;
+        summary.loot.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'bs-loot-row';
+            row.innerHTML = `<span style="font-size:1.2em;">${item.icon}</span><span>${item.text}</span>`;
+            lootSection.appendChild(row);
+        });
+        if (summary.bonuses.length > 0) {
+            const bonusDiv = document.createElement('div');
+            bonusDiv.style.cssText = 'margin-top:8px; padding-top:8px; border-top:1px solid var(--border);';
+            summary.bonuses.forEach(b => {
+                const row = document.createElement('div');
+                row.className = 'bs-loot-row';
+                row.style.fontSize = '0.85em';
+                row.style.color = 'var(--text-dim)';
+                row.innerHTML = `<span style="font-size:1.1em;">${b.icon}</span><span>${b.text}</span>`;
+                bonusDiv.appendChild(row);
+            });
+            lootSection.appendChild(bonusDiv);
+        }
+        content.appendChild(lootSection);
+
+        // ── PLAYER STATE SECTION ──
+        const stateSection = document.createElement('div');
+        stateSection.className = 'bs-section';
+        stateSection.innerHTML = `
+            <div class="bs-section-title">Current State</div>
+            <div class="bs-stat-grid">
+                <span>❤️ HP: ${GS.hp}/${GS.maxHp}</span>
+                <span>💰 Gold: ${GS.gold}</span>
+                <span>⚔️ Atk Slots: ${GS.slots.attack.length}</span>
+                <span>🛡️ Def Slots: ${GS.slots.defend.length}</span>
+                <span>🎲 Dice: ${GS.dice.length}</span>
+                <span>⭐ Level: ${GS.level} (${GS.xp}/${GS.xpNext})</span>
+            </div>
+        `;
+        content.appendChild(stateSection);
+
+        // ── Handle consumable drop before showing reward sections ──
+        if (summary.consumableDrop) {
+            const filled = GS.consumables.filter(x => x !== null).length;
+            if (filled < GS.consumableSlots) {
+                addConsumableToInventory(summary.consumableDrop);
+                BattleSummary._consumableHandled = true;
+            }
+            // If inventory is full, consumable swap overlay will appear later
+            // We handle it after reward sections are built
+        }
+
+        // ── REWARD SECTIONS ──
+        // Track how many reward sections need completion
+        const hasSkillPoints = (GS.pendingSkillPoints || 0) > 0;
+        const hasArtifact = summary.isElite || summary.isBoss;
+        const hasGeneralReward = true; // always have a general reward choice
+
+        if (hasSkillPoints) BattleSummary._pendingSections++;
+        if (hasArtifact) BattleSummary._pendingSections++;
+        BattleSummary._pendingSections++; // general reward
+
+        // ── SKILL POINT SECTION ──
+        if (hasSkillPoints) {
+            const skillSection = document.createElement('div');
+            skillSection.className = 'bs-reward-section';
+            skillSection.id = 'bs-skill-section';
+            const pointsAvail = GS.pendingSkillPoints || 0;
+            skillSection.innerHTML = `
+                <div class="bs-section-title">⭐ Passive Tree (${pointsAvail} point${pointsAvail > 1 ? 's' : ''} available)</div>
+                <div class="bs-locked-summary"></div>
+                <div class="bs-reward-choices">
+                    <div class="card" id="bs-skill-open" style="flex:1; text-align:center;">
+                        <div class="card-title">⭐ Allocate Passives</div>
+                        <div class="card-desc">${pointsAvail} skill point${pointsAvail > 1 ? 's' : ''} to spend on the passive tree</div>
+                    </div>
+                </div>
+            `;
+            content.appendChild(skillSection);
+
+            // Wire up skill allocation button
+            setTimeout(() => {
+                const openBtn = $('bs-skill-open');
+                if (openBtn) openBtn.onclick = () => BattleSummary._openSkillTree();
+            }, 0);
+        }
+
+        // ── ARTIFACT SECTION ──
+        if (hasArtifact) {
+            const artSection = document.createElement('div');
+            artSection.className = 'bs-reward-section';
+            artSection.id = 'bs-artifact-section';
+            artSection.innerHTML = `
+                <div class="bs-section-title">✨ Artifact Drop</div>
+                <div class="bs-locked-summary"></div>
+                <div class="bs-reward-choices" id="bs-artifact-choices"></div>
+            `;
+            content.appendChild(artSection);
+            BattleSummary._buildArtifactChoices();
+        }
+
+        // ── GENERAL REWARD SECTION ──
+        const generalSection = document.createElement('div');
+        generalSection.className = 'bs-reward-section';
+        generalSection.id = 'bs-general-section';
+        generalSection.innerHTML = `
+            <div class="bs-section-title">Reward Choice</div>
+            <div class="bs-locked-summary"></div>
+            <div class="bs-reward-choices" id="bs-general-choices"></div>
+        `;
+        content.appendChild(generalSection);
+        BattleSummary._buildGeneralChoices();
+
+        // ── CONTINUE BUTTON (hidden until all sections complete) ──
+        const contRow = document.createElement('div');
+        contRow.className = 'bs-continue-row';
+        contRow.id = 'bs-continue-row';
+        contRow.style.display = 'none';
+        contRow.innerHTML = `<button class="btn btn-primary" id="bs-continue-btn">Continue →</button>`;
+        content.appendChild(contRow);
+        setTimeout(() => {
+            const btn = $('bs-continue-btn');
+            if (btn) btn.onclick = () => {
+                GS.battleSummary = null;
+                Game.nextFloor();
+            };
+        }, 0);
+
+        // Now handle consumable swap if inventory was full
+        if (summary.consumableDrop && !BattleSummary._consumableHandled) {
+            setTimeout(() => {
+                addConsumableToInventory(summary.consumableDrop);
+            }, 100);
+        }
+
+        show('screen-battle-summary');
+    },
+
+    _openSkillTree() {
+        // Use Rewards.slotChoice with a callback that returns to summary
+        const drainAll = () => {
+            if (GS.pendingSkillPoints > 0) {
+                Rewards.slotChoice(drainAll);
+            } else {
+                // Lock the section and return to summary
+                const section = $('bs-skill-section');
+                if (section) {
+                    section.classList.add('locked');
+                    const locked = section.querySelector('.bs-locked-summary');
+                    const unlocked = SKILL_TREE.filter(n => GS.unlockedNodes.includes(n.id));
+                    const recent = unlocked.slice(-3);
+                    locked.innerHTML = `✓ Passives allocated: ${recent.map(n => `${n.icon} ${n.name}`).join(', ')}${unlocked.length > 3 ? '...' : ''}`;
+                }
+                BattleSummary._pendingSections--;
+                BattleSummary._checkComplete();
+                // Return to summary screen
+                updateStats();
+                show('screen-battle-summary');
+            }
+        };
+        Rewards.slotChoice(drainAll);
+    },
+
+    _buildArtifactChoices() {
+        const choicesEl = $('bs-artifact-choices');
+        if (!choicesEl) return;
+
+        const owned = new Set(GS.artifacts.map(a => a.name));
+        const pool = getArtifactPool(GS.act);
+        let available = pool.filter(a => !owned.has(a.name));
+        if (available.length < 3) available = [...pool];
+        const choices = shuffle(available).slice(0, 3);
+
+        choices.forEach(art => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="card-title">${art.icon} ${art.name}</div>
+                <div class="card-desc">${art.desc}</div>
+            `;
+            card.onclick = () => {
+                GS.artifacts.push(art);
+                if (art.effect === 'colossussBelt') {
+                    GS.dice.forEach(d => {
+                        if (d.max >= 9) {
+                            d.faceValues = d.faceValues.map(v => v + art.value);
+                            d.min += art.value; d.max += art.value;
+                        }
+                    });
+                } else if (art.effect === 'glassCannon') {
+                    GS.dice.forEach(d => {
+                        d.faceValues = d.faceValues.map(v => v + art.value);
+                        d.min += art.value; d.max += art.value;
+                    });
+                    GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2));
+                    GS.hp = Math.min(GS.hp, GS.maxHp);
+                }
+                log(`✨ Acquired ${art.icon} ${art.name}!`, 'info');
+                updateStats();
+
+                // Lock section
+                const section = $('bs-artifact-section');
+                if (section) {
+                    section.classList.add('locked');
+                    const locked = section.querySelector('.bs-locked-summary');
+                    locked.textContent = `✓ Acquired: ${art.icon} ${art.name}`;
+                }
+                BattleSummary._pendingSections--;
+                BattleSummary._checkComplete();
+            };
+            choicesEl.appendChild(card);
+        });
+    },
+
+    _buildGeneralChoices() {
+        const choicesEl = $('bs-general-choices');
+        if (!choicesEl) return;
+
+        const lockGeneral = (text) => {
+            const section = $('bs-general-section');
+            if (section) {
+                section.classList.add('locked');
+                const locked = section.querySelector('.bs-locked-summary');
+                locked.textContent = `✓ ${text}`;
+            }
+            updateStats();
+            BattleSummary._pendingSections--;
+            BattleSummary._checkComplete();
+        };
+
+        const rewards = [];
+        const totalSlots = GS.slots.attack.length + GS.slots.defend.length;
+
+        rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
+            GS.dice.push(createDie(1, 6));
+            log('Added new D6!', 'info');
+            lockGeneral('New D6 (1-6) added');
+        }});
+
+        const healAmt = Math.min(20, GS.maxHp - GS.hp);
+        if (healAmt > 0) {
+            rewards.push({ title: '❤️ Heal', desc: `Restore ${healAmt} HP`, action: () => {
+                heal(healAmt);
+                log(`Healed ${healAmt} HP`, 'heal');
+                lockGeneral(`Healed ${healAmt} HP`);
+            }});
+        }
+
+        rewards.push({ title: '⬆️ Upgrade Die', desc: 'Increase a die\'s range by +1/+1', action: () => {
+            BattleSummary._showSubChoice('upgrade', lockGeneral);
+        }});
+
+        rewards.push({ title: '💰 Loot', desc: `Gain ${12 + GS.floor * 4} gold`, action: () => {
+            const g = gainGold(12 + GS.floor * 4);
+            log(`+${g} gold`, 'info');
+            lockGeneral(`+${g} gold looted`);
+        }});
+
+        if (GS.dice.length >= 5) {
+            rewards.push({ title: '🔨 Sacrifice Dice', desc: `Destroy 3 dice → +1 slot (${GS.dice.length} dice)`, action: () => {
+                BattleSummary._showSubChoice('sacrifice', lockGeneral);
+            }});
+        }
+
+        rewards.forEach(r => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `<div class="card-title">${r.title}</div><div class="card-desc">${r.desc}</div>`;
+            card.onclick = r.action;
+            choicesEl.appendChild(card);
+        });
+    },
+
+    _showSubChoice(type, lockCallback) {
+        // Show die upgrade or sacrifice on the reward screen, then return
+        if (type === 'upgrade') {
+            Rewards.showDieUpgrade();
+            // Override Game.nextFloor temporarily to return to summary
+            const origNext = Game.nextFloor;
+            Game.nextFloor = () => {
+                Game.nextFloor = origNext;
+                lockCallback('Die upgraded');
+                show('screen-battle-summary');
+            };
+        } else if (type === 'sacrifice') {
+            Rewards.showDiceSacrifice(() => {
+                lockCallback('Dice sacrificed for +1 slot');
+                show('screen-battle-summary');
+            });
+            // Override Game.nextFloor for the back button
+            const origNext = Game.nextFloor;
+            Game.nextFloor = () => {
+                Game.nextFloor = origNext;
+                lockCallback('Dice sacrificed for +1 slot');
+                show('screen-battle-summary');
+            };
+        }
+    },
+
+    _checkComplete() {
+        if (BattleSummary._pendingSections <= 0) {
+            const contRow = $('bs-continue-row');
+            if (contRow) contRow.style.display = 'block';
+        }
+    }
+};
+
+// ════════════════════════════════════════════════════════════
 //  SHOP
 // ════════════════════════════════════════════════════════════
 const Shop = {
@@ -2830,18 +3156,22 @@ const EncounterChoice = {
 
     _showReveal(revealData, onDone) {
         const { visibleModifier, hiddenModifier, finalStats } = revealData;
+        const visDesc = visibleModifier.addPassive ? `<div style="font-size:0.75em; color:var(--text-dim); margin-top:4px;">${visibleModifier.addPassive.desc}</div>` : '';
+        const hidDesc = hiddenModifier.addPassive ? `<div style="font-size:0.75em; color:var(--text-dim); margin-top:4px;">${hiddenModifier.addPassive.desc}</div>` : '';
         const overlay = document.createElement('div');
-        overlay.style.cssText = 'position:absolute; inset:0; background:rgba(0,0,0,0.85); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; z-index:10; padding:20px; text-align:center;';
+        overlay.style.cssText = 'position:absolute; inset:0; background:rgba(0,0,0,0.85); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; z-index:10; padding:20px; text-align:center; overflow-y:auto;';
         overlay.innerHTML = `
             <div style="font-size:1.1em; color:var(--gold); font-family:EB Garamond,serif;">⚔️ Elite Challenge Accepted!</div>
             <div style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap;">
-                <div style="background:var(--bg-surface); border:1px solid var(--gold); border-radius:8px; padding:12px; min-width:120px;">
+                <div style="background:var(--bg-surface); border:1px solid var(--gold); border-radius:8px; padding:12px; min-width:140px; max-width:200px;">
                     <div style="color:var(--gold); margin-bottom:4px;">${visibleModifier.prefix}</div>
                     <div style="font-size:0.8em; color:var(--text-dim);">Known modifier</div>
+                    ${visDesc}
                 </div>
-                <div style="background:var(--bg-surface); border:1px solid #c060ff; border-radius:8px; padding:12px; min-width:120px;">
+                <div style="background:var(--bg-surface); border:1px solid #c060ff; border-radius:8px; padding:12px; min-width:140px; max-width:200px;">
                     <div style="color:#c060ff; margin-bottom:4px;">${hiddenModifier.prefix}</div>
                     <div style="font-size:0.8em; color:var(--text-dim);">Hidden modifier revealed!</div>
+                    ${hidDesc}
                 </div>
             </div>
             <div style="font-size:0.85em; color:var(--text-dim);">
@@ -2862,25 +3192,59 @@ const EncounterChoice = {
         const anomalyBadge = anomaly
             ? `<span style="background:#663300; color:#ffaa44; border-radius:4px; padding:2px 8px; font-size:0.8em; margin-left:8px;">⚠️ ${anomaly.name}</span>`
             : '';
-        const envBar = environment
-            ? `<div style="background:rgba(255,255,255,0.05); border-radius:6px; padding:6px 10px; margin-top:6px; font-size:0.82em; text-align:left;">
-                   <span style="color:var(--gold);">${environment.icon} ${environment.name}</span>
-                   <span style="color:var(--text-dim); margin-left:6px;">· ${environment.desc}</span>
-               </div>`
-            : '';
+        let envBar = '';
+        if (environment) {
+            // Determine what the environment affects
+            const effects = [];
+            if (environment.onTurnStart) effects.push('Triggers at start of each turn');
+            if (environment.onTurnEnd) effects.push('Triggers at end of each turn');
+            if (environment.onDiceRoll) effects.push('Modifies dice rolls');
+            if (environment.onDamageDealt) effects.push('Modifies damage dealt');
+            if (environment.healingMultiplier) effects.push(`Healing multiplied by ${environment.healingMultiplier}x`);
+            const effectsStr = effects.length > 0 ? `<div style="font-size:0.9em; color:var(--text-dim); margin-top:4px;">${effects.join(' · ')}</div>` : '';
+            envBar = `<div class="encounter-env-bar">
+                <span class="env-name">${environment.icon} ${environment.name}</span>
+                <span class="env-desc">· ${environment.desc}</span>
+                ${effectsStr}
+            </div>`;
+        }
         return `<div style="padding:12px 0 8px; font-family:EB Garamond,serif; font-size:1.1em; text-align:center;">${floorLabel}${anomalyBadge}</div>${envBar}`;
     },
 
     _buildStandardPanel(enemy, isBossFloor) {
         const diceStr    = this._formatDicePool(enemy.dice);
-        const abilities  = Object.values(enemy.abilities || {}).map(a => `${a.icon} ${a.name}`).join(', ') || '—';
-        const passives   = (enemy.passives || []).map(p => p.name).join(', ') || '—';
         const goldRange  = Array.isArray(enemy.gold) ? `${enemy.gold[0]}–${enemy.gold[1]}` : enemy.gold;
         const xpRange    = Array.isArray(enemy.xp)   ? `${enemy.xp[0]}–${enemy.xp[1]}`   : enemy.xp;
+
+        // Build ability tags with hover tooltips
+        const abilityTags = Object.values(enemy.abilities || {}).map(a => {
+            const typeLabel = { attack: 'Attack', poison: 'Poison', curse: 'Curse', buff: 'Buff', heal: 'Heal', debuff: 'Debuff' }[a.type] || a.type || 'Special';
+            const extraInfo = [];
+            if (a.multiHit) extraInfo.push('Multi-hit');
+            if (a.penetrate) extraInfo.push(`Penetrates ${a.penetrate} block`);
+            if (a.buffTarget) extraInfo.push(`Buffs next ${a.buffTarget}`);
+            const extras = extraInfo.length ? `<br><span style="color:var(--gold); font-size:0.9em;">${extraInfo.join(' · ')}</span>` : '';
+            return `<span class="encounter-ability-tag">${a.icon} ${a.name}<span class="enc-tooltip"><strong>${a.icon} ${a.name}</strong> (${typeLabel})<br>${a.desc}${extras}</span></span>`;
+        }).join(' ') || '<span style="opacity:0.5;">None</span>';
+
+        // Build passive tags with hover tooltips
+        const passiveTags = (enemy.passives || []).map(p => {
+            return `<span class="encounter-passive-tag">${p.name}<span class="enc-tooltip"><strong>${p.name}</strong><br>${p.desc}</span></span>`;
+        }).join(' ') || '<span style="opacity:0.5;">None</span>';
 
         const phaseSection = isBossFloor && enemy.phases && enemy.phases.length
             ? `<div style="font-size:0.8em; color:#ff8888; margin-top:4px;">📊 ${enemy.phases.length} phase(s)</div>`
             : '';
+
+        // Build attack pattern display
+        const pattern = enemy.pattern || [];
+        const patternStr = pattern.length > 0
+            ? pattern.map(key => {
+                const ab = (enemy.abilities || {})[key];
+                return ab ? `${ab.icon}` : '?';
+            }).join(' → ')
+            : '';
+        const patternDiv = patternStr ? `<div style="font-size:0.8em; color:var(--text-dim); margin-top:4px;">Pattern: ${patternStr}</div>` : '';
 
         return `
             <div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; flex:1;">
@@ -2888,8 +3252,11 @@ const EncounterChoice = {
                 <div style="font-size:1.05em; font-family:EB Garamond,serif; margin-bottom:6px;">${enemy.name}</div>
                 <div style="font-size:0.85em; color:var(--text-dim); margin-bottom:4px;">❤️ ${enemy.hp} HP · 🎲 ${diceStr}</div>
                 ${phaseSection}
-                <div style="font-size:0.8em; color:var(--text-dim); margin-top:4px;">Abilities: ${abilities}</div>
-                <div style="font-size:0.8em; color:var(--text-dim); margin-top:2px;">Passives: ${passives}</div>
+                <div style="font-size:0.8em; color:var(--text-dim); margin-top:8px;">Abilities:</div>
+                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">${abilityTags}</div>
+                <div style="font-size:0.8em; color:var(--text-dim); margin-top:6px;">Passives:</div>
+                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">${passiveTags}</div>
+                ${patternDiv}
                 <div style="margin-top:10px; font-size:0.82em; color:var(--gold);">Rewards: ${goldRange}g · ${xpRange} XP${isBossFloor ? ' · Boss artifact' : ''}</div>
                 <button class="btn btn-primary" style="width:100%; margin-top:12px;" onclick="EncounterChoice.chooseStandard()">Fight (Standard)</button>
             </div>`;
@@ -2914,12 +3281,18 @@ const EncounterChoice = {
             ? (visible.artifactPicks ? `${visible.artifactPicks} boss artifacts` + (visible.legendaryChance ? ` + ${Math.round(visible.legendaryChance * 100)}% legendary` : '') : 'Boss artifact')
             : 'Artifact pick (1 of 3)';
 
+        // Build modifier description
+        const modDesc = visible.addPassive
+            ? `<div style="font-size:0.78em; color:var(--text-dim); margin-top:4px; padding:4px 8px; background:rgba(192,96,255,0.08); border-radius:4px;">${visible.addPassive.desc}</div>`
+            : '';
+
         return `
             <div style="background:var(--bg-surface); border:1px solid #c060ff; border-radius:8px; padding:14px; flex:1;">
                 <div style="font-size:1em; font-weight:bold; margin-bottom:10px; color:#c060ff;">💀 Elite</div>
-                <div style="color:var(--gold); font-size:0.95em; margin-bottom:6px;">${visible.prefix}</div>
-                ${effects.length ? `<div style="font-size:0.82em; color:var(--text-dim); margin-bottom:6px;">${effects.join(' · ')}</div>` : ''}
-                <div style="font-size:0.8em; color:#c060ff; margin-bottom:8px;">+ 1 hidden modifier</div>
+                <div style="color:var(--gold); font-size:0.95em; margin-bottom:4px;">${visible.prefix}</div>
+                ${modDesc}
+                ${effects.length ? `<div style="font-size:0.82em; color:var(--text-dim); margin-top:6px; margin-bottom:6px;">${effects.join(' · ')}</div>` : ''}
+                <div style="font-size:0.8em; color:#c060ff; margin-bottom:8px;">+ 1 hidden modifier (revealed when accepted)</div>
                 <div style="font-size:0.82em; color:var(--text-dim);">Est: ${previewEnemy.hp} HP · ${previewDice} · ~${previewAvg} dmg/turn <span style="font-size:0.85em;">(+hidden)</span></div>
                 <div style="margin-top:10px; font-size:0.82em; color:var(--gold);">Rewards: ${goldRange}g · ${xpRange} XP · ${artifactNote}</div>
                 <button class="btn" style="width:100%; margin-top:12px; border-color:#c060ff; color:#c060ff;" onclick="EncounterChoice.chooseElite()">Fight (Elite)</button>
@@ -2971,6 +3344,7 @@ const EncounterChoice = {
 window.Game = Game;
 window.Combat = Combat;
 window.Rewards = Rewards;
+window.BattleSummary = BattleSummary;
 window.Shop = Shop;
 window.Events = Events;
 window.Rest = Rest;

@@ -147,6 +147,7 @@ export function updateStats() {
     const sets = [
         ['s-floor','s-level','s-xp','s-hp','s-gold'],
         ['r-floor',null,null,'r-hp','r-gold'],
+        ['bs-floor',null,null,'bs-hp','bs-gold'],
         [null,null,null,'sh-hp','sh-gold'],
         ['e-floor',null,null,'e-hp','e-gold'],
         [null,null,null,'rest-hp','rest-gold'],

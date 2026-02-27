@@ -2460,7 +2460,7 @@ const Rest = {
 
     _render() {
         updateStats();
-        $('rest-title').textContent = `Act ${GS.act - 1} Complete — Rest & Prepare`;
+        $('rest-title').textContent = `Act ${GS.act} Complete — Rest & Prepare`;
         const content = $('rest-content');
         content.innerHTML = '';
 

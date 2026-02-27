@@ -4,7 +4,7 @@
 // ════════════════════════════════════════════════════════════
 import { FACE_MODS, ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, getAct, getFloorType, getArtifactPool, pickConsumablesForMarket, pickWeightedConsumable } from './constants.js';
 import { GS, $, rand, pick, shuffle, log, gainXP, gainGold, heal } from './state.js';
-import { createDie, createDieFromFaces, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables } from './engine.js';
+import { createDie, createDieFromFaces, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones } from './engine.js';
 import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } from './encounters/encounterGenerator.js';
 import { applyEliteModifier, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
@@ -358,31 +358,84 @@ const Game = {
         GS.challengeDmg = 0;
         GS.challengeTurns = 0;
 
+        const eDie = s => createDie(1, s, s);
         GS.enemy = {
             name: '💀 The Eternal Guardian',
             hp: 999999,
+            maxHp: 999999,
             currentHp: 999999,
-            baseAtk: 8 + GS.level * 2,
-            intent: 8 + GS.level * 2,
+            dice: [10, 10, 10, 10].map(eDie),
+            extraDice: [],
+            abilities: {
+                strike: { name: 'Guardian Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+                gather: { name: 'Gather Power', icon: '💪', type: 'buff', desc: 'Store dice sum for next attack' },
+                crush:  { name: 'Crushing Blow', icon: '💥', type: 'attack', desc: 'Deal damage (3 pierce)', penetrate: 3 },
+            },
+            passives: [
+                { id: 'escalate', name: 'Eternal Wrath', desc: '+1d8 every 3 turns', params: { interval: 3, dieSize: 8 } },
+            ],
+            pattern: ['strike', 'strike', 'gather', 'crush'],
+            phases: null,
+            patternIdx: 0,
+            storedBonus: 0,
+            turnsAlive: 0,
+            phaseTriggered: [],
+            phylacteryUsed: false,
+            bloodFrenzyTriggered: false,
+            _mitosisTriggered: false,
+            _damageTakenMult: 1,
+            _doubleAction: false,
+            shield: 0,
+            charged: false,
+            immune: false,
+            diceResults: [],
+            intentValue: 0,
+            currentAbilityKey: null,
             gold: 0,
-            turn: 0,
-            rage: 0,
-            poison: 0,
+            xp: 0,
+            eliteGoldMult: 1,
+            eliteXpMult: 1,
             isElite: false,
             isBoss: true,
+            poison: 0,
         };
 
-        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; });
+        // Reset combat state (mirrors Combat.start)
+        GS.playerDebuffs = { poison: 0, poisonTurns: 0, slotDisabled: null, slotDisabledTurns: 0, diceReduction: 0 };
+        GS.enemyStatus = { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: false };
+        GS.echoStoneDieId = null;
+        GS.gamblerCoinBonus = 0;
+        GS.huntersMarkFired = false;
+        GS.hourglassFreeFirstTurn = false;
+        GS.furyCharges = 0;
+        GS.ironSkinActive = false;
+        GS.ragePotionActive = false;
+        GS.hasteDiceBonus = 0;
+        GS.consumableUsedThisTurn = false;
+        GS.environment = null;
+        GS._chaosStormActive = false;
+        GS.isFirstTurn = true;
+
+        // Reset dice and combat allocations
+        GS.dice = GS.dice.filter(d => !d.midasTemp);
+        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; delete d.slotId; });
         GS.allocated = { attack: [], defend: [] };
         GS.rolled = false;
         GS.rerollsLeft = GS.rerolls;
         GS.autoLifesteal = 0;
+        GS.regenStacks = 0;
 
+        // Roll first enemy intent and render
+        Combat._rollEnemyTurn();
         Combat.renderEnemy();
         renderCombatDice();
+        renderConsumables();
+        setupDropZones();
         updateStats();
         show('screen-combat');
         log('💀 The Eternal Guardian awakens. It cannot be killed — deal as much damage as you can!', 'damage');
+        const diceDesc = GS.enemy.dice.map(d => `d${d.max}`).join('+');
+        log(`💀 Challenge: The Eternal Guardian (${diceDesc} | Escalates every 3 turns)`, 'info');
         setTimeout(() => Combat.roll(), 300);
     },
 
@@ -416,10 +469,15 @@ const Game = {
 //  REWARDS
 // ════════════════════════════════════════════════════════════
 const Rewards = {
-    slotChoice(callback) {
-        GS.pendingSkillPoints = Math.max(0, (GS.pendingSkillPoints || 0) - 1);
+    slotChoice(callback, viewMode = false, backCallback = null) {
+        if (!viewMode) {
+            GS.pendingSkillPoints = Math.max(0, (GS.pendingSkillPoints || 0) - 1);
+        }
         updateStats();
-        $('reward-title').textContent = `⭐ Level ${GS.level} — Skill Tree`;
+        const pointsLeft = GS.pendingSkillPoints || 0;
+        $('reward-title').textContent = viewMode
+            ? `⭐ Passive Tree${pointsLeft > 0 ? ` (${pointsLeft} point${pointsLeft > 1 ? 's' : ''})` : ''}`
+            : `⭐ Level ${GS.level} — Skill Tree`;
         const c = $('reward-cards');
         c.innerHTML = '';
 
@@ -525,7 +583,8 @@ const Rewards = {
                 (node.requiresAny
                     ? node.requires.some(r => GS.unlockedNodes.includes(r))
                     : node.requires.every(r => GS.unlockedNodes.includes(r)));
-            const isAvailable = !isUnlocked && meetsReqs;
+            const canAllocate = viewMode ? (GS.pendingSkillPoints || 0) > 0 : true;
+            const isAvailable = !isUnlocked && meetsReqs && canAllocate;
             const isCapstone = node.icon === '👑';
             const glowKey = node.id === 'root' ? 'root' : node.id[0] === 'w' ? 'w' : node.id[0] === 'g' ? 'g' : node.id[0] === 't' ? 't' : node.id[0] === 'v' ? 'v' : 'bridge';
 
@@ -611,6 +670,7 @@ const Rewards = {
 
             if (isAvailable) {
                 hitbox.addEventListener('click', () => {
+                    if (viewMode) GS.pendingSkillPoints = Math.max(0, (GS.pendingSkillPoints || 0) - 1);
                     GS.unlockedNodes.push(node.id);
                     node.effect(GS);
                     log(`🌟 ${node.name}: ${node.desc}`, 'info');
@@ -629,6 +689,7 @@ const Rewards = {
                 e.preventDefault();
                 showDetail();
                 if (isAvailable && tapped) {
+                    if (viewMode) GS.pendingSkillPoints = Math.max(0, (GS.pendingSkillPoints || 0) - 1);
                     GS.unlockedNodes.push(node.id);
                     node.effect(GS);
                     log(`🌟 ${node.name}: ${node.desc}`, 'info');
@@ -650,20 +711,28 @@ const Rewards = {
         c.appendChild(wrapper);
 
         // Check if any nodes are available to unlock
-        const anyAvailable = SKILL_TREE.some(node => {
+        const anyAvailableNode = SKILL_TREE.some(node => {
             if (GS.unlockedNodes.includes(node.id)) return false;
             if (node.requires.length === 0) return true;
             return node.requiresAny
                 ? node.requires.some(r => GS.unlockedNodes.includes(r))
                 : node.requires.every(r => GS.unlockedNodes.includes(r));
         });
+        const anyAvailable = anyAvailableNode && (viewMode ? (GS.pendingSkillPoints || 0) > 0 : true);
 
         const skipDiv = document.createElement('div');
-        skipDiv.style.cssText = 'text-align:center; margin-top:12px;';
+        skipDiv.style.cssText = 'text-align:right; margin-top:4px; padding-right:4px;';
         const skipBtn = document.createElement('button');
-        skipBtn.className = 'btn';
-        skipBtn.textContent = anyAvailable ? 'Skip' : 'No nodes available — Continue';
-        skipBtn.onclick = () => callback();
+        skipBtn.style.cssText = 'background:none; border:none; color:var(--text-dim); font-size:0.78em; cursor:pointer; font-family:JetBrains Mono, monospace; padding:4px 8px; opacity:0.6;';
+        skipBtn.onmouseenter = () => { skipBtn.style.opacity = '1'; skipBtn.style.color = 'var(--text)'; };
+        skipBtn.onmouseleave = () => { skipBtn.style.opacity = '0.6'; skipBtn.style.color = 'var(--text-dim)'; };
+        if (viewMode) {
+            skipBtn.textContent = '← Back';
+            skipBtn.onclick = () => (backCallback || callback)();
+        } else {
+            skipBtn.textContent = anyAvailable ? 'Skip →' : 'Continue →';
+            skipBtn.onclick = () => callback();
+        }
         skipDiv.appendChild(skipBtn);
         c.appendChild(skipDiv);
 
@@ -3134,16 +3203,45 @@ const Inventory = {
         }
 
         const unlocked = SKILL_TREE.filter(n => GS.unlockedNodes.includes(n.id));
+        const pendingPts = GS.pendingSkillPoints || 0;
+        const treeBorder = pendingPts > 0 ? 'border:1px solid #80ff80;' : 'border:1px solid var(--border);';
+        html += `<div style="background:var(--bg-surface); ${treeBorder} border-radius:8px; padding:14px; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold);">⭐ SKILL TREE (${unlocked.length} nodes)</div>
+                <button class="btn" style="font-size:0.72em; padding:3px 10px;" onclick="Inventory._openPassiveTree()">🌳 View Tree</button>
+            </div>`;
+        if (pendingPts > 0) {
+            html += `<div style="color:#80ff80; font-size:0.82em; margin-bottom:6px; font-weight:bold;">⬆ ${pendingPts} skill point${pendingPts > 1 ? 's' : ''} available — tap View Tree to allocate</div>`;
+        }
         if (unlocked.length > 0) {
-            html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
-                <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">⭐ SKILL TREE (${unlocked.length} nodes)</div>`;
             unlocked.forEach(n => {
                 html += `<div style="font-size:0.82em; margin:3px 0;">${n.icon} <strong>${n.name}</strong> — ${n.desc}</div>`;
             });
-            html += `</div>`;
+        } else {
+            html += `<div style="font-size:0.82em; margin:3px 0; opacity:0.5;">No nodes unlocked yet</div>`;
         }
+        html += `</div>`;
 
         c.innerHTML = html;
+    },
+    _openPassiveTree() {
+        // Remember current active screen to return to it
+        const prevScreen = document.querySelector('.screen.active');
+        const prevScreenId = prevScreen ? prevScreen.id : 'screen-combat';
+        Inventory.visible = false;
+        $('inventory-overlay').style.display = 'none';
+
+        const viewLoop = () => {
+            Rewards.slotChoice(viewLoop, true, goBack);
+        };
+        const goBack = () => {
+            show(prevScreenId);
+            // Re-open inventory
+            Inventory.visible = true;
+            Inventory.render();
+            $('inventory-overlay').style.display = 'block';
+        };
+        Rewards.slotChoice(viewLoop, true, goBack);
     }
 };
 
@@ -3286,38 +3384,106 @@ const EncounterChoice = {
 
     _buildElitePanel(enemy, eliteModifiers, isBossFloor) {
         const { visible, hidden } = eliteModifiers;
-        const effects = this._formatModifierEffects(visible, enemy);
+        const purple = '#c060ff';
 
-        // Preview stats with visible modifier only
+        // Preview enemy with visible modifier applied
         const previewEnemy = deepClone(enemy);
         applyEliteModifier(previewEnemy, visible);
-        const previewDice = this._formatDicePool(previewEnemy.dice);
-        const previewAvg  = calculateAvgDamage(previewEnemy);
 
-        // Rewards with both modifiers applied
+        // --- Modifier badge ---
+        const modBadge = `<div style="background:rgba(192,96,255,0.12); border:1px solid ${purple}; border-radius:6px; padding:6px 10px; margin-bottom:10px;">
+            <div style="color:${purple}; font-size:0.9em; font-weight:bold;">${visible.prefix}</div>
+            ${visible.addPassive ? `<div style="font-size:0.78em; color:var(--text-dim); margin-top:2px;">${visible.addPassive.desc}</div>` : ''}
+            <div style="font-size:0.75em; color:${purple}; margin-top:3px;">+ 1 hidden modifier (revealed on accept)</div>
+        </div>`;
+
+        // --- HP change ---
+        const hpChanged = previewEnemy.hp !== enemy.hp;
+        const hpDelta   = hpChanged ? ` <span style="color:${purple}; font-size:0.85em;">(${enemy.hp} → ${previewEnemy.hp})</span>` : '';
+
+        // --- Dice change ---
+        const baseDiceStr    = this._formatDicePool(enemy.dice);
+        const previewDiceStr = this._formatDicePool(previewEnemy.dice);
+        const diceChanged    = baseDiceStr !== previewDiceStr;
+        const diceDisplay    = diceChanged
+            ? `<span style="text-decoration:line-through; opacity:0.5;">${baseDiceStr}</span> <span style="color:${purple};">${previewDiceStr}</span>`
+            : previewDiceStr;
+
+        // --- Abilities (unchanged from base enemy) ---
+        const abilityTags = Object.values(enemy.abilities || {}).map(a => {
+            const typeLabel = { attack: 'Attack', poison: 'Poison', curse: 'Curse', buff: 'Buff', heal: 'Heal', debuff: 'Debuff' }[a.type] || a.type || 'Special';
+            const extraInfo = [];
+            if (a.multiHit) extraInfo.push('Multi-hit');
+            if (a.penetrate) extraInfo.push(`Penetrates ${a.penetrate} block`);
+            if (a.buffTarget) extraInfo.push(`Buffs next ${a.buffTarget}`);
+            const extras = extraInfo.length ? `<br><span style="color:var(--gold); font-size:0.9em;">${extraInfo.join(' · ')}</span>` : '';
+            return `<span class="encounter-ability-tag">${a.icon} ${a.name}<span class="enc-tooltip"><strong>${a.icon} ${a.name}</strong> (${typeLabel})<br>${a.desc}${extras}</span></span>`;
+        }).join(' ') || '<span style="opacity:0.5;">None</span>';
+
+        // --- Passives: base passives + new ones from modifier ---
+        const basePassiveIds = new Set((enemy.passives || []).map(p => p.id || p.name));
+        const passiveTags = (previewEnemy.passives || []).map(p => {
+            const isNew = !basePassiveIds.has(p.id || p.name);
+            const border = isNew ? `border:1px solid ${purple};` : '';
+            const newBadge = isNew ? `<span style="color:${purple}; font-weight:bold; margin-left:4px;">NEW</span>` : '';
+            return `<span class="encounter-passive-tag" style="${border}">${p.name}${newBadge}<span class="enc-tooltip"><strong>${p.name}</strong><br>${p.desc}</span></span>`;
+        }).join(' ') || '<span style="opacity:0.5;">None</span>';
+
+        // --- Extra effects (curse, phase changes) ---
+        const extraEffects = [];
+        if (visible.applyStartingCurse) extraEffects.push(`<span style="color:${purple}; font-size:0.8em;">💜 Curses player at combat start</span>`);
+        if (visible.doublePhases) extraEffects.push(`<span style="color:${purple}; font-size:0.8em;">🌀 Phase triggers earlier</span>`);
+        const extraDiv = extraEffects.length ? `<div style="margin-top:6px;">${extraEffects.join('<br>')}</div>` : '';
+
+        const phaseSection = isBossFloor && enemy.phases && enemy.phases.length
+            ? `<div style="font-size:0.8em; color:#ff8888; margin-top:4px;">📊 ${enemy.phases.length} phase(s)</div>`
+            : '';
+
+        // --- Attack pattern (same as base) ---
+        const pattern = enemy.pattern || [];
+        const patternStr = pattern.length > 0
+            ? pattern.map(key => {
+                const ab = (enemy.abilities || {})[key];
+                return ab ? `${ab.icon}` : '?';
+            }).join(' → ')
+            : '';
+        const patternDiv = patternStr ? `<div style="font-size:0.8em; color:var(--text-dim); margin-top:4px;">Pattern: ${patternStr}</div>` : '';
+
+        // --- Rewards (both modifiers applied) ---
         const mults     = calculateRewardMultipliers([visible, hidden]);
-        const goldRange = Array.isArray(enemy.gold) ? `${Math.floor(enemy.gold[0] * mults.gold)}–${Math.floor(enemy.gold[1] * mults.gold)}` : Math.floor(enemy.gold * mults.gold);
-        const xpRange   = Array.isArray(enemy.xp)   ? `${Math.floor(enemy.xp[0] * mults.xp)}–${Math.floor(enemy.xp[1] * mults.xp)}`       : Math.floor(enemy.xp   * mults.xp);
+        const baseGold  = Array.isArray(enemy.gold) ? `${enemy.gold[0]}–${enemy.gold[1]}` : `${enemy.gold}`;
+        const baseXp    = Array.isArray(enemy.xp)   ? `${enemy.xp[0]}–${enemy.xp[1]}`     : `${enemy.xp}`;
+        const eliteGold = Array.isArray(enemy.gold) ? `${Math.floor(enemy.gold[0] * mults.gold)}–${Math.floor(enemy.gold[1] * mults.gold)}` : Math.floor(enemy.gold * mults.gold);
+        const eliteXp   = Array.isArray(enemy.xp)   ? `${Math.floor(enemy.xp[0] * mults.xp)}–${Math.floor(enemy.xp[1] * mults.xp)}`       : Math.floor(enemy.xp   * mults.xp);
+
+        const goldChanged = `${eliteGold}` !== baseGold;
+        const xpChanged   = `${eliteXp}` !== baseXp;
+        const goldDisplay = goldChanged ? `<span style="color:${purple};">${eliteGold}g</span>` : `${eliteGold}g`;
+        const xpDisplay   = xpChanged   ? `<span style="color:${purple};">${eliteXp} XP</span>` : `${eliteXp} XP`;
 
         const artifactNote = isBossFloor
             ? (visible.artifactPicks ? `${visible.artifactPicks} boss artifacts` + (visible.legendaryChance ? ` + ${Math.round(visible.legendaryChance * 100)}% legendary` : '') : 'Boss artifact')
-            : 'Artifact pick (1 of 3)';
+            : `<span style="color:${purple};">Artifact pick (1 of 3)</span>`;
 
-        // Build modifier description
-        const modDesc = visible.addPassive
-            ? `<div style="font-size:0.78em; color:var(--text-dim); margin-top:4px; padding:4px 8px; background:rgba(192,96,255,0.08); border-radius:4px;">${visible.addPassive.desc}</div>`
-            : '';
+        // --- Hidden modifier note ---
+        const hiddenNote = `<div style="font-size:0.78em; color:${purple}; margin-top:8px; opacity:0.8; font-style:italic;">Estimated stats — hidden modifier will further change this enemy</div>`;
 
         return `
-            <div style="background:var(--bg-surface); border:1px solid #c060ff; border-radius:8px; padding:14px; flex:1;">
-                <div style="font-size:1em; font-weight:bold; margin-bottom:10px; color:#c060ff;">💀 Elite</div>
-                <div style="color:var(--gold); font-size:0.95em; margin-bottom:4px;">${visible.prefix}</div>
-                ${modDesc}
-                ${effects.length ? `<div style="font-size:0.82em; color:var(--text-dim); margin-top:6px; margin-bottom:6px;">${effects.join(' · ')}</div>` : ''}
-                <div style="font-size:0.8em; color:#c060ff; margin-bottom:8px;">+ 1 hidden modifier (revealed when accepted)</div>
-                <div style="font-size:0.82em; color:var(--text-dim);">Est: ${previewEnemy.hp} HP · ${previewDice} · ~${previewAvg} dmg/turn <span style="font-size:0.85em;">(+hidden)</span></div>
-                <div style="margin-top:10px; font-size:0.82em; color:var(--gold);">Rewards: ${goldRange}g · ${xpRange} XP · ${artifactNote}</div>
-                <button class="btn" style="width:100%; margin-top:12px; border-color:#c060ff; color:#c060ff;" onclick="EncounterChoice.chooseElite()">Fight (Elite)</button>
+            <div style="background:var(--bg-surface); border:1px solid ${purple}; border-radius:8px; padding:14px; flex:1;">
+                <div style="font-size:1em; font-weight:bold; margin-bottom:10px; color:${purple};">💀 Elite</div>
+                ${modBadge}
+                <div style="font-size:1.05em; font-family:EB Garamond,serif; margin-bottom:6px;">${enemy.name}</div>
+                <div style="font-size:0.85em; color:var(--text-dim); margin-bottom:4px;">❤️ ${previewEnemy.hp} HP${hpDelta} · 🎲 ${diceDisplay}</div>
+                ${phaseSection}
+                ${extraDiv}
+                <div style="font-size:0.8em; color:var(--text-dim); margin-top:8px;">Abilities:</div>
+                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">${abilityTags}</div>
+                <div style="font-size:0.8em; color:var(--text-dim); margin-top:6px;">Passives:</div>
+                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">${passiveTags}</div>
+                ${patternDiv}
+                <div style="margin-top:10px; font-size:0.82em; color:var(--gold);">Rewards: ${goldDisplay} · ${xpDisplay} · ${artifactNote}</div>
+                ${hiddenNote}
+                <button class="btn" style="width:100%; margin-top:12px; border-color:${purple}; color:${purple};" onclick="EncounterChoice.chooseElite()">Fight (Elite)</button>
             </div>`;
     },
 
@@ -3340,24 +3506,6 @@ const EncounterChoice = {
         return Object.entries(counts).map(([d, n]) => `${n}×d${d}`).join(' + ') || '—';
     },
 
-    _formatModifierEffects(modifier, enemy) {
-        const effects = [];
-        if (modifier.diceUpgrade) {
-            const ex = enemy.dice[0] || '?';
-            effects.push(`Dice: d${ex} → d${ex + modifier.diceUpgrade}`);
-        }
-        if (modifier.extraDice) {
-            effects.push(`+${modifier.extraDice.map(d => `d${d}`).join(', ')}`);
-        }
-        if (modifier.hpMult && modifier.hpMult !== 1.0) {
-            const pct = Math.round((modifier.hpMult - 1.0) * 100);
-            effects.push(`HP ${pct > 0 ? '+' : ''}${pct}%`);
-        }
-        if (modifier.addPassive) effects.push(modifier.addPassive.desc);
-        if (modifier.applyStartingCurse) effects.push('Curses player at start');
-        if (modifier.doublePhases) effects.push('Phase triggers earlier');
-        return effects;
-    },
 };
 
 // ════════════════════════════════════════════════════════════

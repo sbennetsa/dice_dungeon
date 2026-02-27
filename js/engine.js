@@ -495,6 +495,18 @@ export function makeDieElement(die, context) {
     const rangeLabel = `${die.min}-${die.max}`;
     let valueDisplay = die.rolled ? (face ? `<span title="${face.modifier.name}: ${face.modifier.desc}">${face.modifier.icon}</span>` : die.value) : '?';
 
+    // Ascend aura: show boosted value on rolled dice
+    const ascendBonus = (die.rolled && GS.ascendedDice && GS.ascendedDice.length > 0)
+        ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
+    let auraBadge = '';
+    if (ascendBonus > 0) {
+        if (!face) {
+            valueDisplay = die.value + ascendBonus;
+        }
+        auraBadge = `<span class="die-aura-badge">+${ascendBonus}</span>`;
+        el.classList.add('aura-boosted');
+    }
+
     let faceIcon = '';
     if (die.faces.length > 0) {
         const faceSpans = die.faces.map(f =>
@@ -507,7 +519,7 @@ export function makeDieElement(die, context) {
         }
     }
 
-    el.innerHTML = `<span class="die-label">${rangeLabel}</span>${valueDisplay}${faceIcon}`;
+    el.innerHTML = `<span class="die-label">${rangeLabel}</span>${valueDisplay}${faceIcon}${auraBadge}`;
     el.oncontextmenu = e => e.preventDefault();
 
     const tryReroll = () => {

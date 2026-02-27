@@ -1137,6 +1137,7 @@ const Rewards = {
                         if (d.max >= 9) {
                             d.faceValues = d.faceValues.map(v => v + art.value);
                             d.min += art.value; d.max += art.value;
+                            d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
                         }
                     });
                     log(`🏋️ Colossus Belt: dice with max≥9 gained +${art.value} to all faces!`, 'info');
@@ -1144,6 +1145,7 @@ const Rewards = {
                     GS.dice.forEach(d => {
                         d.faceValues = d.faceValues.map(v => v + art.value);
                         d.min += art.value; d.max += art.value;
+                        d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
                     });
                     GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2));
                     GS.hp = Math.min(GS.hp, GS.maxHp);
@@ -1365,12 +1367,14 @@ const BattleSummary = {
                         if (d.max >= 9) {
                             d.faceValues = d.faceValues.map(v => v + art.value);
                             d.min += art.value; d.max += art.value;
+                            d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
                         }
                     });
                 } else if (art.effect === 'glassCannon') {
                     GS.dice.forEach(d => {
                         d.faceValues = d.faceValues.map(v => v + art.value);
                         d.min += art.value; d.max += art.value;
+                        d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
                     });
                     GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2));
                     GS.hp = Math.min(GS.hp, GS.maxHp);
@@ -1955,11 +1959,11 @@ const Events = {
         GS.artifacts.push({ ...art });
         if (art.effect === 'colossussBelt') {
             GS.dice.forEach(d => {
-                if (d.max >= 9) { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; }
+                if (d.max >= 9) { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value })); }
             });
             log(`🏋️ Colossus Belt: dice with max≥9 gained +${art.value} to all faces!`, 'info');
         } else if (art.effect === 'glassCannon') {
-            GS.dice.forEach(d => { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; });
+            GS.dice.forEach(d => { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value })); });
             GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2)); GS.hp = Math.min(GS.hp, GS.maxHp);
             log(`💥 Glass Cannon: all dice +${art.value} faces, max HP halved!`, 'damage');
         }
@@ -2137,8 +2141,13 @@ const Events = {
                             Events._chooseDie('Choose a die to boost (+2/+2):', boostDie => {
                                 const newMin = Math.max(1, boostDie.min + 2);
                                 const newMax = Math.min(12, boostDie.max + 2);
-                                GS.dice = GS.dice.filter(d => d.id !== boostDie.id);
-                                GS.dice.push(createDie(newMin, newMax));
+                                const step = (newMax - newMin) / (boostDie.faceValues.length - 1);
+                                boostDie.faceValues = Array.from({length: boostDie.faceValues.length}, (_, i) => Math.round(newMin + step * i));
+                                boostDie.min = newMin; boostDie.max = newMax;
+                                boostDie.faces = boostDie.faces.map(f => {
+                                    const closest = boostDie.faceValues.reduce((best, v) => Math.abs(v - (f.faceValue + 2)) < Math.abs(best - (f.faceValue + 2)) ? v : best);
+                                    return { ...f, faceValue: closest };
+                                });
                                 log(`Traded ${sacDie.min}-${sacDie.max} die, boosted to ${newMin}-${newMax}!`, 'info');
                                 updateStats(); Game.nextFloor();
                             });
@@ -2930,6 +2939,18 @@ const Rest = {
             const facesB = sorted.filter((_, i) => i % 2 === 1);
             const dieA = createDieFromFaces(facesA);
             const dieB = createDieFromFaces(facesB);
+            // Distribute special face modifiers to the split dice
+            die.faces.forEach(f => {
+                if (dieA.faceValues.includes(f.faceValue)) {
+                    dieA.faces.push({ faceValue: f.faceValue, modifier: { ...f.modifier } });
+                } else if (dieB.faceValues.includes(f.faceValue)) {
+                    dieB.faces.push({ faceValue: f.faceValue, modifier: { ...f.modifier } });
+                } else {
+                    // Face value doesn't match exactly; assign to closest in dieA
+                    const closest = dieA.faceValues.reduce((best, v) => Math.abs(v - f.faceValue) < Math.abs(best - f.faceValue) ? v : best);
+                    dieA.faces.push({ faceValue: closest, modifier: { ...f.modifier } });
+                }
+            });
             GS.dice.splice(idx, 1, dieA, dieB);
             log(`💥 Fractured! d${sorted.length} → d${facesA.length} [${dieA.min}-${dieA.max}] + d${facesB.length} [${dieB.min}-${dieB.max}]`, 'info');
             updateStats();

@@ -1097,8 +1097,13 @@ export const Combat = {
             case 'decay':
                 GS.dice.forEach(d => {
                     if (d._savedMax === undefined) d._savedMax = d.max;
+                    if (d._savedMin === undefined) d._savedMin = d.min;
                     d.max = Math.max(1, d.max - 1);
-                    if (d.faceValues) d.faceValues = d.faceValues.filter(v => v <= d.max);
+                    if (d.faceValues) {
+                        d.faceValues = d.faceValues.filter(v => v <= d.max);
+                        if (d.faceValues.length === 0) d.faceValues = [0];
+                    }
+                    d.min = d.faceValues ? d.faceValues[0] : 0;
                 });
                 log(`${ab.icon} ${ab.name}! All your dice lose 1 max value!`, 'damage');
                 break;
@@ -1575,8 +1580,13 @@ export const Combat = {
             } else {
                 GS.dice.forEach(d => {
                     if (d._savedMax === undefined) d._savedMax = d.max;
+                    if (d._savedMin === undefined) d._savedMin = d.min;
                     d.max = Math.max(1, d.max - 1);
-                    if (d.faceValues) d.faceValues = d.faceValues.filter(v => v <= d.max);
+                    if (d.faceValues) {
+                        d.faceValues = d.faceValues.filter(v => v <= d.max);
+                        if (d.faceValues.length === 0) d.faceValues = [0];
+                    }
+                    d.min = d.faceValues ? d.faceValues[0] : 0;
                 });
                 log(`🌀 Entropy! All your dice shrink by 1 max value.`, 'damage');
             }
@@ -1603,9 +1613,14 @@ export const Combat = {
             if (d._savedMax !== undefined) {
                 d.max = d._savedMax;
                 delete d._savedMax;
+                if (d._savedMin !== undefined) {
+                    d.min = d._savedMin;
+                    delete d._savedMin;
+                }
                 // Rebuild face values from scratch up to restored max
                 if (d.faceValues && d.sides) {
-                    d.faceValues = Array.from({ length: d.sides }, (_, i) => i + 1);
+                    const step = (d.max - d.min) / (d.sides - 1);
+                    d.faceValues = Array.from({ length: d.sides }, (_, i) => Math.round(d.min + step * i));
                 }
             }
         });

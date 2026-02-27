@@ -40,6 +40,11 @@ export function upgradeDie(die) {
 }
 
 export function rollSingleDie(die) {
+    if (!die.faceValues || die.faceValues.length === 0) {
+        die.value = 0;
+        die.rolled = true;
+        return;
+    }
     let fIdx = Math.floor(Math.random() * die.faceValues.length);
     let val = die.faceValues[fIdx];
     // Precision Lens: roll twice, keep higher

@@ -9,6 +9,9 @@ import { rollSingleDie, getActiveFace, renderCombatDice, renderConsumables, upda
 // window.Game and window.Rewards are set by screens.js at load time
 // to avoid circular module dependencies
 
+// Helper: create a die object from a raw die size (e.g. 6 → d6 with faces 1-6)
+const enemyDie = sides => createDie(1, sides, sides);
+
 // ── STATUS HELPERS ──
 function applyEnemyPoison(amount) {
     if (GS.artifacts.some(a => a.effect === 'venomGland')) amount *= 2;
@@ -96,13 +99,13 @@ function applyConsecratedGround(enemy) {
         enemy.hp       = Math.floor(enemy.hp * 0.7);
         enemy.maxHp    = enemy.hp;
         enemy.currentHp = enemy.hp;
-        enemy.dice     = enemy.dice.map(d => Math.max(1, Math.floor(d * 0.7)));
+        enemy.dice     = enemy.dice.map(d => enemyDie(Math.max(1, Math.floor(d.max * 0.7))));
         log('✝️ Consecrated Ground: undead weakened! (−30%)', 'info');
     } else {
         enemy.hp       = Math.floor(enemy.hp * 1.15);
         enemy.maxHp    = enemy.hp;
         enemy.currentHp = enemy.hp;
-        enemy.dice     = enemy.dice.map(d => Math.floor(d * 1.15));
+        enemy.dice     = enemy.dice.map(d => enemyDie(Math.floor(d.max * 1.15)));
         log('✝️ Consecrated Ground: enemy empowered! (+15%)', 'info');
     }
 }
@@ -136,7 +139,7 @@ export const Combat = {
             hp:          template.hp,
             maxHp:       template.hp,
             currentHp:   template.hp,
-            dice:        [...template.dice],
+            dice:        template.dice.map(enemyDie),
             extraDice:   [],
             abilities:   template.abilities,
             passives:    [...(template.passives || [])],
@@ -264,7 +267,7 @@ export const Combat = {
         Combat.renderEnvironmentBar();
 
         const label = isBoss ? '👑 BOSS' : isElite ? '⚡ ELITE' : `Floor ${GS.floor}`;
-        const diceDesc = GS.enemy.dice.map(d => `d${d}`).join('+');
+        const diceDesc = GS.enemy.dice.map(d => `d${d.max}`).join('+');
         log(`${label}: ${GS.enemy.name} appears! (${GS.enemy.hp} HP | Dice: ${diceDesc})`, 'info');
 
         show('screen-combat');
@@ -289,7 +292,7 @@ export const Combat = {
         // Dice pool display
         const allDice = [...e.dice, ...e.extraDice];
         const counts = {};
-        allDice.forEach(d => { counts[d] = (counts[d] || 0) + 1; });
+        allDice.forEach(d => { counts[d.max] = (counts[d.max] || 0) + 1; });
         const diceDesc = Object.entries(counts).map(([d, n]) => `${n}×d${d}`).join(' + ');
         const diceIcons = '🎲'.repeat(Math.min(allDice.length, 6));
         const shieldPart = e.shield > 0 ? ` &nbsp;🛡️ Shield: ${e.shield}` : '';
@@ -378,19 +381,19 @@ export const Combat = {
         const exposeP = e.passives.find(p => p.id === 'expose');
         if (exposeP) {
             const slotCount = GS.slots.attack.length;
-            for (let i = 0; i < slotCount; i++) turnBonusDice.push(exposeP.params.dieSize);
+            for (let i = 0; i < slotCount; i++) turnBonusDice.push(enemyDie(exposeP.params.dieSize));
         }
 
         // Greed Tax: +1 die per goldPer gold held (re-computed each turn)
         const greedP = e.passives.find(p => p.id === 'greedTax');
-        const greedExtra = greedP ? Array(Math.floor(GS.gold / greedP.params.goldPer)).fill(greedP.params.dieSize) : [];
+        const greedExtra = greedP ? Array.from({length: Math.floor(GS.gold / greedP.params.goldPer)}, () => enemyDie(greedP.params.dieSize)) : [];
 
         // Assemble pool; if charged, double it
         const pool = [...e.dice, ...e.extraDice, ...greedExtra, ...turnBonusDice];
         const effectivePool = e.charged ? [...pool, ...pool] : pool;
         e.charged = false;
 
-        e.diceResults = effectivePool.map(sides => rand(1, sides));
+        e.diceResults = effectivePool.map(d => rand(d.min, d.max));
 
         // Environment: modify enemy dice results
         if (GS.environment?.onDiceRoll) {
@@ -401,7 +404,7 @@ export const Combat = {
         if (GS._chaosStormActive) {
             const idx = Math.floor(Math.random() * e.diceResults.length);
             if (effectivePool[idx]) {
-                e.diceResults[idx] = rand(1, effectivePool[idx]);
+                e.diceResults[idx] = rand(effectivePool[idx].min, effectivePool[idx].max);
                 log(`⚡ Chaos storm rerolls enemy die ${idx + 1}: ${e.diceResults[idx]}`, 'info');
             }
             // Don't reset here — reset after player dice roll (both combatants processed)
@@ -1102,7 +1105,7 @@ export const Combat = {
 
             case 'summon_die': {
                 const newSize = ab.dieSize || 6;
-                e.extraDice.push(newSize);
+                e.extraDice.push(enemyDie(newSize));
                 log(`${ab.icon} ${ab.name}! ${e.name} permanently gains +1d${newSize}!`, 'damage');
                 Combat.renderEnemy();
                 break;
@@ -1265,7 +1268,7 @@ export const Combat = {
             if (e.currentHp / e.maxHp > phase.trigger.hpPercent) return;
             e.phaseTriggered.push(idx);
             const ch = phase.changes;
-            if (ch.addDice)               e.extraDice.push(...ch.addDice);
+            if (ch.addDice)               e.extraDice.push(...ch.addDice.map(enemyDie));
             if (ch.addPassives)           e.passives.push(...ch.addPassives);
             if (ch.doubleAction)          e._doubleAction = true;
             if (ch.damageTakenMultiplier) e._damageTakenMult = ch.damageTakenMultiplier;
@@ -1540,7 +1543,7 @@ export const Combat = {
         // Escalate: +1 die every N turns
         const escalateP = e.passives.find(p => p.id === 'escalate');
         if (escalateP && e.turnsAlive % escalateP.params.interval === 0) {
-            e.extraDice.push(escalateP.params.dieSize);
+            e.extraDice.push(enemyDie(escalateP.params.dieSize));
             log(`⚙️ ${e.name} powers up! +1d${escalateP.params.dieSize}`, 'damage');
         }
 
@@ -1548,7 +1551,7 @@ export const Combat = {
         const mitosisP = e.passives.find(p => p.id === 'mitosis');
         if (mitosisP && !e._mitosisTriggered && e.turnsAlive >= mitosisP.params.turnTrigger) {
             e._mitosisTriggered = true;
-            e.dice = [...mitosisP.params.newDice];
+            e.dice = mitosisP.params.newDice.map(enemyDie);
             e.extraDice = [];
             e.currentHp += mitosisP.params.bonusHp;
             e.maxHp += mitosisP.params.bonusHp;
@@ -1560,7 +1563,7 @@ export const Combat = {
         const frenzyP = e.passives.find(p => p.id === 'bloodFrenzy');
         if (frenzyP && !e.bloodFrenzyTriggered && e.currentHp < e.maxHp * frenzyP.params.hpPercent) {
             e.bloodFrenzyTriggered = true;
-            e.extraDice.push(...frenzyP.params.extraDice);
+            e.extraDice.push(...frenzyP.params.extraDice.map(enemyDie));
             log(`🩸 ${e.name} enters a Blood Frenzy!`, 'damage');
         }
 

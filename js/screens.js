@@ -3286,38 +3286,106 @@ const EncounterChoice = {
 
     _buildElitePanel(enemy, eliteModifiers, isBossFloor) {
         const { visible, hidden } = eliteModifiers;
-        const effects = this._formatModifierEffects(visible, enemy);
+        const purple = '#c060ff';
 
-        // Preview stats with visible modifier only
+        // Preview enemy with visible modifier applied
         const previewEnemy = deepClone(enemy);
         applyEliteModifier(previewEnemy, visible);
-        const previewDice = this._formatDicePool(previewEnemy.dice);
-        const previewAvg  = calculateAvgDamage(previewEnemy);
 
-        // Rewards with both modifiers applied
+        // --- Modifier badge ---
+        const modBadge = `<div style="background:rgba(192,96,255,0.12); border:1px solid ${purple}; border-radius:6px; padding:6px 10px; margin-bottom:10px;">
+            <div style="color:${purple}; font-size:0.9em; font-weight:bold;">${visible.prefix}</div>
+            ${visible.addPassive ? `<div style="font-size:0.78em; color:var(--text-dim); margin-top:2px;">${visible.addPassive.desc}</div>` : ''}
+            <div style="font-size:0.75em; color:${purple}; margin-top:3px;">+ 1 hidden modifier (revealed on accept)</div>
+        </div>`;
+
+        // --- HP change ---
+        const hpChanged = previewEnemy.hp !== enemy.hp;
+        const hpDelta   = hpChanged ? ` <span style="color:${purple}; font-size:0.85em;">(${enemy.hp} → ${previewEnemy.hp})</span>` : '';
+
+        // --- Dice change ---
+        const baseDiceStr    = this._formatDicePool(enemy.dice);
+        const previewDiceStr = this._formatDicePool(previewEnemy.dice);
+        const diceChanged    = baseDiceStr !== previewDiceStr;
+        const diceDisplay    = diceChanged
+            ? `<span style="text-decoration:line-through; opacity:0.5;">${baseDiceStr}</span> <span style="color:${purple};">${previewDiceStr}</span>`
+            : previewDiceStr;
+
+        // --- Abilities (unchanged from base enemy) ---
+        const abilityTags = Object.values(enemy.abilities || {}).map(a => {
+            const typeLabel = { attack: 'Attack', poison: 'Poison', curse: 'Curse', buff: 'Buff', heal: 'Heal', debuff: 'Debuff' }[a.type] || a.type || 'Special';
+            const extraInfo = [];
+            if (a.multiHit) extraInfo.push('Multi-hit');
+            if (a.penetrate) extraInfo.push(`Penetrates ${a.penetrate} block`);
+            if (a.buffTarget) extraInfo.push(`Buffs next ${a.buffTarget}`);
+            const extras = extraInfo.length ? `<br><span style="color:var(--gold); font-size:0.9em;">${extraInfo.join(' · ')}</span>` : '';
+            return `<span class="encounter-ability-tag">${a.icon} ${a.name}<span class="enc-tooltip"><strong>${a.icon} ${a.name}</strong> (${typeLabel})<br>${a.desc}${extras}</span></span>`;
+        }).join(' ') || '<span style="opacity:0.5;">None</span>';
+
+        // --- Passives: base passives + new ones from modifier ---
+        const basePassiveIds = new Set((enemy.passives || []).map(p => p.id || p.name));
+        const passiveTags = (previewEnemy.passives || []).map(p => {
+            const isNew = !basePassiveIds.has(p.id || p.name);
+            const border = isNew ? `border:1px solid ${purple};` : '';
+            const newBadge = isNew ? `<span style="color:${purple}; font-weight:bold; margin-left:4px;">NEW</span>` : '';
+            return `<span class="encounter-passive-tag" style="${border}">${p.name}${newBadge}<span class="enc-tooltip"><strong>${p.name}</strong><br>${p.desc}</span></span>`;
+        }).join(' ') || '<span style="opacity:0.5;">None</span>';
+
+        // --- Extra effects (curse, phase changes) ---
+        const extraEffects = [];
+        if (visible.applyStartingCurse) extraEffects.push(`<span style="color:${purple}; font-size:0.8em;">💜 Curses player at combat start</span>`);
+        if (visible.doublePhases) extraEffects.push(`<span style="color:${purple}; font-size:0.8em;">🌀 Phase triggers earlier</span>`);
+        const extraDiv = extraEffects.length ? `<div style="margin-top:6px;">${extraEffects.join('<br>')}</div>` : '';
+
+        const phaseSection = isBossFloor && enemy.phases && enemy.phases.length
+            ? `<div style="font-size:0.8em; color:#ff8888; margin-top:4px;">📊 ${enemy.phases.length} phase(s)</div>`
+            : '';
+
+        // --- Attack pattern (same as base) ---
+        const pattern = enemy.pattern || [];
+        const patternStr = pattern.length > 0
+            ? pattern.map(key => {
+                const ab = (enemy.abilities || {})[key];
+                return ab ? `${ab.icon}` : '?';
+            }).join(' → ')
+            : '';
+        const patternDiv = patternStr ? `<div style="font-size:0.8em; color:var(--text-dim); margin-top:4px;">Pattern: ${patternStr}</div>` : '';
+
+        // --- Rewards (both modifiers applied) ---
         const mults     = calculateRewardMultipliers([visible, hidden]);
-        const goldRange = Array.isArray(enemy.gold) ? `${Math.floor(enemy.gold[0] * mults.gold)}–${Math.floor(enemy.gold[1] * mults.gold)}` : Math.floor(enemy.gold * mults.gold);
-        const xpRange   = Array.isArray(enemy.xp)   ? `${Math.floor(enemy.xp[0] * mults.xp)}–${Math.floor(enemy.xp[1] * mults.xp)}`       : Math.floor(enemy.xp   * mults.xp);
+        const baseGold  = Array.isArray(enemy.gold) ? `${enemy.gold[0]}–${enemy.gold[1]}` : `${enemy.gold}`;
+        const baseXp    = Array.isArray(enemy.xp)   ? `${enemy.xp[0]}–${enemy.xp[1]}`     : `${enemy.xp}`;
+        const eliteGold = Array.isArray(enemy.gold) ? `${Math.floor(enemy.gold[0] * mults.gold)}–${Math.floor(enemy.gold[1] * mults.gold)}` : Math.floor(enemy.gold * mults.gold);
+        const eliteXp   = Array.isArray(enemy.xp)   ? `${Math.floor(enemy.xp[0] * mults.xp)}–${Math.floor(enemy.xp[1] * mults.xp)}`       : Math.floor(enemy.xp   * mults.xp);
+
+        const goldChanged = `${eliteGold}` !== baseGold;
+        const xpChanged   = `${eliteXp}` !== baseXp;
+        const goldDisplay = goldChanged ? `<span style="color:${purple};">${eliteGold}g</span>` : `${eliteGold}g`;
+        const xpDisplay   = xpChanged   ? `<span style="color:${purple};">${eliteXp} XP</span>` : `${eliteXp} XP`;
 
         const artifactNote = isBossFloor
             ? (visible.artifactPicks ? `${visible.artifactPicks} boss artifacts` + (visible.legendaryChance ? ` + ${Math.round(visible.legendaryChance * 100)}% legendary` : '') : 'Boss artifact')
-            : 'Artifact pick (1 of 3)';
+            : `<span style="color:${purple};">Artifact pick (1 of 3)</span>`;
 
-        // Build modifier description
-        const modDesc = visible.addPassive
-            ? `<div style="font-size:0.78em; color:var(--text-dim); margin-top:4px; padding:4px 8px; background:rgba(192,96,255,0.08); border-radius:4px;">${visible.addPassive.desc}</div>`
-            : '';
+        // --- Hidden modifier note ---
+        const hiddenNote = `<div style="font-size:0.78em; color:${purple}; margin-top:8px; opacity:0.8; font-style:italic;">Estimated stats — hidden modifier will further change this enemy</div>`;
 
         return `
-            <div style="background:var(--bg-surface); border:1px solid #c060ff; border-radius:8px; padding:14px; flex:1;">
-                <div style="font-size:1em; font-weight:bold; margin-bottom:10px; color:#c060ff;">💀 Elite</div>
-                <div style="color:var(--gold); font-size:0.95em; margin-bottom:4px;">${visible.prefix}</div>
-                ${modDesc}
-                ${effects.length ? `<div style="font-size:0.82em; color:var(--text-dim); margin-top:6px; margin-bottom:6px;">${effects.join(' · ')}</div>` : ''}
-                <div style="font-size:0.8em; color:#c060ff; margin-bottom:8px;">+ 1 hidden modifier (revealed when accepted)</div>
-                <div style="font-size:0.82em; color:var(--text-dim);">Est: ${previewEnemy.hp} HP · ${previewDice} · ~${previewAvg} dmg/turn <span style="font-size:0.85em;">(+hidden)</span></div>
-                <div style="margin-top:10px; font-size:0.82em; color:var(--gold);">Rewards: ${goldRange}g · ${xpRange} XP · ${artifactNote}</div>
-                <button class="btn" style="width:100%; margin-top:12px; border-color:#c060ff; color:#c060ff;" onclick="EncounterChoice.chooseElite()">Fight (Elite)</button>
+            <div style="background:var(--bg-surface); border:1px solid ${purple}; border-radius:8px; padding:14px; flex:1;">
+                <div style="font-size:1em; font-weight:bold; margin-bottom:10px; color:${purple};">💀 Elite</div>
+                ${modBadge}
+                <div style="font-size:1.05em; font-family:EB Garamond,serif; margin-bottom:6px;">${enemy.name}</div>
+                <div style="font-size:0.85em; color:var(--text-dim); margin-bottom:4px;">❤️ ${previewEnemy.hp} HP${hpDelta} · 🎲 ${diceDisplay}</div>
+                ${phaseSection}
+                ${extraDiv}
+                <div style="font-size:0.8em; color:var(--text-dim); margin-top:8px;">Abilities:</div>
+                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">${abilityTags}</div>
+                <div style="font-size:0.8em; color:var(--text-dim); margin-top:6px;">Passives:</div>
+                <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">${passiveTags}</div>
+                ${patternDiv}
+                <div style="margin-top:10px; font-size:0.82em; color:var(--gold);">Rewards: ${goldDisplay} · ${xpDisplay} · ${artifactNote}</div>
+                ${hiddenNote}
+                <button class="btn" style="width:100%; margin-top:12px; border-color:${purple}; color:${purple};" onclick="EncounterChoice.chooseElite()">Fight (Elite)</button>
             </div>`;
     },
 
@@ -3340,24 +3408,6 @@ const EncounterChoice = {
         return Object.entries(counts).map(([d, n]) => `${n}×d${d}`).join(' + ') || '—';
     },
 
-    _formatModifierEffects(modifier, enemy) {
-        const effects = [];
-        if (modifier.diceUpgrade) {
-            const ex = enemy.dice[0] || '?';
-            effects.push(`Dice: d${ex} → d${ex + modifier.diceUpgrade}`);
-        }
-        if (modifier.extraDice) {
-            effects.push(`+${modifier.extraDice.map(d => `d${d}`).join(', ')}`);
-        }
-        if (modifier.hpMult && modifier.hpMult !== 1.0) {
-            const pct = Math.round((modifier.hpMult - 1.0) * 100);
-            effects.push(`HP ${pct > 0 ? '+' : ''}${pct}%`);
-        }
-        if (modifier.addPassive) effects.push(modifier.addPassive.desc);
-        if (modifier.applyStartingCurse) effects.push('Curses player at start');
-        if (modifier.doublePhases) effects.push('Phase triggers earlier');
-        return effects;
-    },
 };
 
 // ════════════════════════════════════════════════════════════

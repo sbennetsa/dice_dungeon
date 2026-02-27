@@ -1369,9 +1369,7 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 
 #encounter-body {
     display: flex;
-    gap: 16px;
     margin-top: 12px;
-    align-items: stretch;
     justify-content: center;
 }
 
@@ -1379,14 +1377,14 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
    ENCOUNTER CARDS — TCG-style
 ════════════════════════════════════════════════════════════ */
 .encounter-card {
-    flex: 1;
+    width: 100%;
     max-width: 340px;
     display: flex;
     flex-direction: column;
     border-radius: 12px;
     padding: 5px;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
 }
 .encounter-card--standard {
     background: linear-gradient(160deg, #3a3a5a 0%, #2a2a44 40%, #1a1a2a 100%);
@@ -1395,6 +1393,10 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 .encounter-card--elite {
     background: linear-gradient(160deg, #4a2a6a 0%, #2e1848 40%, #1a1028 100%);
     box-shadow: 0 0 16px rgba(192, 96, 255, 0.15), inset 0 1px 0 rgba(192,96,255,0.12);
+}
+.encounter-card--boss {
+    background: linear-gradient(160deg, #6a2a2a 0%, #481818 40%, #281010 100%);
+    box-shadow: 0 0 16px rgba(255, 60, 40, 0.15), inset 0 1px 0 rgba(255, 80, 60, 0.12);
 }
 .encounter-card--locked {
     background: linear-gradient(160deg, #2a2a3a 0%, #1a1a28 40%, #111118 100%);
@@ -1408,7 +1410,7 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     flex-direction: column;
     background: var(--bg-deep);
     border-radius: 8px;
-    overflow: hidden;
+    overflow: visible;
 }
 
 /* Title bar */
@@ -1421,6 +1423,7 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 .encounter-card--standard .encounter-card__title { color: var(--text-bright); }
+.encounter-card--boss .encounter-card__title { color: #ff6040; }
 .encounter-card--elite .encounter-card__title { color: #c060ff; }
 .encounter-card--locked .encounter-card__title { color: #666; }
 
@@ -1433,6 +1436,9 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 }
 .encounter-card--standard .encounter-card__art {
     background: linear-gradient(180deg, rgba(42,42,68,0.6) 0%, rgba(26,26,42,0.8) 100%);
+}
+.encounter-card--boss .encounter-card__art {
+    background: linear-gradient(180deg, rgba(106,42,42,0.4) 0%, rgba(40,16,16,0.6) 100%);
 }
 .encounter-card--elite .encounter-card__art {
     background: linear-gradient(180deg, rgba(74,42,106,0.3) 0%, rgba(26,16,40,0.5) 100%);
@@ -1494,6 +1500,13 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     border-top: 1px solid rgba(255,255,255,0.06);
 }
 .encounter-card__footer .btn { width: 100%; }
+.encounter-card--boss .encounter-card__footer .btn {
+    border-color: #ff6040;
+    color: #ff6040;
+}
+.encounter-card--boss .encounter-card__footer .btn:hover {
+    background: rgba(255,60,40,0.15);
+}
 .encounter-card--elite .encounter-card__footer .btn {
     border-color: #c060ff;
     color: #c060ff;
@@ -1507,6 +1520,67 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     cursor: not-allowed;
 }
 
+/* ════════════════════════════════════════════════════════════
+   ENCOUNTER CARD FLIPPER
+════════════════════════════════════════════════════════════ */
+.encounter-card-flipper {
+    perspective: 1000px;
+    position: relative;
+    width: 340px;
+    max-width: 100%;
+}
+.encounter-card-flipper__inner {
+    position: relative;
+    transition: transform 0.6s ease, height 0.6s ease;
+    transform-style: preserve-3d;
+}
+.encounter-card-flipper.flipped .encounter-card-flipper__inner {
+    transform: rotateY(180deg);
+}
+.encounter-card-flipper__face {
+    backface-visibility: hidden;
+}
+.encounter-card-flipper__back {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    transform: rotateY(180deg);
+}
+.encounter-flip-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.5);
+    color: var(--text-dim);
+    font-size: 1.1em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.encounter-flip-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--text-bright);
+    border-color: rgba(255,255,255,0.4);
+}
+.encounter-flip-label {
+    position: absolute;
+    top: 14px;
+    right: 48px;
+    z-index: 10;
+    font-size: 0.72em;
+    color: var(--text-dim);
+    pointer-events: none;
+    opacity: 0.7;
+}
+
 @media (max-width: 768px) {
     #encounter-body {
         flex-direction: column;
@@ -1514,6 +1588,9 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     }
     .encounter-card {
         max-width: 100%;
+        width: 100%;
+    }
+    .encounter-card-flipper {
         width: 100%;
     }
     .encounter-ability-tag .enc-tooltip,

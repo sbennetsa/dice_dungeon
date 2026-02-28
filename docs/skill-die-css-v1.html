@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Dice Dungeon — Skill Die (CSS)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+:root {
+  --bg: #06060c; --text: #e8e0d4; --gold: #d4a534;
+  --cs: 310px; --half: 155px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'EB Garamond', serif;
+  height: 100vh; height: 100dvh;
+  overflow: hidden; display: flex; flex-direction: column;
+  user-select: none; -webkit-user-select: none;
+}
+
+/* ── REVEAL OVERLAY ── */
+.reveal-overlay {
+  position: fixed; inset: 0; z-index: 100; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  transition: opacity .8s, transform .8s;
+}
+.reveal-overlay.hidden { opacity: 0; transform: scale(1.1); pointer-events: none; }
+.reveal-shape {
+  width: 140px; height: 140px; position: relative; cursor: pointer; margin-bottom: 20px;
+}
+.reveal-shape .glow {
+  position: absolute; inset: -30px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(212,165,52,.1) 0%, transparent 70%);
+  animation: rP 2.5s ease-in-out infinite;
+}
+@keyframes rP { 0%,100%{opacity:.3;transform:scale(.9)} 50%{opacity:1;transform:scale(1.1)} }
+.reveal-shape svg { width:100%; height:100%; filter:drop-shadow(0 0 12px rgba(212,165,52,.2)); }
+.reveal-shape .outline { fill:rgba(212,165,52,.04); stroke:rgba(212,165,52,.3); stroke-width:2; transition:all .3s; }
+.reveal-shape:hover .outline { fill:rgba(212,165,52,.08); stroke:rgba(212,165,52,.5); }
+.reveal-emoji { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:2.8em; pointer-events:none; }
+.reveal-title { font-size:1.4em; color:var(--gold); font-weight:600; margin-bottom:6px; }
+.reveal-desc { font-size:.85em; color:rgba(255,255,255,.4); margin-bottom:16px; }
+.reveal-effect { font-family:'JetBrains Mono',monospace; font-size:.7em; color:rgba(212,165,52,.6); background:rgba(212,165,52,.06); border:1px solid rgba(212,165,52,.15); border-radius:6px; padding:6px 14px; margin-bottom:24px; }
+.reveal-cta { font-family:'JetBrains Mono',monospace; font-size:.65em; color:rgba(255,255,255,.2); animation:cP 2s ease-in-out infinite; }
+@keyframes cP { 0%,100%{opacity:.3} 50%{opacity:.8} }
+.reveal-sp { position:absolute; top:16px; right:16px; display:inline-flex; align-items:center; gap:4px; background:rgba(212,165,52,.12); border:1px solid rgba(212,165,52,.3); border-radius:20px; padding:3px 12px; font-family:'JetBrains Mono',monospace; font-size:.68em; color:var(--gold); }
+
+/* ── MAIN ── */
+#main {
+  flex: 1; position: relative;
+  opacity: 0; transition: opacity .6s .3s;
+  cursor: grab; overflow: hidden;
+}
+#main.visible { opacity: 1; }
+#main:active { cursor: grabbing; }
+
+/* ── HUD ── */
+.hud {
+  position: absolute; top: 0; left: 0; right: 0;
+  padding: 12px 16px; display: flex; justify-content: space-between; align-items: flex-start;
+  pointer-events: none; z-index: 20;
+}
+.hud-title { font-size: 1.1em; color: var(--gold); font-weight: 600; }
+.hud-badge {
+  pointer-events: auto; display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(212,165,52,.12); border: 1px solid rgba(212,165,52,.3);
+  border-radius: 20px; padding: 3px 12px;
+  font-family: 'JetBrains Mono',monospace; font-size: .68em; color: var(--gold);
+}
+.face-indicator {
+  position: absolute; top: 42px; left: 16px;
+  font-family: 'JetBrains Mono',monospace; font-size: .65em;
+  pointer-events: none; transition: color .3s; z-index: 20;
+}
+
+/* ── DEMO CONTROLS ── */
+.demo-controls { position: absolute; top: 44px; right: 12px; display: flex; gap: 4px; z-index: 20; }
+.demo-btn {
+  background: rgba(14,14,26,.8); border: 1px solid rgba(255,255,255,.08);
+  color: rgba(255,255,255,.5); padding: 4px 8px; border-radius: 4px;
+  font-family: 'JetBrains Mono',monospace; font-size: .58em; cursor: pointer;
+}
+.demo-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── CUBE SCENE ── */
+.scene {
+  position: absolute; top: 50%; left: 50%;
+  width: var(--cs); height: var(--cs);
+  perspective: 900px;
+  transform: translate(-50%, -56%);
+}
+.cube {
+  width: 100%; height: 100%;
+  transform-style: preserve-3d;
+  position: relative;
+  will-change: transform;
+}
+
+/* ── FACES ── */
+.face {
+  position: absolute;
+  width: var(--cs); height: var(--cs);
+  background: rgba(14,14,24,0.88);
+  border: 1px solid rgba(80,80,120,0.22);
+}
+.face-front  { transform: translateZ(var(--half)); }
+.face-back   { transform: rotateY(180deg) translateZ(var(--half)); }
+.face-right  { transform: rotateY(90deg) translateZ(var(--half)); }
+.face-left   { transform: rotateY(-90deg) translateZ(var(--half)); }
+.face-top    { transform: rotateX(-90deg) translateZ(var(--half)); }
+.face-bottom { transform: rotateX(90deg) translateZ(var(--half)); }
+.face-decor  { display: flex; align-items: center; justify-content: center; }
+
+/* ── NODES ── */
+.nodes { position: absolute; inset: 0; }
+.node {
+  position: absolute;
+  display: flex; flex-direction: column; align-items: center;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.node-diamond {
+  width: 76px; height: 76px;
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  display: flex; align-items: center; justify-content: center;
+  transition: background .2s, box-shadow .2s;
+  position: relative;
+}
+.node.notable .node-diamond { width: 90px; height: 90px; }
+
+.node-emoji { font-size: 26px; pointer-events: none; transition: opacity .2s; line-height: 1; }
+.node.notable .node-emoji { font-size: 32px; }
+
+.node-name {
+  font-family: 'JetBrains Mono',monospace; font-size: 9px;
+  margin-top: 4px; text-align: center; max-width: 76px;
+  line-height: 1.2; transition: color .2s;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  pointer-events: none;
+}
+.node.notable .node-name { font-size: 10px; max-width: 100px; }
+
+/* State: locked */
+.node.locked .node-diamond { background: rgba(20,20,35,0.75); outline: 1.5px solid rgba(255,255,255,0.16); outline-offset: -2px; }
+.node.locked .node-emoji { opacity: 0.28; }
+.node.locked .node-name { color: rgba(255,255,255,0.16); }
+
+/* State: available — colors set via JS inline styles */
+/* State: unlocked — colors set via JS inline styles */
+
+/* Pulse for available */
+@keyframes pulse { 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.07)} }
+.node.available { animation: pulse 2.2s ease-in-out infinite; }
+.node.available:hover, .node.selected { animation: none !important; transform: translate(-50%,-50%) scale(1.1) !important; }
+.node:not(.available) { transform: translate(-50%,-50%); }
+
+/* Selected ring */
+.node.selected .node-diamond { outline-width: 2.5px !important; }
+
+/* ── DETAIL BAR ── */
+.detail-bar {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(6,6,12,.93); border-top: 1px solid rgba(255,255,255,.06);
+  padding: 10px 16px; min-height: 60px;
+  display: flex; align-items: center; gap: 10px;
+  backdrop-filter: blur(8px); transition: border-color .3s; z-index: 20;
+}
+.d-icon { font-size: 1.5em; width: 30px; text-align: center; flex-shrink: 0; }
+.d-body { flex: 1; min-width: 0; }
+.d-name { font-weight: 700; font-size: .88em; }
+.d-status { font-family:'JetBrains Mono',monospace; font-size:.62em; margin-left:6px; }
+.d-desc { color:rgba(255,255,255,.5); font-size:.78em; margin-top:2px; }
+.placeholder { color:rgba(255,255,255,.38); font-size:.78em; font-style:italic; }
+.alloc-btn {
+  flex-shrink: 0;
+  background: rgba(128,255,128,.08); border: 1px solid rgba(128,255,128,.3);
+  color: #80ff80; font-family:'JetBrains Mono',monospace; font-size:.7em;
+  padding: 10px 16px; border-radius: 6px; cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.alloc-btn:hover { background:rgba(128,255,128,.18); border-color:rgba(128,255,128,.6); }
+.alloc-btn:active { transform:scale(.94); }
+
+/* ── HINT ── */
+.hint {
+  position: absolute; bottom: 72px; left: 0; right: 0; text-align: center;
+  font-family:'JetBrains Mono',monospace; font-size:.6em;
+  color:rgba(255,255,255,.2); pointer-events:none; transition:opacity .5s; z-index:10;
+}
+
+/* ── WIREFRAME OVERLAY (CSS only) ── */
+.cube-wire {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  transform-style: preserve-3d;
+}
+</style>
+</head>
+<body>
+
+<!-- REVEAL OVERLAY -->
+<div class="reveal-overlay" id="reveal-overlay">
+  <div class="reveal-sp">⭐ <span id="reveal-sp-count">5 SP</span></div>
+  <div class="reveal-shape" id="reveal-btn">
+    <div class="glow"></div>
+    <svg viewBox="0 0 140 140"><rect class="outline" x="20" y="20" width="100" height="100" rx="8"/></svg>
+    <div class="reveal-emoji">🎲</div>
+  </div>
+  <div class="reveal-title">Reveal the Die</div>
+  <div class="reveal-desc">Spend your first skill point to unlock the skill die</div>
+  <div class="reveal-effect">+1 Attack Slot · +1 Defend Slot</div>
+  <div class="reveal-cta">Tap to reveal</div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div class="hud">
+    <div class="hud-title">⭐ Skill Die</div>
+    <div class="hud-badge">⭐ <span id="sp-count">4 SP</span></div>
+  </div>
+  <div class="face-indicator" id="face-indicator">—</div>
+  <div class="demo-controls">
+    <button class="demo-btn" onclick="resetTree()">Reset</button>
+    <button class="demo-btn" onclick="demoUnlock()">Demo</button>
+    <button class="demo-btn" onclick="addSP()">+SP</button>
+  </div>
+  <div class="hint" id="hint">Drag to rotate · Tap a node to inspect</div>
+  <div class="scene">
+    <div class="cube" id="cube"></div>
+  </div>
+  <div class="detail-bar" id="detail-bar">
+    <span class="placeholder">Drag to rotate · Tap a node to inspect</span>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════
+const FACES = [
+  { key:'wide',  label:'Wide',  color:'#5fa84f', icon:'🐺',
+    passives:[{id:'w_a',name:'Extra Arms',desc:'+1 Attack Slot'},{id:'w_b',name:'Pack Tactics',desc:'+1 dmg per die in slot'},{id:'w_c',name:'Shield Wall',desc:'+1 Defend Slot'},{id:'w_d',name:'Volley',desc:'3+ dice in slot = +8'}],
+    notable:{id:'w_n',name:'Swarm Master',desc:'+2 per die in ANY slot'} },
+  { key:'gold',  label:'Gold',  color:'#d4a534', icon:'💰',
+    passives:[{id:'g_a',name:'Prospector',desc:'+15 gold, +4/combat'},{id:'g_b',name:'Appraisal',desc:'Shop prices -15%'},{id:'g_c',name:'Investment',desc:'+1 dmg/15 gold held'},{id:'g_d',name:'Compound Int.',desc:'+10% gold after combat'}],
+    notable:{id:'g_n',name:'Golden God',desc:'+1 dmg/8 gold, free refresh'} },
+  { key:'tall',  label:'Tall',  color:'#d48830', icon:'🔨',
+    passives:[{id:'t_a',name:'Precision',desc:'+1 Reroll per combat'},{id:'t_b',name:'Forge',desc:'Dice Merge at rest'},{id:'t_c',name:'Threshold',desc:'Dice ≥8 deal +50%'},{id:'t_d',name:'Amplify',desc:'Free Amplifier rune'}],
+    notable:{id:'t_n',name:"Titan's Wrath",desc:'Single-die slots deal ×3'} },
+  { key:'venom', label:'Venom', color:'#9050c0', icon:'🧪',
+    passives:[{id:'v_a',name:'Vitality',desc:'+20 Max HP (heals too)'},{id:'v_b',name:'Venom',desc:'All attacks apply 1 poison'},{id:'v_c',name:'Gambler',desc:'+1 Reroll, rerolls deal 2 dmg'},{id:'v_d',name:'Regeneration',desc:'Heal 3 HP per turn start'}],
+    notable:{id:'v_n',name:'Plague Lord',desc:'Poison ×2, +2 poison/turn'} },
+];
+
+// Face normals (local space): front=wide(+Z), right=gold(+X), back=tall(-Z), left=venom(-X)
+const NORMALS = [[0,0,1],[1,0,0],[0,0,-1],[-1,0,0]];
+const FACE_CSS = ['face-front','face-right','face-back','face-left'];
+// Passive grid offsets: [col, row] (-1 or +1)
+const GRID = [[-1,-1],[1,-1],[-1,1],[1,1]];
+const GRID_PX = 98; // pixels from face center to passive node center
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let unlocked = new Set();
+let skillPoints = 5;
+let dieRevealed = false;
+let selectedNodeId = null;
+
+const isUnlocked = id => unlocked.has(id);
+const allPassives = face => face.passives.every(p => unlocked.has(p.id));
+function getNodeAvail(id) {
+  if (isUnlocked(id) || skillPoints <= 0) return false;
+  for (const f of FACES) {
+    if (f.notable.id === id) return allPassives(f);
+    if (f.passives.some(p => p.id === id)) return true;
+  }
+  return false;
+}
+function findNode(id) {
+  for (const f of FACES) {
+    if (f.notable.id === id) return { face: f, node: f.notable, isNotable: true };
+    const p = f.passives.find(p => p.id === id);
+    if (p) return { face: f, node: p, isNotable: false };
+  }
+}
+
+// ═══════════════════════════════════════
+// BUILD CUBE DOM
+// ═══════════════════════════════════════
+const CUBE_SIZE = 310, HALF = 155;
+const cube = document.getElementById('cube');
+const nodeEls = {}; // id → { el, faceIdx, face, node, isNotable }
+
+FACES.forEach((face, fi) => {
+  const faceDiv = document.createElement('div');
+  faceDiv.className = `face ${FACE_CSS[fi]}`;
+
+  const nodesDiv = document.createElement('div');
+  nodesDiv.className = 'nodes';
+
+  // Passives
+  face.passives.forEach((p, pi) => {
+    const [col, row] = GRID[pi];
+    const el = makeNode(p.id, face.icon, p.name, false, fi);
+    el.style.left = (HALF + col * GRID_PX) + 'px';
+    el.style.top  = (HALF + row * GRID_PX) + 'px';
+    nodesDiv.appendChild(el);
+    nodeEls[p.id] = { el, faceIdx: fi, face, node: p, isNotable: false };
+  });
+
+  // Notable
+  const n = face.notable;
+  const nel = makeNode(n.id, '👑', n.name, true, fi);
+  nel.style.left = HALF + 'px';
+  nel.style.top  = HALF + 'px';
+  nodesDiv.appendChild(nel);
+  nodeEls[n.id] = { el: nel, faceIdx: fi, face, node: n, isNotable: true };
+
+  faceDiv.appendChild(nodesDiv);
+  cube.appendChild(faceDiv);
+});
+
+// Decorative top/bottom
+['face-top','face-bottom'].forEach(cls => {
+  const d = document.createElement('div');
+  d.className = `face face-decor ${cls}`;
+  d.innerHTML = `<span style="font-size:1.8em;opacity:0.12">🎲</span>`;
+  cube.appendChild(d);
+});
+
+function makeNode(id, emoji, name, isNotable, faceIdx) {
+  const el = document.createElement('div');
+  el.className = `node locked${isNotable ? ' notable' : ''}`;
+  el.innerHTML = `<div class="node-diamond"><div class="node-emoji">${emoji}</div></div><div class="node-name">${name}</div>`;
+  el.addEventListener('click', e => { e.stopPropagation(); handleNodeClick(id); });
+  return el;
+}
+
+// ═══════════════════════════════════════
+// ROTATION STATE
+// ═══════════════════════════════════════
+let rotX = 0.18, rotY = 0;
+let velX = 0, velY = 0;
+let isDragging = false, dragDist = 0;
+let prevX = 0, prevY = 0;
+let pinching = false;
+let idleT = 0;
+
+// ═══════════════════════════════════════
+// FACE VISIBILITY (dot product)
+// ═══════════════════════════════════════
+function faceVis() {
+  const cx = Math.cos(rotX), sx = Math.sin(rotX);
+  const cy = Math.cos(rotY), sy = Math.sin(rotY);
+  return NORMALS.map(([nx, ny, nz]) => {
+    // Rotate normal by rotY then rotX; dot with camera forward [0,0,1]
+    const x1 = nx * cy + nz * sy;
+    const y1 = ny;
+    const z1 = -nx * sy + nz * cy;
+    const z2 = y1 * sx + z1 * cx;
+    if (z2 > 0.2) return 1;
+    if (z2 < -0.15) return 0;
+    return (z2 + 0.15) / 0.35;
+  });
+}
+function frontFace() {
+  const v = faceVis(); let b = -1, idx = 0;
+  v.forEach((x, i) => { if (x > b) { b = x; idx = i; } });
+  return idx;
+}
+
+// ═══════════════════════════════════════
+// VISUAL UPDATE
+// ═══════════════════════════════════════
+function updateVisuals() {
+  const vis = faceVis();
+  const ff = frontFace();
+
+  // Cube transform
+  cube.style.transform = `rotateX(${rotX}rad) rotateY(${rotY}rad)`;
+
+  // Face indicator
+  const fDef = FACES[ff];
+  const fi = document.getElementById('face-indicator');
+  fi.textContent = `▸ ${fDef.label}`;
+  fi.style.color = fDef.color;
+
+  // Nodes
+  Object.values(nodeEls).forEach(({ el, faceIdx, face, node, isNotable }) => {
+    const v = vis[faceIdx];
+    const id = node.id;
+    const un = isUnlocked(id);
+    const avail = getNodeAvail(id);
+    const state = un ? 'unlocked' : avail ? 'available' : 'locked';
+    const color = face.color;
+    const diamond = el.querySelector('.node-diamond');
+    const nameEl = el.querySelector('.node-name');
+    const emojiEl = el.querySelector('.node-emoji');
+
+    // Opacity + pointer events
+    el.style.opacity = v;
+    el.style.pointerEvents = (faceIdx === ff && v > 0.5) ? 'auto' : 'none';
+
+    // State classes
+    el.classList.remove('locked', 'available', 'unlocked');
+    el.classList.add(state);
+
+    // Selected
+    el.classList.toggle('selected', id === selectedNodeId);
+
+    // Diamond styling
+    if (state === 'unlocked') {
+      diamond.style.background = color + '80';
+      diamond.style.outline = `3px solid ${color}`;
+      diamond.style.outlineOffset = '-1px';
+      diamond.style.boxShadow = `0 0 14px ${color}55, inset 0 0 8px ${color}22`;
+      nameEl.style.color = color;
+      emojiEl.style.opacity = '1';
+    } else if (state === 'available') {
+      if (!isNotable) {
+        diamond.style.background = color + '18';
+        diamond.style.outline = `2px solid ${color}88`;
+        diamond.style.outlineOffset = '-1px';
+        diamond.style.boxShadow = `0 0 10px ${color}44`;
+      }
+      nameEl.style.color = color + '99';
+      emojiEl.style.opacity = '0.85';
+    } else {
+      diamond.style.background = 'rgba(20,20,35,0.75)';
+      diamond.style.outline = '1.5px solid rgba(255,255,255,0.16)';
+      diamond.style.outlineOffset = '-1px';
+      diamond.style.boxShadow = 'none';
+      nameEl.style.color = 'rgba(255,255,255,0.16)';
+      emojiEl.style.opacity = '0.28';
+    }
+
+    // Notable: quadrant conic-gradient progress
+    if (isNotable && state !== 'unlocked') {
+      const lit = face.passives.filter(p => isUnlocked(p.id)).length;
+      const on = color + '38';
+      const off = 'rgba(20,20,35,0.65)';
+      const q = [0,1,2,3].map(i => i < lit ? on : off);
+      diamond.style.background = `conic-gradient(from -45deg, ${q[0]} 0% 25%, ${q[1]} 25% 50%, ${q[2]} 50% 75%, ${q[3]} 75% 100%)`;
+      emojiEl.style.opacity = lit > 0 ? String(0.15 + lit * 0.18) : '0.08';
+      if (lit >= 4) {
+        // Available notable: bright border
+        diamond.style.outline = `3px solid ${color}`;
+        diamond.style.outlineOffset = '-1px';
+        diamond.style.boxShadow = `0 0 12px ${color}55`;
+      } else {
+        diamond.style.outline = lit > 0 ? `2px solid ${color}44` : '1.5px solid rgba(255,255,255,0.14)';
+        diamond.style.outlineOffset = '-1px';
+        diamond.style.boxShadow = 'none';
+      }
+    }
+  });
+
+  updateBadge();
+}
+
+function updateBadge() {
+  document.getElementById('sp-count').textContent = skillPoints > 0 ? `${skillPoints} SP` : 'No SP';
+  document.getElementById('reveal-sp-count').textContent = `${skillPoints} SP`;
+}
+
+// ═══════════════════════════════════════
+// REVEAL
+// ═══════════════════════════════════════
+document.getElementById('reveal-btn').addEventListener('click', () => {
+  if (skillPoints < 1) return;
+  unlocked.add('root'); skillPoints--; dieRevealed = true;
+  document.getElementById('reveal-overlay').classList.add('hidden');
+  document.getElementById('main').classList.add('visible');
+  updateBadge();
+});
+
+// ═══════════════════════════════════════
+// INPUT — MOUSE
+// ═══════════════════════════════════════
+const main = document.getElementById('main');
+
+main.addEventListener('mousedown', e => {
+  if (!dieRevealed) return;
+  isDragging = true; dragDist = 0; velX = velY = 0;
+  prevX = e.clientX; prevY = e.clientY;
+});
+main.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx = e.clientX - prevX, dy = e.clientY - prevY;
+  dragDist += Math.abs(dx) + Math.abs(dy);
+  velY = dx * 0.005; velX = dy * 0.005;
+  rotY += velY; rotX += velX;
+  prevX = e.clientX; prevY = e.clientY;
+});
+main.addEventListener('mouseup', e => {
+  isDragging = false;
+  if (dragDist < 6) { selectedNodeId = null; clearDetail(); }
+});
+main.addEventListener('mouseleave', () => { isDragging = false; });
+
+// ── TOUCH ──
+main.addEventListener('touchstart', e => {
+  if (!dieRevealed) return;
+  if (e.touches.length === 2) { pinching = true; return; }
+  isDragging = true; dragDist = 0; pinching = false; velX = velY = 0;
+  prevX = e.touches[0].clientX; prevY = e.touches[0].clientY;
+}, {passive: false});
+
+main.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (pinching || !isDragging || !e.touches.length) return;
+  const dx = e.touches[0].clientX - prevX, dy = e.touches[0].clientY - prevY;
+  dragDist += Math.abs(dx) + Math.abs(dy);
+  velY = dx * 0.005; velX = dy * 0.005;
+  rotY += velY; rotX += velX;
+  prevX = e.touches[0].clientX; prevY = e.touches[0].clientY;
+}, {passive: false});
+
+main.addEventListener('touchend', e => {
+  if (pinching) { pinching = false; return; }
+  isDragging = false;
+  if (dragDist < 12 && e.changedTouches.length) { selectedNodeId = null; clearDetail(); }
+});
+
+// ═══════════════════════════════════════
+// NODE CLICK
+// ═══════════════════════════════════════
+function handleNodeClick(id) {
+  const ff = frontFace();
+  if (nodeEls[id].faceIdx !== ff) return;
+
+  if (selectedNodeId === id) {
+    selectedNodeId = null;
+    clearDetail();
+    return;
+  }
+  selectedNodeId = id;
+  const { face, node, isNotable } = nodeEls[id];
+  const un = isUnlocked(id), avail = getNodeAvail(id);
+  showDetail(node, face, un, avail, isNotable);
+}
+
+// ═══════════════════════════════════════
+// ALLOCATE
+// ═══════════════════════════════════════
+function doAllocate() {
+  if (!selectedNodeId || !getNodeAvail(selectedNodeId)) return;
+  unlocked.add(selectedNodeId);
+  skillPoints--;
+  const id = selectedNodeId;
+  selectedNodeId = null;
+  const { face, node, isNotable } = nodeEls[id];
+  showDetail(node, face, true, false, isNotable);
+}
+
+// ═══════════════════════════════════════
+// DETAIL BAR
+// ═══════════════════════════════════════
+function showDetail(node, face, un, avail, isN) {
+  const bar = document.getElementById('detail-bar');
+  const st = un
+    ? `<span class="d-status" style="color:${face.color}">✓ UNLOCKED</span>`
+    : avail
+      ? `<span class="d-status" style="color:#80ff80">⬆ AVAILABLE</span>`
+      : `<span class="d-status" style="opacity:.35">🔒 ${isN ? 'Need all 4 passives' : 'Locked'}</span>`;
+  const btn = avail ? `<button class="alloc-btn" onclick="doAllocate()">Allocate</button>` : '';
+  bar.style.borderColor = un ? face.color + '60' : avail ? face.color + '40' : 'rgba(255,255,255,.06)';
+  bar.innerHTML = `
+    <div class="d-icon">${isN ? '👑' : face.icon}</div>
+    <div class="d-body">
+      <div><span class="d-name" style="color:${face.color}">${node.name}</span>${st}</div>
+      <div class="d-desc">${node.desc}</div>
+    </div>${btn}`;
+}
+function clearDetail() {
+  const bar = document.getElementById('detail-bar');
+  bar.style.borderColor = 'rgba(255,255,255,.06)';
+  bar.innerHTML = '<span class="placeholder">Drag to rotate · Tap a node to inspect</span>';
+}
+
+// ═══════════════════════════════════════
+// ANIMATION LOOP
+// ═══════════════════════════════════════
+function animate() {
+  requestAnimationFrame(animate);
+  if (!isDragging && !pinching) {
+    rotY += velY; rotX += velX;
+    velX *= 0.96; velY *= 0.96;
+    if (Math.abs(velX) < 0.0004 && Math.abs(velY) < 0.0004) {
+      idleT += 0.002;
+      rotY += Math.sin(idleT) * 0.0004;
+    }
+  }
+  if (dieRevealed) updateVisuals();
+}
+animate();
+
+main.addEventListener('pointerdown', () => {
+  document.getElementById('hint').style.opacity = '0';
+}, {once: true});
+
+// ═══════════════════════════════════════
+// DEMO CONTROLS
+// ═══════════════════════════════════════
+function resetTree() {
+  unlocked = new Set(); skillPoints = 5; dieRevealed = false; selectedNodeId = null;
+  clearDetail();
+  document.getElementById('reveal-overlay').classList.remove('hidden');
+  document.getElementById('main').classList.remove('visible');
+  updateBadge();
+}
+function demoUnlock() {
+  unlocked = new Set(['root','w_a','w_b','w_c','g_a','g_b','t_a','v_a','v_b','v_c','v_d']);
+  dieRevealed = true; skillPoints = 3; selectedNodeId = null;
+  document.getElementById('reveal-overlay').classList.add('hidden');
+  document.getElementById('main').classList.add('visible');
+  clearDetail(); updateBadge();
+}
+function addSP() { skillPoints++; }
+</script>
+</body>
+</html>

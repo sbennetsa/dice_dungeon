@@ -376,43 +376,36 @@ export const RUNES = [
 //  PASSIVE SKILL TREE
 // ════════════════════════════════════════════════════════════
 export const SKILL_TREE = [
-    // ── ROOT (row 0) ──
-    { id: 'root', name: 'Adventurer', icon: '⭐', desc: '+1 Attack Slot, +1 Defend Slot', row: 0, col: 3, requires: [], effect: (gs) => { gs.slots.attack.push({ id: `atk-${Date.now()}`, rune: null }); gs.slots.defend.push({ id: `def-${Date.now()}`, rune: null }); } },
+    // ── ROOT ──
+    { id: 'root', name: 'Adventurer', icon: '⭐', desc: '+1 Attack Slot, +1 Defend Slot', requires: [], effect: (gs) => { gs.slots.attack.push({ id: `atk-${Date.now()}`, rune: null }); gs.slots.defend.push({ id: `def-${Date.now()}`, rune: null }); } },
 
-    // ── WIDE BRANCH (left, col 0) ──
-    { id: 'w1', name: 'Extra Arms', icon: '🐺', desc: '+1 Attack Slot', row: 1, col: 0, requires: ['root'], effect: (gs) => { gs.slots.attack.push({ id: `atk-${Date.now()}`, rune: null }); } },
-    { id: 'w2', name: 'Pack Tactics', icon: '🐺', desc: 'Passive: +1 dmg per die in attack slot', row: 2, col: 0, requires: ['w1'], effect: (gs) => { gs.passives.packTactics = (gs.passives.packTactics || 0) + 1; } },
-    { id: 'w3', name: 'Shield Wall', icon: '🐺', desc: '+1 Defend Slot', row: 3, col: 0, requires: ['w2', 'wt'], requiresAny: true, effect: (gs) => { gs.slots.defend.push({ id: `def-${Date.now()}`, rune: null }); } },
-    { id: 'w4', name: 'Volley', icon: '🐺', desc: 'Passive: 3+ dice in slot = +8 bonus', row: 4, col: 0, requires: ['w3'], effect: (gs) => { gs.passives.volley = (gs.passives.volley || 0) + 8; } },
-    { id: 'w5', name: 'Swarm Master', icon: '👑', desc: 'Passive: +2 per die in ANY slot', row: 5, col: 0, requires: ['w4'], effect: (gs) => { gs.passives.swarmMaster = (gs.passives.swarmMaster || 0) + 2; } },
+    // ── WIDE FACE 🐺 — slots & quantity ──
+    { id: 'w_a', name: 'Extra Arms',   icon: '🐺', desc: '+1 Attack Slot',                         requires: ['root'], effect: (gs) => { gs.slots.attack.push({ id: `atk-${Date.now()}`, rune: null }); } },
+    { id: 'w_b', name: 'Pack Tactics', icon: '🐺', desc: 'Passive: +1 dmg per die in attack slot', requires: ['root'], effect: (gs) => { gs.passives.packTactics = (gs.passives.packTactics || 0) + 1; } },
+    { id: 'w_c', name: 'Shield Wall',  icon: '🐺', desc: '+1 Defend Slot',                         requires: ['root'], effect: (gs) => { gs.slots.defend.push({ id: `def-${Date.now()}`, rune: null }); } },
+    { id: 'w_d', name: 'Volley',       icon: '🐺', desc: 'Passive: 3+ dice in slot = +8 bonus',    requires: ['root'], effect: (gs) => { gs.passives.volley = (gs.passives.volley || 0) + 8; } },
+    { id: 'w_n', name: 'Swarm Master', icon: '👑', desc: 'Passive: +2 per die in ANY slot',        requires: ['w_a', 'w_b', 'w_c', 'w_d'], effect: (gs) => { gs.passives.swarmMaster = (gs.passives.swarmMaster || 0) + 2; } },
 
-    // ── GOLD BRANCH (col 2) ──
-    { id: 'g1', name: 'Prospector', icon: '💰', desc: '+15 gold immediately, +4 gold per combat', effect: (gs) => { gs.gold += 15; gs.passives.goldPerCombat = (gs.passives.goldPerCombat || 0) + 4; }, row: 1, col: 2, requires: ['root'] },
-    { id: 'g2', name: 'Appraisal', icon: '💰', desc: 'Shop prices reduced by 15%', effect: (gs) => { gs.passives.shopDiscount = (gs.passives.shopDiscount || 0) + 0.15; }, row: 2, col: 2, requires: ['g1'] },
-    { id: 'g3', name: 'Investment', icon: '💰', desc: '+1 atk damage per 15 gold held', effect: (gs) => { gs.passives.goldDmg = 15; }, row: 3, col: 2, requires: ['g2', 'wt', 'tv'], requiresAny: true },
-    { id: 'g4', name: 'Compound Interest', icon: '💰', desc: 'Gain 10% of current gold after each combat', effect: (gs) => { gs.passives.goldInterest = (gs.passives.goldInterest || 0) + 0.1; }, row: 4, col: 2, requires: ['g3'] },
-    { id: 'g5', name: 'Golden God', icon: '👑', desc: '+1 dmg per 8 gold held, free shop refresh', effect: (gs) => { gs.passives.goldDmg = 8; gs.passives.freeRefresh = true; }, row: 5, col: 2, requires: ['g4'] },
+    // ── GOLD FACE 💰 — economy ──
+    { id: 'g_a', name: 'Prospector',    icon: '💰', desc: '+15 gold immediately, +4 gold per combat',   requires: ['root'], effect: (gs) => { gs.gold += 15; gs.passives.goldPerCombat = (gs.passives.goldPerCombat || 0) + 4; } },
+    { id: 'g_b', name: 'Appraisal',     icon: '💰', desc: 'Shop prices reduced by 15%',                requires: ['root'], effect: (gs) => { gs.passives.shopDiscount = (gs.passives.shopDiscount || 0) + 0.15; } },
+    { id: 'g_c', name: 'Investment',    icon: '💰', desc: '+1 atk damage per 15 gold held',            requires: ['root'], effect: (gs) => { gs.passives.goldDmg = 15; } },
+    { id: 'g_d', name: 'Compound Int.', icon: '💰', desc: 'Gain 10% of current gold after each combat', requires: ['root'], effect: (gs) => { gs.passives.goldInterest = (gs.passives.goldInterest || 0) + 0.1; } },
+    { id: 'g_n', name: 'Golden God',    icon: '👑', desc: '+1 dmg per 8 gold held, free shop refresh', requires: ['g_a', 'g_b', 'g_c', 'g_d'], effect: (gs) => { gs.passives.goldDmg = 8; gs.passives.freeRefresh = true; } },
 
-    // ── TALL BRANCH (center, col 4) ──
-    { id: 't1', name: 'Precision', icon: '🔨', desc: '+1 Reroll per combat', row: 1, col: 4, requires: ['root'], effect: (gs) => { gs.rerolls++; } },
-    { id: 't2', name: 'Forge', icon: '🔨', desc: 'Unlock Dice Merge at rest stops', row: 2, col: 4, requires: ['t1'], effect: (gs) => { gs.passives.canMerge = true; } },
-    { id: 't3', name: 'Threshold', icon: '🔨', desc: 'Passive: dice ≥8 deal +50% value', row: 3, col: 4, requires: ['t2', 'wt', 'tv'], requiresAny: true, effect: (gs) => { gs.passives.threshold = true; } },
-    { id: 't4', name: 'Amplify', icon: '🔨', desc: 'Gain a free Amplifier rune to attach to a die', row: 4, col: 4, requires: ['t3'], effect: (gs) => { gs.pendingRunes.push({...RUNES.find(r => r.effect === 'amplifier')}); } },
-    { id: 't5', name: "Titan's Wrath", icon: '👑', desc: 'Single-die slots deal ×3', row: 5, col: 4, requires: ['t4'], effect: (gs) => { gs.passives.titanWrath = true; } },
+    // ── TALL FACE 🔨 — dice quality ──
+    { id: 't_a', name: 'Precision',     icon: '🔨', desc: '+1 Reroll per combat',                        requires: ['root'], effect: (gs) => { gs.rerolls++; } },
+    { id: 't_b', name: 'Forge',         icon: '🔨', desc: 'Unlock Dice Merge at rest stops',             requires: ['root'], effect: (gs) => { gs.passives.canMerge = true; } },
+    { id: 't_c', name: 'Threshold',     icon: '🔨', desc: 'Passive: dice ≥8 deal +50% value',            requires: ['root'], effect: (gs) => { gs.passives.threshold = true; } },
+    { id: 't_d', name: 'Amplify',       icon: '🔨', desc: 'Gain a free Amplifier rune to attach to a die', requires: ['root'], effect: (gs) => { gs.pendingRunes.push({...RUNES.find(r => r.effect === 'amplifier')}); } },
+    { id: 't_n', name: "Titan's Wrath", icon: '👑', desc: 'Single-die slots deal ×3',                   requires: ['t_a', 't_b', 't_c', 't_d'], effect: (gs) => { gs.passives.titanWrath = true; } },
 
-    // ── VENOM/UTILITY BRANCH (right, col 6) ──
-    { id: 'v1', name: 'Vitality', icon: '🧪', desc: '+20 Max HP (heals too)', row: 1, col: 6, requires: ['root'], effect: (gs) => { gs.maxHp += 20; gs.hp = Math.min(gs.hp + 20, gs.maxHp); } },
-    { id: 'v2', name: 'Venom', icon: '🧪', desc: 'All attacks apply 1 poison', row: 2, col: 6, requires: ['v1'], effect: (gs) => { gs.passives.poisonOnAtk = (gs.passives.poisonOnAtk || 0) + 1; } },
-    { id: 'v3', name: "Gambler", icon: '🧪', desc: '+1 Reroll, rerolls deal 2 dmg', row: 3, col: 6, requires: ['v2', 'tv'], requiresAny: true, effect: (gs) => { gs.rerolls++; gs.passives.rerollDmg = (gs.passives.rerollDmg || 0) + 2; } },
-    { id: 'v4', name: 'Regeneration', icon: '🧪', desc: 'Heal 3 HP at start of each turn', row: 4, col: 6, requires: ['v3'], effect: (gs) => { gs.passives.regen = (gs.passives.regen || 0) + 3; } },
-    { id: 'v5', name: 'Plague Lord', icon: '👑', desc: 'Poison ×2, +2 poison/turn', row: 5, col: 6, requires: ['v4'], effect: (gs) => { gs.passives.plagueLord = true; } },
-
-    // ── CROSS-BRANCH BRIDGES ──
-    { id: 'wt', name: 'Battle Fury', icon: '🔗', desc: '+2 Dmg, +1 Reroll', row: 3, col: 1, requires: ['w2', 'g2'], requiresAny: true, effect: (gs) => { gs.buffs.damageBoost += 2; gs.rerolls++; } },
-    { id: 'tv', name: 'Toxic Blade', icon: '🔗', desc: '+1 Atk Slot, apply 1 poison', row: 3, col: 5, requires: ['t2', 'v2'], requiresAny: true, effect: (gs) => { gs.slots.attack.push({ id: `atk-${Date.now()}`, rune: null }); gs.passives.poisonOnAtk = (gs.passives.poisonOnAtk || 0) + 1; } },
-    { id: 'wv', name: 'Endurance', icon: '🔗', desc: '+1 Def Slot, +15 Max HP', row: 5, col: 1, requires: ['w4', 'g4'], requiresAny: true, effect: (gs) => { gs.slots.defend.push({ id: `def-${Date.now()}`, rune: null }); gs.maxHp += 15; gs.hp = Math.min(gs.hp + 15, gs.maxHp); } },
-    { id: 'gt', name: 'War Chest', icon: '🔗', desc: '+30 gold, +1 Reroll', row: 5, col: 3, requires: ['g4', 't4'], requiresAny: true, effect: (gs) => { gs.gold += 30; gs.rerolls++; } },
-    { id: 'tv2', name: 'Versatility', icon: '🔗', desc: '+1 to both slot types', row: 5, col: 5, requires: ['t4', 'v4'], requiresAny: true, effect: (gs) => { gs.slots.attack.push({ id: `atk-${Date.now()}`, rune: null }); gs.slots.defend.push({ id: `def-${Date.now()}`, rune: null }); } },
+    // ── VENOM FACE 🧪 — survival & poison ──
+    { id: 'v_a', name: 'Vitality',     icon: '🧪', desc: '+20 Max HP (heals too)',          requires: ['root'], effect: (gs) => { gs.maxHp += 20; gs.hp = Math.min(gs.hp + 20, gs.maxHp); } },
+    { id: 'v_b', name: 'Venom',        icon: '🧪', desc: 'All attacks apply 1 poison',      requires: ['root'], effect: (gs) => { gs.passives.poisonOnAtk = (gs.passives.poisonOnAtk || 0) + 1; } },
+    { id: 'v_c', name: 'Gambler',      icon: '🧪', desc: '+1 Reroll, rerolls deal 2 dmg',   requires: ['root'], effect: (gs) => { gs.rerolls++; gs.passives.rerollDmg = (gs.passives.rerollDmg || 0) + 2; } },
+    { id: 'v_d', name: 'Regeneration', icon: '🧪', desc: 'Heal 3 HP at start of each turn', requires: ['root'], effect: (gs) => { gs.passives.regen = (gs.passives.regen || 0) + 3; } },
+    { id: 'v_n', name: 'Plague Lord',  icon: '👑', desc: 'Poison ×2, +2 poison/turn',       requires: ['v_a', 'v_b', 'v_c', 'v_d'], effect: (gs) => { gs.passives.plagueLord = true; } },
 ];
 
 // ════════════════════════════════════════════════════════════

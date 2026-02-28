@@ -466,277 +466,416 @@ const Game = {
 };
 
 // ════════════════════════════════════════════════════════════
+//  SKILL DIE — 3D CSS rotating d6 skill tree
+// ════════════════════════════════════════════════════════════
+const SkillDie = (() => {
+    // Face definitions: front=wide(+Z), right=gold(+X), back=tall(-Z), left=venom(-X)
+    const SD_FACES = [
+        { key: 'wide',  label: 'Wide',  color: '#5fa84f', icon: '🐺' },
+        { key: 'gold',  label: 'Gold',  color: '#d4a534', icon: '💰' },
+        { key: 'tall',  label: 'Tall',  color: '#d48830', icon: '🔨' },
+        { key: 'venom', label: 'Venom', color: '#9050c0', icon: '🧪' },
+    ];
+    const SD_NORMALS = [[0,0,1],[1,0,0],[0,0,-1],[-1,0,0]];
+    const SD_FACE_CSS = ['sd-face-front','sd-face-right','sd-face-back','sd-face-left'];
+    const SD_GRID = [[-1,-1],[1,-1],[-1,1],[1,1]]; // [col, row] offsets for passives
+    const SD_HALF = 155, SD_GRID_PX = 98;
+
+    let _built = false;
+    let _cubeEl = null;
+    let _nodeEls = {}; // id → { el, faceIdx, fData, sNode, isNotable }
+    let _rotX = 0.18, _rotY = 0;
+    let _velX = 0, _velY = 0;
+    let _isDragging = false, _dragDist = 0;
+    let _prevX = 0, _prevY = 0;
+    let _pinching = false, _idleT = 0;
+    let _selectedId = null;
+    let _rafActive = false;
+    let _callback = null, _viewMode = false, _backCallback = null;
+
+    // ── State helpers ─────────────────────────────────────────
+    const _isUnlocked = id => (GS.unlockedNodes || []).includes(id);
+    const _sp = () => GS.pendingSkillPoints || 0;
+    const _canAllocate = () => _sp() > 0;
+    const _getSTNode = id => SKILL_TREE.find(n => n.id === id);
+    const _facePrefix = fKey => fKey[0]; // 'wide'→'w', 'gold'→'g', etc.
+    const _passiveIds = fKey => ['a','b','c','d'].map(s => `${_facePrefix(fKey)}_${s}`);
+    const _notableId  = fKey => `${_facePrefix(fKey)}_n`;
+    const _allPassives = fKey => _passiveIds(fKey).every(id => _isUnlocked(id));
+
+    function _getAvail(id) {
+        if (_isUnlocked(id) || !_canAllocate() || !_isUnlocked('root')) return false;
+        const face = SD_FACES.find(f => _notableId(f.key) === id);
+        return face ? _allPassives(face.key) : true; // notable needs all passives; passive is free
+    }
+
+    // ── Face visibility (dot product) ─────────────────────────
+    function _faceVis() {
+        const cx = Math.cos(_rotX), sx = Math.sin(_rotX);
+        const cy = Math.cos(_rotY), sy = Math.sin(_rotY);
+        return SD_NORMALS.map(([nx, ny, nz]) => {
+            const z1 = -nx * sy + nz * cy;
+            const z2 = ny * sx + z1 * cx;
+            if (z2 > 0.2) return 1;
+            if (z2 < -0.15) return 0;
+            return (z2 + 0.15) / 0.35;
+        });
+    }
+    function _frontFace() {
+        const v = _faceVis(); let b = -1, idx = 0;
+        v.forEach((x, i) => { if (x > b) { b = x; idx = i; } });
+        return idx;
+    }
+
+    // ── Build DOM (once per page load) ────────────────────────
+    function _build() {
+        if (_built) return;
+        _built = true;
+        const screen = document.getElementById('screen-skill-die');
+
+        // Reveal overlay
+        const rev = document.createElement('div');
+        rev.className = 'sd-reveal-overlay';
+        rev.id = 'sd-reveal-overlay';
+        rev.innerHTML = `
+            <div class="sd-reveal-sp">⭐ <span id="sd-reveal-sp-count">0 SP</span></div>
+            <div class="sd-reveal-shape" id="sd-reveal-btn">
+                <div class="sd-reveal-glow"></div>
+                <svg viewBox="0 0 140 140"><rect class="sd-reveal-outline" x="20" y="20" width="100" height="100" rx="8"/></svg>
+                <div class="sd-reveal-emoji">🎲</div>
+            </div>
+            <div class="sd-reveal-title">Reveal the Die</div>
+            <div class="sd-reveal-desc">Spend your first skill point to unlock the skill die</div>
+            <div class="sd-reveal-effect">+1 Attack Slot · +1 Defend Slot</div>
+            <div class="sd-reveal-cta">Tap to reveal</div>
+        `;
+        screen.appendChild(rev);
+
+        document.getElementById('sd-reveal-btn').addEventListener('click', () => {
+            if (_sp() < 1) return;
+            if (!_isUnlocked('root')) {
+                GS.unlockedNodes.push('root');
+                const rootNode = _getSTNode('root');
+                if (rootNode) { rootNode.effect(GS); log(`🌟 ${rootNode.name}: ${rootNode.desc}`, 'info'); }
+                GS.pendingSkillPoints = Math.max(0, _sp() - 1);
+                updateStats();
+            }
+            document.getElementById('sd-reveal-overlay').classList.add('sd-hidden');
+            document.getElementById('sd-main').classList.add('sd-visible');
+            _updateBadge();
+        });
+
+        // Main die area
+        const mainEl = document.createElement('div');
+        mainEl.id = 'sd-main';
+        mainEl.innerHTML = `
+            <div class="sd-hud">
+                <div class="sd-hud-title">⭐ Skill Die</div>
+                <div class="sd-hud-badge">⭐ <span id="sd-sp-count">0 SP</span></div>
+            </div>
+            <div class="sd-face-indicator" id="sd-face-indicator">—</div>
+            <div class="sd-hint" id="sd-hint">Drag to rotate · Tap a node to inspect</div>
+            <div class="sd-scene"><div class="sd-cube" id="sd-cube"></div></div>
+            <div class="sd-detail-bar" id="sd-detail-bar"></div>
+        `;
+        screen.appendChild(mainEl);
+
+        _cubeEl = document.getElementById('sd-cube');
+        _buildCube();
+        _attachInputs(mainEl);
+    }
+
+    function _buildCube() {
+        _cubeEl.innerHTML = '';
+        _nodeEls = {};
+        SD_FACES.forEach((fData, fi) => {
+            const faceDiv = document.createElement('div');
+            faceDiv.className = `sd-face ${SD_FACE_CSS[fi]}`;
+            const nodesDiv = document.createElement('div');
+            nodesDiv.className = 'sd-nodes';
+
+            _passiveIds(fData.key).forEach((pid, pi) => {
+                const sNode = _getSTNode(pid);
+                if (!sNode) return;
+                const [col, row] = SD_GRID[pi];
+                const el = _makeNodeEl(pid, fData.icon, sNode.name, false);
+                el.style.left = (SD_HALF + col * SD_GRID_PX) + 'px';
+                el.style.top  = (SD_HALF + row * SD_GRID_PX) + 'px';
+                nodesDiv.appendChild(el);
+                _nodeEls[pid] = { el, faceIdx: fi, fData, sNode, isNotable: false };
+            });
+
+            const nid = _notableId(fData.key);
+            const sNotable = _getSTNode(nid);
+            if (sNotable) {
+                const nel = _makeNodeEl(nid, '👑', sNotable.name, true);
+                nel.style.left = SD_HALF + 'px';
+                nel.style.top  = SD_HALF + 'px';
+                nodesDiv.appendChild(nel);
+                _nodeEls[nid] = { el: nel, faceIdx: fi, fData, sNode: sNotable, isNotable: true };
+            }
+
+            faceDiv.appendChild(nodesDiv);
+            _cubeEl.appendChild(faceDiv);
+        });
+
+        ['sd-face-top','sd-face-bottom'].forEach(cls => {
+            const d = document.createElement('div');
+            d.className = `sd-face ${cls}`;
+            d.innerHTML = `<span style="font-size:1.8em;opacity:0.12">🎲</span>`;
+            _cubeEl.appendChild(d);
+        });
+    }
+
+    function _makeNodeEl(id, emoji, name, isNotable) {
+        const el = document.createElement('div');
+        el.className = `sd-node locked${isNotable ? ' sd-notable' : ''}`;
+        el.innerHTML = `<div class="sd-node-diamond"><div class="sd-node-emoji">${emoji}</div></div><div class="sd-node-name">${name}</div>`;
+        el.addEventListener('click', e => { e.stopPropagation(); _handleNodeClick(id); });
+        return el;
+    }
+
+    function _attachInputs(mainEl) {
+        mainEl.addEventListener('mousedown', e => {
+            _isDragging = true; _dragDist = 0; _velX = _velY = 0;
+            _prevX = e.clientX; _prevY = e.clientY;
+        });
+        mainEl.addEventListener('mousemove', e => {
+            if (!_isDragging) return;
+            const dx = e.clientX - _prevX, dy = e.clientY - _prevY;
+            _dragDist += Math.abs(dx) + Math.abs(dy);
+            _velY = dx * 0.005; _velX = dy * 0.005;
+            _rotY += _velY; _rotX += _velX;
+            _prevX = e.clientX; _prevY = e.clientY;
+        });
+        mainEl.addEventListener('mouseup', () => {
+            _isDragging = false;
+            if (_dragDist < 6) { _selectedId = null; _clearDetail(); }
+        });
+        mainEl.addEventListener('mouseleave', () => { _isDragging = false; });
+        mainEl.addEventListener('touchstart', e => {
+            if (e.touches.length === 2) { _pinching = true; return; }
+            _isDragging = true; _dragDist = 0; _pinching = false; _velX = _velY = 0;
+            _prevX = e.touches[0].clientX; _prevY = e.touches[0].clientY;
+        }, { passive: false });
+        mainEl.addEventListener('touchmove', e => {
+            e.preventDefault();
+            if (_pinching || !_isDragging || !e.touches.length) return;
+            const dx = e.touches[0].clientX - _prevX, dy = e.touches[0].clientY - _prevY;
+            _dragDist += Math.abs(dx) + Math.abs(dy);
+            _velY = dx * 0.005; _velX = dy * 0.005;
+            _rotY += _velY; _rotX += _velX;
+            _prevX = e.touches[0].clientX; _prevY = e.touches[0].clientY;
+        }, { passive: false });
+        mainEl.addEventListener('touchend', e => {
+            if (_pinching) { _pinching = false; return; }
+            _isDragging = false;
+            if (_dragDist < 12) { _selectedId = null; _clearDetail(); }
+        });
+        mainEl.addEventListener('pointerdown', () => {
+            const hint = document.getElementById('sd-hint');
+            if (hint) hint.style.opacity = '0';
+        }, { once: true });
+    }
+
+    // ── Node interaction ──────────────────────────────────────
+    function _handleNodeClick(id) {
+        if (_nodeEls[id].faceIdx !== _frontFace()) return;
+        if (_selectedId === id) { _selectedId = null; _clearDetail(); return; }
+        _selectedId = id;
+        const { fData, sNode, isNotable } = _nodeEls[id];
+        _showDetail(sNode, fData, _isUnlocked(id), _getAvail(id), isNotable);
+    }
+
+    function _doAllocate() {
+        if (!_selectedId || !_getAvail(_selectedId)) return;
+        const id = _selectedId;
+        _selectedId = null;
+        GS.unlockedNodes.push(id);
+        GS.pendingSkillPoints = Math.max(0, _sp() - 1);
+        const sNode = _getSTNode(id);
+        if (sNode) { sNode.effect(GS); log(`🌟 ${sNode.name}: ${sNode.desc}`, 'info'); }
+        updateStats();
+        const { fData, isNotable } = _nodeEls[id];
+        _showDetail(sNode, fData, true, false, isNotable);
+        if (GS.pendingRunes && GS.pendingRunes.length > 0) {
+            const rune = GS.pendingRunes.shift();
+            _rafActive = false;
+            showRuneAttachment(rune, _callback);
+        }
+    }
+
+    // ── Detail bar ────────────────────────────────────────────
+    function _showDetail(sNode, fData, isUnlocked, avail, isNotable) {
+        const bar = document.getElementById('sd-detail-bar');
+        if (!bar) return;
+        const color = fData.color;
+        const st = isUnlocked
+            ? `<span class="sd-d-status" style="color:${color}">✓ UNLOCKED</span>`
+            : avail
+                ? `<span class="sd-d-status" style="color:#80ff80">⬆ AVAILABLE</span>`
+                : `<span class="sd-d-status" style="opacity:.35">🔒 ${isNotable ? 'Need all 4 passives' : 'Locked'}</span>`;
+        const allocBtn = avail ? `<button class="sd-alloc-btn" id="sd-alloc-btn">Allocate</button>` : '';
+        const doneLabel = _viewMode ? '← Back' : (_sp() > 0 ? 'Skip →' : 'Continue →');
+        bar.style.borderColor = isUnlocked ? color + '60' : avail ? color + '40' : 'rgba(255,255,255,.06)';
+        bar.innerHTML = `
+            <div class="sd-d-icon">${isNotable ? '👑' : fData.icon}</div>
+            <div class="sd-d-body">
+                <div><span class="sd-d-name" style="color:${color}">${sNode.name}</span>${st}</div>
+                <div class="sd-d-desc">${sNode.desc}</div>
+            </div>
+            ${allocBtn}
+            <button class="sd-done-btn" id="sd-done-btn">${doneLabel}</button>
+        `;
+        const aBtn = document.getElementById('sd-alloc-btn');
+        if (aBtn) aBtn.addEventListener('click', _doAllocate);
+        document.getElementById('sd-done-btn').addEventListener('click', _onDone);
+    }
+
+    function _clearDetail() {
+        const bar = document.getElementById('sd-detail-bar');
+        if (!bar) return;
+        const doneLabel = _viewMode ? '← Back' : (_sp() > 0 ? 'Skip →' : 'Continue →');
+        bar.style.borderColor = 'rgba(255,255,255,.06)';
+        bar.innerHTML = `
+            <span class="sd-placeholder">Drag to rotate · Tap a node to inspect</span>
+            <button class="sd-done-btn" id="sd-done-btn">${doneLabel}</button>
+        `;
+        document.getElementById('sd-done-btn').addEventListener('click', _onDone);
+    }
+
+    function _onDone() { (_viewMode ? (_backCallback || _callback) : _callback)?.(); }
+
+    // ── Visual update ─────────────────────────────────────────
+    function _updateBadge() {
+        const sp = _sp();
+        const el = document.getElementById('sd-sp-count');
+        const rel = document.getElementById('sd-reveal-sp-count');
+        if (el) el.textContent = sp > 0 ? `${sp} SP` : 'No SP';
+        if (rel) rel.textContent = `${sp} SP`;
+    }
+
+    function _updateVisuals() {
+        const vis = _faceVis();
+        const ff = _frontFace();
+        if (_cubeEl) _cubeEl.style.transform = `rotateX(${_rotX}rad) rotateY(${_rotY}rad)`;
+        const fDef = SD_FACES[ff];
+        const fiEl = document.getElementById('sd-face-indicator');
+        if (fiEl) { fiEl.textContent = `▸ ${fDef.label}`; fiEl.style.color = fDef.color; }
+        _updateBadge();
+
+        Object.values(_nodeEls).forEach(({ el, faceIdx, fData, sNode, isNotable }) => {
+            const v = vis[faceIdx];
+            const id = sNode.id;
+            const un = _isUnlocked(id);
+            const avail = _getAvail(id);
+            const state = un ? 'unlocked' : avail ? 'available' : 'locked';
+            const color = fData.color;
+            const diamond = el.querySelector('.sd-node-diamond');
+            const nameEl = el.querySelector('.sd-node-name');
+            const emojiEl = el.querySelector('.sd-node-emoji');
+
+            el.style.opacity = v;
+            el.style.pointerEvents = (faceIdx === ff && v > 0.5) ? 'auto' : 'none';
+            el.classList.remove('locked', 'available', 'unlocked');
+            el.classList.add(state);
+            el.classList.toggle('sd-selected', id === _selectedId);
+
+            if (state === 'unlocked') {
+                diamond.style.background = color + '80';
+                diamond.style.outline = `3px solid ${color}`;
+                diamond.style.outlineOffset = '-1px';
+                diamond.style.boxShadow = `0 0 14px ${color}55, inset 0 0 8px ${color}22`;
+                nameEl.style.color = color;
+                emojiEl.style.opacity = '1';
+            } else if (state === 'available' && !isNotable) {
+                diamond.style.background = color + '18';
+                diamond.style.outline = `2px solid ${color}88`;
+                diamond.style.outlineOffset = '-1px';
+                diamond.style.boxShadow = `0 0 10px ${color}44`;
+                nameEl.style.color = color + '99';
+                emojiEl.style.opacity = '0.85';
+            } else {
+                diamond.style.background = 'rgba(20,20,35,0.75)';
+                diamond.style.outline = '1.5px solid rgba(255,255,255,0.16)';
+                diamond.style.outlineOffset = '-1px';
+                diamond.style.boxShadow = 'none';
+                nameEl.style.color = 'rgba(255,255,255,0.16)';
+                emojiEl.style.opacity = '0.28';
+            }
+
+            // Notable: conic-gradient progress
+            if (isNotable && state !== 'unlocked') {
+                const pIds = _passiveIds(fData.key);
+                const lit = pIds.filter(pid => _isUnlocked(pid)).length;
+                const on = color + '38', off = 'rgba(20,20,35,0.65)';
+                const q = [0,1,2,3].map(i => i < lit ? on : off);
+                diamond.style.background = `conic-gradient(from -45deg, ${q[0]} 0% 25%, ${q[1]} 25% 50%, ${q[2]} 50% 75%, ${q[3]} 75% 100%)`;
+                emojiEl.style.opacity = lit > 0 ? String(0.15 + lit * 0.18) : '0.08';
+                if (lit >= 4) {
+                    diamond.style.outline = `3px solid ${color}`;
+                    diamond.style.outlineOffset = '-1px';
+                    diamond.style.boxShadow = `0 0 12px ${color}55`;
+                } else {
+                    diamond.style.outline = lit > 0 ? `2px solid ${color}44` : '1.5px solid rgba(255,255,255,0.14)';
+                    diamond.style.outlineOffset = '-1px';
+                    diamond.style.boxShadow = 'none';
+                }
+            }
+        });
+    }
+
+    // ── rAF loop ──────────────────────────────────────────────
+    function _loop() {
+        if (!_rafActive) return;
+        if (!_isDragging && !_pinching) {
+            _rotY += _velY; _rotX += _velX;
+            _velX *= 0.96; _velY *= 0.96;
+            if (Math.abs(_velX) < 0.0004 && Math.abs(_velY) < 0.0004) {
+                _idleT += 0.002;
+                _rotY += Math.sin(_idleT) * 0.0004;
+            }
+        }
+        _updateVisuals();
+        requestAnimationFrame(_loop);
+    }
+
+    // ── Public API ────────────────────────────────────────────
+    function enter(callback, viewMode = false, backCallback = null) {
+        _callback = callback;
+        _viewMode = viewMode;
+        _backCallback = backCallback;
+        _build();
+        // Sync reveal state with current GS
+        const revealed = _isUnlocked('root');
+        const revOverlay = document.getElementById('sd-reveal-overlay');
+        const mainEl = document.getElementById('sd-main');
+        if (revealed) {
+            revOverlay.classList.add('sd-hidden');
+            mainEl.classList.add('sd-visible');
+        } else {
+            revOverlay.classList.remove('sd-hidden');
+            mainEl.classList.remove('sd-visible');
+        }
+        _updateBadge();
+        _selectedId = null;
+        _clearDetail();
+        _rafActive = true;
+        _loop();
+        show('screen-skill-die');
+    }
+
+    function exit() { _rafActive = false; }
+
+    return { enter, exit };
+})();
+
+// ════════════════════════════════════════════════════════════
 //  REWARDS
 // ════════════════════════════════════════════════════════════
 const Rewards = {
     slotChoice(callback, viewMode = false, backCallback = null) {
-        if (!viewMode) {
-            GS.pendingSkillPoints = Math.max(0, (GS.pendingSkillPoints || 0) - 1);
-        }
-        updateStats();
-        const pointsLeft = GS.pendingSkillPoints || 0;
-        $('reward-title').textContent = viewMode
-            ? `⭐ Passive Tree${pointsLeft > 0 ? ` (${pointsLeft} point${pointsLeft > 1 ? 's' : ''})` : ''}`
-            : `⭐ Level ${GS.level} — Skill Tree`;
-        const c = $('reward-cards');
-        c.innerHTML = '';
-
-        const BC = {
-            w: { main: '#5fa84f', glow: '#7cdf68', dim: '#3a6830' },
-            g: { main: '#d4a534', glow: '#ffe070', dim: '#8a6a1e' },
-            t: { main: '#d48830', glow: '#ffaa44', dim: '#7a4e1c' },
-            v: { main: '#9050c0', glow: '#bb77ff', dim: '#5a3078' },
-            root: { main: '#d4a534', glow: '#ffe070', dim: '#8a6a1e' },
-            bridge: { main: '#5588bb', glow: '#77bbee', dim: '#3a5a7a' },
-        };
-        const getBC = (id) => {
-            if (id === 'root') return BC.root;
-            if (id.startsWith('w')) return BC.w;
-            if (id.startsWith('g')) return BC.g;
-            if (id.startsWith('t')) return BC.t;
-            if (id.startsWith('v')) return BC.v;
-            return BC.bridge;
-        };
-
-        const wrapper = document.createElement('div');
-        wrapper.style.cssText = `
-            position:relative; border-radius:8px; overflow:hidden; padding:8px 4px 4px;
-            background: radial-gradient(ellipse at 50% 30%, #1a1a2e 0%, #0d0d15 60%, #050508 100%);
-            border: 1px solid rgba(212,165,52,0.15);
-        `;
-
-        const vig = document.createElement('div');
-        vig.style.cssText = `position:absolute; inset:0; pointer-events:none; z-index:0;
-            background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%);`;
-        wrapper.appendChild(vig);
-
-        const detailPanel = document.createElement('div');
-        detailPanel.style.cssText = `
-            position:relative; z-index:2; margin:0 8px 8px;
-            background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.08); border-radius:6px;
-            padding:8px 12px; min-height:42px; font-family:EB Garamond, serif;
-            display:flex; align-items:center; gap:10px; font-size:0.95em;
-        `;
-        detailPanel.innerHTML = '<span style="color:rgba(255,255,255,0.35); font-size:0.85em;">Hover a node for details · Click a glowing node to unlock</span>';
-        wrapper.appendChild(detailPanel);
-
-        const W = 420, H = 320;
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-        svg.style.cssText = `position:relative; z-index:1; width:100%; max-width:600px; display:block; margin:0 auto;`;
-
-        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        ['w','g','t','v','root','bridge'].forEach(key => {
-            const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
-            filter.setAttribute('id', `glow-${key}`);
-            filter.setAttribute('x', '-50%'); filter.setAttribute('y', '-50%');
-            filter.setAttribute('width', '200%'); filter.setAttribute('height', '200%');
-            const blur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
-            blur.setAttribute('in', 'SourceGraphic'); blur.setAttribute('stdDeviation', '3');
-            filter.appendChild(blur);
-            defs.appendChild(filter);
-        });
-        svg.appendChild(defs);
-
-        const colX = [35, 90, 155, 210, 265, 330, 385];
-        const rowY = [28, 78, 128, 178, 228, 278];
-        const getPos = (row, col) => ({ x: colX[col], y: rowY[row] });
-        const sizeFor = (node) => node.icon === '👑' ? 19 : (node.id.length <= 2 && node.id !== 'root' ? 13 : node.id === 'root' ? 16 : 12);
-
-        SKILL_TREE.forEach(node => {
-            const to = getPos(node.row, node.col);
-            const bc = getBC(node.id);
-            node.requires.forEach(reqId => {
-                const req = SKILL_TREE.find(n => n.id === reqId);
-                if (!req) return;
-                const from = getPos(req.row, req.col);
-                const bothUnlocked = GS.unlockedNodes.includes(node.id) && GS.unlockedNodes.includes(reqId);
-                const oneUnlocked = GS.unlockedNodes.includes(reqId);
-                const glowKey = node.id === 'root' ? 'root' : node.id[0] === 'w' ? 'w' : node.id[0] === 'g' ? 'g' : node.id[0] === 't' ? 't' : node.id[0] === 'v' ? 'v' : 'bridge';
-
-                if (bothUnlocked) {
-                    const gLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                    gLine.setAttribute('x1', from.x); gLine.setAttribute('y1', from.y);
-                    gLine.setAttribute('x2', to.x); gLine.setAttribute('y2', to.y);
-                    gLine.setAttribute('stroke', bc.glow); gLine.setAttribute('stroke-width', '4');
-                    gLine.setAttribute('opacity', '0.3');
-                    gLine.setAttribute('filter', `url(#glow-${glowKey})`);
-                    svg.appendChild(gLine);
-                }
-
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('x1', from.x); line.setAttribute('y1', from.y);
-                line.setAttribute('x2', to.x); line.setAttribute('y2', to.y);
-                line.setAttribute('stroke', bothUnlocked ? bc.main : oneUnlocked ? bc.dim : 'rgba(255,255,255,0.06)');
-                line.setAttribute('stroke-width', bothUnlocked ? '2' : '1');
-                if (!bothUnlocked && !oneUnlocked) line.setAttribute('stroke-dasharray', '3,3');
-                svg.appendChild(line);
-            });
-        });
-
-        SKILL_TREE.forEach(node => {
-            const pos = getPos(node.row, node.col);
-            const bc = getBC(node.id);
-            const size = sizeFor(node);
-            const isUnlocked = GS.unlockedNodes.includes(node.id);
-            const meetsReqs = node.requires.length === 0 ||
-                (node.requiresAny
-                    ? node.requires.some(r => GS.unlockedNodes.includes(r))
-                    : node.requires.every(r => GS.unlockedNodes.includes(r)));
-            const canAllocate = viewMode ? (GS.pendingSkillPoints || 0) > 0 : true;
-            const isAvailable = !isUnlocked && meetsReqs && canAllocate;
-            const isCapstone = node.icon === '👑';
-            const glowKey = node.id === 'root' ? 'root' : node.id[0] === 'w' ? 'w' : node.id[0] === 'g' ? 'g' : node.id[0] === 't' ? 't' : node.id[0] === 'v' ? 'v' : 'bridge';
-
-            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            g.style.cursor = isAvailable ? 'pointer' : 'default';
-
-            if (isUnlocked || isAvailable) {
-                const glowCirc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                glowCirc.setAttribute('cx', pos.x); glowCirc.setAttribute('cy', pos.y);
-                glowCirc.setAttribute('r', size + 4);
-                glowCirc.setAttribute('fill', isUnlocked ? bc.glow : bc.main);
-                glowCirc.setAttribute('opacity', isUnlocked ? '0.15' : '0.08');
-                glowCirc.setAttribute('filter', `url(#glow-${glowKey})`);
-                g.appendChild(glowCirc);
-                if (isAvailable) {
-                    const anim = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
-                    anim.setAttribute('attributeName', 'opacity');
-                    anim.setAttribute('values', '0.08;0.2;0.08');
-                    anim.setAttribute('dur', '2s'); anim.setAttribute('repeatCount', 'indefinite');
-                    glowCirc.appendChild(anim);
-                }
-            }
-
-            const diamond = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            const dSize = size * 1.45;
-            diamond.setAttribute('x', pos.x - dSize/2); diamond.setAttribute('y', pos.y - dSize/2);
-            diamond.setAttribute('width', dSize); diamond.setAttribute('height', dSize);
-            diamond.setAttribute('rx', isCapstone ? 3 : 1.5);
-            diamond.setAttribute('transform', `rotate(45 ${pos.x} ${pos.y})`);
-            diamond.setAttribute('fill', isUnlocked ? bc.main + '40' : isAvailable ? bc.main + '20' : 'rgba(10,10,20,0.7)');
-            diamond.setAttribute('stroke', isUnlocked ? bc.main : isAvailable ? bc.main + '99' : 'rgba(255,255,255,0.08)');
-            diamond.setAttribute('stroke-width', isCapstone ? '1.5' : '1');
-            g.appendChild(diamond);
-
-            const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            txt.setAttribute('x', pos.x); txt.setAttribute('y', pos.y + 1);
-            txt.setAttribute('text-anchor', 'middle'); txt.setAttribute('dominant-baseline', 'central');
-            txt.setAttribute('font-size', isCapstone ? '14' : '11');
-            txt.setAttribute('opacity', isUnlocked || isAvailable ? '1' : '0.25');
-            txt.textContent = node.icon;
-            g.appendChild(txt);
-
-            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            label.setAttribute('x', pos.x); label.setAttribute('y', pos.y + size + 10);
-            label.setAttribute('text-anchor', 'middle'); label.setAttribute('font-size', '7');
-            label.setAttribute('font-family', 'JetBrains Mono, monospace');
-            label.setAttribute('fill', isUnlocked ? bc.main : isAvailable ? bc.dim : 'rgba(255,255,255,0.12)');
-            label.textContent = node.name;
-            g.appendChild(label);
-
-            const showDetail = () => {
-                const statusText = isUnlocked ? `<span style="color:${bc.main};">✓ UNLOCKED</span>` :
-                    isAvailable ? `<span style="color:#80ff80;">⬆ AVAILABLE</span>` :
-                    `<span style="opacity:0.4;">🔒 Locked</span>`;
-                detailPanel.innerHTML = `
-                    <div style="font-size:1.5em; width:32px; text-align:center;">${node.icon}</div>
-                    <div style="flex:1;">
-                        <div style="color:${bc.main}; font-weight:bold; font-size:0.95em;">${node.name} ${statusText}</div>
-                        <div style="color:rgba(255,255,255,0.55); font-size:0.8em; margin-top:1px;">${node.desc}</div>
-                    </div>
-                `;
-            };
-
-            const hitbox = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            hitbox.setAttribute('cx', pos.x); hitbox.setAttribute('cy', pos.y);
-            hitbox.setAttribute('r', size + 6); hitbox.setAttribute('fill', 'transparent');
-            hitbox.setAttribute('style', 'cursor:' + (isAvailable ? 'pointer' : 'default'));
-            g.appendChild(hitbox);
-
-            hitbox.addEventListener('mouseenter', () => {
-                showDetail();
-                if (isAvailable) {
-                    diamond.setAttribute('stroke-width', isCapstone ? '2.5' : '2');
-                    diamond.setAttribute('fill', bc.main + '35');
-                }
-            });
-            hitbox.addEventListener('mouseleave', () => {
-                if (isAvailable) {
-                    diamond.setAttribute('stroke-width', isCapstone ? '1.5' : '1');
-                    diamond.setAttribute('fill', bc.main + '20');
-                }
-            });
-
-            if (isAvailable) {
-                hitbox.addEventListener('click', () => {
-                    if (viewMode) GS.pendingSkillPoints = Math.max(0, (GS.pendingSkillPoints || 0) - 1);
-                    GS.unlockedNodes.push(node.id);
-                    node.effect(GS);
-                    log(`🌟 ${node.name}: ${node.desc}`, 'info');
-                    updateStats();
-                    if (GS.pendingRunes && GS.pendingRunes.length > 0) {
-                        const rune = GS.pendingRunes.shift();
-                        showRuneAttachment(rune, callback);
-                    } else {
-                        callback();
-                    }
-                });
-            }
-
-            let tapped = false;
-            hitbox.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                showDetail();
-                if (isAvailable && tapped) {
-                    if (viewMode) GS.pendingSkillPoints = Math.max(0, (GS.pendingSkillPoints || 0) - 1);
-                    GS.unlockedNodes.push(node.id);
-                    node.effect(GS);
-                    log(`🌟 ${node.name}: ${node.desc}`, 'info');
-                    updateStats();
-                    if (GS.pendingRunes && GS.pendingRunes.length > 0) {
-                        const rune = GS.pendingRunes.shift();
-                        showRuneAttachment(rune, callback);
-                    } else {
-                        callback();
-                    }
-                }
-                tapped = isAvailable;
-            });
-
-            svg.appendChild(g);
-        });
-
-        wrapper.appendChild(svg);
-        c.appendChild(wrapper);
-
-        // Check if any nodes are available to unlock
-        const anyAvailableNode = SKILL_TREE.some(node => {
-            if (GS.unlockedNodes.includes(node.id)) return false;
-            if (node.requires.length === 0) return true;
-            return node.requiresAny
-                ? node.requires.some(r => GS.unlockedNodes.includes(r))
-                : node.requires.every(r => GS.unlockedNodes.includes(r));
-        });
-        const anyAvailable = anyAvailableNode && (viewMode ? (GS.pendingSkillPoints || 0) > 0 : true);
-
-        const skipDiv = document.createElement('div');
-        skipDiv.style.cssText = 'text-align:right; margin-top:4px; padding-right:4px;';
-        const skipBtn = document.createElement('button');
-        skipBtn.style.cssText = 'background:none; border:none; color:var(--text-dim); font-size:0.78em; cursor:pointer; font-family:JetBrains Mono, monospace; padding:4px 8px; opacity:0.6;';
-        skipBtn.onmouseenter = () => { skipBtn.style.opacity = '1'; skipBtn.style.color = 'var(--text)'; };
-        skipBtn.onmouseleave = () => { skipBtn.style.opacity = '0.6'; skipBtn.style.color = 'var(--text-dim)'; };
-        if (viewMode) {
-            skipBtn.textContent = '← Back';
-            skipBtn.onclick = () => (backCallback || callback)();
-        } else {
-            skipBtn.textContent = anyAvailable ? 'Skip →' : 'Continue →';
-            skipBtn.onclick = () => callback();
-        }
-        skipDiv.appendChild(skipBtn);
-        c.appendChild(skipDiv);
-
-        show('screen-reward');
+        SkillDie.enter(callback, viewMode, backCallback);
     },
 
     showMergeSelection(callback) {
@@ -1319,28 +1458,21 @@ const BattleSummary = {
     },
 
     _openSkillTree() {
-        // Use Rewards.slotChoice with a callback that returns to summary
-        const drainAll = () => {
-            if (GS.pendingSkillPoints > 0) {
-                Rewards.slotChoice(drainAll);
-            } else {
-                // Lock the section and return to summary
-                const section = $('bs-skill-section');
-                if (section) {
-                    section.classList.add('locked');
-                    const locked = section.querySelector('.bs-locked-summary');
-                    const unlocked = SKILL_TREE.filter(n => GS.unlockedNodes.includes(n.id));
-                    const recent = unlocked.slice(-3);
-                    locked.innerHTML = `✓ Passives allocated: ${recent.map(n => `${n.icon} ${n.name}`).join(', ')}${unlocked.length > 3 ? '...' : ''}`;
-                }
-                BattleSummary._pendingSections--;
-                BattleSummary._checkComplete();
-                // Return to summary screen
-                updateStats();
-                show('screen-battle-summary');
+        const done = () => {
+            const section = $('bs-skill-section');
+            if (section) {
+                section.classList.add('locked');
+                const locked = section.querySelector('.bs-locked-summary');
+                const unlocked = SKILL_TREE.filter(n => GS.unlockedNodes.includes(n.id));
+                const recent = unlocked.slice(-3);
+                locked.innerHTML = `✓ Passives allocated: ${recent.map(n => `${n.icon} ${n.name}`).join(', ')}${unlocked.length > 3 ? '...' : ''}`;
             }
+            BattleSummary._pendingSections--;
+            BattleSummary._checkComplete();
+            updateStats();
+            show('screen-battle-summary');
         };
-        Rewards.slotChoice(drainAll);
+        SkillDie.enter(done);
     },
 
     _buildArtifactChoices() {
@@ -3246,23 +3378,18 @@ const Inventory = {
         c.innerHTML = html;
     },
     _openPassiveTree() {
-        // Remember current active screen to return to it
         const prevScreen = document.querySelector('.screen.active');
         const prevScreenId = prevScreen ? prevScreen.id : 'screen-combat';
         Inventory.visible = false;
         $('inventory-overlay').style.display = 'none';
 
-        const viewLoop = () => {
-            Rewards.slotChoice(viewLoop, true, goBack);
-        };
         const goBack = () => {
             show(prevScreenId);
-            // Re-open inventory
             Inventory.visible = true;
             Inventory.render();
             $('inventory-overlay').style.display = 'block';
         };
-        Rewards.slotChoice(viewLoop, true, goBack);
+        SkillDie.enter(goBack, true, goBack);
     }
 };
 
@@ -3607,6 +3734,7 @@ const EncounterChoice = {
 window.Game = Game;
 window.Combat = Combat;
 window.Rewards = Rewards;
+window.SkillDie = SkillDie;
 window.BattleSummary = BattleSummary;
 window.Shop = Shop;
 window.Events = Events;

@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Dice Dungeon — 3D Skill Die</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root{--bg:#06060c;--text:#e8e0d4;--dim:rgba(255,255,255,.4);--gold:#d4a534;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'EB Garamond',serif;height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;}
+
+  .reveal-overlay{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .8s,transform .8s;}
+  .reveal-overlay.hidden{opacity:0;transform:scale(1.1);pointer-events:none;}
+  .reveal-shape{width:140px;height:140px;position:relative;cursor:pointer;margin-bottom:20px;}
+  .reveal-shape .glow{position:absolute;inset:-30px;border-radius:50%;background:radial-gradient(circle,rgba(212,165,52,.1) 0%,transparent 70%);animation:rP 2.5s ease-in-out infinite;}
+  @keyframes rP{0%,100%{opacity:.3;transform:scale(.9)}50%{opacity:1;transform:scale(1.1)}}
+  .reveal-shape svg{width:100%;height:100%;filter:drop-shadow(0 0 12px rgba(212,165,52,.2));}
+  .reveal-shape .outline{fill:rgba(212,165,52,.04);stroke:rgba(212,165,52,.3);stroke-width:2;transition:all .3s;}
+  .reveal-shape:hover .outline{fill:rgba(212,165,52,.08);stroke:rgba(212,165,52,.5);}
+  .reveal-emoji{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:2.8em;pointer-events:none;}
+  .reveal-title{font-size:1.4em;color:var(--gold);font-weight:600;margin-bottom:6px;}
+  .reveal-desc{font-size:.85em;color:rgba(255,255,255,.4);margin-bottom:16px;}
+  .reveal-effect{font-family:'JetBrains Mono',monospace;font-size:.7em;color:rgba(212,165,52,.6);background:rgba(212,165,52,.06);border:1px solid rgba(212,165,52,.15);border-radius:6px;padding:6px 14px;margin-bottom:24px;}
+  .reveal-cta{font-family:'JetBrains Mono',monospace;font-size:.65em;color:rgba(255,255,255,.2);animation:cP 2s ease-in-out infinite;}
+  @keyframes cP{0%,100%{opacity:.3}50%{opacity:.8}}
+  .reveal-sp{position:absolute;top:16px;right:16px;display:inline-flex;align-items:center;gap:4px;background:rgba(212,165,52,.12);border:1px solid rgba(212,165,52,.3);border-radius:20px;padding:3px 12px;font-family:'JetBrains Mono',monospace;font-size:.68em;color:var(--gold);}
+
+  #canvas-container{flex:1;position:relative;cursor:grab;opacity:0;transition:opacity .6s .3s;}
+  #canvas-container.visible{opacity:1;}
+  #canvas-container:active{cursor:grabbing;}
+  #canvas-container canvas{display:block;width:100%;height:100%;}
+
+  .hud{position:absolute;top:0;left:0;right:0;pointer-events:none;padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-start;}
+  .hud-title{font-size:1.1em;color:var(--gold);font-weight:600;}
+  .hud-badge{pointer-events:auto;display:inline-flex;align-items:center;gap:4px;background:rgba(212,165,52,.12);border:1px solid rgba(212,165,52,.3);border-radius:20px;padding:3px 12px;font-family:'JetBrains Mono',monospace;font-size:.68em;color:var(--gold);}
+  .face-indicator{position:absolute;top:42px;left:16px;font-family:'JetBrains Mono',monospace;font-size:.65em;pointer-events:none;transition:color .3s;}
+
+  .detail-bar{position:absolute;bottom:0;left:0;right:0;background:rgba(6,6,12,.92);border-top:1px solid rgba(255,255,255,.06);padding:10px 16px;min-height:56px;display:flex;align-items:center;gap:10px;backdrop-filter:blur(8px);transition:border-color .3s;}
+  .detail-bar .d-icon{font-size:1.5em;width:30px;text-align:center;flex-shrink:0;}
+  .detail-bar .d-body{flex:1;min-width:0;}
+  .detail-bar .d-name{font-weight:700;font-size:.88em;}
+  .detail-bar .d-status{font-family:'JetBrains Mono',monospace;font-size:.62em;margin-left:6px;}
+  .detail-bar .d-desc{color:rgba(255,255,255,.5);font-size:.78em;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .detail-bar .placeholder{color:var(--dim);font-size:.78em;font-style:italic;}
+
+  .alloc-btn{
+    flex-shrink:0;
+    background:rgba(128,255,128,.08);
+    border:1px solid rgba(128,255,128,.3);
+    color:#80ff80;
+    font-family:'JetBrains Mono',monospace;
+    font-size:.7em;
+    padding:10px 16px;
+    border-radius:6px;
+    cursor:pointer;
+    transition:all .15s;
+    white-space:nowrap;
+    pointer-events:auto;
+  }
+  .alloc-btn:hover{background:rgba(128,255,128,.18);border-color:rgba(128,255,128,.6);}
+  .alloc-btn:active{transform:scale(.94);}
+
+  .hint{position:absolute;bottom:68px;left:0;right:0;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.6em;color:rgba(255,255,255,.2);pointer-events:none;transition:opacity .5s;}
+
+  .demo-controls{position:absolute;top:44px;right:12px;display:flex;gap:4px;pointer-events:auto;}
+  .demo-btn{background:rgba(14,14,26,.8);border:1px solid rgba(255,255,255,.08);color:rgba(255,255,255,.5);padding:4px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:.58em;cursor:pointer;}
+  .demo-btn:hover{border-color:var(--gold);color:var(--gold);}
+</style>
+</head>
+<body>
+
+<div class="reveal-overlay" id="reveal-overlay">
+  <div class="reveal-sp">⭐ <span id="reveal-sp">5 SP</span></div>
+  <div class="reveal-shape" id="reveal-btn">
+    <div class="glow"></div>
+    <svg viewBox="0 0 140 140"><rect class="outline" x="20" y="20" width="100" height="100" rx="8"/></svg>
+    <div class="reveal-emoji">🎲</div>
+  </div>
+  <div class="reveal-title">Reveal the Die</div>
+  <div class="reveal-desc">Spend your first skill point to unlock the skill die</div>
+  <div class="reveal-effect">+1 Attack Slot · +1 Defend Slot</div>
+  <div class="reveal-cta">Tap to reveal</div>
+</div>
+
+<div id="canvas-container">
+  <div class="hud">
+    <div class="hud-title">⭐ Skill Die</div>
+    <div class="hud-badge">⭐ <span id="sp-count">4 SP</span></div>
+  </div>
+  <div class="face-indicator" id="face-indicator">—</div>
+  <div class="demo-controls">
+    <button class="demo-btn" onclick="resetTree()">Reset</button>
+    <button class="demo-btn" onclick="demoUnlock()">Demo</button>
+    <button class="demo-btn" onclick="addSP()">+SP</button>
+  </div>
+  <div class="hint" id="hint">Drag to rotate · Pinch to zoom · Tap a node to inspect</div>
+  <div class="detail-bar" id="detail-bar">
+    <span class="placeholder">Drag to rotate · Tap a node to inspect</span>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════
+const FACES_DEF = [
+  { key:'wide',  label:'Wide',  color:0x5fa84f, hex:'#5fa84f', glow:'#7cdf68', icon:'🐺' },
+  { key:'gold',  label:'Gold',  color:0xd4a534, hex:'#d4a534', glow:'#ffe070', icon:'💰' },
+  { key:'tall',  label:'Tall',  color:0xd48830, hex:'#d48830', glow:'#ffaa44', icon:'🔨' },
+  { key:'venom', label:'Venom', color:0x9050c0, hex:'#9050c0', glow:'#bb77ff', icon:'🧪' },
+];
+
+const FACES_DATA = {
+  wide:  { passives:[{id:'w_a',name:'Extra Arms',desc:'+1 Attack Slot'},{id:'w_b',name:'Pack Tactics',desc:'+1 dmg per die'},{id:'w_c',name:'Shield Wall',desc:'+1 Defend Slot'},{id:'w_d',name:'Volley',desc:'3+ dice = +8'}], notable:{id:'w_n',name:'Swarm Master',desc:'+2 per die in ANY slot'} },
+  gold:  { passives:[{id:'g_a',name:'Prospector',desc:'+15 gold, +4/combat'},{id:'g_b',name:'Appraisal',desc:'Prices -15%'},{id:'g_c',name:'Investment',desc:'+1 dmg/15 gold'},{id:'g_d',name:'Compound Int.',desc:'+10% gold/combat'}], notable:{id:'g_n',name:'Golden God',desc:'+1 dmg/8 gold, free refresh'} },
+  tall:  { passives:[{id:'t_a',name:'Precision',desc:'+1 Reroll'},{id:'t_b',name:'Forge',desc:'Dice Merge at rest'},{id:'t_c',name:'Threshold',desc:'≥8 deal +50%'},{id:'t_d',name:'Amplify',desc:'Free Amplifier rune'}], notable:{id:'t_n',name:"Titan's Wrath",desc:'Single-die ×3'} },
+  venom: { passives:[{id:'v_a',name:'Vitality',desc:'+20 Max HP'},{id:'v_b',name:'Venom',desc:'+1 poison/atk'},{id:'v_c',name:'Gambler',desc:'+1 Reroll, deals 2'},{id:'v_d',name:'Regeneration',desc:'Heal 3/turn'}], notable:{id:'v_n',name:'Plague Lord',desc:'Poison ×2, +2/turn'} },
+};
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let unlocked = new Set();
+let skillPoints = 5;
+let dieRevealed = false;
+let selectedNodeId = null;
+
+function isUnlocked(id) { return unlocked.has(id); }
+function allPassives(fk) { return FACES_DATA[fk].passives.every(p => unlocked.has(p.id)); }
+
+function getNodeAvail(nodeId) {
+  if (isUnlocked(nodeId)) return false;
+  if (skillPoints <= 0) return false;
+  // Find which face & whether notable
+  for (const fk of Object.keys(FACES_DATA)) {
+    const fd = FACES_DATA[fk];
+    if (fd.notable.id === nodeId) return allPassives(fk);
+    if (fd.passives.some(p => p.id === nodeId)) return true;
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════
+// REVEAL
+// ═══════════════════════════════════════
+document.getElementById('reveal-btn').addEventListener('click', doReveal);
+function doReveal() {
+  if (skillPoints < 1) return;
+  unlocked.add('root'); skillPoints--; dieRevealed = true;
+  document.getElementById('reveal-overlay').classList.add('hidden');
+  document.getElementById('canvas-container').classList.add('visible');
+  updateBadge();
+}
+
+// ═══════════════════════════════════════
+// NODE TEXTURE
+// ═══════════════════════════════════════
+function renderNodeTex(emoji, hex, state, isNotable, name, passivesLit) {
+  // passivesLit: 0-4, only used for notables to show progress
+  const sz = 256;
+  const c = document.createElement('canvas');
+  c.width = sz; c.height = sz;
+  const ctx = c.getContext('2d');
+  const cx = sz/2, cy = sz/2 - 12;
+  const r = isNotable ? 78 : 54;
+
+  // ── UNLOCKED: strong glow + saturated fill ──
+  if (state === 'unlocked') {
+    const grad = ctx.createRadialGradient(cx, cy, r*.1, cx, cy, r*1.6);
+    grad.addColorStop(0, hex + '88');
+    grad.addColorStop(0.5, hex + '33');
+    grad.addColorStop(1, hex + '00');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,sz,sz);
+  }
+
+  if (isNotable && state !== 'unlocked') {
+    // ── NOTABLE: 4 quadrant sections ──
+    const ds = r * 0.72;
+    const litCount = passivesLit || 0;
+
+    // Draw 4 triangular quadrants from center to diamond corners
+    // Each quadrant corresponds to a passive: top, right, bottom, left
+    const quadAngles = [
+      [-Math.PI/4, Math.PI/4],    // top quadrant
+      [Math.PI/4, Math.PI*3/4],   // right quadrant
+      [Math.PI*3/4, Math.PI*5/4], // bottom quadrant
+      [Math.PI*5/4, Math.PI*7/4], // left quadrant
+    ];
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    quadAngles.forEach((angles, qi) => {
+      const lit = qi < litCount;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      // Diamond corner points (rotated square)
+      const x1 = Math.cos(angles[0]) * ds * 1.02;
+      const y1 = Math.sin(angles[0]) * ds * 1.02;
+      const x2 = Math.cos(angles[1]) * ds * 1.02;
+      const y2 = Math.sin(angles[1]) * ds * 1.02;
+      ctx.lineTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.closePath();
+      ctx.fillStyle = lit ? hex + '35' : 'rgba(20,20,35,0.6)';
+      ctx.fill();
+
+      // Subtle divider line
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(x1, y1);
+      ctx.strokeStyle = lit ? hex + '40' : 'rgba(255,255,255,0.1)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+
+    // Diamond border
+    ctx.rotate(Math.PI/4);
+    const rr = 6;
+    ctx.beginPath();
+    ctx.moveTo(-ds+rr,-ds); ctx.lineTo(ds-rr,-ds);
+    ctx.arcTo(ds,-ds,ds,-ds+rr,rr); ctx.lineTo(ds,ds-rr);
+    ctx.arcTo(ds,ds,ds-rr,ds,rr); ctx.lineTo(-ds+rr,ds);
+    ctx.arcTo(-ds,ds,-ds,ds-rr,rr); ctx.lineTo(-ds,-ds+rr);
+    ctx.arcTo(-ds,-ds,-ds+rr,-ds,rr);
+    ctx.closePath();
+
+    if (litCount >= 4 && state === 'available') {
+      ctx.strokeStyle = hex;
+      ctx.lineWidth = 4;
+      // Also add glow for fully lit
+      ctx.shadowColor = hex;
+      ctx.shadowBlur = 12;
+    } else {
+      ctx.strokeStyle = litCount > 0 ? hex + '55' : 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 3.5;
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    ctx.restore();
+
+  } else if (!isNotable) {
+    // ── PASSIVE NODE ──
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.PI/4);
+    const ds = r * 0.72;
+    const rr = 4;
+
+    // Fill: big difference between states
+    if (state === 'unlocked') {
+      ctx.fillStyle = hex + '80';  // strong saturated fill
+    } else if (state === 'available') {
+      ctx.fillStyle = hex + '15';  // subtle hint
+    } else {
+      ctx.fillStyle = 'rgba(20,20,35,0.7)';
+    }
+    ctx.beginPath();
+    ctx.moveTo(-ds+rr,-ds); ctx.lineTo(ds-rr,-ds);
+    ctx.arcTo(ds,-ds,ds,-ds+rr,rr); ctx.lineTo(ds,ds-rr);
+    ctx.arcTo(ds,ds,ds-rr,ds,rr); ctx.lineTo(-ds+rr,ds);
+    ctx.arcTo(-ds,ds,-ds,ds-rr,rr); ctx.lineTo(-ds,-ds+rr);
+    ctx.arcTo(-ds,-ds,-ds+rr,-ds,rr);
+    ctx.closePath();
+    ctx.fill();
+
+    // Border
+    if (state === 'unlocked') {
+      ctx.strokeStyle = hex;
+      ctx.lineWidth = 3.5;
+      ctx.shadowColor = hex;
+      ctx.shadowBlur = 8;
+    } else if (state === 'available') {
+      ctx.strokeStyle = hex + '88';
+      ctx.lineWidth = 2;
+    } else {
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.lineWidth = 1.5;
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Facet cross for unlocked
+    if (state === 'unlocked') {
+      ctx.strokeStyle = hex + '40';
+      ctx.lineWidth = 1;
+      const fl = ds * 0.5;
+      ctx.beginPath(); ctx.moveTo(-fl,0); ctx.lineTo(fl,0); ctx.moveTo(0,-fl); ctx.lineTo(0,fl); ctx.stroke();
+    }
+
+    ctx.restore();
+
+  } else {
+    // ── NOTABLE UNLOCKED ──
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.PI/4);
+    const ds = r * 0.72;
+    const rr = 6;
+
+    ctx.fillStyle = hex + '80';
+    ctx.beginPath();
+    ctx.moveTo(-ds+rr,-ds); ctx.lineTo(ds-rr,-ds);
+    ctx.arcTo(ds,-ds,ds,-ds+rr,rr); ctx.lineTo(ds,ds-rr);
+    ctx.arcTo(ds,ds,ds-rr,ds,rr); ctx.lineTo(-ds+rr,ds);
+    ctx.arcTo(-ds,ds,-ds,ds-rr,rr); ctx.lineTo(-ds,-ds+rr);
+    ctx.arcTo(-ds,-ds,-ds+rr,-ds,rr);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = hex;
+    ctx.lineWidth = 4;
+    ctx.shadowColor = hex;
+    ctx.shadowBlur = 14;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Facet cross
+    ctx.strokeStyle = hex + '40';
+    ctx.lineWidth = 1;
+    const fl = ds * 0.5;
+    ctx.beginPath(); ctx.moveTo(-fl,0); ctx.lineTo(fl,0); ctx.moveTo(0,-fl); ctx.lineTo(0,fl); ctx.stroke();
+
+    ctx.restore();
+  }
+
+  // Emoji
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font = `${isNotable ? 42 : 30}px serif`;
+  if (state === 'unlocked') {
+    ctx.globalAlpha = 1;
+  } else if (state === 'available') {
+    ctx.globalAlpha = 0.85;
+  } else if (isNotable && passivesLit > 0) {
+    ctx.globalAlpha = 0.15 + passivesLit * 0.15;
+  } else {
+    ctx.globalAlpha = 0.3;
+  }
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(emoji, cx, cy + 2);
+  ctx.globalAlpha = 1;
+
+  // Name
+  if (state === 'unlocked') {
+    ctx.fillStyle = hex;
+  } else if (state === 'available') {
+    ctx.fillStyle = hex + '99';
+  } else if (isNotable && passivesLit > 0) {
+    ctx.fillStyle = hex + '44';
+  } else {
+    ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  }
+  ctx.font = `600 ${isNotable ? 15 : 12}px "JetBrains Mono", monospace`;
+  ctx.fillText(name, cx, cy + r*0.72 + (isNotable ? 22 : 16));
+
+  const tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter;
+  return tex;
+}
+
+// ═══════════════════════════════════════
+// THREE.JS
+// ═══════════════════════════════════════
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x06060c, 1);
+container.insertBefore(renderer.domElement, container.firstChild);
+
+let zoomDist = 4.8;
+const ZOOM_MIN = 3, ZOOM_MAX = 8;
+function updateCamera() {
+  camera.position.set(0, zoomDist*0.25, zoomDist);
+  camera.lookAt(0, 0, 0);
+}
+updateCamera();
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const dL = new THREE.DirectionalLight(0xffffff, 0.45);
+dL.position.set(3,5,4); scene.add(dL);
+
+// ═══════════════════════════════════════
+// D6 CUBE — smaller so nodes fill face
+// ═══════════════════════════════════════
+const CS = 1.2; // cube half-size (was 1.6)
+const dieGroup = new THREE.Group();
+scene.add(dieGroup);
+
+// Cube wireframe
+const cubeWire = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(CS*2, CS*2, CS*2)),
+  new THREE.LineBasicMaterial({ color: 0x444466, transparent:true, opacity:0.18 })
+);
+dieGroup.add(cubeWire);
+
+// 4 active faces
+const CUBE_FACES = [
+  { key:'wide',  normal:[0,0,1],  up:[0,1,0] },
+  { key:'gold',  normal:[1,0,0],  up:[0,1,0] },
+  { key:'tall',  normal:[0,0,-1], up:[0,1,0] },
+  { key:'venom', normal:[-1,0,0], up:[0,1,0] },
+];
+
+const faceMeshes = [];
+const faceNormals = [];
+const nodeObjects = [];
+
+CUBE_FACES.forEach((cf, fi) => {
+  const fd = FACES_DEF[fi];
+  const fData = FACES_DATA[fd.key];
+  const n = new THREE.Vector3(...cf.normal);
+  const upV = new THREE.Vector3(...cf.up);
+  const rightV = new THREE.Vector3().crossVectors(upV, n).normalize();
+  faceNormals.push(n.clone());
+
+  const center = n.clone().multiplyScalar(CS);
+  const lift = n.clone().multiplyScalar(0.06);
+
+  // Face tint
+  const faceMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(CS*1.95, CS*1.95),
+    new THREE.MeshBasicMaterial({ color:0x0e0e18, transparent:true, opacity:0.85, side:THREE.DoubleSide })
+  );
+  faceMesh.position.copy(center);
+  faceMesh.lookAt(center.clone().add(n));
+  faceMesh.userData = { faceKey:fd.key, faceIndex:fi };
+  dieGroup.add(faceMesh);
+  faceMeshes.push(faceMesh);
+
+  // ── SQUARE GRID LAYOUT ──
+  // 4 passives in a 2×2 grid, notable in center
+  // Grid spacing: how far from center each passive sits
+  const gridOff = CS * 0.42;
+  const passivePositions = [
+    center.clone().add(upV.clone().multiplyScalar(gridOff)).add(rightV.clone().multiplyScalar(-gridOff)).add(lift), // top-left
+    center.clone().add(upV.clone().multiplyScalar(gridOff)).add(rightV.clone().multiplyScalar(gridOff)).add(lift),  // top-right
+    center.clone().add(upV.clone().multiplyScalar(-gridOff)).add(rightV.clone().multiplyScalar(-gridOff)).add(lift), // bot-left
+    center.clone().add(upV.clone().multiplyScalar(-gridOff)).add(rightV.clone().multiplyScalar(gridOff)).add(lift),  // bot-right
+  ];
+  const notablePos = center.clone().add(lift);
+
+  // Node plane sizes — fill the face
+  const passivePlane = CS * 0.72;
+  const notablePlane = CS * 0.58;
+
+  // Passives
+  fData.passives.forEach((p, pi) => {
+    const pos = passivePositions[pi];
+    const tex = renderNodeTex(fd.icon, fd.hex, 'locked', false, p.name, 0);
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(passivePlane, passivePlane),
+      new THREE.MeshBasicMaterial({ map:tex, transparent:true, side:THREE.DoubleSide, depthWrite:false, depthTest:false })
+    );
+    mesh.position.copy(pos);
+    mesh.lookAt(pos.clone().add(n));
+    mesh.renderOrder = 10;
+    mesh.userData = { nodeId:p.id, faceKey:fd.key, isNotable:false, nodeData:p, faceIndex:fi, _lastState:null, _lastLit:-1 };
+    dieGroup.add(mesh);
+    nodeObjects.push(mesh);
+  });
+
+  // Notable
+  const nTex = renderNodeTex('👑', fd.hex, 'locked', true, fData.notable.name, 0);
+  const nMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(notablePlane, notablePlane),
+    new THREE.MeshBasicMaterial({ map:nTex, transparent:true, side:THREE.DoubleSide, depthWrite:false, depthTest:false })
+  );
+  nMesh.position.copy(notablePos);
+  nMesh.lookAt(notablePos.clone().add(n));
+  nMesh.renderOrder = 10;
+  nMesh.userData = { nodeId:fData.notable.id, faceKey:fd.key, isNotable:true, nodeData:fData.notable, faceIndex:fi, _lastState:null, _lastLit:-1 };
+  dieGroup.add(nMesh);
+  nodeObjects.push(nMesh);
+});
+
+// Decorative top/bottom
+[new THREE.Vector3(0,1,0), new THREE.Vector3(0,-1,0)].forEach(n => {
+  const c = n.clone().multiplyScalar(CS);
+  const m = new THREE.Mesh(
+    new THREE.PlaneGeometry(CS*1.95, CS*1.95),
+    new THREE.MeshBasicMaterial({ color:0x0e0e18, transparent:true, opacity:0.85, side:THREE.DoubleSide })
+  );
+  m.position.copy(c); m.lookAt(c.clone().add(n)); dieGroup.add(m);
+});
+
+// ═══════════════════════════════════════
+// FACE VISIBILITY
+// ═══════════════════════════════════════
+function getFaceVis() {
+  const camLocal = dieGroup.worldToLocal(camera.position.clone()).normalize();
+  return faceNormals.map(n => {
+    const d = n.dot(camLocal);
+    if (d > 0.2) return 1;
+    if (d < -0.15) return 0;
+    return (d+0.15)/0.35;
+  });
+}
+function frontFace() {
+  const v = getFaceVis(); let b=-1,i=0;
+  v.forEach((x,j)=>{if(x>b){b=x;i=j;}}); return i;
+}
+
+// ═══════════════════════════════════════
+// UPDATE VISUALS
+// ═══════════════════════════════════════
+function updateVisuals() {
+  const vis = getFaceVis();
+  const ff = frontFace();
+  const fDef = FACES_DEF[ff];
+  document.getElementById('face-indicator').textContent = `▸ ${fDef.label}`;
+  document.getElementById('face-indicator').style.color = fDef.hex;
+
+  faceMeshes.forEach((fm,i) => { fm.material.opacity = 0.85; });
+
+  nodeObjects.forEach(mesh => {
+    const { nodeId, faceKey, isNotable, nodeData, faceIndex } = mesh.userData;
+    const v = vis[faceIndex];
+    const un = isUnlocked(nodeId);
+    const avail = getNodeAvail(nodeId);
+    const state = un ? 'unlocked' : avail ? 'available' : 'locked';
+    const fd = FACES_DEF.find(f=>f.key===faceKey);
+
+    // Count lit passives for notables
+    const litCount = isNotable ? FACES_DATA[faceKey].passives.filter(p => isUnlocked(p.id)).length : 0;
+
+    if (mesh.userData._lastState !== state || (isNotable && mesh.userData._lastLit !== litCount)) {
+      mesh.userData._lastState = state;
+      mesh.userData._lastLit = litCount;
+      mesh.material.map = renderNodeTex(isNotable?'👑':fd.icon, fd.hex, state, isNotable, nodeData.name, litCount);
+      mesh.material.needsUpdate = true;
+    }
+
+    // Smooth visibility: fade in as face rotates toward camera
+    mesh.material.opacity = v;
+    if (avail && v > 0.5) {
+      mesh.scale.setScalar(1 + Math.sin(Date.now()*.003)*.05);
+    } else {
+      mesh.scale.setScalar(1);
+    }
+  });
+
+  updateBadge();
+}
+
+function updateBadge() {
+  document.getElementById('sp-count').textContent = skillPoints > 0 ? `${skillPoints} SP` : 'No SP';
+  document.getElementById('reveal-sp').textContent = `${skillPoints} SP`;
+}
+
+// ═══════════════════════════════════════
+// INPUT
+// ═══════════════════════════════════════
+let isDragging=false, prevM={x:0,y:0}, rotVel={x:0,y:0}, dragDist=0;
+let pinchDist0=0, isPinching=false;
+const cvs = renderer.domElement;
+
+cvs.addEventListener('mousedown', e=>{
+  if(!dieRevealed)return; isDragging=true; dragDist=0; prevM={x:e.clientX,y:e.clientY};
+});
+cvs.addEventListener('mousemove', e=>{
+  if(!isDragging)return;
+  const dx=e.clientX-prevM.x, dy=e.clientY-prevM.y;
+  dragDist+=Math.abs(dx)+Math.abs(dy);
+  rotVel={x:dy*.005,y:dx*.005};
+  dieGroup.rotation.x+=rotVel.x; dieGroup.rotation.y+=rotVel.y;
+  prevM={x:e.clientX,y:e.clientY};
+});
+cvs.addEventListener('mouseup', e=>{
+  isDragging=false; if(dragDist<6) handleTap(e.clientX, e.clientY);
+});
+
+cvs.addEventListener('touchstart', e=>{
+  if(!dieRevealed)return;
+  if(e.touches.length===2){
+    isPinching=true;
+    pinchDist0=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    return;
+  }
+  isDragging=true; dragDist=0; isPinching=false;
+  prevM={x:e.touches[0].clientX,y:e.touches[0].clientY};
+}, {passive:false});
+
+cvs.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  if(isPinching && e.touches.length===2){
+    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    zoomDist=Math.max(ZOOM_MIN,Math.min(ZOOM_MAX,zoomDist+(pinchDist0-d)*.02));
+    updateCamera(); pinchDist0=d; return;
+  }
+  if(!isDragging||!e.touches.length)return;
+  const dx=e.touches[0].clientX-prevM.x, dy=e.touches[0].clientY-prevM.y;
+  dragDist+=Math.abs(dx)+Math.abs(dy);
+  rotVel={x:dy*.005,y:dx*.005};
+  dieGroup.rotation.x+=rotVel.x; dieGroup.rotation.y+=rotVel.y;
+  prevM={x:e.touches[0].clientX,y:e.touches[0].clientY};
+}, {passive:false});
+
+cvs.addEventListener('touchend', e=>{
+  if(isPinching){isPinching=false;return;}
+  isDragging=false;
+  if(dragDist<12 && e.changedTouches.length) handleTap(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+});
+
+cvs.addEventListener('wheel', e=>{
+  e.preventDefault();
+  zoomDist=Math.max(ZOOM_MIN,Math.min(ZOOM_MAX,zoomDist+e.deltaY*.005));
+  updateCamera();
+}, {passive:false});
+
+// ═══════════════════════════════════════
+// TAP → SELECT (no unlock on tap)
+// ═══════════════════════════════════════
+const raycaster = new THREE.Raycaster();
+const mVec = new THREE.Vector2();
+
+function handleTap(cx, cy) {
+  const rect = cvs.getBoundingClientRect();
+  mVec.x = ((cx-rect.left)/rect.width)*2-1;
+  mVec.y = -((cy-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(mVec, camera);
+
+  const ff = frontFace();
+  const targets = nodeObjects.filter(n => n.userData.faceIndex === ff);
+  const hits = raycaster.intersectObjects(targets);
+
+  if (hits.length > 0) {
+    const hit = hits[0].object;
+    const { nodeId, faceKey, isNotable, nodeData } = hit.userData;
+    const un = isUnlocked(nodeId);
+    const avail = getNodeAvail(nodeId);
+    const fd = FACES_DEF.find(f=>f.key===faceKey);
+
+    selectedNodeId = nodeId;
+    showDetail(nodeData, fd, un, avail, isNotable, faceKey);
+  } else {
+    selectedNodeId = null;
+    clearDetail();
+  }
+}
+
+// ═══════════════════════════════════════
+// ALLOCATE (button press)
+// ═══════════════════════════════════════
+function doAllocate() {
+  if (!selectedNodeId) return;
+  if (!getNodeAvail(selectedNodeId)) return;
+
+  unlocked.add(selectedNodeId);
+  skillPoints--;
+
+  // Find node info for detail update
+  const mesh = nodeObjects.find(m => m.userData.nodeId === selectedNodeId);
+  if (mesh) {
+    const { faceKey, isNotable, nodeData } = mesh.userData;
+    const fd = FACES_DEF.find(f=>f.key===faceKey);
+    // Force texture refresh for all nodes on this face
+    nodeObjects.forEach(m => { if(m.userData.faceKey===faceKey) { m.userData._lastState=null;m.userData._lastLit=-1; m.userData._lastLit=-1; } });
+    showDetail(nodeData, fd, true, false, isNotable, faceKey);
+  }
+  selectedNodeId = null;
+}
+
+// ═══════════════════════════════════════
+// DETAIL BAR
+// ═══════════════════════════════════════
+function showDetail(node, fd, un, avail, isN, faceKey) {
+  const bar = document.getElementById('detail-bar');
+  const st = un
+    ? `<span class="d-status" style="color:${fd.hex};">✓ UNLOCKED</span>`
+    : avail
+      ? `<span class="d-status" style="color:#80ff80;">⬆ AVAILABLE</span>`
+      : `<span class="d-status" style="opacity:.35;">🔒 ${isN?'Need all 4 passives':'Locked'}</span>`;
+
+  const allocBtn = avail
+    ? `<button class="alloc-btn" onclick="doAllocate()">Allocate</button>`
+    : '';
+
+  bar.style.borderColor = un ? fd.hex+'60' : avail ? fd.hex+'40' : 'rgba(255,255,255,.06)';
+  bar.innerHTML = `
+    <div class="d-icon">${isN?'👑':fd.icon}</div>
+    <div class="d-body">
+      <div><span class="d-name" style="color:${fd.hex};">${node.name}</span>${st}</div>
+      <div class="d-desc">${node.desc}</div>
+    </div>
+    ${allocBtn}
+  `;
+}
+
+function clearDetail() {
+  const bar = document.getElementById('detail-bar');
+  bar.style.borderColor = 'rgba(255,255,255,.06)';
+  bar.innerHTML = '<span class="placeholder">Drag to rotate · Tap a node to inspect</span>';
+}
+
+// ═══════════════════════════════════════
+// RESIZE
+// ═══════════════════════════════════════
+function resize() {
+  const w=container.clientWidth, h=container.clientHeight;
+  camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h);
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ═══════════════════════════════════════
+// ANIMATE
+// ═══════════════════════════════════════
+let idleT=0;
+function animate() {
+  requestAnimationFrame(animate);
+  if(!isDragging && !isPinching){
+    dieGroup.rotation.x+=rotVel.x; dieGroup.rotation.y+=rotVel.y;
+    rotVel.x*=.96; rotVel.y*=.96;
+    if(Math.abs(rotVel.x)<.0004 && Math.abs(rotVel.y)<.0004){
+      idleT+=.002; dieGroup.rotation.y+=Math.sin(idleT)*.0004;
+    }
+  }
+  updateVisuals();
+  renderer.render(scene, camera);
+}
+animate();
+
+cvs.addEventListener('pointerdown', ()=>{ document.getElementById('hint').style.opacity='0'; }, {once:true});
+
+// ═══════════════════════════════════════
+// DEMO
+// ═══════════════════════════════════════
+function resetTree(){
+  unlocked=new Set(); skillPoints=5; dieRevealed=false; selectedNodeId=null; clearDetail();
+  document.getElementById('reveal-overlay').classList.remove('hidden');
+  document.getElementById('canvas-container').classList.remove('visible');
+  nodeObjects.forEach(m=>{m.userData._lastState=null;m.userData._lastLit=-1;}); updateBadge();
+}
+function demoUnlock(){
+  unlocked=new Set(['root','w_a','w_b','w_c','g_a','g_b','t_a','v_a','v_b','v_c','v_d']);
+  dieRevealed=true; skillPoints=3; selectedNodeId=null;
+  document.getElementById('reveal-overlay').classList.add('hidden');
+  document.getElementById('canvas-container').classList.add('visible');
+  nodeObjects.forEach(m=>{m.userData._lastState=null;m.userData._lastLit=-1;}); updateBadge();
+}
+function addSP(){ skillPoints++; nodeObjects.forEach(m=>{m.userData._lastState=null;m.userData._lastLit=-1;}); }
+</script>
+</body>
+</html>

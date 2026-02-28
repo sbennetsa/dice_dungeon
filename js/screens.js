@@ -648,9 +648,12 @@ const SkillDie = (() => {
             _rotY += _velY; _rotX += _velX;
             _prevX = e.clientX; _prevY = e.clientY;
         });
-        mainEl.addEventListener('mouseup', () => {
+        mainEl.addEventListener('mouseup', e => {
             _isDragging = false;
-            if (_dragDist < 6) { _selectedId = null; _clearDetail(); }
+            // Don't clear when clicking buttons inside the detail bar
+            if (_dragDist < 6 && !e.target.closest('#sd-detail-bar')) {
+                _selectedId = null; _clearDetail();
+            }
         });
         mainEl.addEventListener('mouseleave', () => { _isDragging = false; });
         mainEl.addEventListener('touchstart', e => {
@@ -670,7 +673,10 @@ const SkillDie = (() => {
         mainEl.addEventListener('touchend', e => {
             if (_pinching) { _pinching = false; return; }
             _isDragging = false;
-            if (_dragDist < 12) { _selectedId = null; _clearDetail(); }
+            // Don't clear when tapping buttons inside the detail bar
+            if (_dragDist < 12 && !e.target.closest('#sd-detail-bar')) {
+                _selectedId = null; _clearDetail();
+            }
         });
         mainEl.addEventListener('pointerdown', () => {
             const hint = document.getElementById('sd-hint');
@@ -744,7 +750,7 @@ const SkillDie = (() => {
         document.getElementById('sd-done-btn').addEventListener('click', _onDone);
     }
 
-    function _onDone() { (_viewMode ? (_backCallback || _callback) : _callback)?.(); }
+    function _onDone() { _rafActive = false; (_viewMode ? (_backCallback || _callback) : _callback)?.(); }
 
     // ── Visual update ─────────────────────────────────────────
     function _updateBadge() {

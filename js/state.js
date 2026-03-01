@@ -87,6 +87,9 @@ export const GS = {
     environment: null,        // active environment during combat (for hook calls)
     _chaosStormActive: false, // set by chaosStorm environment onTurnEnd
     _firstAttacker: null,     // 'player' or 'enemy' — used by narrowCorridor env
+    // ── DUNGEON BLUEPRINT ──
+    blueprint: null,          // complete dungeon blueprint for current run
+    seed: null,               // RNG seed for reproducible runs
 };
 
 // ════════════════════════════════════════════════════════════

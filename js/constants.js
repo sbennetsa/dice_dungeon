@@ -1,7 +1,20 @@
 // ════════════════════════════════════════════════════════════
 //  FLOOR LAYOUT
 // ════════════════════════════════════════════════════════════
+import { GS } from './state.js';
+
 export function getFloorType(floor) {
+    // Use blueprint if available (procedural dungeon)
+    if (GS.blueprint) {
+        const actIndex  = Math.min(Math.ceil(floor / 5) - 1, 2);
+        const act       = GS.blueprint.acts[actIndex];
+        if (act) {
+            const baseFloor = actIndex * 5 + 1;
+            const fb = act.floors[floor - baseFloor];
+            if (fb) return fb.type;
+        }
+    }
+    // Fallback: hardcoded layout
     const layout = {
         1: 'combat', 2: 'event', 3: 'combat', 4: 'shop',  5: 'boss',
         6: 'event',  7: 'combat', 8: 'combat', 9: 'shop', 10: 'boss',

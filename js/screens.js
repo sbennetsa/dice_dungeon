@@ -548,9 +548,11 @@ const SkillDie = (() => {
             <div class="sd-reveal-desc">Spend your first skill point to unlock the skill die</div>
             <div class="sd-reveal-effect">+1 Attack Slot · +1 Defend Slot</div>
             <div class="sd-reveal-cta">Tap to reveal</div>
+            <button class="sd-done-btn sd-reveal-skip" id="sd-reveal-skip">Skip →</button>
         `;
         screen.appendChild(rev);
 
+        document.getElementById('sd-reveal-skip').addEventListener('click', () => { _onDone(); });
         document.getElementById('sd-reveal-btn').addEventListener('click', () => {
             if (_sp() < 1) return;
             if (!_isUnlocked('root')) {

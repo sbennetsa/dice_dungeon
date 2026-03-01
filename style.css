@@ -297,6 +297,49 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     margin-bottom: 12px;
 }
 
+/* ── Compact trays (auto-fire & aura) ── */
+.compact-tray {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px 10px;
+    margin-bottom: 6px;
+    font-size: 0.8em;
+    opacity: 0.85;
+}
+.compact-tray-label {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.75em;
+}
+.auto-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(212, 165, 52, 0.12);
+    border: 1px solid rgba(212, 165, 52, 0.3);
+    border-radius: 4px;
+    padding: 1px 7px;
+    color: var(--gold);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1em;
+}
+.aura-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(255, 200, 0, 0.08);
+    border: 1px solid rgba(255, 200, 0, 0.2);
+    border-radius: 4px;
+    padding: 1px 7px;
+    color: var(--gold);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1em;
+}
+
 .dice-pool {
     display: flex;
     gap: 10px;
@@ -1370,6 +1413,38 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 }
 .encounter-passive-tag:hover .enc-tooltip { display: block; }
 
+.encounter-anomaly-badge {
+    display: inline-flex;
+    align-items: center;
+    background: #663300;
+    color: #ffaa44;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 0.8em;
+    margin-left: 8px;
+    cursor: help;
+    position: relative;
+}
+.encounter-anomaly-badge .enc-tooltip {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 6px;
+    background: var(--bg-surface);
+    border: 1px solid #ffaa44;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 0.95rem;
+    color: var(--text);
+    white-space: nowrap;
+    z-index: 20;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.encounter-anomaly-badge:hover .enc-tooltip { display: block; }
+
 .encounter-env-bar {
     background: rgba(212,165,52,0.08);
     border: 1px solid rgba(212,165,52,0.2);
@@ -1644,6 +1719,7 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     .encounter-card-flipper {
         width: 100%;
     }
+    .encounter-anomaly-badge .enc-tooltip,
     .encounter-ability-tag .enc-tooltip,
     .encounter-passive-tag .enc-tooltip {
         left: 0;
@@ -1952,6 +2028,9 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 /* Act container */
 .map-act { margin-bottom: 8px; }
 .map-act-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.7em;
     color: var(--text-dim);
@@ -2005,10 +2084,15 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     color: var(--text);
 }
 .map-node-hidden { color: var(--text-dim); font-style: italic; }
+.map-node-info { flex: 1; min-width: 0; }
 .map-node-env {
     font-size: 0.75em;
     color: var(--text-dim);
-    margin-left: auto;
+}
+.map-node-anomaly {
+    font-size: 0.7em;
+    color: var(--purple);
+    font-style: italic;
 }
 
 /* Rest stop divider */
@@ -2064,3 +2148,80 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 
 /* Header button group */
 .header-btns { display: flex; gap: 4px; }
+
+/* ════════════════════════════════════════════════════════════
+   DUNGEON PATH SCREEN
+════════════════════════════════════════════════════════════ */
+.dungeon-path-wrapper {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 20px;
+}
+.dungeon-path-header {
+    text-align: center;
+    margin-bottom: 16px;
+}
+.dungeon-path-header h2 {
+    color: var(--gold);
+    font-family: 'Uncial Antiqua', cursive;
+    font-size: 1.4em;
+    margin: 0;
+}
+.dungeon-path-descend {
+    width: 100%;
+    margin-top: 20px;
+    font-size: 1.05em;
+    padding: 14px;
+}
+
+/* ── Threat / Advantage Badges ── */
+.map-node-threat {
+    margin-left: auto;
+    text-align: right;
+    flex-shrink: 0;
+    padding-left: 8px;
+}
+.map-threat-total {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8em;
+    color: var(--red-bright, #ff6b6b);
+}
+.map-threat-breakdown {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6em;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+.map-node-advantage {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding-left: 8px;
+}
+.map-advantage-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8em;
+    color: var(--green-bright, #51cf66);
+}
+
+/* ── Act Threat Subtotal ── */
+.map-act-threat {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1em;
+    color: var(--red-dim, #993333);
+}
+
+/* ── Enhanced Scoring Breakdown Row ── */
+.map-scoring-breakdown {
+    display: flex;
+    gap: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7em;
+    color: var(--text-dim);
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+.map-scoring-breakdown .threat { color: var(--red-bright, #ff6b6b); }
+.map-scoring-breakdown .advantage { color: var(--green-bright, #51cf66); }
+.map-scoring-breakdown .net { color: var(--gold); }

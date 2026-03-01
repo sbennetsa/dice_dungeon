@@ -405,24 +405,32 @@ export function renderCombatDice() {
     const returnBtn = $('btn-return-all');
     if (returnBtn) returnBtn.style.display = (allRolled && hasAnyAllocated) ? 'inline-block' : 'none';
 
+    // Auto-triggered effects — compact golden chips instead of full die cards
     const autoTray = $('autofire-tray');
     const autoDiceEl = $('autofire-dice');
     if (autoDice.length > 0) {
-        autoTray.style.display = 'block';
+        autoTray.style.display = 'flex';
         autoDiceEl.innerHTML = '';
-        autoDice.forEach(d => autoDiceEl.appendChild(makeDieElement(d, 'auto')));
+        autoDice.forEach(d => {
+            const face = getActiveFace(d);
+            const chip = document.createElement('span');
+            chip.className = 'auto-chip';
+            chip.title = face ? `${face.modifier.name}: ${face.modifier.desc}` : 'Auto-triggered';
+            chip.innerHTML = `${face ? face.modifier.icon : '✨'} <strong>${d.value}</strong>`;
+            autoDiceEl.appendChild(chip);
+        });
     } else {
         autoTray.style.display = 'none';
     }
 
+    // Ascended aura — slim inline bar
     const auraTray = $('aura-tray');
     const auraDiceEl = $('aura-dice');
     if (auraTray) {
         if (GS.ascendedDice && GS.ascendedDice.length > 0) {
-            auraTray.style.display = 'block';
-            auraDiceEl.innerHTML = GS.ascendedDice.map(a =>
-                `<span style="background:rgba(255,200,0,0.08);border:1px solid rgba(255,200,0,0.2);border-radius:4px;padding:2px 8px;margin:2px;display:inline-block;">🌟 ${a.label}: +${a.bonus} all slots</span>`
-            ).join('');
+            auraTray.style.display = 'flex';
+            const totalBonus = GS.ascendedDice.reduce((s, a) => s + a.bonus, 0);
+            auraDiceEl.innerHTML = `<span class="aura-chip">🌟 +${totalBonus} all slots</span>`;
         } else {
             auraTray.style.display = 'none';
         }

@@ -8,6 +8,7 @@ export const ANOMALIES = {
     perfectStorm: {
         id: 'perfectStorm',
         name: 'Perfect Storm',
+        desc: 'Environment shifts to synergize with the enemy. +50% rewards.',
         chance: 0.05,
         rewardMult: 1.5,
         apply(enemy, currentEnvironment) {
@@ -31,6 +32,7 @@ export const ANOMALIES = {
     wounded: {
         id: 'wounded',
         name: 'Wounded Prey',
+        desc: 'Enemy starts at 70% HP. −20% rewards.',
         chance: 0.08,
         rewardMult: 0.8,
         apply(enemy) {
@@ -43,6 +45,7 @@ export const ANOMALIES = {
     enraged: {
         id: 'enraged',
         name: 'Enraged Beast',
+        desc: 'All enemy dice upgraded by +2. +40% rewards.',
         chance: 0.06,
         rewardMult: 1.4,
         apply(enemy) {
@@ -54,6 +57,7 @@ export const ANOMALIES = {
     doubleTrouble: {
         id: 'doubleTrouble',
         name: 'Double Trouble',
+        desc: 'Enemy acts twice per turn. ×2 rewards.',
         chance: 0.03,
         rewardMult: 2.0,
         apply(enemy) {
@@ -65,6 +69,7 @@ export const ANOMALIES = {
     glitched: {
         id: 'glitched',
         name: 'Reality Glitch',
+        desc: 'One enemy ability randomly changes type. +60% rewards.',
         chance: 0.04,
         rewardMult: 1.6,
         apply(enemy) {

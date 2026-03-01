@@ -42,6 +42,18 @@
     </div>
 </div>
 
+<!-- ═══════════ DUNGEON PATH SCREEN ═══════════ -->
+<div id="screen-dungeon-path" class="screen">
+    <div class="dungeon-path-wrapper">
+        <div class="dungeon-path-header">
+            <h2>Dungeon Path</h2>
+        </div>
+        <div id="dungeon-path-seed"></div>
+        <div id="dungeon-path-content"></div>
+        <button class="btn btn-primary dungeon-path-descend" onclick="DungeonPath.proceed()">Descend into the Dungeon</button>
+    </div>
+</div>
+
 <!-- ═══════════ ENCOUNTER CHOICE SCREEN ═══════════ -->
 <div id="screen-encounter" class="screen">
     <div id="encounter-header"></div>
@@ -101,14 +113,13 @@
         </div>
     </div>
 
-    <div class="dice-tray" id="autofire-tray" style="display:none;">
-        <div class="tray-label">✨ Auto-triggered effects</div>
-        <div class="dice-pool" id="autofire-dice"></div>
+    <div class="compact-tray" id="autofire-tray" style="display:none;">
+        <span class="compact-tray-label">✨ Auto</span>
+        <span id="autofire-dice"></span>
     </div>
 
-    <div class="dice-tray" id="aura-tray" style="display:none;">
-        <div class="tray-label">🌟 Ascended Dice — Passive Aura</div>
-        <div id="aura-dice" style="display:flex; flex-wrap:wrap; gap:4px; justify-content:center; padding:4px;"></div>
+    <div class="compact-tray" id="aura-tray" style="display:none;">
+        <span id="aura-dice"></span>
     </div>
 
     <div class="allocation-area">

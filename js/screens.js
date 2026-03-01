@@ -9,6 +9,7 @@ import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } from './encounters/encounterGenerator.js';
 import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
+import { scoreFloorDetailed, scorePlayerAdvantage, SHOP_ADVANTAGE, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
 
 // ════════════════════════════════════════════════════════════
 //  HELPERS
@@ -246,7 +247,7 @@ const Game = {
         console.log(`[Dungeon] Net Challenge: ${blueprint.scoring.netChallenge} (Combat: ${blueprint.scoring.totalCombatThreat}, Player Advantage: ${blueprint.scoring.totalPlayerAdvantage})`);
         console.log(`[Dungeon] Schedules: ${blueprint.acts.map(a => a.schedule.join('-')).join(' | ')}`);
 
-        Game.enterFloor();
+        DungeonPath.show();
     },
 
     enterFloor() {
@@ -3439,28 +3440,48 @@ const DungeonMap = {
         }
     },
 
-    render() {
+    render(seedContainerId = 'dungeon-map-seed', contentContainerId = 'dungeon-map-content', options = {}) {
         const bp = GS.blueprint;
+        const seedEl = $(seedContainerId);
+        const contentEl = $(contentContainerId);
         if (!bp) {
-            $('dungeon-map-content').innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:40px 0;">No dungeon generated yet.</div>';
-            $('dungeon-map-seed').innerHTML = '';
+            contentEl.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:40px 0;">No dungeon generated yet.</div>';
+            seedEl.innerHTML = '';
             return;
         }
 
+        const showAll = options.showAll || false;
+        const s = bp.scoring;
         const seedHex = DungeonMap.formatSeed(bp.seed);
-        $('dungeon-map-seed').innerHTML = `
+        const copyId = `map-seed-copyable-${seedContainerId}`;
+
+        seedEl.innerHTML = `
             <div class="map-seed-row">
                 <span class="map-seed-label">SEED</span>
-                <span class="map-seed-value" id="map-seed-copyable" title="Click to copy">${seedHex}</span>
-                <span class="map-seed-rating">\u2694\uFE0F CR ${bp.scoring.challengeRating}/10</span>
+                <span class="map-seed-value" id="${copyId}" title="Click to copy">${seedHex}</span>
+                <span class="map-seed-rating">\u2694\uFE0F CR ${s.challengeRating}/10</span>
+            </div>
+            <div class="map-scoring-breakdown">
+                <span class="threat">\u26A0 Threat ${s.totalCombatThreat}</span>
+                <span class="advantage">\u2726 Advantage ${s.totalPlayerAdvantage}</span>
+                <span class="net">Net ${s.netChallenge}</span>
             </div>`;
-        $('map-seed-copyable').onclick = () => DungeonMap.copySeed(seedHex);
+        $(copyId).onclick = () => DungeonMap.copySeed(seedHex);
 
         let html = '';
         for (let actIdx = 0; actIdx < bp.acts.length; actIdx++) {
             const act = bp.acts[actIdx];
+
+            // Compute act threat subtotal
+            let actThreat = 0;
+            for (const f of act.floors) {
+                if (f.type === 'combat' || f.type === 'boss') {
+                    actThreat += scoreFloorDetailed(f).baseThreat;
+                }
+            }
+
             html += `<div class="map-act">`;
-            html += `<div class="map-act-label">Act ${act.actNumber}</div>`;
+            html += `<div class="map-act-label"><span>Act ${act.actNumber}</span><span class="map-act-threat">\u26A0 ${actThreat}</span></div>`;
             html += `<div class="map-act-path">`;
 
             for (const floor of act.floors) {
@@ -3469,25 +3490,50 @@ const DungeonMap = {
                             : 'locked';
                 const icon = DungeonMap._typeIcon(floor.type);
                 const visited = floor.floor <= GS.floor;
+                const reveal = visited || showAll;
 
-                let detailHtml = '';
-                if (visited && (floor.type === 'combat' || floor.type === 'boss') && floor.enemy) {
-                    detailHtml = `<div class="map-node-detail">${floor.enemy.name}</div>`;
-                    if (floor.environment) {
-                        detailHtml += `<div class="map-node-env">${floor.environment.icon} ${floor.environment.name}</div>`;
+                let infoHtml = '';
+                let scoreHtml = '';
+
+                if (floor.type === 'combat' || floor.type === 'boss') {
+                    // Enemy name + environment
+                    if (reveal && floor.enemy) {
+                        infoHtml = `<div class="map-node-detail">${floor.enemy.name}</div>`;
+                        if (floor.environment) {
+                            infoHtml += `<div class="map-node-env">${floor.environment.icon} ${floor.environment.name}</div>`;
+                        }
+                        if (floor.anomaly) {
+                            infoHtml += `<div class="map-node-anomaly">\u26A1 ${floor.anomaly.name}</div>`;
+                        }
+                    } else {
+                        infoHtml = `<div class="map-node-detail map-node-hidden">???</div>`;
                     }
-                } else if (!visited && (floor.type === 'combat' || floor.type === 'boss')) {
-                    detailHtml = `<div class="map-node-detail map-node-hidden">???</div>`;
+
+                    // Threat breakdown
+                    const det = scoreFloorDetailed(floor);
+                    let parts = [`Enemy ${det.enemyThreat}`];
+                    if (det.envThreat !== 0) parts.push(`Env ${det.envThreat > 0 ? '+' : ''}${det.envThreat}`);
+                    if (det.anomalyThreat !== 0) parts.push(`Anomaly ${det.anomalyThreat > 0 ? '+' : ''}${det.anomalyThreat}`);
+                    scoreHtml = `<div class="map-node-threat">
+                        <span class="map-threat-total">\u26A0 ${det.baseThreat}</span>
+                        <div class="map-threat-breakdown">${parts.join(' \u00B7 ')}</div>
+                    </div>`;
+
                 } else if (floor.type === 'event') {
-                    detailHtml = `<div class="map-node-detail">${visited ? 'Event' : '???'}</div>`;
+                    infoHtml = `<div class="map-node-detail">${reveal ? 'Event' : '???'}</div>`;
+                    const adv = scorePlayerAdvantage(floor);
+                    if (adv > 0) scoreHtml = `<div class="map-node-advantage"><span class="map-advantage-value">\u2726 +${adv}</span></div>`;
+
                 } else if (floor.type === 'shop') {
-                    detailHtml = `<div class="map-node-detail">Shop</div>`;
+                    infoHtml = `<div class="map-node-detail">Shop</div>`;
+                    scoreHtml = `<div class="map-node-advantage"><span class="map-advantage-value">\u2726 +${SHOP_ADVANTAGE}</span></div>`;
                 }
 
                 html += `<div class="map-node map-node--${state} map-node--${floor.type}">
                     <div class="map-node-icon">${icon}</div>
                     <div class="map-node-floor">F${floor.floor}</div>
-                    ${detailHtml}
+                    <div class="map-node-info">${infoHtml}</div>
+                    ${scoreHtml}
                 </div>`;
             }
 
@@ -3495,14 +3541,16 @@ const DungeonMap = {
 
             if (actIdx < 2) {
                 const restState = GS.floor > (actIdx + 1) * 5 ? 'completed' : 'locked';
+                const restAdv = REST_ADVANTAGES[actIdx] || 15;
                 html += `<div class="map-rest-stop map-rest-stop--${restState}">
                     <span class="map-rest-icon">\uD83C\uDFD5\uFE0F</span>
                     <span class="map-rest-label">Rest Stop</span>
+                    <span class="map-advantage-value">\u2726 +${restAdv}</span>
                 </div>`;
             }
         }
 
-        $('dungeon-map-content').innerHTML = html;
+        contentEl.innerHTML = html;
     },
 
     _typeIcon(type) {
@@ -3520,18 +3568,30 @@ const DungeonMap = {
         return (seed >>> 0).toString(16).toUpperCase().padStart(8, '0');
     },
 
-    copySeed(seedHex) {
+    copySeed(seedHex, targetEl) {
         navigator.clipboard.writeText(seedHex).then(() => {
-            const el = $('map-seed-copyable');
-            if (!el) return;
-            const original = el.textContent;
-            el.textContent = 'Copied!';
-            el.classList.add('map-seed-copied');
+            if (!targetEl) return;
+            const original = targetEl.textContent;
+            targetEl.textContent = 'Copied!';
+            targetEl.classList.add('map-seed-copied');
             setTimeout(() => {
-                el.textContent = original;
-                el.classList.remove('map-seed-copied');
+                targetEl.textContent = original;
+                targetEl.classList.remove('map-seed-copied');
             }, 1500);
         }).catch(() => {});
+    },
+};
+
+// ════════════════════════════════════════════════════════════
+//  DUNGEON PATH SCREEN
+// ════════════════════════════════════════════════════════════
+const DungeonPath = {
+    show() {
+        DungeonMap.render('dungeon-path-seed', 'dungeon-path-content', { showAll: true });
+        show('screen-dungeon-path');
+    },
+    proceed() {
+        Game.enterFloor();
     },
 };
 
@@ -3740,8 +3800,23 @@ const EncounterChoice = {
 
     _showReveal(revealData, onDone) {
         const { visibleModifier, hiddenModifier, finalStats } = revealData;
-        const visDesc = visibleModifier.addPassive ? `<div style="font-size:0.75em; color:var(--text-dim); margin-top:4px;">${visibleModifier.addPassive.desc}</div>` : '';
-        const hidDesc = hiddenModifier.addPassive ? `<div style="font-size:0.75em; color:var(--text-dim); margin-top:4px;">${hiddenModifier.addPassive.desc}</div>` : '';
+        const fmtMod = (mod) => {
+            const lines = [];
+            if (mod.diceUpgrade) lines.push(`Each die +${mod.diceUpgrade} faces`);
+            if (mod.extraDice) {
+                const counts = {};
+                mod.extraDice.forEach(d => { counts[d] = (counts[d] || 0) + 1; });
+                Object.entries(counts).forEach(([d, n]) => lines.push(`+${n}×d${d}`));
+            }
+            if (mod.hpMult && mod.hpMult !== 1.0) {
+                const pct = Math.round((mod.hpMult - 1) * 100);
+                lines.push(`HP ${pct > 0 ? '+' : ''}${pct}%`);
+            }
+            if (mod.addPassive) lines.push(mod.addPassive.desc);
+            if (mod.applyStartingCurse) lines.push('All your dice roll −1');
+            if (mod.doublePhases) lines.push('Phases trigger earlier');
+            return lines.map(l => `<div style="font-size:0.75em; color:var(--text-dim); margin-top:3px;">${l}</div>`).join('');
+        };
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:absolute; inset:0; background:rgba(0,0,0,0.85); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; z-index:10; padding:20px; text-align:center; overflow-y:auto;';
         overlay.innerHTML = `
@@ -3750,12 +3825,12 @@ const EncounterChoice = {
                 <div style="background:var(--bg-surface); border:1px solid var(--gold); border-radius:8px; padding:12px; min-width:140px; max-width:200px;">
                     <div style="color:var(--gold); margin-bottom:4px;">${visibleModifier.prefix}</div>
                     <div style="font-size:0.8em; color:var(--text-dim);">Known modifier</div>
-                    ${visDesc}
+                    ${fmtMod(visibleModifier)}
                 </div>
                 <div style="background:var(--bg-surface); border:1px solid #c060ff; border-radius:8px; padding:12px; min-width:140px; max-width:200px;">
                     <div style="color:#c060ff; margin-bottom:4px;">${hiddenModifier.prefix}</div>
                     <div style="font-size:0.8em; color:var(--text-dim);">Hidden modifier revealed!</div>
-                    ${hidDesc}
+                    ${fmtMod(hiddenModifier)}
                 </div>
             </div>
             <div style="font-size:0.85em; color:var(--text-dim);">
@@ -3774,7 +3849,7 @@ const EncounterChoice = {
     _buildHeader(floor, isBossFloor, anomaly, environment) {
         const floorLabel = isBossFloor ? `⚔️ Floor ${floor} — BOSS` : `⚔️ Floor ${floor}`;
         const anomalyBadge = anomaly
-            ? `<span style="background:#663300; color:#ffaa44; border-radius:4px; padding:2px 8px; font-size:0.8em; margin-left:8px;">⚠️ ${anomaly.name}</span>`
+            ? `<span class="encounter-anomaly-badge">⚠️ ${anomaly.name}<span class="enc-tooltip">${anomaly.desc || anomaly.name}</span></span>`
             : '';
         let envBar = '';
         if (environment) {

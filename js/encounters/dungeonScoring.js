@@ -268,6 +268,27 @@ export function scoreFloor(floor) {
 }
 
 /**
+ * Score a single combat floor with full component breakdown.
+ * @param {object} floor - Floor blueprint with enemy, environment, anomaly, eliteModifiers, eliteOffered
+ * @returns {{ enemyThreat, envThreat, anomalyThreat, baseThreat, eliteThreat, totalThreat, baseReward, eliteReward }}
+ */
+export function scoreFloorDetailed(floor) {
+    if (floor.type !== 'combat' && floor.type !== 'boss') {
+        return { enemyThreat: 0, envThreat: 0, anomalyThreat: 0, baseThreat: 0, eliteThreat: 0, totalThreat: 0, baseReward: 0, eliteReward: 0 };
+    }
+
+    const enemy = floor.enemy;
+    const enemyThreat = floor.type === 'boss'
+        ? (BOSS_THREATS[floor.floor] || 0)
+        : (ENEMY_THREATS[enemy.name] || 0);
+    const envThreat = scoreEnvironmentThreat(floor.environment, enemy);
+    const anomalyThreat = floor.anomaly ? (ANOMALY_THREATS[floor.anomaly.id] || 0) : 0;
+
+    const result = scoreFloor(floor);
+    return { enemyThreat, envThreat, anomalyThreat, ...result };
+}
+
+/**
  * Score a non-combat floor's player advantage.
  * @param {object} floor - Floor blueprint
  * @returns {number} Player advantage (positive = helps player)

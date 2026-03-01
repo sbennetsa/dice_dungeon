@@ -2,7 +2,7 @@
 //  SCREENS — Game, Rewards, Shop, Events, Rest, Inventory
 //  Entry point: exposes all modules on window for onclick handlers
 // ════════════════════════════════════════════════════════════
-import { FACE_MODS, ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, getAct, getFloorType, getArtifactPool, pickConsumablesForMarket, pickWeightedConsumable } from './constants.js';
+import { FACE_MODS, ARTIFACT_POOL, LEGENDARY_ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, getAct, getFloorType, getArtifactPool, pickConsumablesForMarket, pickWeightedConsumable } from './constants.js';
 import { GS, $, rand, pick, shuffle, log, gainXP, gainGold, heal } from './state.js';
 import { createDie, createDieFromFaces, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones } from './engine.js';
 import { Combat } from './combat.js';
@@ -16,6 +16,65 @@ import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } fr
 function applyUpgrade(die) {
     upgradeDie(die);
     if (GS.tempBuffs && GS.tempBuffs.mastersHammer) upgradeDie(die);
+}
+
+// ── Artifact helpers ──
+
+/**
+ * Apply onAcquire side-effects for an artifact.
+ * Called from every artifact acquisition site.
+ */
+function _applyArtifactOnAcquire(art) {
+    if (art.effect === 'colossussBelt') {
+        GS.dice.forEach(d => {
+            if (d.max >= 9) {
+                d.faceValues = d.faceValues.map(v => v + art.value);
+                d.min += art.value; d.max += art.value;
+                d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
+            }
+        });
+        log(`🏋️ Colossus Belt: dice with max≥9 gained +${art.value} to all faces!`, 'info');
+    } else if (art.effect === 'glassCannon') {
+        GS.dice.forEach(d => {
+            d.faceValues = d.faceValues.map(v => v + art.value);
+            d.min += art.value; d.max += art.value;
+            d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
+        });
+        GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2));
+        GS.hp = Math.min(GS.hp, GS.maxHp);
+        log(`💥 Glass Cannon: all dice +${art.value} faces, max HP halved to ${GS.maxHp}!`, 'damage');
+    } else if (art.effect === 'titansDie') {
+        GS.dice.push(createDie(1, art.value));
+        log(`🎲 Titan's Die: permanent d${art.value} added to your pool!`, 'info');
+    }
+}
+
+/**
+ * Build 3 artifact choices for the current encounter, optionally injecting
+ * one legendary artifact based on the encounter's legendaryChance.
+ */
+function _pickArtifactChoices() {
+    const owned = new Set(GS.artifacts.map(a => a.name));
+    const pool = getArtifactPool(GS.act);
+    let available = pool.filter(a => !owned.has(a.name));
+    if (available.length < 3) available = [...pool];
+    const choices = shuffle(available).slice(0, 3);
+
+    // Legendary injection: roll once per choice presentation
+    const mods = GS.encounter?.enemy?.appliedModifiers || [];
+    const legendaryChance = GS.encounter?.isElite && GS.encounter?.isBossFloor
+        ? Math.max(0, ...mods.map(m => m.legendaryChance || 0))
+        : 0;
+    if (legendaryChance > 0 && Math.random() < legendaryChance && LEGENDARY_ARTIFACT_POOL.length > 0) {
+        const ownedLegendary = new Set(GS.artifacts.filter(a => a.legendary).map(a => a.name));
+        const availableLeg = LEGENDARY_ARTIFACT_POOL.filter(a => !ownedLegendary.has(a.name));
+        if (availableLeg.length > 0) {
+            const legendary = availableLeg[Math.floor(Math.random() * availableLeg.length)];
+            choices[Math.floor(Math.random() * choices.length)] = legendary;
+            log('✨ A legendary artifact has appeared!', 'info');
+        }
+    }
+    return choices;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1305,49 +1364,37 @@ const Rewards = {
         show('screen-reward');
     },
 
-    artifactChoice(thenReward = false) {
+    artifactChoice(thenReward = false, picksRemaining = 1) {
         updateStats();
-        $('reward-title').textContent = '✨ Artifact Drop';
+        const pickLabel = picksRemaining > 1 ? ` (Pick ${GS._artifactPickTotal - picksRemaining + 1} of ${GS._artifactPickTotal})` : '';
+        $('reward-title').textContent = `✨ Artifact Drop${pickLabel}`;
         const c = $('reward-cards');
         c.innerHTML = '';
 
-        const owned = new Set(GS.artifacts.map(a => a.name));
-        const pool = getArtifactPool(GS.act);
-        let available = pool.filter(a => !owned.has(a.name));
-        if (available.length < 3) available = [...pool];
-        const choices = shuffle(available).slice(0, 3);
+        const choices = _pickArtifactChoices();
 
-        const afterPick = () => { updateStats(); if (thenReward) Rewards.show(); else Game.nextFloor(); };
+        const afterPick = () => {
+            updateStats();
+            if (picksRemaining > 1) {
+                Rewards.artifactChoice(thenReward, picksRemaining - 1);
+            } else if (thenReward) {
+                Rewards.show();
+            } else {
+                Game.nextFloor();
+            }
+        };
 
         choices.forEach(art => {
             const card = document.createElement('div');
             card.className = 'card';
+            if (art.legendary) card.style.cssText = 'border-color: #d4a534; box-shadow: 0 0 12px rgba(212,165,52,0.4);';
             card.innerHTML = `
-                <div class="card-title">${art.icon} ${art.name}</div>
+                <div class="card-title">${art.icon} ${art.name}${art.legendary ? ' <span style="color:#d4a534; font-size:0.75em;">✨ LEGENDARY</span>' : ''}</div>
                 <div class="card-desc">${art.desc}</div>
             `;
             card.onclick = () => {
                 GS.artifacts.push(art);
-                // onAcquire effects
-                if (art.effect === 'colossussBelt') {
-                    GS.dice.forEach(d => {
-                        if (d.max >= 9) {
-                            d.faceValues = d.faceValues.map(v => v + art.value);
-                            d.min += art.value; d.max += art.value;
-                            d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
-                        }
-                    });
-                    log(`🏋️ Colossus Belt: dice with max≥9 gained +${art.value} to all faces!`, 'info');
-                } else if (art.effect === 'glassCannon') {
-                    GS.dice.forEach(d => {
-                        d.faceValues = d.faceValues.map(v => v + art.value);
-                        d.min += art.value; d.max += art.value;
-                        d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
-                    });
-                    GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2));
-                    GS.hp = Math.min(GS.hp, GS.maxHp);
-                    log(`💥 Glass Cannon: all dice +${art.value} faces, max HP halved to ${GS.maxHp}!`, 'damage');
-                }
+                _applyArtifactOnAcquire(art);
                 log(`✨ Acquired ${art.icon} ${art.name}!`, 'info');
                 afterPick();
             };
@@ -1466,16 +1513,23 @@ const BattleSummary = {
 
         // ── ARTIFACT SECTION ──
         if (hasArtifact) {
+            // Determine how many artifact picks (elite boss modifiers grant 2)
+            const artMods = GS.encounter?.enemy?.appliedModifiers || [];
+            const artPicks = GS.encounter?.isElite && GS.encounter?.isBossFloor
+                ? Math.max(1, ...artMods.map(m => m.artifactPicks || 1))
+                : 1;
+            GS._artifactPickTotal = artPicks;
+
             const artSection = document.createElement('div');
             artSection.className = 'bs-reward-section';
             artSection.id = 'bs-artifact-section';
             artSection.innerHTML = `
-                <div class="bs-section-title">✨ Artifact Drop</div>
+                <div class="bs-section-title">✨ ${artPicks > 1 ? `Artifact Drops (${artPicks} picks)` : 'Artifact Drop'}</div>
                 <div class="bs-locked-summary"></div>
                 <div class="bs-reward-choices" id="bs-artifact-choices"></div>
             `;
             content.appendChild(artSection);
-            BattleSummary._buildArtifactChoices();
+            BattleSummary._buildArtifactChoices(artPicks);
         }
 
         // ── GENERAL REWARD SECTION ──
@@ -1533,54 +1587,47 @@ const BattleSummary = {
         SkillDie.enter(done);
     },
 
-    _buildArtifactChoices() {
+    _buildArtifactChoices(picksRemaining = 1) {
         const choicesEl = $('bs-artifact-choices');
         if (!choicesEl) return;
+        choicesEl.innerHTML = '';
 
-        const owned = new Set(GS.artifacts.map(a => a.name));
-        const pool = getArtifactPool(GS.act);
-        let available = pool.filter(a => !owned.has(a.name));
-        if (available.length < 3) available = [...pool];
-        const choices = shuffle(available).slice(0, 3);
+        // Update section header if multiple picks
+        if (picksRemaining > 1) {
+            const header = $('bs-artifact-section')?.querySelector('.bs-section-title');
+            if (header) header.textContent = `✨ Choose Artifact (Pick ${GS._artifactPickTotal - picksRemaining + 1} of ${GS._artifactPickTotal})`;
+        }
+
+        const choices = _pickArtifactChoices();
 
         choices.forEach(art => {
             const card = document.createElement('div');
             card.className = 'card';
+            if (art.legendary) card.style.cssText = 'border-color: #d4a534; box-shadow: 0 0 12px rgba(212,165,52,0.4);';
             card.innerHTML = `
-                <div class="card-title">${art.icon} ${art.name}</div>
+                <div class="card-title">${art.icon} ${art.name}${art.legendary ? ' <span style="color:#d4a534; font-size:0.75em;">✨ LEGENDARY</span>' : ''}</div>
                 <div class="card-desc">${art.desc}</div>
             `;
             card.onclick = () => {
                 GS.artifacts.push(art);
-                if (art.effect === 'colossussBelt') {
-                    GS.dice.forEach(d => {
-                        if (d.max >= 9) {
-                            d.faceValues = d.faceValues.map(v => v + art.value);
-                            d.min += art.value; d.max += art.value;
-                            d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
-                        }
-                    });
-                } else if (art.effect === 'glassCannon') {
-                    GS.dice.forEach(d => {
-                        d.faceValues = d.faceValues.map(v => v + art.value);
-                        d.min += art.value; d.max += art.value;
-                        d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
-                    });
-                    GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2));
-                    GS.hp = Math.min(GS.hp, GS.maxHp);
-                }
+                _applyArtifactOnAcquire(art);
                 log(`✨ Acquired ${art.icon} ${art.name}!`, 'info');
                 updateStats();
 
-                // Lock section
-                const section = $('bs-artifact-section');
-                if (section) {
-                    section.classList.add('locked');
-                    const locked = section.querySelector('.bs-locked-summary');
-                    locked.textContent = `✓ Acquired: ${art.icon} ${art.name}`;
+                if (picksRemaining > 1) {
+                    // More picks remaining — re-render with next set of choices
+                    BattleSummary._buildArtifactChoices(picksRemaining - 1);
+                } else {
+                    // Final pick — lock section
+                    const section = $('bs-artifact-section');
+                    if (section) {
+                        section.classList.add('locked');
+                        const locked = section.querySelector('.bs-locked-summary');
+                        locked.textContent = `✓ Acquired: ${art.icon} ${art.name}`;
+                    }
+                    BattleSummary._pendingSections--;
+                    BattleSummary._checkComplete();
                 }
-                BattleSummary._pendingSections--;
-                BattleSummary._checkComplete();
             };
             choicesEl.appendChild(card);
         });
@@ -2156,6 +2203,9 @@ const Events = {
             GS.dice.forEach(d => { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value })); });
             GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2)); GS.hp = Math.min(GS.hp, GS.maxHp);
             log(`💥 Glass Cannon: all dice +${art.value} faces, max HP halved!`, 'damage');
+        } else if (art.effect === 'titansDie') {
+            GS.dice.push(createDie(1, art.value));
+            log(`🎲 Titan's Die: permanent d${art.value} added to your pool!`, 'info');
         }
         log(`Found ${art.icon} ${art.name}!`, 'info');
     },
@@ -3621,6 +3671,7 @@ const EncounterChoice = {
               <div class="encounter-card__inner">
                 <div class="encounter-card__title">${isBossFloor ? '💀 Boss' : '⚔️ Standard'}</div>
                 <div class="encounter-card__art">
+                    ${enemy.image ? `<img class="encounter-card__art-img" src="${enemy.image}" alt="${enemy.name}">` : ''}
                     <div class="encounter-card__name">${enemy.name}</div>
                     <div class="encounter-card__stats">❤️ ${enemy.hp} HP &nbsp;·&nbsp; 🎲 ${diceStr}</div>
                     ${phaseSection}
@@ -3648,22 +3699,23 @@ const EncounterChoice = {
         const { visible, hidden } = eliteModifiers;
         const purple = '#c060ff';
 
-        // Preview enemy with visible modifier applied + scaled passives
+        // --- Visible modifier effect bullets (design decision: no aggregate computed stats) ---
+        const effectBullets = this._formatVisibleEffects(visible, enemy);
+        const effectsHtml = effectBullets.length
+            ? effectBullets.map(b => `<div style="font-size:0.82em; color:${purple}; margin:2px 0;">${b}</div>`).join('')
+            : '';
+
+        // --- Passives: show base passives + any NEW ones added by visible modifier ---
         const previewEnemy = deepClone(enemy);
         applyEliteModifier(previewEnemy, visible);
         scaleElitePassives(previewEnemy);
-
-        // --- HP change ---
-        const hpChanged = previewEnemy.hp !== enemy.hp;
-        const hpDelta   = hpChanged ? ` <span style="color:${purple}; font-size:0.85em;">(${enemy.hp} → ${previewEnemy.hp})</span>` : '';
-
-        // --- Dice change ---
-        const baseDiceStr    = this._formatDicePool(enemy.dice);
-        const previewDiceStr = this._formatDicePool(previewEnemy.dice);
-        const diceChanged    = baseDiceStr !== previewDiceStr;
-        const diceDisplay    = diceChanged
-            ? `<span style="text-decoration:line-through; opacity:0.5;">${baseDiceStr}</span> <span style="color:${purple};">${previewDiceStr}</span>`
-            : previewDiceStr;
+        const basePassiveIds = new Set((enemy.passives || []).map(p => p.id || p.name));
+        const passiveTags = (previewEnemy.passives || []).map(p => {
+            const isNew = !basePassiveIds.has(p.id || p.name);
+            const border = isNew ? `border:1px solid ${purple};` : '';
+            const newBadge = isNew ? `<span style="color:${purple}; font-weight:bold; margin-left:4px;">NEW</span>` : '';
+            return `<span class="encounter-passive-tag" style="${border}">${p.name}${newBadge}<span class="enc-tooltip"><strong>${p.name}</strong><br>${p.desc}</span></span>`;
+        }).join(' ') || '<span style="opacity:0.5;">None</span>';
 
         // --- Abilities (unchanged from base enemy) ---
         const abilityTags = Object.values(enemy.abilities || {}).map(a => {
@@ -3676,21 +3728,6 @@ const EncounterChoice = {
             return `<span class="encounter-ability-tag">${a.icon} ${a.name}<span class="enc-tooltip"><strong>${a.icon} ${a.name}</strong> (${typeLabel})<br>${a.desc}${extras}</span></span>`;
         }).join(' ') || '<span style="opacity:0.5;">None</span>';
 
-        // --- Passives: base passives + new ones from modifier ---
-        const basePassiveIds = new Set((enemy.passives || []).map(p => p.id || p.name));
-        const passiveTags = (previewEnemy.passives || []).map(p => {
-            const isNew = !basePassiveIds.has(p.id || p.name);
-            const border = isNew ? `border:1px solid ${purple};` : '';
-            const newBadge = isNew ? `<span style="color:${purple}; font-weight:bold; margin-left:4px;">NEW</span>` : '';
-            return `<span class="encounter-passive-tag" style="${border}">${p.name}${newBadge}<span class="enc-tooltip"><strong>${p.name}</strong><br>${p.desc}</span></span>`;
-        }).join(' ') || '<span style="opacity:0.5;">None</span>';
-
-        // --- Extra effects (curse, phase changes) ---
-        const extraEffects = [];
-        if (visible.applyStartingCurse) extraEffects.push(`<span style="color:${purple}; font-size:0.8em;">💜 Curses player at combat start</span>`);
-        if (visible.doublePhases) extraEffects.push(`<span style="color:${purple}; font-size:0.8em;">🌀 Phase triggers earlier</span>`);
-        const extraDiv = extraEffects.length ? `<div style="margin-top:6px;">${extraEffects.join('<br>')}</div>` : '';
-
         const phaseSection = isBossFloor && enemy.phases && enemy.phases.length
             ? `<div style="font-size:0.8em; color:#ff8888; margin-top:4px;">📊 ${enemy.phases.length} phase(s)</div>`
             : '';
@@ -3698,27 +3735,17 @@ const EncounterChoice = {
         // --- Attack pattern (same as base) ---
         const pattern = enemy.pattern || [];
         const patternStr = pattern.length > 0
-            ? pattern.map(key => {
-                const ab = (enemy.abilities || {})[key];
-                return ab ? `${ab.icon}` : '?';
-            }).join(' → ')
+            ? pattern.map(key => { const ab = (enemy.abilities || {})[key]; return ab ? ab.icon : '?'; }).join(' → ')
             : '';
         const patternDiv = patternStr ? `<div style="font-size:0.8em; color:var(--text-dim); margin-top:4px;">Pattern: ${patternStr}</div>` : '';
 
-        // --- Rewards (both modifiers applied) ---
+        // --- Rewards: gold/XP with both mults compounded (accurate — player gets both modifiers) ---
         const mults     = calculateRewardMultipliers([visible, hidden]);
-        const baseGold  = Array.isArray(enemy.gold) ? `${enemy.gold[0]}–${enemy.gold[1]}` : `${enemy.gold}`;
-        const baseXp    = Array.isArray(enemy.xp)   ? `${enemy.xp[0]}–${enemy.xp[1]}`     : `${enemy.xp}`;
         const eliteGold = Array.isArray(enemy.gold) ? `${Math.floor(enemy.gold[0] * mults.gold)}–${Math.floor(enemy.gold[1] * mults.gold)}` : Math.floor(enemy.gold * mults.gold);
         const eliteXp   = Array.isArray(enemy.xp)   ? `${Math.floor(enemy.xp[0] * mults.xp)}–${Math.floor(enemy.xp[1] * mults.xp)}`       : Math.floor(enemy.xp   * mults.xp);
-
-        const goldChanged = `${eliteGold}` !== baseGold;
-        const xpChanged   = `${eliteXp}` !== baseXp;
-        const goldDisplay = goldChanged ? `<span style="color:${purple};">${eliteGold}g</span>` : `${eliteGold}g`;
-        const xpDisplay   = xpChanged   ? `<span style="color:${purple};">${eliteXp} XP</span>` : `${eliteXp} XP`;
-
+        const hasLegendary = visible.legendaryChance || hidden.legendaryChance;
         const artifactNote = isBossFloor
-            ? (visible.artifactPicks ? `${visible.artifactPicks} boss artifacts` + (visible.legendaryChance ? ` + ${Math.round(visible.legendaryChance * 100)}% legendary` : '') : 'Boss artifact')
+            ? `<span style="color:${purple};">2 boss artifacts</span>${hasLegendary ? ` <span style="color:var(--gold); font-size:0.85em;">+ ✨ legendary chance</span>` : ''}`
             : `<span style="color:${purple};">Artifact pick (1 of 3)</span>`;
 
         return `
@@ -3726,15 +3753,15 @@ const EncounterChoice = {
               <div class="encounter-card__inner">
                 <div class="encounter-card__title">💀 Elite</div>
                 <div class="encounter-card__art">
+                    ${enemy.image ? `<img class="encounter-card__art-img" src="${enemy.image}" alt="${enemy.name}">` : ''}
                     <div class="encounter-card__mod-badge">
                         <div style="color:${purple}; font-weight:bold;">${visible.prefix}</div>
-                        ${visible.addPassive ? `<div style="font-size:0.78em; color:var(--text-dim); margin-top:2px;">${visible.addPassive.desc}</div>` : ''}
-                        <div style="font-size:0.75em; color:${purple}; margin-top:3px;">+ 1 hidden modifier (revealed on accept)</div>
                     </div>
                     <div class="encounter-card__name">${enemy.name}</div>
-                    <div class="encounter-card__stats">❤️ ${previewEnemy.hp} HP${hpDelta} &nbsp;·&nbsp; 🎲 ${diceDisplay}</div>
+                    <div style="font-size:0.82em; color:var(--text-dim); margin:4px 0 2px; font-style:italic;">❤️ ??? HP &nbsp;·&nbsp; 🎲 ??? dice &nbsp;(both modifiers apply)</div>
                     ${phaseSection}
-                    ${extraDiv}
+                    ${effectsHtml ? `<div style="margin-top:6px; padding:6px 8px; background:rgba(192,96,255,0.08); border-radius:4px; border-left:2px solid ${purple};"><div style="font-size:0.72em; color:var(--text-dim); margin-bottom:3px; text-transform:uppercase; letter-spacing:0.05em;">${visible.prefix} grants:</div>${effectsHtml}</div>` : ''}
+                    <div style="display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:5px 10px; background:rgba(100,80,140,0.25); border:1px dashed rgba(192,96,255,0.45); border-radius:6px; font-size:0.82em; color:${purple};">🔮 <strong>+ 1 hidden modifier</strong> &nbsp;— revealed on accept</div>
                 </div>
                 <div class="encounter-card__body">
                     <div>
@@ -3746,14 +3773,36 @@ const EncounterChoice = {
                         <div class="encounter-card__tags">${passiveTags}</div>
                     </div>
                     ${patternDiv}
-                    <div class="encounter-card__rewards">Rewards: ${goldDisplay} · ${xpDisplay} · ${artifactNote}</div>
-                    <div style="font-size:0.78em; color:${purple}; opacity:0.8; font-style:italic;">Estimated stats — hidden modifier will further change this enemy</div>
+                    <div class="encounter-card__rewards">Rewards: <span style="color:${purple};">${eliteGold}g</span> · <span style="color:${purple};">${eliteXp} XP</span> · ${artifactNote}</div>
                 </div>
                 <div class="encounter-card__footer">
                     <button class="btn" onclick="EncounterChoice.chooseElite()">Fight (Elite)</button>
                 </div>
               </div>
             </div>`;
+    },
+
+    _formatVisibleEffects(modifier, baseEnemy) {
+        const bullets = [];
+        if (modifier.diceUpgrade) {
+            const ex = baseEnemy.dice[0];
+            bullets.push(`• Each die: +${modifier.diceUpgrade} faces${ex ? ` (e.g. d${ex} → d${ex + modifier.diceUpgrade})` : ''}`);
+        }
+        if (modifier.extraDice) {
+            const counts = {};
+            modifier.extraDice.forEach(d => { counts[d] = (counts[d] || 0) + 1; });
+            Object.entries(counts).forEach(([d, n]) => bullets.push(`• Gains: +${n}×d${d}`));
+        }
+        if (modifier.hpMult && modifier.hpMult !== 1.0) {
+            const pct = Math.round((modifier.hpMult - 1) * 100);
+            bullets.push(`• HP: ${pct > 0 ? '+' : ''}${pct}%`);
+        }
+        if (modifier.addPassive) {
+            bullets.push(`• ${modifier.addPassive.name}: ${modifier.addPassive.desc}`);
+        }
+        if (modifier.applyStartingCurse) bullets.push(`• 💜 Curses player at combat start`);
+        if (modifier.doublePhases)       bullets.push(`• 🌀 Phase transitions trigger earlier`);
+        return bullets;
     },
 
     _buildLockedElitePanel(eliteChance) {

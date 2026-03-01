@@ -1443,6 +1443,14 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 .encounter-card--elite .encounter-card__art {
     background: linear-gradient(180deg, rgba(74,42,106,0.3) 0%, rgba(26,16,40,0.5) 100%);
 }
+.encounter-card__art-img {
+    display: block;
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
 .encounter-card__name {
     font-family: 'EB Garamond', serif;
     font-size: 1.2em;

@@ -811,6 +811,11 @@ export const Combat = {
         if (GS.artifacts.some(a => a.effect === 'berserkersMask')) atkMult *= 1.5;
         if (GS.artifacts.some(a => a.effect === 'bloodPact')) atkMult *= 1.3;
         if (atkCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) atkMult *= 1.5;
+        // Echo Chamber: highest attack die counted twice
+        if (GS.artifacts.some(a => a.effect === 'echoChamber') && GS.allocated.attack.length > 0) {
+            const top = GS.allocated.attack.reduce((b, d) => d.value > (b?.value || -1) ? d : b, null);
+            if (top && top.value > 0) { atkBonus += top.value; log(`🔊 Echo Chamber: +${top.value} echoes!`, 'info'); }
+        }
 
         let totalAtk = Math.floor(atkBase * atkMult) + atkBonus;
         // Sharpening Stone: +50% after all other bonuses
@@ -905,6 +910,11 @@ export const Combat = {
         e.currentHp -= finalAtk;
         if (GS.challengeMode) GS.challengeDmg += finalAtk;
         if (finalAtk > 0) log(`You deal ${finalAtk} damage to ${e.name}!`, 'damage');
+        // Bloodstone: heal 30% of damage dealt
+        if (GS.artifacts.some(a => a.effect === 'bloodstone') && finalAtk > 0) {
+            const bsHeal = heal(Math.floor(finalAtk * 0.3));
+            if (bsHeal > 0) { log(`💎 Bloodstone: +${bsHeal} HP`, 'heal'); updateStats(); }
+        }
 
         // Gold Forge: each attack die generates gold equal to its rolled value
         if (GS.transformBuffs && GS.transformBuffs.goldForge && finalAtk > 0) {
@@ -1054,6 +1064,7 @@ export const Combat = {
                 if (GS.hp <= 0) {
                     const wardIdx = findConsumableIdx('ward');
                     if (wardIdx >= 0) { GS.hp = 1; log('💀 Death Ward!', 'heal'); removeConsumableByIdx(wardIdx); updateStats(); }
+                    else if (!GS.eternalPactUsed && GS.artifacts.some(a => a.effect === 'eternalPact')) { GS.hp = 1; GS.eternalPactUsed = true; log('💀 Eternal Pact activates — death cheated!', 'damage'); updateStats(); }
                     else { GS.hp = 0; updateStats(); setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000); return true; }
                 }
                 const burnOnP = e.passives.find(p => p.id === 'burnOnPhase');
@@ -1177,6 +1188,7 @@ export const Combat = {
                 if (GS.hp <= 0) {
                     const wardIdx = findConsumableIdx('ward');
                     if (wardIdx >= 0) { GS.hp = 1; log('💀 Death Ward!', 'heal'); removeConsumableByIdx(wardIdx); updateStats(); }
+                    else if (!GS.eternalPactUsed && GS.artifacts.some(a => a.effect === 'eternalPact')) { GS.hp = 1; GS.eternalPactUsed = true; log('💀 Eternal Pact activates — death cheated!', 'damage'); updateStats(); }
                     else { GS.hp = 0; updateStats(); setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000); return true; }
                 }
             }
@@ -1231,10 +1243,11 @@ export const Combat = {
                 Combat.renderEnemy();
             }
 
-            // Death Ward
+            // Death Ward / Eternal Pact
             if (GS.hp <= 0) {
                 const wardIdx = findConsumableIdx('ward');
                 if (wardIdx >= 0) { GS.hp = 1; log('💀 Death Ward activated! Survived with 1 HP!', 'heal'); removeConsumableByIdx(wardIdx); updateStats(); }
+                else if (!GS.eternalPactUsed && GS.artifacts.some(a => a.effect === 'eternalPact')) { GS.hp = 1; GS.eternalPactUsed = true; log('💀 Eternal Pact activates — death cheated!', 'damage'); updateStats(); }
                 else { GS.hp = 0; updateStats(); setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000); return true; }
             }
 
@@ -1764,9 +1777,16 @@ export const Combat = {
             } else {
                 // Fallback to old flow
                 const finalReward = () => {
-                    if (GS.enemy.isElite) window.Rewards.artifactChoice();
-                    else if (GS.enemy.isBoss) window.Rewards.artifactChoice(true);
-                    else window.Rewards.show();
+                    if (GS.enemy.isElite || GS.enemy.isBoss) {
+                        const artMods = GS.encounter?.enemy?.appliedModifiers || [];
+                        const artPicks = (GS.enemy.isBoss && GS.enemy.isElite)
+                            ? Math.max(1, ...artMods.map(m => m.artifactPicks || 1))
+                            : 1;
+                        GS._artifactPickTotal = artPicks;
+                        window.Rewards.artifactChoice(GS.enemy.isBoss, artPicks);
+                    } else {
+                        window.Rewards.show();
+                    }
                 };
                 const drainSkillPoints = () => {
                     if (GS.pendingSkillPoints > 0) window.Rewards.slotChoice(drainSkillPoints);

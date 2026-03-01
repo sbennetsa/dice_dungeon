@@ -24,6 +24,7 @@ export const ENEMIES = {
     1: [
         {
             name: 'Goblin', hp: 20, dice: [4, 4], gold: [15, 25], xp: [20, 30],
+            image: 'assets/enemies/goblin.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
@@ -358,6 +359,50 @@ export function getArtifactPool(act) {
         !['berserkersMask', 'glassCannon', 'bloodPact', 'battleFury'].includes(a.effect));
     return ARTIFACT_POOL;
 }
+
+// ════════════════════════════════════════════════════════════
+//  LEGENDARY ARTIFACT POOL
+//  Only available via legendaryChance on elite boss fights.
+// ════════════════════════════════════════════════════════════
+export const LEGENDARY_ARTIFACT_POOL = [
+    {
+        name: "Titan's Die",
+        icon: '🎲',
+        desc: 'Permanently add a d12 to your dice pool.',
+        effect: 'titansDie',
+        value: 12,
+        category: 'enabler',
+        legendary: true,
+        onAcquire: true,
+    },
+    {
+        name: 'Echo Chamber',
+        icon: '🔊',
+        desc: 'Your highest-value attack die counts twice each turn.',
+        effect: 'echoChamber',
+        value: 0,
+        category: 'enabler',
+        legendary: true,
+    },
+    {
+        name: 'Bloodstone',
+        icon: '💎',
+        desc: 'Heal 30% of damage dealt to the enemy each turn.',
+        effect: 'bloodstone',
+        value: 0,
+        category: 'solver',
+        legendary: true,
+    },
+    {
+        name: 'Eternal Pact',
+        icon: '💀',
+        desc: 'Once per run, survive a lethal hit with 1 HP instead of dying.',
+        effect: 'eternalPact',
+        value: 0,
+        category: 'solver',
+        legendary: true,
+    },
+];
 
 // ════════════════════════════════════════════════════════════
 //  DIE RUNES (attach to individual dice)

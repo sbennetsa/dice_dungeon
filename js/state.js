@@ -73,6 +73,7 @@ export const GS = {
     hourglassFreeFirstTurn: false,
     huntersMarkFired: false,
     parasiteGoldPerCombat: 0,    // accumulates per-run from Parasite kills
+    eternalPactUsed: false,      // Eternal Pact legendary: cheat-death fires once per run
     // ── CONSUMABLE INVENTORY ──
     consumables: [],             // max length = consumableSlots; null entries = empty slots
     consumableSlots: 2,

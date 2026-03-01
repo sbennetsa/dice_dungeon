@@ -57,3 +57,9 @@ No automated test suite. Testing is manual in-browser.
 - **Section headers**: decorated with `// ════════════════════` comment borders
 - **Module pattern**: each file exports specific functions, `screens.js` is the main entry point
 - **No linter/formatter configured** — maintain consistency with existing style
+
+## Key Design Decisions
+
+See `docs/decisions.md` for the full record. Summary of decisions that affect coding:
+
+- **Elite EncounterChoice UI**: Show the visible modifier's effects as discrete named bullet points only — never aggregate computed stats (HP totals, avg damage, dice pool strings) that include both modifiers. Any aggregate number would be wrong in combat because the hidden modifier also applies. The hidden modifier must not be revealed before the player commits. See `docs/decisions.md` for full rationale.

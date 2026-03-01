@@ -3466,7 +3466,8 @@ const DungeonMap = {
                 <span class="advantage">\u2726 Advantage ${s.totalPlayerAdvantage}</span>
                 <span class="net">Net ${s.netChallenge}</span>
             </div>`;
-        $(copyId).onclick = () => DungeonMap.copySeed(seedHex);
+        const copyEl = $(copyId);
+        copyEl.onclick = () => DungeonMap.copySeed(seedHex, copyEl);
 
         let html = '';
         for (let actIdx = 0; actIdx < bp.acts.length; actIdx++) {
@@ -4085,6 +4086,7 @@ window.Events = Events;
 window.Rest = Rest;
 window.Inventory = Inventory;
 window.DungeonMap = DungeonMap;
+window.DungeonPath = DungeonPath;
 window.addConsumableToInventory = addConsumableToInventory;
 window.EncounterChoice = EncounterChoice;
 

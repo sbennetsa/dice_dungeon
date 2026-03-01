@@ -66,6 +66,8 @@ export function rollSingleDie(die) {
     if (die.infuseFloor && die.value < die.infuseFloor) {
         die.value = die.infuseFloor;
     }
+    // Starting Curse (Cursed elite modifier): all dice roll -1, minimum 1
+    if (die.cursed) die.value = Math.max(1, die.value - 1);
 }
 
 export function getActiveFace(die) {

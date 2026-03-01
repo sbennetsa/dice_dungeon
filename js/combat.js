@@ -154,7 +154,7 @@ export const Combat = {
             bloodFrenzyTriggered: false,
             _mitosisTriggered: false,
             _damageTakenMult: 1,
-            _doubleAction: false,
+            _doubleAction: template.doubleAction || false,
             shield:      0,
             charged:     false,
             immune:      false,
@@ -444,6 +444,9 @@ export const Combat = {
         let mods = [];
         if (es && es.chill > 0 && (ab.type === 'attack' || ab.type === 'unblockable')) mods.push(`❄️−${es.chill}`);
         if (es && es.weaken > 0 && (ab.type === 'attack' || ab.type === 'unblockable')) mods.push('💔×0.75');
+        // Phase passive: show resist indicator on protected turns
+        const phasePassive = e.passives.find(p => p.id === 'phase');
+        if (phasePassive && e.turnsAlive % 2 === 0) mods.push('🌀 RESIST TURN');
         const modStr = mods.length ? ` [${mods.join(' ')}]` : '';
 
         switch (ab.type) {
@@ -685,6 +688,12 @@ export const Combat = {
             Combat.renderEnemy();
         } else {
             if (Combat._resolveEnemyAbility(e, es, totalDef, steadfastContrib)) return;
+            // Double Action (doubleTrouble anomaly / Void Lord phase 3): second strike
+            if (e._doubleAction) {
+                Combat._rollEnemyTurn();
+                log(`⚡ ${e.name} strikes again!`, 'damage');
+                if (Combat._resolveEnemyAbility(e, es, totalDef, steadfastContrib)) return;
+            }
         }
 
         const isImmune = e.immune; // Vanish sets this during ability resolve
@@ -861,6 +870,15 @@ export const Combat = {
         // Phase damage multiplier (Void Lord Phase 3)
         if (e._damageTakenMult && e._damageTakenMult !== 1) {
             finalAtk = Math.floor(finalAtk * e._damageTakenMult);
+        }
+
+        // Phase passive (Phasing boss elite modifier): 50% resist on alternating turns
+        const phaseP = e.passives.find(p => p.id === 'phase');
+        if (phaseP && finalAtk > 0) {
+            if (e.turnsAlive % 2 === 0) {
+                finalAtk = Math.floor(finalAtk * (1 - phaseP.params.resistPercent));
+                log(`🌀 Phase Shift! ${e.name} resists — damage halved (${finalAtk})`, 'info');
+            }
         }
 
         // Soul Pact: overkill reflects back to player

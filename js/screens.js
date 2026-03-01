@@ -378,13 +378,12 @@ const Game = {
             const cc = $('reward-cards');
             cc.innerHTML = '';
             GS.dice.forEach(die => {
-                const canUp = die.max < 12;
-                const nextMin = canUp ? die.min + (hammer ? 2 : 1) : die.min;
-                const nextMax = canUp ? die.max + (hammer ? 2 : 1) : die.max;
+                const nextMin = die.min + (hammer ? 2 : 1);
+                const nextMax = die.max + (hammer ? 2 : 1);
                 const card = document.createElement('div');
-                card.className = 'card' + (canUp ? '' : ' disabled');
-                card.innerHTML = `<div class="card-title">${die.min}-${die.max} → ${canUp ? `${nextMin}-${nextMax}` : 'MAX'}</div>`;
-                if (canUp) card.onclick = () => {
+                card.className = 'card';
+                card.innerHTML = `<div class="card-title">${die.min}-${die.max} → ${nextMin}-${nextMax}</div>`;
+                card.onclick = () => {
                     applyUpgrade(die);
                     log(`Upgraded to ${die.min}-${die.max}!${hammer ? ' (Master\'s Hammer)' : ''}`, 'info');
                     if (GS.challengePrep > 0) Game.showChallengePrep();
@@ -1283,21 +1282,18 @@ const Rewards = {
 
         const hammer = GS.tempBuffs && GS.tempBuffs.mastersHammer;
         GS.dice.forEach((die, i) => {
-            const canUp = die.max < 12;
-            const nextMin = canUp ? die.min + (hammer ? 2 : 1) : die.min;
-            const nextMax = canUp ? die.max + (hammer ? 2 : 1) : die.max;
+            const nextMin = die.min + (hammer ? 2 : 1);
+            const nextMax = die.max + (hammer ? 2 : 1);
             const card = document.createElement('div');
-            card.className = 'card' + (canUp ? '' : ' disabled');
+            card.className = 'card';
             card.innerHTML = renderDieCard(die, i, {
-                extraDesc: canUp ? `<div class="card-effect" style="text-align:center;">→ ${nextMin}–${nextMax}${hammer ? ' ⚒️' : ''}</div>` : '<div class="card-effect" style="text-align:center; color:var(--text-dim);">Max level</div>'
+                extraDesc: `<div class="card-effect" style="text-align:center;">→ ${nextMin}–${nextMax}${hammer ? ' ⚒️' : ''}</div>`
             });
-            if (canUp) {
-                card.onclick = () => {
-                    applyUpgrade(die);
-                    log(`Upgraded die to ${die.min}-${die.max}!${hammer ? ' (Master\'s Hammer)' : ''}`, 'info');
-                    Game.nextFloor();
-                };
-            }
+            card.onclick = () => {
+                applyUpgrade(die);
+                log(`Upgraded die to ${die.min}-${die.max}!${hammer ? ' (Master\'s Hammer)' : ''}`, 'info');
+                Game.nextFloor();
+            };
             c.appendChild(card);
         });
 
@@ -1453,7 +1449,7 @@ const BattleSummary = {
         lootSection.innerHTML = `<div class="bs-section-title">Loot Earned</div>`;
         summary.loot.forEach(item => {
             const row = document.createElement('div');
-            row.className = 'bs-loot-row';
+            row.className = 'bs-loot-row' + (item.isConsumable ? ' bs-loot-consumable' : '');
             row.innerHTML = `<span style="font-size:1.2em;">${item.icon}</span><span>${item.text}</span>`;
             lootSection.appendChild(row);
         });
@@ -1993,21 +1989,18 @@ const Shop = {
 
         const hammer = GS.tempBuffs && GS.tempBuffs.mastersHammer;
         GS.dice.forEach((die, i) => {
-            const canUp = die.max < 12;
-            const nextMin = canUp ? die.min + (hammer ? 2 : 1) : die.min;
-            const nextMax = canUp ? die.max + (hammer ? 2 : 1) : die.max;
+            const nextMin = die.min + (hammer ? 2 : 1);
+            const nextMax = die.max + (hammer ? 2 : 1);
             const card = document.createElement('div');
-            card.className = 'card' + (canUp ? '' : ' disabled');
+            card.className = 'card';
             card.innerHTML = renderDieCard(die, i, {
-                extraDesc: canUp ? `<div class="card-effect" style="text-align:center;">→ ${nextMin}–${nextMax}${hammer ? ' ⚒️' : ''}</div>` : '<div class="card-effect" style="text-align:center; color:var(--text-dim);">Max level</div>'
+                extraDesc: `<div class="card-effect" style="text-align:center;">→ ${nextMin}–${nextMax}${hammer ? ' ⚒️' : ''}</div>`
             });
-            if (canUp) {
-                card.onclick = () => {
-                    applyUpgrade(die);
-                    log(`Upgraded die to ${die.min}-${die.max}!${hammer ? ' (Master\'s Hammer)' : ''}`, 'info');
-                    updateStats(); Shop.render();
-                };
-            }
+            card.onclick = () => {
+                applyUpgrade(die);
+                log(`Upgraded die to ${die.min}-${die.max}!${hammer ? ' (Master\'s Hammer)' : ''}`, 'info');
+                updateStats(); Shop.render();
+            };
             c.appendChild(card);
         });
 
@@ -2429,8 +2422,8 @@ const Events = {
                         Events._chooseDie('Choose a die to sacrifice:', sacDie => {
                             GS.dice = GS.dice.filter(d => d.id !== sacDie.id);
                             Events._chooseDie('Choose a die to boost (+2/+2):', boostDie => {
-                                const newMin = Math.max(1, boostDie.min + 2);
-                                const newMax = Math.min(12, boostDie.max + 2);
+                                const newMin = boostDie.min + 2;
+                                const newMax = boostDie.max + 2;
                                 const step = (newMax - newMin) / (boostDie.faceValues.length - 1);
                                 boostDie.faceValues = Array.from({length: boostDie.faceValues.length}, (_, i) => Math.round(newMin + step * i));
                                 boostDie.min = newMin; boostDie.max = newMax;
@@ -2537,14 +2530,9 @@ const Events = {
                 {
                     text: 'Smash it — a random die gains +1/+1',
                     action: () => {
-                        const upgradable = GS.dice.filter(d => d.max < 12);
-                        if (upgradable.length > 0) {
-                            const die = pick(upgradable);
-                            upgradeDie(die);
-                            log(`Smashed the chest! ${die.min}-${die.max} die upgraded!`, 'info');
-                        } else {
-                            log('Smashed the chest! (All dice already at max)', 'info');
-                        }
+                        const die = pick(GS.dice);
+                        upgradeDie(die);
+                        log(`Smashed the chest! ${die.min}-${die.max} die upgraded!`, 'info');
                         updateStats(); Game.nextFloor();
                     }
                 },
@@ -3395,15 +3383,14 @@ const Rest = {
 
         const hammer = GS.tempBuffs && GS.tempBuffs.mastersHammer;
         GS.dice.forEach((die, i) => {
-            const canUp = die.max < 12;
-            const nextMin = canUp ? die.min + (hammer ? 2 : 1) : die.min;
-            const nextMax = canUp ? die.max + (hammer ? 2 : 1) : die.max;
+            const nextMin = die.min + (hammer ? 2 : 1);
+            const nextMax = die.max + (hammer ? 2 : 1);
             const card = document.createElement('div');
-            card.className = 'card' + (canUp ? '' : ' disabled');
+            card.className = 'card';
             card.innerHTML = renderDieCard(die, i, {
-                extraDesc: canUp ? `<div class="card-effect" style="text-align:center;">→ ${nextMin}–${nextMax}${hammer ? ' ⚒️' : ''}</div>` : '<div class="card-effect" style="text-align:center; color:var(--text-dim);">Max level</div>'
+                extraDesc: `<div class="card-effect" style="text-align:center;">→ ${nextMin}–${nextMax}${hammer ? ' ⚒️' : ''}</div>`
             });
-            if (canUp) card.onclick = () => {
+            card.onclick = () => {
                 applyUpgrade(die);
                 log(`Upgraded to ${die.min}-${die.max}!${hammer ? ' (Master\'s Hammer)' : ''}`, 'info');
                 updateStats();
@@ -3825,12 +3812,10 @@ const EncounterChoice = {
             <div style="display:flex; gap:16px; justify-content:center; flex-wrap:wrap;">
                 <div style="background:var(--bg-surface); border:1px solid var(--gold); border-radius:8px; padding:12px; min-width:140px; max-width:200px;">
                     <div style="color:var(--gold); margin-bottom:4px;">${visibleModifier.prefix}</div>
-                    <div style="font-size:0.8em; color:var(--text-dim);">Known modifier</div>
                     ${fmtMod(visibleModifier)}
                 </div>
                 <div style="background:var(--bg-surface); border:1px solid #c060ff; border-radius:8px; padding:12px; min-width:140px; max-width:200px;">
                     <div style="color:#c060ff; margin-bottom:4px;">${hiddenModifier.prefix}</div>
-                    <div style="font-size:0.8em; color:var(--text-dim);">Hidden modifier revealed!</div>
                     ${fmtMod(hiddenModifier)}
                 </div>
             </div>

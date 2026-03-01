@@ -28,7 +28,6 @@ export function createDie(min = 1, max = 6, sides = 6) {
 }
 
 export function upgradeDie(die) {
-    if (die.max >= 12) return;
     die.min++; die.max++;
     const step = (die.max - die.min) / (die.faceValues.length - 1);
     die.faceValues = Array.from({length: die.faceValues.length}, (_, i) => Math.round(die.min + step * i));
@@ -792,8 +791,10 @@ export function updateSlotTotals() {
         return mo?.effect === 'packTactics' ? sum + mo.value : sum;
     }, 0);
     const ptAtkPerDie = ptAtkFace + (GS.passives.packTactics || 0);
-    // Non-utility attack count for Titan's Blow
-    const nonUtilAtkCount = GS.allocated.attack.filter(d => { const f = getActiveFace(d); return !f?.modifier?.autoFire; }).length;
+    // Non-utility attack count for Titan's Blow (autoFire + slot-modifier/utility faces don't count)
+    const _titanUtil = new Set(['lucky','poison','midasGold','searing','marked','frostbite','slotMultiply']);
+    const _isTitanUtil = d => { const f = getActiveFace(d); return f?.modifier?.autoFire || _titanUtil.has(f?.modifier?.effect); };
+    const nonUtilAtkCount = GS.allocated.attack.filter(d => !_isTitanUtil(d)).length;
     const atkAscendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
 
     GS.allocated.attack.forEach(d => {
@@ -861,8 +862,8 @@ export function updateSlotTotals() {
         const f = getActiveFace(d); const mo = f && !f.modifier.autoFire ? f.modifier : null;
         return mo?.effect === 'packTactics' ? sum + mo.value : sum;
     }, 0);
-    // Non-utility defend count for Titan's Blow
-    const nonUtilDefCount = GS.allocated.defend.filter(d => { const f = getActiveFace(d); return !f?.modifier?.autoFire; }).length;
+    // Non-utility defend count for Titan's Blow (reuse same helper defined above)
+    const nonUtilDefCount = GS.allocated.defend.filter(d => !_isTitanUtil(d)).length;
     const defAscendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
 
     GS.allocated.defend.forEach(d => {

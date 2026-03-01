@@ -1294,6 +1294,15 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     padding: 4px 0;
     font-size: 0.9em;
 }
+.bs-loot-consumable {
+    background: rgba(212, 165, 52, 0.1);
+    border: 1px solid rgba(212, 165, 52, 0.35);
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin: 4px 0;
+    color: var(--gold);
+    font-weight: 600;
+}
 .bs-stat-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

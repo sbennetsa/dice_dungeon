@@ -618,8 +618,10 @@ export const Combat = {
             const f = getActiveFace(d); const mo = f && !f.modifier.autoFire ? f.modifier : null;
             return mo?.effect === 'packTactics' ? sum + mo.value : sum;
         }, 0);
-        // Non-utility defend count for Titan's Blow
-        const nonUtilDefCount = GS.allocated.defend.filter(d => { const f = getActiveFace(d); return !f?.modifier?.autoFire; }).length;
+        // Non-utility defend count for Titan's Blow (autoFire + slot-modifier/utility faces don't count)
+        const _titanUtil = new Set(['lucky','poison','midasGold','searing','marked','frostbite','slotMultiply']);
+        const _isTitanUtil = d => { const f = getActiveFace(d); return f?.modifier?.autoFire || _titanUtil.has(f?.modifier?.effect); };
+        const nonUtilDefCount = GS.allocated.defend.filter(d => !_isTitanUtil(d)).length;
         // Ascend aura: pre-compute per-die bonus (applied to each die so runes amplify it)
         const defAscendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
 
@@ -733,8 +735,8 @@ export const Combat = {
             return mo?.effect === 'packTactics' ? sum + mo.value : sum;
         }, 0);
         const ptAtkPerDie = ptAtkFace + (GS.passives.packTactics || 0);
-        // Non-utility attack count for Titan's Blow
-        const nonUtilAtkCount = GS.allocated.attack.filter(d => { const f = getActiveFace(d); return !f?.modifier?.autoFire; }).length;
+        // Non-utility attack count for Titan's Blow (reuse same helper defined above in this execute())
+        const nonUtilAtkCount = GS.allocated.attack.filter(d => !_isTitanUtil(d)).length;
 
         // Battle Fury: boost highest attack die if 3+ fury charges
         let furyBoostDieId = null;
@@ -1754,7 +1756,7 @@ export const Combat = {
         let consumableDrop = null;
         if (!e.isBoss && !e.isElite && Math.random() < 0.20) {
             consumableDrop = pickWeightedConsumable('common');
-            summary.loot.push({ icon: consumableDrop.icon, text: `Dropped: ${consumableDrop.name}` });
+            summary.loot.push({ icon: consumableDrop.icon, text: `Found: ${consumableDrop.name}`, isConsumable: true });
             log(`The enemy dropped a ${consumableDrop.icon} ${consumableDrop.name}!`, 'info');
         }
 

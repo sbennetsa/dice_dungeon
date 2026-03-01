@@ -34,6 +34,10 @@
                 🏗️ &thinsp;Level up to gain Attack or Defend slots
             </div>
         </div>
+        <div class="seed-input-row">
+            <label for="seed-input" class="seed-input-label">Seed</label>
+            <input type="text" id="seed-input" class="seed-input" placeholder="optional" maxlength="8" autocomplete="off" spellcheck="false">
+        </div>
         <button class="btn btn-primary start-btn" onclick="Game.start()">Enter the Dungeon</button>
     </div>
 </div>
@@ -56,7 +60,10 @@
             <div class="stat-item"><span class="stat-label">Dice</span><span class="stat-val" id="s-dice">3/4</span></div>
             <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="s-gold">0</span></div>
         </div>
-        <button class="btn" id="btn-inventory" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+        <div class="header-btns">
+            <button class="btn" onclick="DungeonMap.toggle()" style="font-size:0.8em; padding:5px 10px;">🗺️</button>
+            <button class="btn" id="btn-inventory" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+        </div>
     </div>
     <div id="floor-progress"></div>
     <div id="artifacts-display" class="artifacts-bar" style="display:none;"></div>
@@ -135,7 +142,10 @@
             <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="bs-hp">50/50</span></div>
             <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="bs-gold">0</span></div>
         </div>
-        <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+        <div class="header-btns">
+            <button class="btn" onclick="DungeonMap.toggle()" style="font-size:0.8em; padding:5px 10px;">🗺️</button>
+            <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+        </div>
     </div>
     <div class="section-title" id="bs-title">Victory!</div>
     <div id="bs-content"></div>
@@ -150,7 +160,10 @@
             <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="r-hp">50/50</span></div>
             <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="r-gold">0</span></div>
         </div>
-        <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+        <div class="header-btns">
+            <button class="btn" onclick="DungeonMap.toggle()" style="font-size:0.8em; padding:5px 10px;">🗺️</button>
+            <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+        </div>
     </div>
     <div class="section-title" id="reward-title">Victory — Choose Your Reward</div>
     <div class="card-grid" id="reward-cards"></div>
@@ -168,7 +181,10 @@
             <div class="stat-item"><span class="stat-label">Dice</span><span class="stat-val" id="sh-dice">3/4</span></div>
             <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="sh-gold">0</span></div>
         </div>
-        <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+        <div class="header-btns">
+            <button class="btn" onclick="DungeonMap.toggle()" style="font-size:0.8em; padding:5px 10px;">🗺️</button>
+            <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+        </div>
     </div>
     <div class="shop-tabs-row">
         <button class="shop-tab active" id="tab-forge" onclick="Shop.switchTab('forge')">⚒️ Forge</button>
@@ -190,7 +206,10 @@
             <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="e-hp">50/50</span></div>
             <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="e-gold">0</span></div>
         </div>
-        <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+        <div class="header-btns">
+            <button class="btn" onclick="DungeonMap.toggle()" style="font-size:0.8em; padding:5px 10px;">🗺️</button>
+            <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+        </div>
     </div>
     <div class="event-panel" id="event-panel"></div>
 </div>
@@ -203,7 +222,10 @@
             <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="rest-hp">50/50</span></div>
             <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="rest-gold">0</span></div>
         </div>
-        <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+        <div class="header-btns">
+            <button class="btn" onclick="DungeonMap.toggle()" style="font-size:0.8em; padding:5px 10px;">🗺️</button>
+            <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+        </div>
     </div>
     <div class="section-title" id="rest-title">Act Complete — Rest &amp; Prepare</div>
     <div id="rest-content"></div>
@@ -251,6 +273,18 @@
         <div style="text-align:center;">
             <button class="btn" id="consumable-swap-cancel">Cancel</button>
         </div>
+    </div>
+</div>
+
+<!-- ═══════════ DUNGEON MAP OVERLAY ═══════════ -->
+<div id="dungeon-map-overlay" style="display:none;">
+    <div class="dungeon-map-inner">
+        <div class="dungeon-map-header">
+            <h2>Dungeon Map</h2>
+            <button class="btn" onclick="DungeonMap.toggle()" style="font-size:0.8em;">✕ Close</button>
+        </div>
+        <div id="dungeon-map-seed"></div>
+        <div id="dungeon-map-content"></div>
     </div>
 </div>
 

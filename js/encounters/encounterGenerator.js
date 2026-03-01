@@ -4,7 +4,7 @@
 import { pickEnemy, BOSSES } from '../constants.js';
 import { GS } from '../state.js';
 import { selectEnvironment } from './environmentSystem.js';
-import { selectEliteModifiers, selectBossEliteModifiers, applyEliteModifier, calculateRewardMultipliers } from './eliteModifierSystem.js';
+import { selectEliteModifiers, selectBossEliteModifiers, applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './eliteModifierSystem.js';
 import { rollForAnomaly, applyAnomaly, ANOMALIES } from './anomalySystem.js';
 import { getFloorBlueprint, encounterFromBlueprint } from './dungeonBlueprint.js';
 
@@ -102,12 +102,13 @@ function _getAnomalyDef(id) {
  * Mutates encounter.enemy in place.
  * @param {object} enemy - The encounter's enemy (mutable)
  * @param {{ visible: object, hidden: object }} eliteModifiers
+ * @param {number} [floor=15] - Current floor (for act-based passive scaling)
  * @returns {{ visibleModifier, hiddenModifier, finalStats }}
  */
-export function applyEliteChoice(enemy, eliteModifiers) {
+export function applyEliteChoice(enemy, eliteModifiers, floor = 15) {
     applyEliteModifier(enemy, eliteModifiers.visible);
     applyEliteModifier(enemy, eliteModifiers.hidden);
-    scaleElitePassives(enemy);
+    scaleElitePassives(enemy, floor);
 
     enemy.isElite          = true;
     enemy.appliedModifiers = [eliteModifiers.visible, eliteModifiers.hidden];

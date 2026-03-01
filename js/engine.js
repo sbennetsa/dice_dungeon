@@ -189,22 +189,44 @@ export function updateStats() {
 export function renderFloorProgress() {
     const c = $('floor-progress');
     if (!c) return;
-    let html = '<div class="floor-progress">';
+    const typeIcons = { combat: '\u2694\uFE0F', boss: '\uD83D\uDC80', event: '\u2753', shop: '\uD83D\uDED2' };
+    let html = '<div class="floor-progress" id="floor-progress">';
     for (let act = 1; act <= 3; act++) {
-        html += `<span class="act-label">Act ${act}</span>`;
+        html += `<span class="act-label">A${act}</span>`;
         const start = (act - 1) * 5 + 1;
         for (let f = start; f < start + 5; f++) {
             const type = getFloorType(f);
             let cls = 'floor-pip';
             if (f < GS.floor) cls += ' completed';
             if (f === GS.floor) cls += ' current';
-            if (type === 'boss') cls += ' boss';
-            if (type === 'shop') cls += ' shop-pip';
-            html += `<div class="${cls}" title="Floor ${f}: ${type}"></div>`;
+            cls += ` floor-pip--${type}`;
+
+            let tooltip = `Floor ${f}: ${type}`;
+            const fb = _getFloorBP(f);
+            if (fb && fb.enemy && f <= GS.floor) {
+                tooltip = `F${f}: ${fb.enemy.name}`;
+                if (fb.environment) tooltip += ` (${fb.environment.icon} ${fb.environment.name})`;
+            }
+
+            const icon = typeIcons[type] || '';
+            html += `<div class="${cls}" title="${tooltip}"><span class="floor-pip-icon">${icon}</span></div>`;
+        }
+        if (act < 3) {
+            const restDone = GS.floor > act * 5;
+            html += `<span class="floor-rest-pip${restDone ? ' completed' : ''}">🏕️</span>`;
         }
     }
     html += '</div>';
-    c.outerHTML = html.replace('<div class="floor-progress"', `<div class="floor-progress" id="floor-progress"`);
+    c.outerHTML = html;
+}
+
+function _getFloorBP(floor) {
+    if (!GS.blueprint) return null;
+    const actIndex = Math.min(Math.ceil(floor / 5) - 1, 2);
+    const act = GS.blueprint.acts[actIndex];
+    if (!act) return null;
+    const baseFloor = actIndex * 5 + 1;
+    return act.floors[floor - baseFloor] || null;
 }
 
 export function renderArtifacts() {

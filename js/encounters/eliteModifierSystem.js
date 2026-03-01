@@ -19,8 +19,8 @@ export const ELITE_MODIFIERS = [
         addPassive: {
             id: 'armor',
             name: '🛡️ Armored',
-            desc: 'Reduces ALL incoming damage by 3',
-            params: { reduction: 3 },
+            desc: 'Reduces ALL incoming damage by 2',
+            params: { reduction: 2 },
         },
         hpMult: 1.5,
         goldMult: 1.5,
@@ -51,8 +51,8 @@ export const ELITE_MODIFIERS = [
         addPassive: {
             id: 'regen',
             name: '💚 Regenerating',
-            desc: 'Heal 5 HP at start of each turn',
-            params: { amount: 5 },
+            desc: 'Heal 3 HP at start of each turn',
+            params: { amount: 3 },
         },
         hpMult: 1.2,
         goldMult: 1.6,
@@ -65,8 +65,8 @@ export const ELITE_MODIFIERS = [
         addPassive: {
             id: 'lifesteal',
             name: '🩸 Vampiric',
-            desc: 'Heals 50% of damage dealt to player',
-            params: { percent: 0.5 },
+            desc: 'Heals 35% of damage dealt to player',
+            params: { percent: 0.35 },
         },
         hpMult: 1.1,
         goldMult: 1.7,
@@ -79,8 +79,8 @@ export const ELITE_MODIFIERS = [
         addPassive: {
             id: 'brittle',
             name: '💎 Brittle',
-            desc: 'Takes +5 bonus damage from every hit',
-            params: { bonus: 5 },
+            desc: 'Takes +3 bonus damage from every hit',
+            params: { bonus: 3 },
         },
         hpMult: 0.8,
         goldMult: 1.3,
@@ -167,8 +167,8 @@ export const BOSS_ELITE_MODIFIERS = [
         addPassive: {
             id: 'armor',
             name: '🛡️ Armored',
-            desc: 'Reduces ALL incoming damage by 5',
-            params: { reduction: 5 },
+            desc: 'Reduces ALL incoming damage by 4',
+            params: { reduction: 4 },
         },
         hpMult: 1.6,
         goldMult: 2.5,
@@ -251,16 +251,17 @@ export function applyEliteModifier(enemy, modifier) {
 //  Elite passive scaling — buff the enemy's base passives
 // ────────────────────────────────────────────────────────────
 
-const ELITE_PASSIVE_SCALE = 1.5;
-
 /**
  * Scale an enemy's existing passives to elite-tier values.
+ * Scaling is act-aware: Act 1 = 1.0×, Act 2 = 1.25×, Act 3 = 1.5×.
  * Call once after elite modifiers are applied.
  * @param {object} enemy
+ * @param {number} [floor=15]
  */
-export function scaleElitePassives(enemy) {
+export function scaleElitePassives(enemy, floor = 15) {
     if (!enemy.passives) return;
-    const s = ELITE_PASSIVE_SCALE;
+    const act = Math.ceil(floor / 5);
+    const s = 1.0 + 0.25 * (act - 1); // Act 1: 1.0, Act 2: 1.25, Act 3: 1.5
     enemy.passives.forEach(p => {
         const v = p.params;
         switch (p.id) {

@@ -7,7 +7,7 @@ import { GS, $, rand, pick, shuffle, log, gainXP, gainGold, heal } from './state
 import { createDie, createDieFromFaces, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones } from './engine.js';
 import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } from './encounters/encounterGenerator.js';
-import { applyEliteModifier, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
+import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
 
 // ════════════════════════════════════════════════════════════
@@ -231,7 +231,15 @@ const Game = {
         });
 
         // Generate dungeon blueprint (all 15 floors pre-determined)
-        const blueprint = generateDungeonBlueprint();
+        const seedInput = $('seed-input');
+        const seedStr = seedInput ? seedInput.value.trim() : '';
+        let seedOption = {};
+        if (seedStr) {
+            const parsed = parseInt(seedStr.replace(/\s/g, ''), 16);
+            if (!isNaN(parsed)) seedOption = { seed: parsed };
+        }
+        if (seedInput) seedInput.value = '';
+        const blueprint = generateDungeonBlueprint(seedOption);
         GS.blueprint = blueprint;
         GS.seed      = blueprint.seed;
         console.log(`[Dungeon] Seed: ${blueprint.seed} | Challenge Rating: ${blueprint.scoring.challengeRating}/10`);
@@ -277,6 +285,7 @@ const Game = {
             ['Level', GS.level],
             ['Enemies Slain', GS.enemiesKilled],
             ['Gold Earned', GS.totalGold],
+            ['Seed', DungeonMap.formatSeed(GS.seed)],
         ].map(([k,v]) => `<div class="final-stat-row"><span>${k}</span><span>${v}</span></div>`).join('');
         show('screen-gameover');
     },
@@ -291,6 +300,7 @@ const Game = {
             ['Enemies Slain', GS.enemiesKilled],
             ['Gold Earned', GS.totalGold],
             ['Artifacts', GS.artifacts.map(a => a.icon).join(' ') || 'None'],
+            ['Seed', DungeonMap.formatSeed(GS.seed)],
         ].map(([k,v]) => `<div class="final-stat-row"><span>${k}</span><span>${v}</span></div>`).join('');
 
         const btns = $('go-buttons');
@@ -3412,6 +3422,120 @@ const Rest = {
 };
 
 // ════════════════════════════════════════════════════════════
+//  DUNGEON MAP OVERLAY
+// ════════════════════════════════════════════════════════════
+const DungeonMap = {
+    visible: false,
+
+    toggle() {
+        DungeonMap.visible = !DungeonMap.visible;
+        const overlay = $('dungeon-map-overlay');
+        if (DungeonMap.visible) {
+            if (Inventory.visible) Inventory.toggle();
+            DungeonMap.render();
+            overlay.style.display = 'block';
+        } else {
+            overlay.style.display = 'none';
+        }
+    },
+
+    render() {
+        const bp = GS.blueprint;
+        if (!bp) {
+            $('dungeon-map-content').innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:40px 0;">No dungeon generated yet.</div>';
+            $('dungeon-map-seed').innerHTML = '';
+            return;
+        }
+
+        const seedHex = DungeonMap.formatSeed(bp.seed);
+        $('dungeon-map-seed').innerHTML = `
+            <div class="map-seed-row">
+                <span class="map-seed-label">SEED</span>
+                <span class="map-seed-value" id="map-seed-copyable" title="Click to copy">${seedHex}</span>
+                <span class="map-seed-rating">\u2694\uFE0F CR ${bp.scoring.challengeRating}/10</span>
+            </div>`;
+        $('map-seed-copyable').onclick = () => DungeonMap.copySeed(seedHex);
+
+        let html = '';
+        for (let actIdx = 0; actIdx < bp.acts.length; actIdx++) {
+            const act = bp.acts[actIdx];
+            html += `<div class="map-act">`;
+            html += `<div class="map-act-label">Act ${act.actNumber}</div>`;
+            html += `<div class="map-act-path">`;
+
+            for (const floor of act.floors) {
+                const state = floor.floor < GS.floor ? 'completed'
+                            : floor.floor === GS.floor ? 'current'
+                            : 'locked';
+                const icon = DungeonMap._typeIcon(floor.type);
+                const visited = floor.floor <= GS.floor;
+
+                let detailHtml = '';
+                if (visited && (floor.type === 'combat' || floor.type === 'boss') && floor.enemy) {
+                    detailHtml = `<div class="map-node-detail">${floor.enemy.name}</div>`;
+                    if (floor.environment) {
+                        detailHtml += `<div class="map-node-env">${floor.environment.icon} ${floor.environment.name}</div>`;
+                    }
+                } else if (!visited && (floor.type === 'combat' || floor.type === 'boss')) {
+                    detailHtml = `<div class="map-node-detail map-node-hidden">???</div>`;
+                } else if (floor.type === 'event') {
+                    detailHtml = `<div class="map-node-detail">${visited ? 'Event' : '???'}</div>`;
+                } else if (floor.type === 'shop') {
+                    detailHtml = `<div class="map-node-detail">Shop</div>`;
+                }
+
+                html += `<div class="map-node map-node--${state} map-node--${floor.type}">
+                    <div class="map-node-icon">${icon}</div>
+                    <div class="map-node-floor">F${floor.floor}</div>
+                    ${detailHtml}
+                </div>`;
+            }
+
+            html += `</div></div>`;
+
+            if (actIdx < 2) {
+                const restState = GS.floor > (actIdx + 1) * 5 ? 'completed' : 'locked';
+                html += `<div class="map-rest-stop map-rest-stop--${restState}">
+                    <span class="map-rest-icon">\uD83C\uDFD5\uFE0F</span>
+                    <span class="map-rest-label">Rest Stop</span>
+                </div>`;
+            }
+        }
+
+        $('dungeon-map-content').innerHTML = html;
+    },
+
+    _typeIcon(type) {
+        switch (type) {
+            case 'combat': return '\u2694\uFE0F';
+            case 'boss':   return '\uD83D\uDC80';
+            case 'event':  return '\u2753';
+            case 'shop':   return '\uD83D\uDED2';
+            default:       return '\u00B7';
+        }
+    },
+
+    formatSeed(seed) {
+        if (seed == null) return '--------';
+        return (seed >>> 0).toString(16).toUpperCase().padStart(8, '0');
+    },
+
+    copySeed(seedHex) {
+        navigator.clipboard.writeText(seedHex).then(() => {
+            const el = $('map-seed-copyable');
+            if (!el) return;
+            const original = el.textContent;
+            el.textContent = 'Copied!';
+            el.classList.add('map-seed-copied');
+            setTimeout(() => {
+                el.textContent = original;
+                el.classList.remove('map-seed-copied');
+            }, 1500);
+        }).catch(() => {});
+    },
+};
+
+// ════════════════════════════════════════════════════════════
 //  INVENTORY / BUILD OVERVIEW
 // ════════════════════════════════════════════════════════════
 const Inventory = {
@@ -3555,7 +3679,7 @@ const EncounterChoice = {
         const body = $('encounter-body');
 
         if (eliteOffered) {
-            const eliteHtml = this._buildElitePanel(enemy, eliteModifiers, isBossFloor);
+            const eliteHtml = this._buildElitePanel(enemy, eliteModifiers, isBossFloor, floor);
             body.innerHTML = `
                 <div class="encounter-card-flipper">
                     <div class="encounter-tab-strip">
@@ -3609,7 +3733,7 @@ const EncounterChoice = {
 
     chooseElite() {
         const enc = GS.encounter;
-        const revealData = applyEliteChoice(enc.enemy, enc.eliteModifiers);
+        const revealData = applyEliteChoice(enc.enemy, enc.eliteModifiers, enc.floor);
         enc.isElite = true;
         this._showReveal(revealData, () => Combat.start());
     },
@@ -3734,20 +3858,20 @@ const EncounterChoice = {
             </div>`;
     },
 
-    _buildElitePanel(enemy, eliteModifiers, isBossFloor) {
+    _buildElitePanel(enemy, eliteModifiers, isBossFloor, floor = 15) {
         const { visible, hidden } = eliteModifiers;
         const purple = '#c060ff';
 
-        // --- Visible modifier effect bullets (design decision: no aggregate computed stats) ---
-        const effectBullets = this._formatVisibleEffects(visible, enemy);
+        // --- Build preview enemy (apply visible modifier + scaling) FIRST ---
+        const previewEnemy = deepClone(enemy);
+        applyEliteModifier(previewEnemy, visible);
+        scaleElitePassives(previewEnemy, floor);
+
+        // --- Visible modifier effect bullets (use scaled values from preview) ---
+        const effectBullets = this._formatVisibleEffects(visible, enemy, previewEnemy);
         const effectsHtml = effectBullets.length
             ? effectBullets.map(b => `<div style="font-size:0.82em; color:${purple}; margin:2px 0;">${b}</div>`).join('')
             : '';
-
-        // --- Passives: show base passives + any NEW ones added by visible modifier ---
-        const previewEnemy = deepClone(enemy);
-        applyEliteModifier(previewEnemy, visible);
-        scaleElitePassives(previewEnemy);
         const basePassiveIds = new Set((enemy.passives || []).map(p => p.id || p.name));
         const passiveTags = (previewEnemy.passives || []).map(p => {
             const isNew = !basePassiveIds.has(p.id || p.name);
@@ -3816,7 +3940,7 @@ const EncounterChoice = {
             </div>`;
     },
 
-    _formatVisibleEffects(modifier, baseEnemy) {
+    _formatVisibleEffects(modifier, baseEnemy, previewEnemy) {
         const bullets = [];
         if (modifier.diceUpgrade) {
             const ex = baseEnemy.dice[0];
@@ -3832,9 +3956,13 @@ const EncounterChoice = {
             bullets.push(`• HP: ${pct > 0 ? '+' : ''}${pct}%`);
         }
         if (modifier.addPassive) {
-            bullets.push(`• ${modifier.addPassive.name}: ${modifier.addPassive.desc}`);
+            // Use scaled passive desc from preview so bullet matches tooltip
+            const scaledP = previewEnemy && (previewEnemy.passives || []).find(p => p.id === modifier.addPassive.id);
+            const name = scaledP ? scaledP.name : modifier.addPassive.name;
+            const desc = scaledP ? scaledP.desc : modifier.addPassive.desc;
+            bullets.push(`• ${name}: ${desc}`);
         }
-        if (modifier.applyStartingCurse) bullets.push(`• 💜 Curses player at combat start`);
+        if (modifier.applyStartingCurse) bullets.push(`• 💜 All your dice roll −1 this fight`);
         if (modifier.doublePhases)       bullets.push(`• 🌀 Phase transitions trigger earlier`);
         return bullets;
     },
@@ -3881,6 +4009,7 @@ window.Shop = Shop;
 window.Events = Events;
 window.Rest = Rest;
 window.Inventory = Inventory;
+window.DungeonMap = DungeonMap;
 window.addConsumableToInventory = addConsumableToInventory;
 window.EncounterChoice = EncounterChoice;
 

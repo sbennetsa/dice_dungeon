@@ -33,6 +33,7 @@ export const ENEMIES = {
         },
         {
             name: 'Dire Rat', hp: 14, dice: [3, 3, 3], gold: [12, 20], xp: [15, 25],
+            image: 'assets/enemies/direrat.webp',
             abilities: {
                 frenzy: { name: 'Frenzy', icon: '🐀', type: 'attack', desc: 'Each die hits separately', multiHit: true },
             },
@@ -41,6 +42,7 @@ export const ENEMIES = {
         },
         {
             name: 'Fungal Creep', hp: 22, dice: [4, 4], gold: [15, 22], xp: [20, 35],
+            image: 'assets/enemies/fungal_creep.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 spore:  { name: 'Spore Cloud', icon: '🍄', type: 'poison', desc: 'Apply poison equal to dice sum' },
@@ -50,6 +52,7 @@ export const ENEMIES = {
         },
         {
             name: 'Slime', hp: 28, dice: [4, 4], gold: [18, 28], xp: [25, 40],
+            image: 'assets/enemies/slime.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
@@ -193,6 +196,7 @@ export const ENEMIES = {
 export const BOSSES = {
     5: {
         name: 'The Bone King', hp: 85, dice: [6, 6, 6], gold: 100, xp: 50,
+        image: 'assets/enemies/boneking.webp',
         abilities: {
             strike:    { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             boneWall:  { name: 'Bone Wall', icon: '🛡️', type: 'shield', desc: 'Gain shield equal to dice sum' },

@@ -3652,7 +3652,7 @@ const EncounterChoice = {
         }).join(' ') || '<span style="opacity:0.5;">None</span>';
 
         const phaseSection = isBossFloor && enemy.phases && enemy.phases.length
-            ? `<div style="font-size:0.8em; color:#ff8888; margin-top:4px;">📊 ${enemy.phases.length} phase(s)</div>`
+            ? `<span style="color:#ff8888;">📊 ${enemy.phases.length} phase(s)</span>`
             : '';
 
         // Build attack pattern display
@@ -3669,12 +3669,10 @@ const EncounterChoice = {
         return `
             <div class="encounter-card ${cardVariant}">
               <div class="encounter-card__inner">
-                <div class="encounter-card__title">${isBossFloor ? '💀 Boss' : '⚔️ Standard'}</div>
-                <div class="encounter-card__art">
-                    ${enemy.image ? `<img class="encounter-card__art-img" src="${enemy.image}" alt="${enemy.name}">` : ''}
-                    <div class="encounter-card__name">${enemy.name}</div>
-                    <div class="encounter-card__stats">❤️ ${enemy.hp} HP &nbsp;·&nbsp; 🎲 ${diceStr}</div>
-                    ${phaseSection}
+                <div class="encounter-card__title">${enemy.name}</div>
+                ${enemy.image ? `<div class="encounter-card__art"><img class="encounter-card__art-img" src="${enemy.image}" alt="${enemy.name}"></div>` : ''}
+                <div class="encounter-card__type-bar">
+                    ${isBossFloor ? '💀 Boss' : '⚔️ Standard'} &nbsp;·&nbsp; ❤️ ${enemy.hp} HP &nbsp;·&nbsp; 🎲 ${diceStr}${phaseSection ? ' &nbsp;·&nbsp; ' + phaseSection : ''}
                 </div>
                 <div class="encounter-card__body">
                     <div>
@@ -3729,7 +3727,7 @@ const EncounterChoice = {
         }).join(' ') || '<span style="opacity:0.5;">None</span>';
 
         const phaseSection = isBossFloor && enemy.phases && enemy.phases.length
-            ? `<div style="font-size:0.8em; color:#ff8888; margin-top:4px;">📊 ${enemy.phases.length} phase(s)</div>`
+            ? `<span style="color:#ff8888;">📊 ${enemy.phases.length} phase(s)</span>`
             : '';
 
         // --- Attack pattern (same as base) ---
@@ -3751,19 +3749,14 @@ const EncounterChoice = {
         return `
             <div class="encounter-card encounter-card--elite">
               <div class="encounter-card__inner">
-                <div class="encounter-card__title">💀 Elite</div>
-                <div class="encounter-card__art">
-                    ${enemy.image ? `<img class="encounter-card__art-img" src="${enemy.image}" alt="${enemy.name}">` : ''}
-                    <div class="encounter-card__mod-badge">
-                        <div style="color:${purple}; font-weight:bold;">${visible.prefix}</div>
-                    </div>
-                    <div class="encounter-card__name">${enemy.name}</div>
-                    <div style="font-size:0.82em; color:var(--text-dim); margin:4px 0 2px; font-style:italic;">❤️ ??? HP &nbsp;·&nbsp; 🎲 ??? dice &nbsp;(both modifiers apply)</div>
-                    ${phaseSection}
-                    ${effectsHtml ? `<div style="margin-top:6px; padding:6px 8px; background:rgba(192,96,255,0.08); border-radius:4px; border-left:2px solid ${purple};"><div style="font-size:0.72em; color:var(--text-dim); margin-bottom:3px; text-transform:uppercase; letter-spacing:0.05em;">${visible.prefix} grants:</div>${effectsHtml}</div>` : ''}
-                    <div style="display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:5px 10px; background:rgba(100,80,140,0.25); border:1px dashed rgba(192,96,255,0.45); border-radius:6px; font-size:0.82em; color:${purple};">🔮 <strong>+ 1 hidden modifier</strong> &nbsp;— revealed on accept</div>
+                <div class="encounter-card__title">${enemy.name}</div>
+                ${enemy.image ? `<div class="encounter-card__art"><img class="encounter-card__art-img" src="${enemy.image}" alt="${enemy.name}"></div>` : ''}
+                <div class="encounter-card__type-bar">
+                    💀 Elite &nbsp;·&nbsp; <span style="font-weight:bold;">${visible.prefix}</span> &nbsp;·&nbsp; ❤️ ??? HP &nbsp;·&nbsp; 🎲 ??? dice${phaseSection ? ' &nbsp;·&nbsp; ' + phaseSection : ''}
                 </div>
                 <div class="encounter-card__body">
+                    ${effectsHtml ? `<div style="padding:6px 8px; background:rgba(192,96,255,0.08); border-radius:4px; border-left:2px solid ${purple};"><div style="font-size:0.72em; color:var(--text-dim); margin-bottom:3px; text-transform:uppercase; letter-spacing:0.05em;">${visible.prefix} grants:</div>${effectsHtml}</div>` : ''}
+                    <div style="display:inline-flex; align-items:center; gap:6px; margin:6px 0; padding:5px 10px; background:rgba(100,80,140,0.25); border:1px dashed rgba(192,96,255,0.45); border-radius:6px; font-size:0.82em; color:${purple};">🔮 <strong>+ 1 hidden modifier</strong> &nbsp;— revealed on accept</div>
                     <div>
                         <div class="encounter-card__section-label">Abilities</div>
                         <div class="encounter-card__tags">${abilityTags}</div>

@@ -1413,13 +1413,14 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     overflow: visible;
 }
 
-/* Title bar */
+/* Title bar — creature name */
 .encounter-card__title {
     padding: 10px 14px;
-    font-size: 1em;
+    font-family: 'EB Garamond', serif;
+    font-size: 1.25em;
     font-weight: bold;
     text-align: center;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.02em;
     border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 .encounter-card--standard .encounter-card__title { color: var(--text-bright); }
@@ -1427,40 +1428,34 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 .encounter-card--elite .encounter-card__title { color: #c060ff; }
 .encounter-card--locked .encounter-card__title { color: #666; }
 
-/* Art / illustration area */
+/* Art / illustration area — edge-to-edge, no padding */
 .encounter-card__art {
-    padding: 12px 14px;
-    text-align: center;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
     position: relative;
-}
-.encounter-card--standard .encounter-card__art {
-    background: linear-gradient(180deg, rgba(42,42,68,0.6) 0%, rgba(26,26,42,0.8) 100%);
-}
-.encounter-card--boss .encounter-card__art {
-    background: linear-gradient(180deg, rgba(106,42,42,0.4) 0%, rgba(40,16,16,0.6) 100%);
-}
-.encounter-card--elite .encounter-card__art {
-    background: linear-gradient(180deg, rgba(74,42,106,0.3) 0%, rgba(26,16,40,0.5) 100%);
+    overflow: hidden;
+    line-height: 0;
 }
 .encounter-card__art-img {
     display: block;
     width: 100%;
-    height: 150px;
+    height: 160px;
     object-fit: cover;
-    border-radius: 4px;
-    margin-bottom: 8px;
+    -webkit-mask-image: linear-gradient(to bottom, black 45%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 45%, transparent 100%);
 }
-.encounter-card__name {
-    font-family: 'EB Garamond', serif;
-    font-size: 1.2em;
-    margin-bottom: 6px;
-}
-.encounter-card--elite .encounter-card__name { color: var(--text-bright); }
-.encounter-card__stats {
-    font-size: 0.85em;
+
+/* Type bar — small stat line between art and body */
+.encounter-card__type-bar {
+    padding: 6px 14px;
+    font-size: 0.8em;
     color: var(--text-dim);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
 }
+.encounter-card--boss .encounter-card__type-bar { color: #ff9080; }
+.encounter-card--elite .encounter-card__type-bar { color: #c060ff; }
 
 /* Body content */
 .encounter-card__body {

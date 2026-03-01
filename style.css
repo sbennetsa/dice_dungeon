@@ -1733,14 +1733,14 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     transform: translate(-50%, -50%);
 }
 .sd-node-diamond {
-    width: 76px; height: 76px;
-    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    width: 64px; height: 64px;
+    border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    transition: background .2s, box-shadow .2s;
+    transition: background .2s, box-shadow .2s, border-color .2s;
 }
-.sd-notable .sd-node-diamond { width: 90px; height: 90px; }
-.sd-node-emoji { font-size: 26px; pointer-events: none; transition: opacity .2s; line-height: 1; }
-.sd-notable .sd-node-emoji { font-size: 32px; }
+.sd-notable .sd-node-diamond { width: 68px; height: 68px; }
+.sd-node-emoji { font-size: 24px; pointer-events: none; transition: opacity .2s; line-height: 1; }
+.sd-notable .sd-node-emoji { font-size: 28px; }
 .sd-node-name {
     font-family: 'JetBrains Mono', monospace; font-size: 9px;
     margin-top: 4px; text-align: center; max-width: 80px;
@@ -1750,13 +1750,51 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 .sd-notable .sd-node-name { font-size: 10px; max-width: 100px; }
 
 /* Node states (base locked) */
-.sd-node.locked .sd-node-diamond { background: rgba(20,20,35,0.75); outline: 1.5px solid rgba(255,255,255,0.16); outline-offset: -2px; }
+.sd-node.locked .sd-node-diamond { background: rgba(20,20,35,0.75); border: 2px solid rgba(255,255,255,0.12); }
 .sd-node.locked .sd-node-emoji { opacity: 0.28; }
 .sd-node.locked .sd-node-name { color: rgba(255,255,255,0.16); }
-@keyframes sdNodePulse { 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.07)} }
-.sd-node.available { animation: sdNodePulse 2.2s ease-in-out infinite; }
-.sd-node.available:hover, .sd-node.sd-selected { animation: none !important; transform: translate(-50%,-50%) scale(1.1) !important; }
-.sd-node.sd-selected .sd-node-diamond { outline-width: 2.5px !important; }
+@keyframes sdNodePulse {
+    0%,100% { transform: translate(-50%,-50%) scale(1); filter: brightness(1); }
+    50% { transform: translate(-50%,-50%) scale(1.12); filter: brightness(1.3); }
+}
+@keyframes sdNodeGlow {
+    0%,100% { opacity: 0; }
+    50% { opacity: 1; }
+}
+.sd-node.available { animation: sdNodePulse 1.8s ease-in-out infinite; }
+.sd-node.available .sd-node-diamond { position: relative; }
+.sd-node.available .sd-node-diamond::after {
+    content: ''; position: absolute; inset: -6px; border-radius: 50%;
+    border: 1.5px solid currentColor; opacity: 0;
+    animation: sdNodeGlow 1.8s ease-in-out infinite;
+    pointer-events: none;
+}
+.sd-node.available:hover, .sd-node.sd-selected { animation: none !important; transform: translate(-50%,-50%) scale(1.12) !important; }
+.sd-node.sd-selected .sd-node-diamond { border-width: 3px !important; }
+/* Unlocked pip — strong visible border */
+.sd-node.unlocked .sd-node-diamond { border-width: 3px; border-style: solid; }
+
+/* Capstone progress ring */
+.sd-capstone-wrap {
+    position: relative;
+    width: 96px; height: 96px;
+    display: flex; align-items: center; justify-content: center;
+}
+.sd-capstone-ring {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    transform: rotate(-90deg);
+    pointer-events: none;
+}
+.sd-ring-bg {
+    fill: none; stroke: rgba(255,255,255,0.08);
+    stroke-width: 4; stroke-linecap: round;
+}
+.sd-ring-fill {
+    fill: none; stroke-width: 4;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.5s ease, stroke 0.3s, opacity 0.3s;
+}
 
 /* Detail bar */
 .sd-detail-bar {

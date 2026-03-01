@@ -373,7 +373,7 @@ export const RUNES = [
 ];
 
 // ════════════════════════════════════════════════════════════
-//  PASSIVE SKILL TREE
+//  PASSIVE SKILL DIE
 // ════════════════════════════════════════════════════════════
 export const SKILL_TREE = [
     // ── ROOT ──

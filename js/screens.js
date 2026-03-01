@@ -261,7 +261,7 @@ const Game = {
 
         const rewards = [];
 
-        rewards.push({ title: '⭐ Skill Point', desc: 'Unlock a node on the passive tree', action: () => {
+        rewards.push({ title: '⭐ Skill Point', desc: 'Unlock a passive on the skill die', action: () => {
             GS.challengePrep--;
             Rewards.slotChoice(() => {
                 if (GS.challengePrep > 0) Game.showChallengePrep();
@@ -466,7 +466,7 @@ const Game = {
 };
 
 // ════════════════════════════════════════════════════════════
-//  SKILL DIE — 3D CSS rotating d6 skill tree
+//  SKILL DIE — 3D CSS rotating d6
 // ════════════════════════════════════════════════════════════
 const SkillDie = (() => {
     // Face definitions: front=wide(+Z), right=gold(+X), back=tall(-Z), left=venom(-X)
@@ -630,7 +630,20 @@ const SkillDie = (() => {
     function _makeNodeEl(id, emoji, name, isNotable) {
         const el = document.createElement('div');
         el.className = `sd-node locked${isNotable ? ' sd-notable' : ''}`;
-        el.innerHTML = `<div class="sd-node-diamond"><div class="sd-node-emoji">${emoji}</div></div><div class="sd-node-name">${name}</div>`;
+        if (isNotable) {
+            // Capstone: SVG progress ring wrapping the circle
+            el.innerHTML = `
+                <div class="sd-capstone-wrap">
+                    <svg class="sd-capstone-ring" viewBox="0 0 100 100">
+                        <circle class="sd-ring-bg" cx="50" cy="50" r="44" />
+                        <circle class="sd-ring-fill" cx="50" cy="50" r="44" />
+                    </svg>
+                    <div class="sd-node-diamond"><div class="sd-node-emoji">${emoji}</div></div>
+                </div>
+                <div class="sd-node-name">${name}</div>`;
+        } else {
+            el.innerHTML = `<div class="sd-node-diamond"><div class="sd-node-emoji">${emoji}</div></div><div class="sd-node-name">${name}</div>`;
+        }
         el.addEventListener('click', e => { e.stopPropagation(); _handleNodeClick(id); });
         return el;
     }
@@ -761,6 +774,59 @@ const SkillDie = (() => {
         if (rel) rel.textContent = `${sp} SP`;
     }
 
+    // ── Capstone progress ring ──────────────────────────────
+    const SD_RING_CIRC = 2 * Math.PI * 44; // circumference for r=44
+    function _updateCapstoneRing(el, diamond, emojiEl, fData, state) {
+        const color = fData.color;
+        const nameEl = el.querySelector('.sd-node-name');
+        const pIds = _passiveIds(fData.key);
+        const lit = pIds.filter(pid => _isUnlocked(pid)).length;
+        const frac = lit / 4;
+        const ringFill = el.querySelector('.sd-ring-fill');
+        const ringBg = el.querySelector('.sd-ring-bg');
+
+        if (state === 'unlocked') {
+            // Fully unlocked capstone — full ring, bright
+            if (ringFill) { ringFill.style.stroke = color; ringFill.style.strokeDasharray = `${SD_RING_CIRC}`; ringFill.style.strokeDashoffset = '0'; ringFill.style.opacity = '1'; }
+            if (ringBg) ringBg.style.stroke = color + '30';
+            diamond.style.background = color + '55';
+            diamond.style.border = `3px solid ${color}`;
+            diamond.style.boxShadow = `0 0 18px ${color}66, 0 0 6px ${color}44, inset 0 0 10px ${color}22`;
+            emojiEl.style.opacity = '1';
+            if (nameEl) nameEl.style.color = color;
+            return;
+        }
+
+        // Progress ring — fill proportional to passives unlocked
+        if (ringFill) {
+            ringFill.style.stroke = color;
+            ringFill.style.strokeDasharray = `${SD_RING_CIRC}`;
+            ringFill.style.strokeDashoffset = `${SD_RING_CIRC * (1 - frac)}`;
+            ringFill.style.opacity = frac > 0 ? '1' : '0';
+        }
+        if (ringBg) ringBg.style.stroke = frac > 0 ? color + '18' : 'rgba(255,255,255,0.08)';
+
+        // Inner circle background and border based on progress
+        if (frac >= 1) {
+            // All 4 passives — ready to allocate
+            diamond.style.background = color + '20';
+            diamond.style.border = `2px solid ${color}`;
+            diamond.style.boxShadow = `0 0 12px ${color}55`;
+            if (nameEl) nameEl.style.color = color + '99';
+        } else if (frac > 0) {
+            diamond.style.background = 'rgba(20,20,35,0.75)';
+            diamond.style.border = `2px solid ${color}33`;
+            diamond.style.boxShadow = 'none';
+            if (nameEl) nameEl.style.color = color + '55';
+        } else {
+            diamond.style.background = 'rgba(20,20,35,0.75)';
+            diamond.style.border = '2px solid rgba(255,255,255,0.10)';
+            diamond.style.boxShadow = 'none';
+            if (nameEl) nameEl.style.color = 'rgba(255,255,255,0.16)';
+        }
+        emojiEl.style.opacity = frac > 0 ? String(0.2 + frac * 0.6) : '0.12';
+    }
+
     function _updateVisuals() {
         const vis = _faceVis();
         const ff = _frontFace();
@@ -788,45 +854,29 @@ const SkillDie = (() => {
             el.classList.toggle('sd-selected', id === _selectedId);
 
             if (state === 'unlocked') {
-                diamond.style.background = color + '80';
-                diamond.style.outline = `3px solid ${color}`;
-                diamond.style.outlineOffset = '-1px';
-                diamond.style.boxShadow = `0 0 14px ${color}55, inset 0 0 8px ${color}22`;
+                diamond.style.background = color + '55';
+                diamond.style.border = `3px solid ${color}`;
+                diamond.style.boxShadow = `0 0 16px ${color}66, 0 0 4px ${color}44, inset 0 0 10px ${color}22`;
                 nameEl.style.color = color;
                 emojiEl.style.opacity = '1';
             } else if (state === 'available' && !isNotable) {
                 diamond.style.background = color + '18';
-                diamond.style.outline = `2px solid ${color}88`;
-                diamond.style.outlineOffset = '-1px';
+                diamond.style.border = `2px solid ${color}88`;
                 diamond.style.boxShadow = `0 0 10px ${color}44`;
+                el.style.color = color; // for ::after border
                 nameEl.style.color = color + '99';
                 emojiEl.style.opacity = '0.85';
             } else {
                 diamond.style.background = 'rgba(20,20,35,0.75)';
-                diamond.style.outline = '1.5px solid rgba(255,255,255,0.16)';
-                diamond.style.outlineOffset = '-1px';
+                diamond.style.border = '2px solid rgba(255,255,255,0.12)';
                 diamond.style.boxShadow = 'none';
                 nameEl.style.color = 'rgba(255,255,255,0.16)';
                 emojiEl.style.opacity = '0.28';
             }
 
-            // Notable: conic-gradient progress
-            if (isNotable && state !== 'unlocked') {
-                const pIds = _passiveIds(fData.key);
-                const lit = pIds.filter(pid => _isUnlocked(pid)).length;
-                const on = color + '38', off = 'rgba(20,20,35,0.65)';
-                const q = [0,1,2,3].map(i => i < lit ? on : off);
-                diamond.style.background = `conic-gradient(from -45deg, ${q[0]} 0% 25%, ${q[1]} 25% 50%, ${q[2]} 50% 75%, ${q[3]} 75% 100%)`;
-                emojiEl.style.opacity = lit > 0 ? String(0.15 + lit * 0.18) : '0.08';
-                if (lit >= 4) {
-                    diamond.style.outline = `3px solid ${color}`;
-                    diamond.style.outlineOffset = '-1px';
-                    diamond.style.boxShadow = `0 0 12px ${color}55`;
-                } else {
-                    diamond.style.outline = lit > 0 ? `2px solid ${color}44` : '1.5px solid rgba(255,255,255,0.14)';
-                    diamond.style.outlineOffset = '-1px';
-                    diamond.style.boxShadow = 'none';
-                }
+            // Notable: SVG progress ring (handled via _updateCapstoneRing)
+            if (isNotable) {
+                _updateCapstoneRing(el, diamond, emojiEl, fData, state);
             }
         });
     }
@@ -1394,12 +1444,12 @@ const BattleSummary = {
             skillSection.id = 'bs-skill-section';
             const pointsAvail = GS.pendingSkillPoints || 0;
             skillSection.innerHTML = `
-                <div class="bs-section-title">⭐ Passive Tree (${pointsAvail} point${pointsAvail > 1 ? 's' : ''} available)</div>
+                <div class="bs-section-title">⭐ Skill Die (${pointsAvail} point${pointsAvail > 1 ? 's' : ''} available)</div>
                 <div class="bs-locked-summary"></div>
                 <div class="bs-reward-choices">
                     <div class="card" id="bs-skill-open" style="flex:1; text-align:center;">
                         <div class="card-title">⭐ Allocate Passives</div>
-                        <div class="card-desc">${pointsAvail} skill point${pointsAvail > 1 ? 's' : ''} to spend on the passive tree</div>
+                        <div class="card-desc">${pointsAvail} skill point${pointsAvail > 1 ? 's' : ''} to spend on the skill die</div>
                     </div>
                 </div>
             `;
@@ -1408,7 +1458,7 @@ const BattleSummary = {
             // Wire up skill allocation button
             setTimeout(() => {
                 const openBtn = $('bs-skill-open');
-                if (openBtn) openBtn.onclick = () => BattleSummary._openSkillTree();
+                if (openBtn) openBtn.onclick = () => BattleSummary._openSkillDie();
             }, 0);
         }
 
@@ -1463,7 +1513,7 @@ const BattleSummary = {
         show('screen-battle-summary');
     },
 
-    _openSkillTree() {
+    _openSkillDie() {
         const done = () => {
             const section = $('bs-skill-section');
             if (section) {
@@ -3366,11 +3416,11 @@ const Inventory = {
         const treeBorder = pendingPts > 0 ? 'border:1px solid #80ff80;' : 'border:1px solid var(--border);';
         html += `<div style="background:var(--bg-surface); ${treeBorder} border-radius:8px; padding:14px; margin-bottom:12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold);">⭐ SKILL TREE (${unlocked.length} nodes)</div>
-                <button class="btn" style="font-size:0.72em; padding:3px 10px;" onclick="Inventory._openPassiveTree()">🌳 View Tree</button>
+                <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold);">⭐ SKILL DIE (${unlocked.length} nodes)</div>
+                <button class="btn" style="font-size:0.72em; padding:3px 10px;" onclick="Inventory._openSkillDie()">🎲 View Die</button>
             </div>`;
         if (pendingPts > 0) {
-            html += `<div style="color:#80ff80; font-size:0.82em; margin-bottom:6px; font-weight:bold;">⬆ ${pendingPts} skill point${pendingPts > 1 ? 's' : ''} available — tap View Tree to allocate</div>`;
+            html += `<div style="color:#80ff80; font-size:0.82em; margin-bottom:6px; font-weight:bold;">⬆ ${pendingPts} skill point${pendingPts > 1 ? 's' : ''} available — tap View Die to allocate</div>`;
         }
         if (unlocked.length > 0) {
             unlocked.forEach(n => {
@@ -3383,7 +3433,7 @@ const Inventory = {
 
         c.innerHTML = html;
     },
-    _openPassiveTree() {
+    _openSkillDie() {
         const prevScreen = document.querySelector('.screen.active');
         const prevScreenId = prevScreen ? prevScreen.id : 'screen-combat';
         Inventory.visible = false;

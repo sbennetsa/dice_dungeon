@@ -185,7 +185,7 @@ export const Combat = {
         }
 
         // Reset player debuffs for new combat
-        GS.playerDebuffs = { poison: 0, poisonTurns: 0, slotDisabled: null, slotDisabledTurns: 0, diceReduction: 0 };
+        GS.playerDebuffs = { poison: 0, poisonTurns: 0, disabledSlots: [], diceReduction: 0 };
 
         // Reset enemy status effects for new combat
         GS.enemyStatus = { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: false };
@@ -324,8 +324,11 @@ export const Combat = {
         let debuffHtml = '';
         if (GS.playerDebuffs.poison > 0)
             debuffHtml += `<span class="passive-tag" style="color:#f07070;border-color:rgba(200,60,60,0.3)">☠️ You: Poison ×${GS.playerDebuffs.poison} (${GS.playerDebuffs.poisonTurns}t)</span>`;
-        if (GS.playerDebuffs.slotDisabled)
-            debuffHtml += `<span class="passive-tag" style="color:#f07070;border-color:rgba(200,60,60,0.3)">🔒 Your ${GS.playerDebuffs.slotDisabled} slot disabled (${GS.playerDebuffs.slotDisabledTurns}t)</span>`;
+        if (GS.playerDebuffs.disabledSlots && GS.playerDebuffs.disabledSlots.length > 0)
+            GS.playerDebuffs.disabledSlots.forEach(ds => {
+                const slotType = ds.slotId.startsWith('atk') ? 'attack' : 'defend';
+                debuffHtml += `<span class="passive-tag" style="color:#f07070;border-color:rgba(200,60,60,0.3)">🔒 ${slotType} slot sealed (${ds.turnsLeft}t)</span>`;
+            });
         if (debuffHtml) debuffHtml = `<div class="enemy-passive-tags">${debuffHtml}</div>`;
 
         const intentDisplay = Combat._buildIntentText();
@@ -464,8 +467,11 @@ export const Combat = {
                 return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → gains ${sum} shield`;
             case 'poison':
                 return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → apply ${sum} poison stacks`;
-            case 'curse':
-                return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → disable slot for ${Math.ceil(sum / (ab.durationDivisor || 3))} turns`;
+            case 'curse': {
+                const sealCount = ab.slotsToSeal || 1;
+                const sealDur = ab.fixedDuration || 1;
+                return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → seal ${sealCount} slot${sealCount > 1 ? 's' : ''} for ${sealDur} turn${sealDur > 1 ? 's' : ''}`;
+            }
             case 'steal':
                 return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → steal up to ${sum} gold`;
             case 'charge':
@@ -1100,12 +1106,27 @@ export const Combat = {
                 if (GS.artifacts.some(a => a.effect === 'anchoredSlots')) {
                     log('⚓ Anchored Slots: Curse prevented!', 'info');
                 } else {
-                    const sum = e.diceResults.reduce((a,b)=>a+b,0);
-                    const duration = Math.ceil(sum / (ab.durationDivisor || 3));
-                    const targetSlot = Math.random() < 0.5 ? 'attack' : 'defend';
-                    GS.playerDebuffs.slotDisabled = targetSlot;
-                    GS.playerDebuffs.slotDisabledTurns = duration;
-                    log(`${ab.icon} ${ab.name}! Your ${targetSlot} slot disabled for ${duration} turns!`, 'damage');
+                    const sealCount = ab.slotsToSeal || 1;
+                    const duration = ab.fixedDuration || 1;
+                    // Build pool of candidate slots, optionally filtered by slotTarget
+                    let candidates = [
+                        ...GS.slots.attack.map(s => s.id),
+                        ...GS.slots.defend.map(s => s.id),
+                    ];
+                    if (ab.slotTarget === 'attack') candidates = GS.slots.attack.map(s => s.id);
+                    else if (ab.slotTarget === 'defend') candidates = GS.slots.defend.map(s => s.id);
+                    // Exclude already-sealed slots
+                    const alreadySealed = (GS.playerDebuffs.disabledSlots || []).map(ds => ds.slotId);
+                    candidates = candidates.filter(id => !alreadySealed.includes(id));
+                    // Shuffle and pick up to sealCount
+                    for (let i = candidates.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
+                    const toSeal = candidates.slice(0, sealCount);
+                    if (!GS.playerDebuffs.disabledSlots) GS.playerDebuffs.disabledSlots = [];
+                    toSeal.forEach(slotId => GS.playerDebuffs.disabledSlots.push({ slotId, turnsLeft: duration }));
+                    if (toSeal.length > 0) {
+                        const names = toSeal.map(id => id.startsWith('atk') ? 'attack' : 'defend');
+                        log(`${ab.icon} ${ab.name}! ${toSeal.length} slot${toSeal.length > 1 ? 's' : ''} sealed (${names.join(', ')}) for ${duration} turn${duration > 1 ? 's' : ''}!`, 'damage');
+                    }
                 }
                 break;
             }
@@ -1284,14 +1305,21 @@ export const Combat = {
         const burnOnP = e.passives.find(p => p.id === 'burnOnPhase');
         if (burnOnP) applyStatus('burn', burnOnP.params.burn, 3);
 
-        // disableSlot (Wing Buffet)
-        if (ab.disableSlot) {
+        // sealSlot (Wing Buffet)
+        if (ab.sealSlot) {
             if (GS.artifacts.some(a => a.effect === 'anchoredSlots')) {
-                log('⚓ Anchored Slots: slot disable prevented!', 'info');
+                log('⚓ Anchored Slots: seal prevented!', 'info');
             } else {
-                GS.playerDebuffs.slotDisabled = 'attack';
-                GS.playerDebuffs.slotDisabledTurns = 1;
-                log(`💨 Wing Buffet! Attack slot disabled for 1 turn!`, 'damage');
+                if (!GS.playerDebuffs.disabledSlots) GS.playerDebuffs.disabledSlots = [];
+                const alreadySealed = GS.playerDebuffs.disabledSlots.map(ds => ds.slotId);
+                const allSlots = [...GS.slots.attack.map(s => s.id), ...GS.slots.defend.map(s => s.id)];
+                const candidates = allSlots.filter(id => !alreadySealed.includes(id));
+                if (candidates.length > 0) {
+                    const pick = candidates[Math.floor(Math.random() * candidates.length)];
+                    GS.playerDebuffs.disabledSlots.push({ slotId: pick, turnsLeft: 1 });
+                    const slotType = pick.startsWith('atk') ? 'attack' : 'defend';
+                    log(`💨 Wing Buffet! ${slotType} slot sealed for 1 turn!`, 'damage');
+                }
             }
         }
 
@@ -1375,8 +1403,7 @@ export const Combat = {
             case 'cleanse':
                 GS.playerDebuffs.poison = 0;
                 GS.playerDebuffs.poisonTurns = 0;
-                GS.playerDebuffs.slotDisabled = null;
-                GS.playerDebuffs.slotDisabledTurns = 0;
+                GS.playerDebuffs.disabledSlots = [];
                 GS.playerDebuffs.diceReduction = 0;
                 log(`✨ Cleansed all debuffs!`, 'heal');
                 break;
@@ -1516,13 +1543,17 @@ export const Combat = {
         // Reset Echo Stone tracking for new turn
         GS.echoStoneDieId = null;
 
-        // ── SLOT DISABLE COUNTDOWN ──
-        if (GS.playerDebuffs.slotDisabled) {
-            GS.playerDebuffs.slotDisabledTurns--;
-            if (GS.playerDebuffs.slotDisabledTurns <= 0) {
-                log(`🔓 Your ${GS.playerDebuffs.slotDisabled} slot is no longer disabled.`, 'info');
-                GS.playerDebuffs.slotDisabled = null;
-                GS.playerDebuffs.slotDisabledTurns = 0;
+        // ── SEALED SLOT COUNTDOWN ──
+        if (GS.playerDebuffs.disabledSlots && GS.playerDebuffs.disabledSlots.length > 0) {
+            const expired = [];
+            GS.playerDebuffs.disabledSlots.forEach(ds => {
+                ds.turnsLeft--;
+                if (ds.turnsLeft <= 0) expired.push(ds);
+            });
+            if (expired.length > 0) {
+                GS.playerDebuffs.disabledSlots = GS.playerDebuffs.disabledSlots.filter(ds => ds.turnsLeft > 0);
+                const names = expired.map(ds => ds.slotId.startsWith('atk') ? 'attack' : 'defend');
+                log(`🔓 ${expired.length} slot${expired.length > 1 ? 's' : ''} unsealed (${names.join(', ')}).`, 'info');
             }
         }
 
@@ -1728,7 +1759,7 @@ export const Combat = {
         }
 
         // Clear player debuffs at end of combat
-        GS.playerDebuffs = { poison: 0, poisonTurns: 0, slotDisabled: null, slotDisabledTurns: 0, diceReduction: 0 };
+        GS.playerDebuffs = { poison: 0, poisonTurns: 0, disabledSlots: [], diceReduction: 0 };
 
         // Decrement tempBuff combat counters
         if (GS.tempBuffs) {

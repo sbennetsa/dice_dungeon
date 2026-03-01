@@ -88,7 +88,7 @@ export const ENEMIES = {
             name: 'Dark Mage', hp: 32, dice: [6, 6], gold: [22, 35], xp: [40, 60],
             abilities: {
                 bolt:  { name: 'Shadow Bolt', icon: '🔮', type: 'attack', desc: 'Deal damage (penetrates 3 block)', penetrate: 3 },
-                curse: { name: 'Curse', icon: '💀', type: 'curse', desc: 'Disable your attack slot', durationDivisor: 3 },
+                curse: { name: 'Curse', icon: '💀', type: 'curse', desc: 'Seal 1 attack slot for 2 turns', slotsToSeal: 1, slotTarget: 'attack', fixedDuration: 2 },
             },
             passives: [],
             pattern: ['bolt', 'bolt', 'curse'],
@@ -211,7 +211,7 @@ export const BOSSES = {
         abilities: {
             strike:  { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             breath:  { name: 'Fire Breath', icon: '🔥', type: 'attack', desc: 'Deal damage + apply burn', applyBurn: 3 },
-            buffet:  { name: 'Wing Buffet', icon: '💨', type: 'attack', desc: 'Deal half damage + disable 1 random slot for 1 turn', halfDamage: true, disableSlot: 1 },
+            buffet:  { name: 'Wing Buffet', icon: '💨', type: 'attack', desc: 'Deal half damage + seal 1 random slot for 1 turn', halfDamage: true, sealSlot: 1 },
         },
         passives: [],
         pattern: ['strike', 'breath', 'strike', 'buffet'],
@@ -230,7 +230,7 @@ export const BOSSES = {
         name: 'The Void Lord', hp: 450, dice: [10, 10, 10, 10], gold: 250, xp: 120,
         abilities: {
             strike:    { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
-            voidRift:  { name: 'Void Rift', icon: '🌀', type: 'curse', desc: 'Disable a slot for ceil(sum/5) turns', durationDivisor: 5 },
+            voidRift:  { name: 'Void Rift', icon: '🌀', type: 'curse', desc: 'Seal 2 random slots for 1 turn', slotsToSeal: 2, fixedDuration: 1 },
             darkPulse: { name: 'Dark Pulse', icon: '💜', type: 'unblockable', desc: 'Deal unblockable damage' },
         },
         passives: [],
@@ -333,7 +333,7 @@ export const ARTIFACT_POOL = [
     { name: 'Gilded Gauntlet', icon: '✨', desc: 'Start of combat: spend 50 gold → deal 15 damage',       effect: 'goldToDmg',     value: 1,    category: 'enabler' },
 
     // ── PROBLEM SOLVERS ──
-    { name: 'Anchored Slots',  icon: '⚓', desc: 'Your slots cannot be disabled by enemy abilities',       effect: 'anchoredSlots', value: 0,    category: 'solver' },
+    { name: 'Anchored Slots',  icon: '⚓', desc: 'Your slots cannot be sealed by enemy abilities',        effect: 'anchoredSlots', value: 0,    category: 'solver' },
     { name: 'Soul Mirror',     icon: '👻', desc: 'Unblockable damage is reduced by 50%',                  effect: 'soulMirror',    value: 0.5,  category: 'solver' },
     { name: 'Iron Will',       icon: '🧠', desc: 'Your dice values and face counts cannot be reduced by enemy effects', effect: 'ironWill', value: 0, category: 'solver' },
     { name: 'Burnproof Cloak', icon: '🧥', desc: 'Immune to burn; poison damage to you ticks for half (round down)', effect: 'burnproofCloak', value: 0, category: 'solver' },
@@ -469,7 +469,7 @@ export const CONSUMABLES = [
     { id: 'iron',   name: 'Iron Skin Potion',        icon: '🛡️',   category: 'potion',  rarity: 'rare',     price: 20,
       description: 'Completely block the next enemy attack', usableOutsideCombat: false, usableOnBoss: true },
     { id: 'cleanse',name: 'Cleansing Tonic',         icon: '✨',    category: 'potion',  rarity: 'uncommon', price: 15,
-      description: 'Remove all temporary debuffs (poison, burn, slot disable, dice reduction)', usableOutsideCombat: false, usableOnBoss: true },
+      description: 'Remove all temporary debuffs (poison, burn, sealed slots, dice reduction)', usableOutsideCombat: false, usableOnBoss: true },
     { id: 'rage',   name: 'Rage Potion',             icon: '😤',    category: 'potion',  rarity: 'rare',     price: 25,
       description: 'Double total attack damage this turn (final multiplier)', usableOutsideCombat: false, usableOnBoss: true },
     { id: 'haste',  name: 'Haste Elixir',            icon: '⚡',    category: 'potion',  rarity: 'uncommon', price: 20,

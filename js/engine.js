@@ -406,12 +406,15 @@ export function renderCombatDice() {
         }
     }
 
+    const sealedIds = (GS.playerDebuffs?.disabledSlots || []).map(ds => ds.slotId);
+
     const atkDice = $('slot-attack-dice');
     atkDice.innerHTML = '';
     GS.slots.attack.forEach(slot => {
         const slotEl = document.createElement('div');
-        slotEl.className = 'individual-slot';
-        if (slot.rune) {
+        const isSealed = sealedIds.includes(slot.id);
+        slotEl.className = 'individual-slot' + (isSealed ? ' slot-sealed' : '');
+        if (slot.rune && !isSealed) {
             const ri = document.createElement('div');
             ri.className = 'slot-rune-indicator';
             ri.style.color = slot.rune.color;
@@ -419,14 +422,22 @@ export function renderCombatDice() {
             ri.textContent = slot.rune.icon;
             slotEl.appendChild(ri);
         }
-        const allocatedDie = GS.allocated.attack.find(d => d.slotId === slot.id);
-        if (allocatedDie) {
-            slotEl.appendChild(makeDieElement(allocatedDie, 'attack'));
-        } else {
+        if (isSealed) {
             const ph = document.createElement('div');
             ph.className = 'slot-placeholder';
-            ph.innerHTML = '<span style="font-family: JetBrains Mono, monospace;">⚔️</span>';
+            ph.innerHTML = '<span style="font-family: JetBrains Mono, monospace;">🔒</span>';
+            ph.title = 'Sealed!';
             slotEl.appendChild(ph);
+        } else {
+            const allocatedDie = GS.allocated.attack.find(d => d.slotId === slot.id);
+            if (allocatedDie) {
+                slotEl.appendChild(makeDieElement(allocatedDie, 'attack'));
+            } else {
+                const ph = document.createElement('div');
+                ph.className = 'slot-placeholder';
+                ph.innerHTML = '<span style="font-family: JetBrains Mono, monospace;">⚔️</span>';
+                slotEl.appendChild(ph);
+            }
         }
         atkDice.appendChild(slotEl);
     });
@@ -435,8 +446,9 @@ export function renderCombatDice() {
     defDice.innerHTML = '';
     GS.slots.defend.forEach(slot => {
         const slotEl = document.createElement('div');
-        slotEl.className = 'individual-slot';
-        if (slot.rune) {
+        const isSealed = sealedIds.includes(slot.id);
+        slotEl.className = 'individual-slot' + (isSealed ? ' slot-sealed' : '');
+        if (slot.rune && !isSealed) {
             const ri = document.createElement('div');
             ri.className = 'slot-rune-indicator';
             ri.style.color = slot.rune.color;
@@ -444,14 +456,22 @@ export function renderCombatDice() {
             ri.textContent = slot.rune.icon;
             slotEl.appendChild(ri);
         }
-        const allocatedDie = GS.allocated.defend.find(d => d.slotId === slot.id);
-        if (allocatedDie) {
-            slotEl.appendChild(makeDieElement(allocatedDie, 'defend'));
-        } else {
+        if (isSealed) {
             const ph = document.createElement('div');
             ph.className = 'slot-placeholder';
-            ph.innerHTML = '<span style="font-family: JetBrains Mono, monospace;">🛡️</span>';
+            ph.innerHTML = '<span style="font-family: JetBrains Mono, monospace;">🔒</span>';
+            ph.title = 'Sealed!';
             slotEl.appendChild(ph);
+        } else {
+            const allocatedDie = GS.allocated.defend.find(d => d.slotId === slot.id);
+            if (allocatedDie) {
+                slotEl.appendChild(makeDieElement(allocatedDie, 'defend'));
+            } else {
+                const ph = document.createElement('div');
+                ph.className = 'slot-placeholder';
+                ph.innerHTML = '<span style="font-family: JetBrains Mono, monospace;">🛡️</span>';
+                slotEl.appendChild(ph);
+            }
         }
         defDice.appendChild(slotEl);
     });
@@ -700,10 +720,6 @@ export function setupDropZones() {
 }
 
 export function allocateDie(die, slot) {
-    if (GS.playerDebuffs && GS.playerDebuffs.slotDisabled === slot) {
-        log(`🔒 ${slot} slot is disabled!`, 'damage');
-        return;
-    }
     // Berserker's Mask: max 1 die in defend
     if (slot === 'defend' && GS.artifacts.some(a => a.effect === 'berserkersMask') && GS.allocated.defend.length >= 1) {
         log("😤 Berserker's Mask: only 1 die in defense!", 'damage');
@@ -712,9 +728,15 @@ export function allocateDie(die, slot) {
     if (GS.allocated[slot].length >= GS.slots[slot].length) return;
     GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== die.id);
     GS.allocated.defend = GS.allocated.defend.filter(d => d.id !== die.id);
+    const sealedIds = (GS.playerDebuffs?.disabledSlots || []).map(ds => ds.slotId);
     const occupiedIds = GS.allocated[slot].map(d => d.slotId);
-    const targetSlot = GS.slots[slot].find(s => !occupiedIds.includes(s.id));
-    if (!targetSlot) return;
+    const targetSlot = GS.slots[slot].find(s => !occupiedIds.includes(s.id) && !sealedIds.includes(s.id));
+    if (!targetSlot) {
+        if (sealedIds.some(id => GS.slots[slot].some(s => s.id === id))) {
+            log(`🔒 No open ${slot} slots — some are sealed!`, 'damage');
+        }
+        return;
+    }
     die.slotId = targetSlot.id;
     die.location = slot;
     GS.allocated[slot].push(die);

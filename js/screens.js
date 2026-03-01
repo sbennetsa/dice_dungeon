@@ -460,7 +460,7 @@ const Game = {
         };
 
         // Reset combat state (mirrors Combat.start)
-        GS.playerDebuffs = { poison: 0, poisonTurns: 0, slotDisabled: null, slotDisabledTurns: 0, diceReduction: 0 };
+        GS.playerDebuffs = { poison: 0, poisonTurns: 0, disabledSlots: [], diceReduction: 0 };
         GS.enemyStatus = { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: false };
         GS.echoStoneDieId = null;
         GS.gamblerCoinBonus = 0;
@@ -2676,6 +2676,7 @@ const Events = {
                         Events._chooseOwnedArtifact('Choose an artifact to sacrifice:', art => {
                             GS.artifacts = GS.artifacts.filter(a => a !== art);
                             if (art.effect === 'permArmor') GS.buffs.armor -= art.value;
+                            GS.pendingSkillPoints = (GS.pendingSkillPoints || 0) + 2;
                             log(`Sacrificed ${art.icon} ${art.name}! Gaining 2 skill points...`, 'info');
                             updateStats();
                             Rewards.slotChoice(() => {
@@ -3518,8 +3519,10 @@ const EncounterChoice = {
             const eliteHtml = this._buildElitePanel(enemy, eliteModifiers, isBossFloor);
             body.innerHTML = `
                 <div class="encounter-card-flipper">
-                    <span class="encounter-flip-label">View Elite</span>
-                    <button class="encounter-flip-btn" title="Flip to Elite / Standard">&#x21bb;</button>
+                    <div class="encounter-tab-strip">
+                        <button class="encounter-tab encounter-tab--standard active" data-side="standard">Standard</button>
+                        <button class="encounter-tab encounter-tab--elite" data-side="elite">Elite</button>
+                    </div>
                     <div class="encounter-card-flipper__inner">
                         <div class="encounter-card-flipper__face encounter-card-flipper__front">
                             ${standardHtml}
@@ -3531,22 +3534,21 @@ const EncounterChoice = {
                 </div>`;
 
             const flipper = body.querySelector('.encounter-card-flipper');
-            const flipBtn = body.querySelector('.encounter-flip-btn');
-            const flipLabel = body.querySelector('.encounter-flip-label');
-            flipBtn.addEventListener('click', () => {
-                const isFlipped = flipper.classList.toggle('flipped');
-                flipLabel.textContent = isFlipped ? 'View Standard' : 'View Elite';
+            const stdTab = body.querySelector('.encounter-tab--standard');
+            const eliteTab = body.querySelector('.encounter-tab--elite');
+            function setFlipState(showElite) {
+                flipper.classList.toggle('flipped', showElite);
+                stdTab.classList.toggle('active', !showElite);
+                eliteTab.classList.toggle('active', showElite);
 
                 // Match flipper height to the visible face
                 const inner = flipper.querySelector('.encounter-card-flipper__inner');
                 const front = flipper.querySelector('.encounter-card-flipper__front');
                 const back = flipper.querySelector('.encounter-card-flipper__back');
-                if (isFlipped) {
-                    inner.style.height = back.offsetHeight + 'px';
-                } else {
-                    inner.style.height = front.offsetHeight + 'px';
-                }
-            });
+                inner.style.height = (showElite ? back.offsetHeight : front.offsetHeight) + 'px';
+            }
+            stdTab.addEventListener('click', () => setFlipState(false));
+            eliteTab.addEventListener('click', () => setFlipState(true));
 
             // Set initial height to match front face
             requestAnimationFrame(() => {

@@ -636,7 +636,7 @@ export const Combat = {
             const defRune = getSlotById(d.slotId)?.rune;
             const isAmplified = defRune?.effect === 'amplifier';
             const ampMul = isAmplified ? 2 : 1;
-            let dieVal = d.value + (GS.passives.swarmMaster || 0) + defAscendBonus;
+            let dieVal = d.value + (GS.passives.swarmMaster || 0) + (d.dieType ? 0 : defAscendBonus);
             if (isAmplified) dieVal *= 2;
             if (defRune?.effect === 'titanBlow' && defCount === 1) dieVal *= 3;
             if (defRune?.effect === 'leaden') dieVal *= 2;
@@ -826,7 +826,7 @@ export const Combat = {
             // Splinter rune: die's value was distributed to others — skip own contribution
             if (atkRune?.effect === 'splinter') return;
 
-            let dieVal = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0) + atkAscendBonus + (splinterBonus[d.id] || 0);
+            let dieVal = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0) + (d.dieType ? 0 : atkAscendBonus) + (splinterBonus[d.id] || 0);
             if (isAmplified) dieVal *= 2;
             if (atkRune?.effect === 'titanBlow' && atkCount === 1) dieVal *= 3;
             if (d.id === furyBoostDieId) dieVal *= 2;

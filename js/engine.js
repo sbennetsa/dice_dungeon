@@ -567,8 +567,8 @@ export function makeDieElement(die, context) {
     const rangeLabel = isAmpDie ? `×${die.min / 100}-×${die.max / 100}` : `${die.min}-${die.max}`;
     let valueDisplay = die.rolled ? (face ? `<span title="${face.modifier.name}: ${face.modifier.desc}">${face.modifier.icon}</span>` : (isAmpDie ? `×${die.value / 100}` : die.value)) : '?';
 
-    // Ascend aura: show boosted value on rolled dice
-    const ascendBonus = (die.rolled && GS.ascendedDice && GS.ascendedDice.length > 0)
+    // Ascend aura: show boosted value on rolled dice (skip utility dice)
+    const ascendBonus = (die.rolled && !die.dieType && GS.ascendedDice && GS.ascendedDice.length > 0)
         ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
     let auraBadge = '';
     if (ascendBonus > 0) {

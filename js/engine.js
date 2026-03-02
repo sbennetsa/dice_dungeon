@@ -87,6 +87,7 @@ export function getActiveFace(die) {
 // ════════════════════════════════════════════════════════════
 export function renderFaceStrip(die, opts = {}) {
     const { highlightVal, showArrow, arrowMod } = opts;
+    const isAmp = die.dieType === 'amplifier';
     return die.faceValues.map((v, i) => {
         const hasMod = die.faceMod && die.faceMod.faceIndex === i;
         const mod = hasMod ? die.faceMod.mod : null;
@@ -95,10 +96,11 @@ export function renderFaceStrip(die, opts = {}) {
         const border = isHighlight ? 'var(--gold)' : mod ? mod.color + '66' : 'rgba(255,255,255,0.1)';
         const modIcon = mod ? `<div style="font-size:0.65em; margin-top:1px;">${mod.icon}</div>` : '';
         const arrow = isHighlight && showArrow && arrowMod ? `<div style="font-size:0.6em; color:var(--green-bright);">→${arrowMod.icon}</div>` : '';
+        const label = isAmp ? `×${v / 100}` : v;
         return `<div style="display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
             width:38px; height:44px; border-radius:6px; border:1.5px solid ${border}; background:${bg};
-            font-family:JetBrains Mono,monospace; font-weight:700; font-size:0.95em; margin:2px;">
-            ${v}${modIcon}${arrow}
+            font-family:JetBrains Mono,monospace; font-weight:700; font-size:${isAmp ? '0.8em' : '0.95em'}; margin:2px;">
+            ${label}${modIcon}${arrow}
         </div>`;
     }).join('');
 }
@@ -107,9 +109,10 @@ export function renderDieCard(die, index, opts = {}) {
     const { clickable = true, extraDesc = '' } = opts;
     const facesHtml = renderFaceStrip(die);
     const utLabel = die.dieType ? `<div style="font-size:0.7em; color:var(--gold); font-family:JetBrains Mono,monospace; margin-bottom:2px;">${die.icon || ''} ${die.name || die.dieType.toUpperCase()}</div>` : '';
+    const rangeText = die.dieType === 'amplifier' ? `×${die.min / 100}–×${die.max / 100}` : `d${die.faceValues.length}: ${die.min}–${die.max}`;
     return `
         ${utLabel}
-        <div class="card-title">d${die.faceValues.length}: ${die.min}–${die.max}</div>
+        <div class="card-title">${rangeText}</div>
         <div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center; margin:8px 0;">${facesHtml}</div>
         ${extraDesc ? `<div class="card-desc">${extraDesc}</div>` : ''}
     `;
@@ -540,8 +543,9 @@ export function makeDieElement(die, context) {
         el.title = `${die.faceMod.mod.icon} ${die.faceMod.mod.name}: ${die.faceMod.mod.desc}`;
     }
 
-    const rangeLabel = `${die.min}-${die.max}`;
-    let valueDisplay = die.rolled ? (face ? `<span title="${face.modifier.name}: ${face.modifier.desc}">${face.modifier.icon}</span>` : die.value) : '?';
+    const isAmpDie = die.dieType === 'amplifier';
+    const rangeLabel = isAmpDie ? `×${die.min / 100}-×${die.max / 100}` : `${die.min}-${die.max}`;
+    let valueDisplay = die.rolled ? (face ? `<span title="${face.modifier.name}: ${face.modifier.desc}">${face.modifier.icon}</span>` : (isAmpDie ? `×${die.value / 100}` : die.value)) : '?';
 
     // Ascend aura: show boosted value on rolled dice
     const ascendBonus = (die.rolled && GS.ascendedDice && GS.ascendedDice.length > 0)

@@ -591,11 +591,11 @@ export const Combat = {
         // Ascend aura: pre-compute per-die bonus (applied to each die so runes amplify it)
         const defAscendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
 
-        // Utility die pre-passes (guard): Amplifier Die slot multipliers, Gold Die slot totals
-        const defAmpDieMul = {}; // slotId → multiplier from Amplifier Die (dieType='amplifier')
+        // Utility die pre-passes (guard): Amplifier Die zone multiplier, Gold Die slot totals
+        let defAmpMul = 0; // zone-wide multiplier from Amplifier Die (highest wins)
         const defGoldSlotTotal = {}; // slotId → sum of non-gold, non-amplifier guard dice values
         GS.allocated.guard.forEach(d => {
-            if (d.dieType === 'amplifier') defAmpDieMul[d.slotId] = d.value / 100;
+            if (d.dieType === 'amplifier') defAmpMul = Math.max(defAmpMul, d.value / 100);
             else if (d.dieType !== 'gold') defGoldSlotTotal[d.slotId] = (defGoldSlotTotal[d.slotId] || 0) + d.value;
         });
 
@@ -611,8 +611,8 @@ export const Combat = {
             if (defRune?.effect === 'titanBlow' && defCount === 1) dieVal *= 3;
             if (defRune?.effect === 'leaden') dieVal *= 2;
             if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
-            // Amplifier Die in this slot boosts this die (if this die isn't the amplifier)
-            if (d.dieType !== 'amplifier' && defAmpDieMul[d.slotId]) dieVal = Math.floor(dieVal * defAmpDieMul[d.slotId]);
+            // Amplifier Die boosts all non-amplifier dice in the guard zone
+            if (d.dieType !== 'amplifier' && defAmpMul) dieVal = Math.floor(dieVal * defAmpMul);
 
             // Utility die types — handle effect and skip normal contribution
             if (d.dieType === 'amplifier') return; // contributes via multiplier pre-pass
@@ -746,11 +746,11 @@ export const Combat = {
             }
         });
 
-        // Utility die pre-passes (strike): Amplifier Die slot multipliers, Gold Die slot totals
-        const atkAmpDieMul = {}; // slotId → multiplier from Amplifier Die
+        // Utility die pre-passes (strike): Amplifier Die zone multiplier, Gold Die slot totals
+        let atkAmpMul = 0; // zone-wide multiplier from Amplifier Die (highest wins)
         const atkGoldSlotTotal = {}; // slotId → sum of non-gold, non-amplifier strike dice values
         GS.allocated.strike.forEach(d => {
-            if (d.dieType === 'amplifier') atkAmpDieMul[d.slotId] = d.value / 100;
+            if (d.dieType === 'amplifier') atkAmpMul = Math.max(atkAmpMul, d.value / 100);
             else if (d.dieType !== 'gold') atkGoldSlotTotal[d.slotId] = (atkGoldSlotTotal[d.slotId] || 0) + d.value;
         });
 
@@ -770,8 +770,8 @@ export const Combat = {
             if (atkRune?.effect === 'titanBlow' && atkCount === 1) dieVal *= 3;
             if (d.id === furyBoostDieId) dieVal *= 2;
             if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
-            // Amplifier Die in this slot boosts this die
-            if (d.dieType !== 'amplifier' && atkAmpDieMul[d.slotId]) dieVal = Math.floor(dieVal * atkAmpDieMul[d.slotId]);
+            // Amplifier Die boosts all non-amplifier dice in the strike zone
+            if (d.dieType !== 'amplifier' && atkAmpMul) dieVal = Math.floor(dieVal * atkAmpMul);
 
             // Utility die types — handle effect and skip normal contribution
             if (d.dieType === 'amplifier') return; // contributes via multiplier pre-pass

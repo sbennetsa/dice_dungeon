@@ -524,7 +524,7 @@ export const UTILITY_DICE = [
       desc: 'Applies mark equal to rolled value for 2 turns. All damage sources benefit.',
       faceValues: [2, 3, 4, 5, 6, 8] },
     { id: 'amplifier', name: 'Amplifier Die',  icon: '📡', zone: 'either', price: 100,
-      desc: 'Multiplies total output of all other dice in this slot. Useless alone.',
+      desc: 'Multiplies total output of all other dice in its zone. Useless alone.',
       faceValues: [150, 175, 200, 225, 250, 300] },  // values are percentages (150 = ×1.5)
     { id: 'drain',     name: 'Drain Die',      icon: '🩸', zone: 'strike', price: 75,
       desc: 'Deals damage equal to its value AND heals the same amount (lifesteal die).',

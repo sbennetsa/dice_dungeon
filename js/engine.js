@@ -552,6 +552,7 @@ export function makeDieElement(die, context) {
     el.className = 'die';
     el.dataset.dieId = die.id;
     if (!die.rolled) el.classList.add('unrolled');
+    if (die.dieType) el.classList.add(`die-type-${die.dieType}`);
 
     const face = getActiveFace(die);
     if (face) {
@@ -567,16 +568,28 @@ export function makeDieElement(die, context) {
     const rangeLabel = isAmpDie ? `×${die.min / 100}-×${die.max / 100}` : `${die.min}-${die.max}`;
     let valueDisplay = die.rolled ? (face ? `<span title="${face.modifier.name}: ${face.modifier.desc}">${face.modifier.icon}</span>` : (isAmpDie ? `×${die.value / 100}` : die.value)) : '?';
 
-    // Ascend aura: show boosted value on rolled dice (skip utility dice)
-    const ascendBonus = (die.rolled && !die.dieType && GS.ascendedDice && GS.ascendedDice.length > 0)
-        ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
-    let auraBadge = '';
-    if (ascendBonus > 0) {
-        if (!face) {
-            valueDisplay = die.value + ascendBonus;
+    // Per-die bonuses: ascend aura + volley (skip utility dice)
+    let ascendBonus = 0, volleyBonus = 0;
+    if (die.rolled && !die.dieType) {
+        if (GS.ascendedDice && GS.ascendedDice.length > 0)
+            ascendBonus = GS.ascendedDice.reduce((s, a) => s + a.bonus, 0);
+        if (GS.passives.volley && die.slotId) {
+            const zone = die.slotId.startsWith('str') ? GS.allocated.strike : GS.allocated.guard;
+            if (zone.length >= 4) volleyBonus = GS.passives.volley;
         }
-        auraBadge = `<span class="die-aura-badge">+${ascendBonus}</span>`;
+    }
+    const totalBonus = ascendBonus + volleyBonus;
+    let badges = '';
+    if (totalBonus > 0 && !face) {
+        valueDisplay = die.value + totalBonus;
+    }
+    if (ascendBonus > 0) {
+        badges += `<span class="die-aura-badge">+${ascendBonus}</span>`;
         el.classList.add('aura-boosted');
+    }
+    if (volleyBonus > 0) {
+        badges += `<span class="die-volley-badge">+${volleyBonus}</span>`;
+        el.classList.add('volley-boosted');
     }
 
     let faceIcon = '';
@@ -586,7 +599,7 @@ export function makeDieElement(die, context) {
         faceIcon = `<span class="die-face-icon" style="opacity:${die.rolled ? '0.4' : '1'}" title="${titles}">${icons}</span>`;
     }
 
-    el.innerHTML = `<span class="die-label">${rangeLabel}</span>${valueDisplay}${faceIcon}${auraBadge}`;
+    el.innerHTML = `<span class="die-label">${rangeLabel}</span>${valueDisplay}${faceIcon}${badges}`;
     el.oncontextmenu = e => e.preventDefault();
 
     const tryReroll = () => {
@@ -829,26 +842,69 @@ export function updateSlotTotals() {
         return !m || !['frostbite','searing','marked','freezeStrike','jackpot','shieldBash','poisonBurst'].includes(m.effect);
     }).length;
 
+    // Helper: compute a single die's contribution and tooltip
+    function dieContribution(d, zoneAllocated, zoneAscend) {
+        if (d.dieType) return { val: 0, tip: '', skip: true }; // utility dice don't contribute to zone total
+        const rune = getSlotById(d.slotId)?.rune;
+        const nonUtil = zoneAllocated.filter(x => !x.dieType).length;
+        const zoneCount = zoneAllocated.length;
+        let val = d.value;
+        const parts = [`roll: ${d.value}`];
+        const pt = GS.passives.packTactics || 0;
+        const sw = GS.passives.swarmMaster || 0;
+        const vy = (GS.passives.volley && zoneCount >= 4) ? GS.passives.volley : 0;
+        if (pt) { val += pt; parts.push(`packTactics: +${pt}`); }
+        if (sw) { val += sw; parts.push(`swarmMaster: +${sw}`); }
+        if (vy) { val += vy; parts.push(`volley: +${vy}`); }
+        if (zoneAscend) { val += zoneAscend; parts.push(`ascend: +${zoneAscend}`); }
+        if (rune?.effect === 'amplifier') { val *= 2; parts.push('amplifier rune: ×2'); }
+        if (rune?.effect === 'titanBlow' && nonUtil === 1) { val *= 3; parts.push('titan blow: ×3'); }
+        if (rune?.effect === 'leaden') { val *= 2; parts.push('leaden: ×2'); }
+        if (hasEcho && echoId !== null && d.id === echoId) { val += d.value; parts.push(`echo: +${d.value}`); }
+        const m = getActiveFace(d)?.modifier;
+        if (m?.effect === 'executioner') { val *= 5; parts.push('executioner: ×5'); }
+        else if (m?.effect === 'vampiricStrike') { val *= 3; parts.push('vampiric: ×3'); }
+        else if (m?.effect === 'chainLightning') { val *= 2; parts.push('chain: ×2'); }
+        const utilFx = new Set(['frostbite','searing','marked','freezeStrike','jackpot','poisonBurst','shieldBash','critical']);
+        const isUtil = m && utilFx.has(m.effect);
+        if (isUtil) { parts.push(`${m.effect}: status only`); val = 0; }
+        return { val, tip: parts.join(' | '), skip: false };
+    }
+
     // ── STRIKE TOTAL ──
     let atkTotal = 0, atkMultiplier = 1, atkBonus = 0;
     const atkCount = GS.allocated.strike.length;
-    const nonUtilAtk = nonUtilCount(GS.allocated.strike);
+    const atkTipLines = [];
+
+    // Amplifier zone multiplier (preview)
+    let atkAmpMul = 0;
+    GS.allocated.strike.forEach(d => { if (d.dieType === 'amplifier') atkAmpMul = Math.max(atkAmpMul, d.value / 100); });
 
     GS.allocated.strike.forEach(d => {
-        const rune = getSlotById(d.slotId)?.rune;
-        let dieVal = d.value + (GS.passives.packTactics || 0) + (GS.passives.swarmMaster || 0) + ascendBonus;
-        if (rune?.effect === 'amplifier') dieVal *= 2;
-        if (rune?.effect === 'titanBlow' && nonUtilAtk === 1) dieVal *= 3;
-        if (rune?.effect === 'splinter') { /* splinter spreads value to others — preview only shows raw */ }
-        if (hasEcho && echoId !== null && d.id === echoId) dieVal += d.value;
-        const m = getActiveFace(d)?.modifier;
-        if (m?.effect === 'executioner') dieVal *= 5;
-        else if (m?.effect === 'vampiricStrike') dieVal *= 3;
-        else if (m?.effect === 'chainLightning') dieVal *= 2;
-        // utility/status face mods don't contribute own value to slot
-        const utilEffects = new Set(['frostbite','searing','marked','freezeStrike','jackpot','poisonBurst','shieldBash']);
-        if (!m || !utilEffects.has(m.effect)) atkTotal += dieVal;
+        if (d.dieType === 'amplifier') {
+            atkTipLines.push(`amplifier: ×${d.value / 100} zone`);
+            return;
+        }
+        if (d.dieType) return; // other utility dice: handled by calcUtilityPreviews
+        const c = dieContribution(d, GS.allocated.strike, ascendBonus);
+        let val = c.val;
+        if (atkAmpMul && val > 0) { val = Math.floor(val * atkAmpMul); }
+        atkTotal += val;
+        if (!c.skip) atkTipLines.push(`die[${d.value}] → ${val}` + (atkAmpMul ? ` (×${atkAmpMul} amp)` : ''));
+        // Set tooltip on the die element
+        const el = document.querySelector(`.die[data-die-id="${d.id}"]`);
+        if (el && d.rolled) el.title = c.tip + (atkAmpMul ? ` | amp zone: ×${atkAmpMul}` : '') + ` = ${val}`;
     });
+
+    if (GS.passives.threshold) {
+        GS.allocated.strike.forEach(d => {
+            if (!d.dieType && d.value >= 8) {
+                const t = Math.floor(d.value * 0.5);
+                atkTotal += t;
+                atkTipLines.push(`threshold[${d.value}]: +${t}`);
+            }
+        });
+    }
 
     atkBonus += GS.buffs.damageBoost;
     const goldScalePreview = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
@@ -857,9 +913,6 @@ export function updateSlotTotals() {
     atkBonus += GS.artifacts.filter(a => a.effect === 'hydrasCrest').reduce((s, a) => s + a.value * GS.dice.length, 0);
     atkBonus += GS.enemyStatus?.mark || 0;
     atkBonus += GS.artifacts.filter(a => a.effect === 'festeringWound').reduce((s, a) => s + a.value * (GS.enemy?.poison || 0), 0);
-    if (GS.passives.threshold) {
-        GS.allocated.strike.forEach(d => { if (d.value >= 8) atkTotal += Math.floor(d.value * 0.5); });
-    }
     if (GS.artifacts.some(a => a.effect === 'berserkersMask')) atkMultiplier *= 1.5;
     if (GS.artifacts.some(a => a.effect === 'bloodPact')) atkMultiplier *= 1.3;
     if (atkCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) atkMultiplier *= 1.5;
@@ -867,7 +920,13 @@ export function updateSlotTotals() {
 
     let finalAtk = Math.floor(atkTotal * atkMultiplier) + atkBonus;
     if (GS.artifacts.some(a => a.effect === 'sharpeningStone')) finalAtk = Math.ceil(finalAtk * 1.5);
+
+    if (atkMultiplier > 1) atkTipLines.push(`multiplier: ×${atkMultiplier.toFixed(2).replace(/\.?0+$/, '')}`);
+    if (atkBonus > 0) atkTipLines.push(`bonus: +${atkBonus}`);
+    atkTipLines.push(`total: ${finalAtk}`);
+
     $('attack-total').textContent = finalAtk;
+    $('attack-total').title = atkTipLines.join('\n');
     const { gold: atkGold, poison: atkPoison, chill: atkChill, burn: atkBurn, mark: atkMark } = calcUtilityPreviews(GS.allocated.strike);
     $('attack-gold').textContent   = atkGold   > 0 ? `💰${atkGold}g`  : '';
     $('attack-poison').textContent = atkPoison > 0 ? `☠️${atkPoison}p` : '';
@@ -876,6 +935,7 @@ export function updateSlotTotals() {
     $('attack-mark').textContent   = atkMark   > 0 ? `🎯${atkMark}`    : '';
 
     let atkSummary = '';
+    if (atkAmpMul > 0) atkSummary += `×${atkAmpMul} amp `;
     if (atkMultiplier > 1) atkSummary += `×${atkMultiplier.toFixed(1).replace('.0','')} `;
     if (atkBonus > 0) atkSummary += `+${atkBonus} bonus `;
     $('attack-summary').textContent = atkSummary;
@@ -883,35 +943,56 @@ export function updateSlotTotals() {
     // ── GUARD TOTAL ──
     let defTotal = 0, defMultiplier = 1, defBonus = 0;
     const defCount = GS.allocated.guard.length;
-    const nonUtilDef = nonUtilCount(GS.allocated.guard);
+    const defTipLines = [];
+
+    // Amplifier zone multiplier (preview)
+    let defAmpMul = 0;
+    GS.allocated.guard.forEach(d => { if (d.dieType === 'amplifier') defAmpMul = Math.max(defAmpMul, d.value / 100); });
 
     GS.allocated.guard.forEach(d => {
-        const rune = getSlotById(d.slotId)?.rune;
-        let dieVal = d.value + (GS.passives.swarmMaster || 0) + ascendBonus;
-        if (rune?.effect === 'amplifier') dieVal *= 2;
-        if (rune?.effect === 'titanBlow' && nonUtilDef === 1) dieVal *= 3;
-        if (rune?.effect === 'leaden') dieVal *= 2;
-        if (hasEcho && echoId !== null && d.id === echoId) dieVal += d.value;
-        const m = getActiveFace(d)?.modifier;
-        const utilEffects = new Set(['frostbite','searing','marked','shieldBash']);
-        if (!m || !utilEffects.has(m.effect)) defTotal += dieVal;
+        if (d.dieType === 'amplifier') {
+            defTipLines.push(`amplifier: ×${d.value / 100} zone`);
+            return;
+        }
+        if (d.dieType) return;
+        const c = dieContribution(d, GS.allocated.guard, ascendBonus);
+        let val = c.val;
+        if (defAmpMul && val > 0) { val = Math.floor(val * defAmpMul); }
+        defTotal += val;
+        if (!c.skip) defTipLines.push(`die[${d.value}] → ${val}` + (defAmpMul ? ` (×${defAmpMul} amp)` : ''));
+        const el = document.querySelector(`.die[data-die-id="${d.id}"]`);
+        if (el && d.rolled) el.title = c.tip + (defAmpMul ? ` | amp zone: ×${defAmpMul}` : '') + ` = ${val}`;
     });
+
+    if (GS.passives.threshold) {
+        GS.allocated.guard.forEach(d => {
+            if (!d.dieType && d.value >= 8) {
+                const t = Math.floor(d.value * 0.5);
+                defTotal += t;
+                defTipLines.push(`threshold[${d.value}]: +${t}`);
+            }
+        });
+    }
 
     defBonus += GS.buffs.armor;
     defBonus += GS.artifacts.filter(a => a.effect === 'goldenAegis').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
-    if (GS.passives.threshold) {
-        GS.allocated.guard.forEach(d => { if (d.value >= 8) defTotal += Math.floor(d.value * 0.5); });
-    }
     if (defCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) defMultiplier *= 1.5;
     defMultiplier *= (GS.transformBuffs?.fortified || 1);
 
     const finalDef = Math.floor(defTotal * defMultiplier) + defBonus;
+
+    if (defMultiplier > 1) defTipLines.push(`multiplier: ×${defMultiplier.toFixed(2).replace(/\.?0+$/, '')}`);
+    if (defBonus > 0) defTipLines.push(`bonus: +${defBonus}`);
+    defTipLines.push(`total: ${finalDef}`);
+
     $('defend-total').textContent = finalDef;
+    $('defend-total').title = defTipLines.join('\n');
     const { gold: defGold, chill: defChill } = calcUtilityPreviews(GS.allocated.guard);
     $('defend-gold').textContent  = defGold  > 0 ? `💰${defGold}g` : '';
     $('defend-chill').textContent = defChill > 0 ? `❄️${defChill}` : '';
 
     let defSummary = '';
+    if (defAmpMul > 0) defSummary += `×${defAmpMul} amp `;
     if (defMultiplier > 1) defSummary += `×${defMultiplier.toFixed(1).replace('.0','')} `;
     if (defBonus > 0) defSummary += `+${defBonus} armor `;
     $('defend-summary').textContent = defSummary;

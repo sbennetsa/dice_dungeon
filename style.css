@@ -493,6 +493,23 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     color: #ffe070;
     text-shadow: 0 0 4px rgba(255, 200, 0, 0.6);
 }
+.die.volley-boosted {
+    border-color: rgba(80, 200, 80, 0.4);
+    box-shadow: 0 0 10px rgba(80, 200, 80, 0.15);
+}
+.die.aura-boosted.volley-boosted {
+    border-color: rgba(180, 210, 60, 0.4);
+    box-shadow: 0 0 10px rgba(255, 200, 0, 0.15), 0 0 8px rgba(80, 200, 80, 0.15);
+}
+.die .die-volley-badge {
+    position: absolute;
+    bottom: 2px;
+    left: 3px;
+    font-size: 0.35em;
+    font-weight: 700;
+    color: #70e070;
+    text-shadow: 0 0 4px rgba(80, 200, 80, 0.6);
+}
 
 .die.special {
     border-color: var(--gold);
@@ -524,6 +541,48 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 .die.reroll-selectable:hover {
     box-shadow: 0 0 22px rgba(212, 165, 52, 0.85) !important;
     transform: translateY(-3px) scale(1.06) !important;
+}
+
+/* ── Utility / skill die type colours ─────────────────────────── */
+.die.die-type-gold {
+    border-color: var(--gold);
+    background: rgba(212, 165, 52, 0.10);
+    color: var(--gold);
+}
+.die.die-type-poison {
+    border-color: var(--green-bright);
+    background: rgba(96, 208, 128, 0.10);
+    color: var(--green-bright);
+}
+.die.die-type-chill {
+    border-color: var(--blue-bright);
+    background: rgba(96, 128, 224, 0.10);
+    color: var(--blue-bright);
+}
+.die.die-type-burn {
+    border-color: var(--red-bright);
+    background: rgba(255, 96, 96, 0.10);
+    color: var(--red-bright);
+}
+.die.die-type-mark {
+    border-color: var(--purple);
+    background: rgba(128, 64, 192, 0.10);
+    color: var(--purple);
+}
+.die.die-type-shield {
+    border-color: #60c0d0;
+    background: rgba(96, 192, 208, 0.10);
+    color: #60c0d0;
+}
+.die.die-type-amplifier {
+    border-color: #60e0ff;
+    background: rgba(96, 224, 255, 0.08);
+    color: #60e0ff;
+}
+.die.die-type-mimic {
+    border-color: #b0b0d0;
+    background: rgba(176, 176, 208, 0.08);
+    color: #b0b0d0;
 }
 
 /* Reroll button variant */

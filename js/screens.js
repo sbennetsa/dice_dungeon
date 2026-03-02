@@ -2162,6 +2162,7 @@ const Events = {
             () => Events._wanderingMerchant(),
             () => Events._cursedShrine(),
             () => Events._trappedChest(),
+            () => Events._trainingGrounds(),
         ],
         2: [
             () => Events._alchemistsLab(),
@@ -2180,6 +2181,7 @@ const Events = {
         wanderingMerchant: () => Events._wanderingMerchant(),
         cursedShrine:      () => Events._cursedShrine(),
         trappedChest:      () => Events._trappedChest(),
+        trainingGrounds:   () => Events._trainingGrounds(),
         alchemistsLab:     () => Events._alchemistsLab(),
         gamblingDen:       () => Events._gamblingDen(),
         forgottenForge:    () => Events._forgottenForge(),
@@ -2525,6 +2527,51 @@ const Events = {
                         upgradeDie(die);
                         log(`Smashed the chest! ${die.min}-${die.max} die upgraded!`, 'info');
                         updateStats(); Game.nextFloor();
+                    }
+                },
+            ]
+        );
+    },
+
+    _trainingGrounds() {
+        Events._render(
+            'Training Grounds',
+            'An old training yard carved into the dungeon rock. Straw dummies and sparring marks line the floor...',
+            [
+                {
+                    text: 'Light training — gain 20 XP (safe)',
+                    action: () => {
+                        gainXP(20);
+                        Events._showOutcome('Light Training', [
+                            '<span style="color:var(--gold);">+20 XP</span>',
+                            'A quick warm-up sharpens your instincts.'
+                        ], () => { updateStats(); Game.nextFloor(); });
+                    }
+                },
+                {
+                    text: GS.hp > 10 ? 'Intense drill (-10 HP) — gain 35 XP' : 'Intense drill (-10 HP) — Too low HP',
+                    disabled: GS.hp <= 10,
+                    action: () => {
+                        GS.hp -= 10;
+                        gainXP(35);
+                        Events._showOutcome('Intense Drill', [
+                            '<span style="color:var(--red-bright);">-10 HP</span>',
+                            '<span style="color:var(--gold);">+35 XP</span>',
+                            'Bruised but battle-ready.'
+                        ], () => { updateStats(); Game.nextFloor(); });
+                    }
+                },
+                {
+                    text: 'Trial by fire — 50/50: gain 50 XP or 10 XP',
+                    action: () => {
+                        const success = Math.random() < 0.5;
+                        const xp = success ? 50 : 10;
+                        gainXP(xp);
+                        Events._showOutcome('Trial by Fire', [
+                            success
+                                ? '<span style="color:var(--gold);">+50 XP!</span><br>You dominated the trial.'
+                                : '<span style="color:var(--text-dim);">+10 XP</span><br>The trial got the better of you.'
+                        ], () => { updateStats(); Game.nextFloor(); });
                     }
                 },
             ]
@@ -3597,6 +3644,7 @@ const DungeonPath = {
         });
         GS.blueprint = bp;
         DungeonMap.render('dungeon-path-seed', 'dungeon-path-content', { showAll: true, difficulty: s.difficulty });
+        DungeonPath._renderSettings();
     },
 
     toggleSettings() {
@@ -3806,8 +3854,12 @@ const EncounterChoice = {
             // Heroic: apply elite immediately, show only elite panel, no tab strip
             applyEliteChoice(encounter.enemy, encounter.eliteModifiers, encounter.floor);
             encounter.isElite = true;
-            body.innerHTML = this._buildElitePanel(enemy, eliteModifiers, isBossFloor, floor)
-                + `<button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="Combat.start()">Fight</button>`;
+            body.innerHTML = this._buildElitePanel(enemy, eliteModifiers, isBossFloor, floor);
+            const footerBtn = body.querySelector('.encounter-card__footer .btn');
+            if (footerBtn) {
+                footerBtn.textContent = 'Fight';
+                footerBtn.onclick = () => Combat.start();
+            }
         } else if (diff === 'casual' || !eliteOffered) {
             // Casual or no elite offered: standard panel only
             body.innerHTML = this._buildStandardPanel(enemy, isBossFloor);

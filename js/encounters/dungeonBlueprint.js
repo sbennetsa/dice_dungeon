@@ -71,7 +71,7 @@ const FLOOR_SCHEDULES = [
 
 // Event pools by act (event function names as IDs)
 const EVENT_POOLS = {
-    1: ['wanderingMerchant', 'cursedShrine', 'trappedChest'],
+    1: ['wanderingMerchant', 'cursedShrine', 'trappedChest', 'trainingGrounds'],
     2: ['alchemistsLab', 'gamblingDen', 'forgottenForge'],
     3: ['bloodAltar', 'oracle', 'merchantPrince'],
 };

@@ -107,8 +107,8 @@ export const EVENT_ADVANTAGES = {
     merchantPrince:    15,
 };
 
-export const SHOP_ADVANTAGE        = 8;
-export const DOUBLE_SHOP_ADVANTAGE = 12;
+export const SHOP_ADVANTAGES        = [4, 8, 12];   // per act (0-based): Act1=4, Act2=8, Act3=12
+export const DOUBLE_SHOP_ADVANTAGES = [6, 12, 18];
 export const REST_ADVANTAGES       = [15, 18]; // post-act-1, post-act-2
 
 export const REWARD_ADVANTAGES = {
@@ -297,8 +297,10 @@ export function scorePlayerAdvantage(floor) {
     switch (floor.type) {
         case 'event':
             return EVENT_ADVANTAGES[floor.eventId] || 5;
-        case 'shop':
-            return SHOP_ADVANTAGE;
+        case 'shop': {
+            const actIndex = Math.min(Math.ceil(floor.floor / 5) - 1, 2);
+            return SHOP_ADVANTAGES[actIndex];
+        }
         case 'rest':
             return REST_ADVANTAGES[floor.restIndex] || 15;
         default:

@@ -173,14 +173,17 @@ function selectEliteModifiersSeeded(isBoss, rng) {
  * Roll for anomaly using seeded RNG.
  * @param {number} floor
  * @param {object} rng
+ * @param {string} [anomalyRate] - 'normal' | 'high' | 'none'
  * @returns {object|null}
  */
-function rollForAnomalySeeded(floor, rng) {
+function rollForAnomalySeeded(floor, rng, anomalyRate = 'normal') {
+    if (anomalyRate === 'none') { rng.random(); return null; } // consume RNG call for seed stability
     const actBonus = Math.ceil(floor / 5) * 0.01;
+    const mult     = anomalyRate === 'high' ? 2 : 1;
 
     for (const anomaly of Object.values(ANOMALIES)) {
-        if (rng.random() < anomaly.chance + actBonus) {
-            return { id: anomaly.id, name: anomaly.name, rewardMult: anomaly.rewardMult };
+        if (rng.random() < (anomaly.chance + actBonus) * mult) {
+            return { id: anomaly.id, name: anomaly.name, desc: anomaly.desc, rewardMult: anomaly.rewardMult };
         }
     }
     return null;
@@ -212,9 +215,11 @@ function applyHPScaling(enemy, floor) {
  * @param {number} act
  * @param {boolean} isBoss
  * @param {object} rng
+ * @param {object} [options]
+ * @param {string} [options.anomalyRate] - 'normal' | 'high' | 'none'
  * @returns {object} Floor blueprint
  */
-function generateCombatFloor(floor, act, isBoss, rng) {
+function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
     // 1. Select enemy
     const enemy = isBoss ? pickBoss(floor) : pickEnemySeeded(floor, act, rng);
 
@@ -222,7 +227,7 @@ function generateCombatFloor(floor, act, isBoss, rng) {
     applyHPScaling(enemy, floor);
 
     // 3. Roll for anomaly
-    const anomaly = rollForAnomalySeeded(floor, rng);
+    const anomaly = rollForAnomalySeeded(floor, rng, options.anomalyRate);
 
     // 4. Select environment (contextual with enemy)
     const environment = selectEnvironmentSeeded(floor, act, enemy, rng);
@@ -255,11 +260,16 @@ function generateCombatFloor(floor, act, isBoss, rng) {
  * @param {number} actNum - 1, 2, or 3
  * @param {number} baseFloor - First floor in this act (1, 6, or 11)
  * @param {object} rng
+ * @param {object} [options]
+ * @param {number|null} [options.forcedScheduleIndex] - Override random schedule selection
+ * @param {string} [options.anomalyRate]
  * @returns {object} Act blueprint
  */
-function generateAct(actNum, baseFloor, rng) {
-    // Pick floor schedule
-    const schedule = rng.pick(FLOOR_SCHEDULES);
+function generateAct(actNum, baseFloor, rng, options = {}) {
+    // Pick floor schedule — use forced index if provided, else random
+    const schedule = options.forcedScheduleIndex != null
+        ? FLOOR_SCHEDULES[options.forcedScheduleIndex]
+        : rng.pick(FLOOR_SCHEDULES);
     const floors = [];
 
     for (let i = 0; i < schedule.length; i++) {
@@ -267,9 +277,9 @@ function generateAct(actNum, baseFloor, rng) {
         const type = schedule[i];
 
         if (type === 'boss') {
-            floors.push(generateCombatFloor(absoluteFloor, actNum, true, rng));
+            floors.push(generateCombatFloor(absoluteFloor, actNum, true, rng, options));
         } else if (type === 'combat') {
-            floors.push(generateCombatFloor(absoluteFloor, actNum, false, rng));
+            floors.push(generateCombatFloor(absoluteFloor, actNum, false, rng, options));
         } else if (type === 'event') {
             const pool = EVENT_POOLS[actNum] || EVENT_POOLS[1];
             const eventId = rng.pick(pool);
@@ -290,17 +300,20 @@ function generateAct(actNum, baseFloor, rng) {
  * Generate a complete dungeon blueprint for a full run.
  * All 15 floors (3 acts × 5 floors) are pre-determined.
  * @param {object} [options]
- * @param {number} [options.seed] - RNG seed (random if omitted)
+ * @param {number}        [options.seed]      - RNG seed (random if omitted)
+ * @param {Array<number|null>} [options.schedules] - Per-act forced schedule indices [act1, act2, act3]; null = random
+ * @param {string}        [options.anomalyRate] - 'normal' | 'high' | 'none'
  * @returns {object} Complete dungeon blueprint
  */
 export function generateDungeonBlueprint(options = {}) {
-    const seed = options.seed ?? (Date.now() ^ (Math.random() * 0xFFFFFFFF));
-    const rng  = createRNG(seed);
+    const seed      = options.seed ?? (Date.now() ^ (Math.random() * 0xFFFFFFFF));
+    const schedules = options.schedules || [null, null, null];
+    const rng       = createRNG(seed);
 
     const acts = [
-        generateAct(1, 1,  rng),
-        generateAct(2, 6,  rng),
-        generateAct(3, 11, rng),
+        generateAct(1, 1,  rng, { forcedScheduleIndex: schedules[0], anomalyRate: options.anomalyRate }),
+        generateAct(2, 6,  rng, { forcedScheduleIndex: schedules[1], anomalyRate: options.anomalyRate }),
+        generateAct(3, 11, rng, { forcedScheduleIndex: schedules[2], anomalyRate: options.anomalyRate }),
     ];
 
     const blueprint = { seed, acts };

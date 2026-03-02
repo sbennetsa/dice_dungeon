@@ -280,9 +280,9 @@ export const Combat = {
         const env = GS.environment;
         if (!env) { bar.style.display = 'none'; bar.innerHTML = ''; return; }
         bar.style.display = 'block';
-        bar.innerHTML = `<div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,200,80,0.25); border-radius:6px; padding:5px 10px; font-size:0.8em; display:flex; align-items:baseline; gap:6px;">
-            <span style="color:var(--gold); white-space:nowrap;">${env.icon} ${env.name}</span>
-            <span style="color:var(--text-dim);">· ${env.desc}</span>
+        bar.innerHTML = `<div style="background:rgba(212,165,52,0.08); border:1px solid rgba(212,165,52,0.4); border-radius:6px; padding:6px 12px; font-size:0.82em; display:flex; align-items:center; gap:8px;">
+            <span style="color:var(--gold); font-weight:600; white-space:nowrap; letter-spacing:0.03em;">${env.icon} ${env.name}</span>
+            <span style="color:var(--text-bright); opacity:0.85;">— ${env.desc}</span>
         </div>`;
     },
 
@@ -347,9 +347,13 @@ export const Combat = {
             `;
         } else {
             const pct = Math.max(0, (e.currentHp / e.hp) * 100);
+            const anomaly = GS.encounter?.anomaly;
+            const anomalyTag = anomaly
+                ? `<span title="${anomaly.desc || ''}" style="margin-left:8px;background:#663300;color:#ffaa44;border-radius:4px;padding:1px 6px;font-size:0.7em;cursor:help;">⚠️ ${anomaly.name}</span>`
+                : '';
             $('enemy-panel').innerHTML = `
                 <div class="${nameCls}">${e.name}${statusIndicators}</div>
-                <div class="enemy-subtitle">${e.isBoss ? '👑 BOSS' : e.isElite ? '⚡ ELITE' : 'Enemy'} — Floor ${GS.floor}, Act ${GS.act}</div>
+                <div class="enemy-subtitle">${e.isBoss ? '👑 BOSS' : e.isElite ? '⚡ ELITE' : 'Enemy'} — Floor ${GS.floor}, Act ${GS.act}${anomalyTag}</div>
                 ${diceHtml}
                 <div class="enemy-hp-bar"><div class="enemy-hp-fill" style="width:${pct}%"></div></div>
                 <div class="enemy-hp-text">${e.currentHp} / ${e.hp}</div>

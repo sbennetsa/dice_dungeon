@@ -9,7 +9,7 @@ import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } from './encounters/encounterGenerator.js';
 import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
-import { scoreFloorDetailed, scorePlayerAdvantage, SHOP_ADVANTAGE, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
+import { scoreFloorDetailed, scorePlayerAdvantage, SHOP_ADVANTAGES, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
 
 // ════════════════════════════════════════════════════════════
 //  HELPERS
@@ -229,6 +229,7 @@ const Game = {
             _firstAttacker: null,
             blueprint: null,
             seed: null,
+            runDifficulty: 'standard',
         });
 
         // Generate dungeon blueprint (all 15 floors pre-determined)
@@ -3437,7 +3438,8 @@ const DungeonMap = {
             return;
         }
 
-        const showAll = options.showAll || false;
+        const showAll    = options.showAll || false;
+        const difficulty = options.difficulty || GS.runDifficulty || 'standard';
         const s = bp.scoring;
         const seedHex = DungeonMap.formatSeed(bp.seed);
         const copyId = `map-seed-copyable-${seedContainerId}`;
@@ -3499,11 +3501,14 @@ const DungeonMap = {
 
                     // Threat breakdown
                     const det = scoreFloorDetailed(floor);
+                    const showElite = difficulty === 'heroic' || (difficulty === 'standard' && floor.eliteOffered);
+                    const totalForDisplay = showElite ? det.totalThreat : det.baseThreat;
                     let parts = [`Enemy ${det.enemyThreat}`];
                     if (det.envThreat !== 0) parts.push(`Env ${det.envThreat > 0 ? '+' : ''}${det.envThreat}`);
                     if (det.anomalyThreat !== 0) parts.push(`Anomaly ${det.anomalyThreat > 0 ? '+' : ''}${det.anomalyThreat}`);
+                    if (showElite && det.eliteThreat > 0) parts.push(`Elite +${det.eliteThreat}`);
                     scoreHtml = `<div class="map-node-threat">
-                        <span class="map-threat-total">\u26A0 ${det.baseThreat}</span>
+                        <span class="map-threat-total">\u26A0 ${totalForDisplay}</span>
                         <div class="map-threat-breakdown">${parts.join(' \u00B7 ')}</div>
                     </div>`;
 
@@ -3514,7 +3519,8 @@ const DungeonMap = {
 
                 } else if (floor.type === 'shop') {
                     infoHtml = `<div class="map-node-detail">Shop</div>`;
-                    scoreHtml = `<div class="map-node-advantage"><span class="map-advantage-value">\u2726 +${SHOP_ADVANTAGE}</span></div>`;
+                    const shopAdv = SHOP_ADVANTAGES[Math.min(Math.ceil(floor.floor / 5) - 1, 2)];
+                    scoreHtml = `<div class="map-node-advantage"><span class="map-advantage-value">\u2726 +${shopAdv}</span></div>`;
                 }
 
                 html += `<div class="map-node map-node--${state} map-node--${floor.type}">
@@ -3573,13 +3579,95 @@ const DungeonMap = {
 // ════════════════════════════════════════════════════════════
 //  DUNGEON PATH SCREEN
 // ════════════════════════════════════════════════════════════
+
+const SCHEDULE_NAMES = ['Standard', 'Front-loaded', 'Event-heavy', 'Double shop', 'Gauntlet'];
+
 const DungeonPath = {
+    _settings: { schedules: [null, null, null], difficulty: 'standard', anomalyRate: 'normal' },
+    _open: false,
+
     show() {
-        DungeonMap.render('dungeon-path-seed', 'dungeon-path-content', { showAll: true });
+        DungeonPath._settings = { schedules: [null, null, null], difficulty: 'standard', anomalyRate: 'normal' };
+        DungeonPath._open = false;
+        GS.runDifficulty = 'standard';
+        DungeonPath._renderSettings();
+        DungeonMap.render('dungeon-path-seed', 'dungeon-path-content', { showAll: true, difficulty: 'standard' });
         show('screen-dungeon-path');
     },
+
     proceed() {
         Game.enterFloor();
+    },
+
+    regenerate() {
+        const s = DungeonPath._settings;
+        GS.runDifficulty = s.difficulty;
+        const bp = generateDungeonBlueprint({
+            seed:        GS.seed,
+            schedules:   s.schedules,
+            anomalyRate: s.anomalyRate,
+        });
+        GS.blueprint = bp;
+        DungeonMap.render('dungeon-path-seed', 'dungeon-path-content', { showAll: true, difficulty: s.difficulty });
+    },
+
+    toggleSettings() {
+        DungeonPath._open = !DungeonPath._open;
+        const body = $('run-settings-body');
+        if (body) body.classList.toggle('open', DungeonPath._open);
+        const btn = $('run-settings-toggle');
+        if (btn) btn.textContent = (DungeonPath._open ? '\u25BC' : '\u25BA') + ' Run Settings';
+    },
+
+    setSchedule(actIndex, value) {
+        DungeonPath._settings.schedules[actIndex] = value === '' ? null : parseInt(value);
+        DungeonPath.regenerate();
+    },
+
+    setModifier(key, value) {
+        DungeonPath._settings[key] = value;
+        DungeonPath.regenerate();
+    },
+
+    _renderSettings() {
+        const el = $('dungeon-path-settings');
+        if (!el) return;
+        const s = DungeonPath._settings;
+
+        const scheduleSelects = [0, 1, 2].map(i => `
+            <div class="run-schedule-col">
+                <div class="run-schedule-col-label">Act ${i + 1}</div>
+                <select class="run-schedule-select" onchange="DungeonPath.setSchedule(${i}, this.value)">
+                    <option value="">Random</option>
+                    ${SCHEDULE_NAMES.map((name, idx) => `<option value="${idx}" ${s.schedules[i] === idx ? 'selected' : ''}>${name}</option>`).join('')}
+                </select>
+            </div>`).join('');
+
+        const diffBtns = ['casual', 'standard', 'heroic'].map(d =>
+            `<button class="run-modifier-btn ${d} ${s.difficulty === d ? 'active' : ''}"
+                onclick="DungeonPath.setModifier('difficulty','${d}')">${d.charAt(0).toUpperCase() + d.slice(1)}</button>`
+        ).join('');
+
+        const anomalyBtns = ['none', 'normal', 'high'].map(a =>
+            `<button class="run-modifier-btn ${s.anomalyRate === a ? 'active' : ''}"
+                onclick="DungeonPath.setModifier('anomalyRate','${a}')">${a.charAt(0).toUpperCase() + a.slice(1)}</button>`
+        ).join('');
+
+        el.innerHTML = `
+            <button class="run-settings-toggle" id="run-settings-toggle" onclick="DungeonPath.toggleSettings()">
+                \u25BA Run Settings
+            </button>
+            <div class="run-settings-body ${DungeonPath._open ? 'open' : ''}" id="run-settings-body">
+                <div class="run-settings-row">
+                    <span class="run-settings-label">Difficulty</span>
+                    ${diffBtns}
+                </div>
+                <div class="run-settings-row">
+                    <span class="run-settings-label">Anomalies</span>
+                    ${anomalyBtns}
+                </div>
+                <div class="run-schedules-row">${scheduleSelects}</div>
+            </div>`;
     },
 };
 
@@ -3720,13 +3808,24 @@ const EncounterChoice = {
     show(encounter) {
         GS.encounter = encounter;
         const { enemy, environment, anomaly, eliteModifiers, floor, isBossFloor, eliteOffered } = encounter;
+        const diff = GS.runDifficulty || 'standard';
 
         $('encounter-header').innerHTML = this._buildHeader(floor, isBossFloor, anomaly, environment);
 
-        const standardHtml = this._buildStandardPanel(enemy, isBossFloor);
         const body = $('encounter-body');
 
-        if (eliteOffered) {
+        if (diff === 'heroic') {
+            // Heroic: apply elite immediately, show only elite panel, no tab strip
+            applyEliteChoice(encounter.enemy, encounter.eliteModifiers, encounter.floor);
+            encounter.isElite = true;
+            body.innerHTML = this._buildElitePanel(enemy, eliteModifiers, isBossFloor, floor)
+                + `<button class="btn btn-primary" style="width:100%;margin-top:12px;" onclick="Combat.start()">Fight</button>`;
+        } else if (diff === 'casual' || !eliteOffered) {
+            // Casual or no elite offered: standard panel only
+            body.innerHTML = this._buildStandardPanel(enemy, isBossFloor);
+        } else {
+            // Standard: full tab strip
+            const standardHtml = this._buildStandardPanel(enemy, isBossFloor);
             const eliteHtml = this._buildElitePanel(enemy, eliteModifiers, isBossFloor, floor);
             body.innerHTML = `
                 <div class="encounter-card-flipper">
@@ -3751,8 +3850,6 @@ const EncounterChoice = {
                 flipper.classList.toggle('flipped', showElite);
                 stdTab.classList.toggle('active', !showElite);
                 eliteTab.classList.toggle('active', showElite);
-
-                // Match flipper height to the visible face
                 const inner = flipper.querySelector('.encounter-card-flipper__inner');
                 const front = flipper.querySelector('.encounter-card-flipper__front');
                 const back = flipper.querySelector('.encounter-card-flipper__back');
@@ -3760,15 +3857,11 @@ const EncounterChoice = {
             }
             stdTab.addEventListener('click', () => setFlipState(false));
             eliteTab.addEventListener('click', () => setFlipState(true));
-
-            // Set initial height to match front face
             requestAnimationFrame(() => {
                 const inner = flipper.querySelector('.encounter-card-flipper__inner');
                 const front = flipper.querySelector('.encounter-card-flipper__front');
                 inner.style.height = front.offsetHeight + 'px';
             });
-        } else {
-            body.innerHTML = standardHtml;
         }
 
         show('screen-encounter');
@@ -3913,7 +4006,7 @@ const EncounterChoice = {
                     <div class="encounter-card__rewards">Rewards: ${goldRange}g · ${xpRange} XP${isBossFloor ? ' · Boss artifact' : ''}</div>
                 </div>
                 <div class="encounter-card__footer">
-                    <button class="btn btn-primary" onclick="EncounterChoice.chooseStandard()">Fight (Standard)</button>
+                    <button class="btn" onclick="EncounterChoice.chooseStandard()">Fight (Standard)</button>
                 </div>
               </div>
             </div>`;

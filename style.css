@@ -2183,6 +2183,95 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     padding: 14px;
 }
 
+/* ── Run Settings Panel ── */
+.run-settings-toggle {
+    width: 100%;
+    text-align: left;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8em;
+    padding: 8px 12px;
+    cursor: pointer;
+    margin-bottom: 4px;
+    letter-spacing: 0.05em;
+}
+.run-settings-toggle:hover { border-color: var(--gold-dim); color: var(--text); }
+.run-settings-body {
+    display: none;
+    padding: 12px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 12px;
+}
+.run-settings-body.open { display: block; }
+.run-settings-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+.run-settings-row:last-child { margin-bottom: 0; }
+.run-settings-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    min-width: 80px;
+    flex-shrink: 0;
+}
+.run-schedules-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.run-schedule-col { display: flex; flex-direction: column; gap: 3px; }
+.run-schedule-col-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    text-align: center;
+}
+.run-schedule-select {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7em;
+    padding: 4px 6px;
+    width: 100%;
+    cursor: pointer;
+}
+.run-schedule-select:focus { outline: none; border-color: var(--gold-dim); }
+.run-modifier-btn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72em;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-raised);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.run-modifier-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+.run-modifier-btn.active {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: #000;
+    font-weight: 600;
+}
+.run-modifier-btn.heroic.active { background: var(--red); border-color: var(--red); color: #fff; }
+.run-modifier-btn.casual.active { background: var(--green, #51cf66); border-color: var(--green, #51cf66); color: #000; }
+
 /* ── Threat / Advantage Badges ── */
 .map-node-threat {
     margin-left: auto;

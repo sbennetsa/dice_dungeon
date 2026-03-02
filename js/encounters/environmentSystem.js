@@ -90,7 +90,7 @@ export const ENVIRONMENTS = {
         id: 'thornsAura',
         name: 'Thorns Aura',
         icon: '🌿',
-        desc: 'Attacker takes 20% of damage dealt as recoil',
+        desc: '20% of all damage rebounds on the attacker — hurts both you and the enemy',
         act: 2,
         onDamageDealt(damage, attacker, defender, combat) {
             const recoil = Math.floor(damage * 0.2);

@@ -11,7 +11,7 @@ import { rollSingleDie, getActiveFace, renderCombatDice, renderConsumables, upda
 
 // ── FLOATING COMBAT TEXT ──
 function spawnFloatText(text, anchorEl, type = 'damage') {
-    if (!anchorEl) { console.warn('[float] anchorEl null for type:', type); return; }
+    if (!anchorEl) return;
     const rect = anchorEl.getBoundingClientRect();
     const el = document.createElement('div');
     el.className = `float-text float-text--${type}`;
@@ -19,7 +19,6 @@ function spawnFloatText(text, anchorEl, type = 'damage') {
     const xOffset = Math.random() * 40 - 20;
     el.style.left = (rect.left + rect.width / 2 + xOffset) + 'px';
     el.style.top  = (rect.top + 10) + 'px';
-    console.log(`[float] ${type} "${text}" left=${el.style.left} top=${el.style.top}`, rect);
     document.body.appendChild(el);
     el.addEventListener('animationend', () => el.remove());
 }
@@ -1073,12 +1072,12 @@ export const Combat = {
         if (GS.challengeMode) GS.challengeDmg += finalAtk;
         if (finalAtk > 0) {
             log(`You deal ${finalAtk} damage to ${e.name}!`, 'damage');
-            spawnFloatText(`-${finalAtk}`, $('#enemy-panel'), 'damage');
+            spawnFloatText(`-${finalAtk}`, $('enemy-panel'), 'damage');
         }
         // Bloodstone: heal 30% of damage dealt
         if (GS.artifacts.some(a => a.effect === 'bloodstone') && finalAtk > 0) {
             const bsHeal = heal(Math.floor(finalAtk * 0.3));
-            if (bsHeal > 0) { log(`💎 Bloodstone: +${bsHeal} HP`, 'heal'); updateStats(); spawnFloatText(`+${bsHeal}`, $('#player-hp-bar'), 'heal'); }
+            if (bsHeal > 0) { log(`💎 Bloodstone: +${bsHeal} HP`, 'heal'); updateStats(); spawnFloatText(`+${bsHeal}`, $('player-hp-bar'), 'heal'); }
         }
 
         // Gold Forge: each attack die generates gold equal to its rolled value
@@ -1101,13 +1100,13 @@ export const Combat = {
         const lsPercent = GS.autoLifesteal || 0;
         if (lsPercent > 0 && finalAtk > 0) {
             const lsHeal = heal(Math.floor(finalAtk * lsPercent));
-            if (lsHeal > 0) { log(`🩸 Lifesteal: +${lsHeal} HP`, 'heal'); spawnFloatText(`+${lsHeal}`, $('#player-hp-bar'), 'heal'); }
+            if (lsHeal > 0) { log(`🩸 Lifesteal: +${lsHeal} HP`, 'heal'); spawnFloatText(`+${lsHeal}`, $('player-hp-bar'), 'heal'); }
         }
 
         // Siphon: heal from attack damage
         if (siphonHealing > 0 && finalAtk > 0) {
             const sh = heal(siphonHealing);
-            if (sh > 0) { log(`🩸 Siphon: +${sh} HP${siphonHealing !== sh ? ` (${siphonHealing} base)` : ''}`, 'heal'); updateStats(); spawnFloatText(`+${sh}`, $('#player-hp-bar'), 'heal'); }
+            if (sh > 0) { log(`🩸 Siphon: +${sh} HP${siphonHealing !== sh ? ` (${siphonHealing} base)` : ''}`, 'heal'); updateStats(); spawnFloatText(`+${sh}`, $('player-hp-bar'), 'heal'); }
         }
         // Hunter's Mark: first hit applies mark
         if (!GS.huntersMarkFired && finalAtk > 0 && GS.artifacts.some(a => a.effect === 'huntersMark')) {
@@ -1123,12 +1122,12 @@ export const Combat = {
             GS.enemy.currentHp = Math.max(0, GS.enemy.currentHp - mirrorDmg);
             if (GS.challengeMode) GS.challengeDmg += mirrorDmg;
             log(`🪞 Mirror: ${mirrorDmg} damage to enemy!`, 'damage');
-            spawnFloatText(`-${mirrorDmg}`, $('#enemy-panel'), 'damage');
+            spawnFloatText(`-${mirrorDmg}`, $('enemy-panel'), 'damage');
         }
         // Regen Core: heal from block
         if (regenCoreHeal > 0) {
             const h = heal(regenCoreHeal);
-            if (h > 0) { log(`💚 Regen Core: +${h} HP`, 'heal'); updateStats(); spawnFloatText(`+${h}`, $('#player-hp-bar'), 'heal'); }
+            if (h > 0) { log(`💚 Regen Core: +${h} HP`, 'heal'); updateStats(); spawnFloatText(`+${h}`, $('player-hp-bar'), 'heal'); }
         }
 
         // ── POST-ATTACK PASSIVE CHECKS ──
@@ -1160,7 +1159,7 @@ export const Combat = {
         if (e.currentHp <= 0) {
             if (e.currentHp < 0 && GS.artifacts.some(a => a.effect === 'overflowChalice')) {
                 const h = heal(-e.currentHp);
-                if (h > 0) { log(`🏆 Overflow Chalice: +${h} HP!`, 'heal'); updateStats(); spawnFloatText(`+${h}`, $('#player-hp-bar'), 'heal'); }
+                if (h > 0) { log(`🏆 Overflow Chalice: +${h} HP!`, 'heal'); updateStats(); spawnFloatText(`+${h}`, $('player-hp-bar'), 'heal'); }
             }
             Combat.enemyDefeated(); return;
         }
@@ -1177,7 +1176,7 @@ export const Combat = {
             if (GS.challengeMode) GS.challengeDmg += poisonDmg;
             e.poison = Math.max(0, e.poison - 1);
             log(`☠️ Poison deals ${poisonDmg} to ${e.name}! (${e.poison} stacks remain)`, 'damage');
-            spawnFloatText(`-${poisonDmg}`, $('#enemy-panel'), 'poison');
+            spawnFloatText(`-${poisonDmg}`, $('enemy-panel'), 'poison');
             Combat.renderEnemy();
 
             if (e.currentHp <= 0) {
@@ -1227,7 +1226,7 @@ export const Combat = {
                 if (es && es.weaken > 0) { dmg = Math.floor(dmg * 0.75); log('💔 Weaken: 25% less!', 'info'); }
                 GS.hp = Math.max(0, GS.hp - dmg);
                 log(`${ab.icon} ${ab.name}! ${dmg} unblockable damage!`, 'damage');
-                if (dmg > 0) spawnFloatText(`-${dmg}`, $('#player-hp-bar'), 'player-damage');
+                if (dmg > 0) spawnFloatText(`-${dmg}`, $('player-hp-bar'), 'player-damage');
                 updateStats();
                 if (GS.hp <= 0) {
                     const wardIdx = findConsumableIdx('ward');
@@ -1247,7 +1246,7 @@ export const Combat = {
             case 'heal':
                 e.currentHp = Math.min(e.maxHp, e.currentHp + e.intentValue);
                 log(`${e.name} ${ab.name}! Heals ${e.intentValue} HP.`, 'heal');
-                if (e.intentValue > 0) spawnFloatText(`+${e.intentValue}`, $('#enemy-panel'), 'enemy-heal');
+                if (e.intentValue > 0) spawnFloatText(`+${e.intentValue}`, $('enemy-panel'), 'enemy-heal');
                 Combat.renderEnemy();
                 break;
 
@@ -1368,9 +1367,9 @@ export const Combat = {
                 GS.hp -= mitigated;
                 if (blocked > 0) {
                     log(`${e.name} hits for ${dieVal} — blocked ${blocked}, took ${mitigated}`, 'defend');
-                    spawnFloatText(`🛡${blocked}`, $('#player-hp-bar'), 'block');
+                    spawnFloatText(`🛡${blocked}`, $('player-hp-bar'), 'block');
                 } else log(`${e.name} hits for ${dieVal} damage!`, 'damage');
-                if (mitigated > 0) spawnFloatText(`-${mitigated}`, $('#player-hp-bar'), 'player-damage');
+                if (mitigated > 0) spawnFloatText(`-${mitigated}`, $('player-hp-bar'), 'player-damage');
 
                 if (GS.hp <= 0) {
                     const wardIdx = findConsumableIdx('ward');
@@ -1392,9 +1391,9 @@ export const Combat = {
 
             if (blocked > 0) {
                 log(`${e.name} attacks for ${enemyDmg} — you block ${blocked}, take ${mitigated}`, 'defend');
-                spawnFloatText(`🛡${blocked}`, $('#player-hp-bar'), 'block');
+                spawnFloatText(`🛡${blocked}`, $('player-hp-bar'), 'block');
             } else log(`${e.name} attacks for ${enemyDmg} damage!`, 'damage');
-            if (mitigated > 0) spawnFloatText(`-${mitigated}`, $('#player-hp-bar'), 'player-damage');
+            if (mitigated > 0) spawnFloatText(`-${mitigated}`, $('player-hp-bar'), 'player-damage');
 
             if (mitigated > 0) {
                 // Thorn Mail
@@ -1421,7 +1420,7 @@ export const Combat = {
             // Vampiric Ward: heal from blocked
             if (GS.transformBuffs && GS.transformBuffs.vampiricWard && blocked > 0) {
                 const vheal = Math.floor(blocked * 0.25);
-                if (vheal > 0) { const h = heal(vheal); if (h > 0) { log(`🧛 Vampiric Ward: +${h} HP!`, 'heal'); updateStats(); spawnFloatText(`+${h}`, $('#player-hp-bar'), 'heal'); } }
+                if (vheal > 0) { const h = heal(vheal); if (h > 0) { log(`🧛 Vampiric Ward: +${h} HP!`, 'heal'); updateStats(); spawnFloatText(`+${h}`, $('player-hp-bar'), 'heal'); } }
             }
 
             // Lifesteal passive
@@ -1673,7 +1672,7 @@ export const Combat = {
                 GS.playerDebuffs.poisonTurns = 0;
             }
             log(`☠️ Poison deals ${dmg} damage! (${GS.playerDebuffs.poisonTurns} turns remain)`, 'damage');
-            spawnFloatText(`-${dmg}`, $('#player-hp-bar'), 'poison');
+            spawnFloatText(`-${dmg}`, $('player-hp-bar'), 'poison');
             updateStats();
             if (GS.hp <= 0) {
                 GS.hp = 0;
@@ -1692,7 +1691,7 @@ export const Combat = {
             esBurn.burnTurns--;
             if (esBurn.burnTurns <= 0) esBurn.burn = 0;
             log(`🔥 Enemy burn: ${bdmg} damage (${esBurn.burnTurns} turns remain)`, 'damage');
-            spawnFloatText(`-${bdmg}`, $('#enemy-panel'), 'burn');
+            spawnFloatText(`-${bdmg}`, $('enemy-panel'), 'burn');
             Combat.renderEnemy();
             if (GS.enemy.currentHp <= 0) {
                 Combat.enemyDefeated();
@@ -1746,12 +1745,12 @@ export const Combat = {
         if (GS.passives.regen) regenAmt += GS.passives.regen;
         if (regenAmt > 0) {
             const h = heal(regenAmt);
-            if (h > 0) { log(`💚 Regen: +${h} HP`, 'heal'); spawnFloatText(`+${h}`, $('#player-hp-bar'), 'heal'); }
+            if (h > 0) { log(`💚 Regen: +${h} HP`, 'heal'); spawnFloatText(`+${h}`, $('player-hp-bar'), 'heal'); }
         }
 
         if (GS.regenStacks && GS.regenStacks > 0) {
             const h = heal(GS.regenStacks);
-            if (h > 0) { log(`❤️ Rejuvenate: +${h} HP (${GS.regenStacks - 1} next turn)`, 'heal'); spawnFloatText(`+${h}`, $('#player-hp-bar'), 'heal'); }
+            if (h > 0) { log(`❤️ Rejuvenate: +${h} HP (${GS.regenStacks - 1} next turn)`, 'heal'); spawnFloatText(`+${h}`, $('player-hp-bar'), 'heal'); }
             GS.regenStacks--;
         }
 
@@ -1777,7 +1776,7 @@ export const Combat = {
             if (amt > 0) {
                 e.currentHp += amt;
                 log(`💚 ${e.name} regenerates ${amt} HP (${e.currentHp}/${e.maxHp})`, 'heal');
-                spawnFloatText(`+${amt}`, $('#enemy-panel'), 'enemy-heal');
+                spawnFloatText(`+${amt}`, $('enemy-panel'), 'enemy-heal');
             }
         }
 

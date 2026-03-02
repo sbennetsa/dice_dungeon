@@ -11,7 +11,7 @@ import { rollSingleDie, getActiveFace, renderCombatDice, renderConsumables, upda
 
 // ── FLOATING COMBAT TEXT ──
 function spawnFloatText(text, anchorEl, type = 'damage') {
-    if (!anchorEl) return;
+    if (!anchorEl) { console.warn('[float] anchorEl null for type:', type); return; }
     const rect = anchorEl.getBoundingClientRect();
     const el = document.createElement('div');
     el.className = `float-text float-text--${type}`;
@@ -19,6 +19,7 @@ function spawnFloatText(text, anchorEl, type = 'damage') {
     const xOffset = Math.random() * 40 - 20;
     el.style.left = (rect.left + rect.width / 2 + xOffset) + 'px';
     el.style.top  = (rect.top + 10) + 'px';
+    console.log(`[float] ${type} "${text}" left=${el.style.left} top=${el.style.top}`, rect);
     document.body.appendChild(el);
     el.addEventListener('animationend', () => el.remove());
 }

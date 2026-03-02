@@ -76,7 +76,7 @@ export const ENEMIES = {
             pattern: ['strike'],
         },
         {
-            name: 'Skeleton', hp: 18, dice: [6, 6], gold: [14, 22], xp: [20, 30],
+            name: 'Skeleton', hp: 18, dice: [6, 6], gold: [14, 22], xp: [20, 30], image: 'assets/enemies/skeleton.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
@@ -89,7 +89,7 @@ export const ENEMIES = {
     // ── ACT 2 ──
     2: [
         {
-            name: 'Orc Warrior', hp: 45, dice: [6, 6, 6], gold: [20, 30], xp: [35, 50],
+            name: 'Orc Warrior', hp: 45, dice: [6, 6, 6], gold: [20, 30], xp: [35, 50], image: 'assets/enemies/orc_warrior.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 warCry: { name: 'War Cry', icon: '📯', type: 'buff', desc: 'Store dice sum, add to next Strike', buffTarget: 'strike' },
@@ -98,7 +98,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'warCry'],
         },
         {
-            name: 'Dark Mage', hp: 32, dice: [6, 6], gold: [22, 35], xp: [40, 60],
+            name: 'Dark Mage', hp: 32, dice: [6, 6], gold: [22, 35], xp: [40, 60], image: 'assets/enemies/Dark_Mage.webp',
             abilities: {
                 bolt:  { name: 'Shadow Bolt', icon: '🔮', type: 'attack', desc: 'Deal damage (penetrates 3 block)', penetrate: 3 },
                 curse: { name: 'Curse', icon: '💀', type: 'curse', desc: 'Seal 1 strike slot for 2 turns', slotsToSeal: 1, slotTarget: 'strike', fixedDuration: 2 },
@@ -107,7 +107,7 @@ export const ENEMIES = {
             pattern: ['bolt', 'bolt', 'curse'],
         },
         {
-            name: 'Troll', hp: 55, dice: [8, 8], gold: [20, 30], xp: [35, 55],
+            name: 'Troll', hp: 55, dice: [8, 8], gold: [20, 30], xp: [35, 55], image: 'assets/enemies/Troll.webp',
             abilities: {
                 strike: { name: 'Smash', icon: '💪', type: 'attack', desc: 'Deal damage' },
                 heal:   { name: 'Regenerate', icon: '💚', type: 'heal', desc: 'Heal HP equal to dice sum' },
@@ -119,7 +119,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'heal'],
         },
         {
-            name: 'Vampire', hp: 38, dice: [6, 6, 6], gold: [25, 40], xp: [45, 65],
+            name: 'Vampire', hp: 38, dice: [6, 6, 6], gold: [25, 40], xp: [45, 65], image: 'assets/enemies/Vampire.webp',
             abilities: {
                 drain: { name: 'Drain', icon: '🩸', type: 'attack', desc: 'Deal damage and heal 50% of amount dealt' },
             },
@@ -130,7 +130,7 @@ export const ENEMIES = {
             pattern: ['drain'],
         },
         {
-            name: 'Mimic', hp: 35, dice: [6, 6], gold: [20, 30], xp: [35, 50],
+            name: 'Mimic', hp: 35, dice: [6, 6], gold: [20, 30], xp: [35, 50], image: 'assets/enemies/Mimic.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 steal:  { name: 'Gold Snatch', icon: '💰', type: 'steal', desc: 'Steal gold equal to dice sum' },
@@ -144,7 +144,7 @@ export const ENEMIES = {
     // ── ACT 3 ──
     3: [
         {
-            name: 'Demon', hp: 75, dice: [8, 8, 8], gold: [35, 55], xp: [55, 80],
+            name: 'Demon', hp: 75, dice: [8, 8, 8], gold: [35, 55], xp: [55, 80], image: 'assets/enemies/Demon.webp',
             abilities: {
                 strike:   { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 hellfire: { name: 'Hellfire', icon: '🔥', type: 'unblockable', desc: 'Deal unblockable damage' },
@@ -155,7 +155,7 @@ export const ENEMIES = {
             pattern: ['strike', 'hellfire'],
         },
         {
-            name: 'Lich', hp: 65, dice: [8, 8], gold: [40, 60], xp: [60, 85],
+            name: 'Lich', hp: 65, dice: [8, 8], gold: [40, 60], xp: [60, 85], image: 'assets/enemies/Lich.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 decay:  { name: 'Decay', icon: '💀', type: 'decay', desc: 'All your dice permanently lose 1 max value this fight' },
@@ -166,7 +166,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'decay'],
         },
         {
-            name: 'Dragon Whelp', hp: 85, dice: [8, 8, 8, 8], gold: [45, 65], xp: [65, 90],
+            name: 'Dragon Whelp', hp: 85, dice: [8, 8, 8, 8], gold: [45, 65], xp: [65, 90], image: 'assets/enemies/Dragon_Whelp.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 charge: { name: 'Breath Charge', icon: '🔥', type: 'charge', desc: 'Charging... next attack is doubled!' },
@@ -178,7 +178,7 @@ export const ENEMIES = {
             pattern: ['strike', 'charge', 'breath'],
         },
         {
-            name: 'Shadow Assassin', hp: 45, dice: [8, 8, 8], gold: [35, 55], xp: [55, 85],
+            name: 'Shadow Assassin', hp: 45, dice: [8, 8, 8], gold: [35, 55], xp: [55, 85], image: 'assets/enemies/Shadow_Assassin.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '🗡️', type: 'attack', desc: 'Deal damage' },
                 vanish: { name: 'Vanish', icon: '💨', type: 'charge', desc: 'Disappears — immune to damage this turn. Next strike is doubled.', immune: true },
@@ -190,7 +190,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'vanish'],
         },
         {
-            name: 'Iron Golem', hp: 100, dice: [6, 6], gold: [50, 70], xp: [70, 95],
+            name: 'Iron Golem', hp: 100, dice: [6, 6], gold: [50, 70], xp: [70, 95], image: 'assets/enemies/Iron_Golem.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
@@ -220,7 +220,7 @@ export const BOSSES = {
         phases: null,
     },
     10: {
-        name: 'Crimson Wyrm', hp: 250, dice: [8, 8, 8, 8], gold: 150, xp: 80,
+        name: 'Crimson Wyrm', hp: 250, dice: [8, 8, 8, 8], gold: 150, xp: 80, image: 'assets/enemies/Crimson_Dragon.webp',
         abilities: {
             strike:  { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             breath:  { name: 'Fire Breath', icon: '🔥', type: 'attack', desc: 'Deal damage + apply burn', applyBurn: 3 },
@@ -240,7 +240,7 @@ export const BOSSES = {
         ],
     },
     15: {
-        name: 'The Void Lord', hp: 450, dice: [10, 10, 10, 10], gold: 250, xp: 120,
+        name: 'The Void Lord', hp: 450, dice: [10, 10, 10, 10], gold: 250, xp: 120, image: 'assets/enemies/The_Void_Lord.webp',
         abilities: {
             strike:    { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             voidRift:  { name: 'Void Rift', icon: '🌀', type: 'curse', desc: 'Seal 2 random slots for 1 turn', slotsToSeal: 2, fixedDuration: 1 },
@@ -326,7 +326,7 @@ export const ARTIFACT_POOL = [
     // ── BUILD ENABLERS: GOLD ──
     { name: "Merchant's Crown",icon: '💎', desc: '+1 attack damage per 20 gold held',                     effect: 'goldScaleDmg',  value: 20,   category: 'enabler' },
     { name: 'Golden Aegis',    icon: '🛡️', desc: '+1 block per 25 gold held',                             effect: 'goldenAegis',   value: 25,   category: 'enabler' },
-    { name: 'Midas Die',       icon: '🎲', desc: 'At the start of each combat, gain a temporary d6 that auto-fires gold equal to its value', effect: 'midasDie', value: 0, category: 'enabler' },
+    { name: 'Midas Die',       icon: '🎲', desc: 'At the start of each combat, gain gold equal to a d6 roll.',                                 effect: 'midasDie', value: 0, category: 'enabler' },
     { name: 'Tax Collector',   icon: '💰', desc: 'Gain 7 gold after every combat',                        effect: 'goldPerKill',   value: 7,    category: 'enabler' },
     { name: 'Gilded Gauntlet', icon: '✨', desc: 'Start of combat: spend 50 gold → deal 15 damage',       effect: 'goldToDmg',     value: 1,    category: 'enabler' },
 
@@ -506,18 +506,18 @@ export const CONSUMABLES = [
 // ════════════════════════════════════════════════════════════
 export const UTILITY_DICE = [
     { id: 'gold',      name: 'Gold Die',       icon: '💰', zone: 'either', price: 90,
-      desc: 'Generates gold = other dice in slot × rolled %. 0 damage/block.',
+      desc: 'Generates gold = other dice in zone × rolled %. Rune on this slot doubles the %. 0 damage/block.',
       faceValues: [5, 9, 13, 17, 21, 25] },
     { id: 'poison',    name: 'Poison Die',     icon: '☠️', zone: 'strike', price: 60,
-      desc: 'Applies poison equal to rolled value. 0 damage.',
-      faceValues: [2, 4, 5, 6, 8, 10] },
+      desc: 'Applies poison = other dice in zone × rolled %. Rune on this slot doubles the %. 0 damage.',
+      faceValues: [5, 9, 13, 17, 21, 25] },
     { id: 'chill',     name: 'Chill Die',      icon: '❄️', zone: 'either', price: 60,
       desc: 'Applies chill equal to rolled value. 0 damage/block.',
       faceValues: [2, 3, 3, 4, 5, 6] },
     { id: 'burn',      name: 'Burn Die',       icon: '🔥', zone: 'strike', price: 65,
       desc: 'Applies burn for 3 turns equal to rolled value. 0 damage.',
       faceValues: [1, 2, 2, 3, 3, 4] },
-    { id: 'shield',    name: 'Shield Die',     icon: '🛡️', zone: 'strike', price: 80,
+    { id: 'shield',    name: 'Shield Die',     icon: '🛡️', zone: 'either', price: 80,
       desc: 'Contributes its value to BOTH Strike damage AND Guard block simultaneously.',
       faceValues: [2, 3, 4, 5, 6, 7] },
     { id: 'mark',      name: 'Mark Die',       icon: '🎯', zone: 'strike', price: 65,

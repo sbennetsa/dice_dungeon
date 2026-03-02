@@ -18,20 +18,20 @@ export function resetDieIdCounter(n = 0) { dieIdCounter = n; }
 
 export function createDieFromFaces(faceValues) {
     const sorted = [...faceValues].sort((a, b) => a - b);
-    return { id: dieIdCounter++, min: sorted[0], max: sorted[sorted.length - 1], sides: sorted.length, faceValues: sorted, value: 0, rolled: false, faceMod: null, location: 'pool' };
+    return { id: dieIdCounter++, min: sorted[0], max: sorted[sorted.length - 1], sides: sorted.length, faceValues: sorted, value: 0, rolled: false, rolledFaceIndex: -1, faceMod: null, location: 'pool' };
 }
 
 export function createDie(min = 1, max = 6, sides = 6) {
     const step = (max - min) / (sides - 1);
     const faceValues = Array.from({length: sides}, (_, i) => Math.round(min + step * i));
-    return { id: dieIdCounter++, min, max, sides, faceValues, value: 0, rolled: false, faceMod: null, location: 'pool' };
+    return { id: dieIdCounter++, min, max, sides, faceValues, value: 0, rolled: false, rolledFaceIndex: -1, faceMod: null, location: 'pool' };
 }
 
 export function createUtilityDie(utDef) {
     const sorted = [...utDef.faceValues].sort((a, b) => a - b);
     return {
         id: dieIdCounter++, min: sorted[0], max: sorted[sorted.length - 1],
-        sides: sorted.length, faceValues: sorted, value: 0, rolled: false,
+        sides: sorted.length, faceValues: sorted, value: 0, rolled: false, rolledFaceIndex: -1,
         faceMod: null, location: 'pool',
         dieType: utDef.id, name: utDef.name, icon: utDef.icon,
     };
@@ -60,6 +60,7 @@ export function rollSingleDie(die) {
     }
     die.value = val;
     die.rolled = true;
+    die.rolledFaceIndex = fIdx;
     // Volatile face mod: if this roll landed on the face with the volatile mod, randomise
     if (die.faceMod?.mod.effect === 'volatile' && die.faceMod.faceIndex === fIdx) {
         die.value = rand(1, die.max * 2);
@@ -76,7 +77,7 @@ export function rollSingleDie(die) {
 
 export function getActiveFace(die) {
     if (!die.rolled || !die.faceMod) return null;
-    if (die.value === die.faceValues[die.faceMod.faceIndex]) {
+    if (die.rolledFaceIndex === die.faceMod.faceIndex) {
         return { faceValue: die.faceValues[die.faceMod.faceIndex], modifier: die.faceMod.mod };
     }
     return null;
@@ -88,6 +89,8 @@ export function getActiveFace(die) {
 export function renderFaceStrip(die, opts = {}) {
     const { highlightVal, showArrow, arrowMod } = opts;
     const isAmp = die.dieType === 'amplifier';
+    const isGold = die.dieType === 'gold';
+    const isPoison = die.dieType === 'poison';
     return die.faceValues.map((v, i) => {
         const hasMod = die.faceMod && die.faceMod.faceIndex === i;
         const mod = hasMod ? die.faceMod.mod : null;
@@ -96,10 +99,10 @@ export function renderFaceStrip(die, opts = {}) {
         const border = isHighlight ? 'var(--gold)' : mod ? mod.color + '66' : 'rgba(255,255,255,0.1)';
         const modIcon = mod ? `<div style="font-size:0.65em; margin-top:1px;">${mod.icon}</div>` : '';
         const arrow = isHighlight && showArrow && arrowMod ? `<div style="font-size:0.6em; color:var(--green-bright);">→${arrowMod.icon}</div>` : '';
-        const label = isAmp ? `×${v / 100}` : v;
+        const label = isAmp ? `×${v / 100}` : (isGold || isPoison) ? `${v}%` : v;
         return `<div style="display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
             width:38px; height:44px; border-radius:6px; border:1.5px solid ${border}; background:${bg};
-            font-family:JetBrains Mono,monospace; font-weight:700; font-size:${isAmp ? '0.8em' : '0.95em'}; margin:2px;">
+            font-family:JetBrains Mono,monospace; font-weight:700; font-size:${(isAmp || isGold || isPoison) ? '0.8em' : '0.95em'}; margin:2px;">
             ${label}${modIcon}${arrow}
         </div>`;
     }).join('');
@@ -109,7 +112,7 @@ export function renderDieCard(die, index, opts = {}) {
     const { clickable = true, extraDesc = '' } = opts;
     const facesHtml = renderFaceStrip(die);
     const utLabel = die.dieType ? `<div style="font-size:0.7em; color:var(--gold); font-family:JetBrains Mono,monospace; margin-bottom:2px;">${die.icon || ''} ${die.name || die.dieType.toUpperCase()}</div>` : '';
-    const rangeText = die.dieType === 'amplifier' ? `×${die.min / 100}–×${die.max / 100}` : `d${die.faceValues.length}: ${die.min}–${die.max}`;
+    const rangeText = die.dieType === 'amplifier' ? `×${die.min / 100}–×${die.max / 100}` : (die.dieType === 'gold' || die.dieType === 'poison') ? `${die.min}%–${die.max}%` : `d${die.faceValues.length}: ${die.min}–${die.max}`;
     return `
         ${utLabel}
         <div class="card-title">${rangeText}</div>
@@ -191,7 +194,7 @@ export function updateStats() {
     const slotsStr = `${GS.slots.strike.length}⚔️ ${GS.slots.guard.length}🛡️`;
     const runeCount = [...GS.slots.strike, ...GS.slots.guard].filter(s => s.rune).length;
     const runeStr = runeCount > 0 ? ` 🔮${runeCount}` : '';
-    const diceStr = `${GS.dice.filter(d => !d.midasTemp).length}`;
+    const diceStr = `${GS.dice.length}`;
     const rerollStr = GS.rerolls > 0 ? ` 🔄${GS.rerolls}` : '';
     ['s-dice', 'sh-dice'].forEach(id => { const el = $(id); if (el) el.innerHTML = `${diceStr} <span style="opacity:0.6; font-size:0.8em">(${slotsStr}${runeStr}${rerollStr})</span>`; });
     renderFloorProgress();
@@ -763,6 +766,33 @@ export function allocateDie(die, slot) {
     renderCombatDice();
 }
 
+function calcUtilityPreviews(allocated) {
+    let ampMul = 0;
+    allocated.forEach(d => { if (d.dieType === 'amplifier') ampMul = Math.max(ampMul, d.value / 100); });
+    const nonUtilCount = allocated.filter(d => !d.dieType).length;
+    let zoneBase = 0;
+    allocated.forEach(d => {
+        if (d.dieType) return;
+        const rune = getSlotById(d.slotId)?.rune;
+        let val = d.value;
+        if (rune?.effect === 'amplifier') val *= 2;
+        else if (rune?.effect === 'titanBlow' && nonUtilCount === 1) val *= 3;
+        else if (rune?.effect === 'leaden') val *= 2;
+        if (ampMul > 0) val = Math.floor(val * ampMul);
+        zoneBase += val;
+    });
+    let gold = 0, poison = 0;
+    allocated.forEach(d => {
+        if (d.dieType !== 'gold' && d.dieType !== 'poison') return;
+        const rune = getSlotById(d.slotId)?.rune;
+        const pct = (d.value / 100) * (rune?.effect === 'amplifier' ? 2 : 1);
+        const amount = Math.floor(zoneBase * pct);
+        if (d.dieType === 'gold') gold += amount;
+        else poison += amount;
+    });
+    return { gold, poison };
+}
+
 export function updateSlotTotals() {
     const echoId = GS.echoStoneDieId;
     const hasEcho = GS.artifacts.some(a => a.effect === 'echoStone');
@@ -797,7 +827,7 @@ export function updateSlotTotals() {
     const goldScalePreview = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
     if (goldScalePreview > 0) atkBonus += goldScalePreview;
     if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
-    atkBonus += GS.artifacts.filter(a => a.effect === 'hydrasCrest').reduce((s, a) => s + a.value * GS.dice.filter(d => !d.midasTemp).length, 0);
+    atkBonus += GS.artifacts.filter(a => a.effect === 'hydrasCrest').reduce((s, a) => s + a.value * GS.dice.length, 0);
     atkBonus += GS.enemyStatus?.mark || 0;
     atkBonus += GS.artifacts.filter(a => a.effect === 'festeringWound').reduce((s, a) => s + a.value * (GS.enemy?.poison || 0), 0);
     if (GS.passives.threshold) {
@@ -811,6 +841,9 @@ export function updateSlotTotals() {
     let finalAtk = Math.floor(atkTotal * atkMultiplier) + atkBonus;
     if (GS.artifacts.some(a => a.effect === 'sharpeningStone')) finalAtk = Math.ceil(finalAtk * 1.5);
     $('attack-total').textContent = finalAtk;
+    const { gold: atkGold, poison: atkPoison } = calcUtilityPreviews(GS.allocated.strike);
+    $('attack-gold').textContent = atkGold > 0 ? `💰${atkGold}g` : '';
+    $('attack-poison').textContent = atkPoison > 0 ? `☠️${atkPoison}p` : '';
 
     let atkSummary = '';
     if (atkMultiplier > 1) atkSummary += `×${atkMultiplier.toFixed(1).replace('.0','')} `;
@@ -844,6 +877,8 @@ export function updateSlotTotals() {
 
     const finalDef = Math.floor(defTotal * defMultiplier) + defBonus;
     $('defend-total').textContent = finalDef;
+    const { gold: defGold } = calcUtilityPreviews(GS.allocated.guard);
+    $('defend-gold').textContent = defGold > 0 ? `💰${defGold}g` : '';
 
     let defSummary = '';
     if (defMultiplier > 1) defSummary += `×${defMultiplier.toFixed(1).replace('.0','')} `;

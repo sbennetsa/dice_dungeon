@@ -497,8 +497,7 @@ const Game = {
         GS.isFirstTurn = true;
 
         // Reset dice and combat allocations
-        GS.dice = GS.dice.filter(d => !d.midasTemp);
-        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; delete d.slotId; });
+        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.rolledFaceIndex = -1; d.location = 'pool'; delete d.slotId; });
         GS.allocated = { attack: [], defend: [] };
         GS.rolled = false;
         GS.rerollsLeft = GS.rerolls;
@@ -3769,7 +3768,7 @@ const Inventory = {
 
         html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
             <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">🎲 DICE (${GS.dice.length})</div>`;
-        GS.dice.filter(d => !d.midasTemp).forEach((die, i) => {
+        GS.dice.forEach((die, i) => {
             const faces = die.faceValues ? die.faceValues.join(', ') : `${die.min}-${die.max}`;
             const mods = die.faceMod ? `<span style="color:${die.faceMod.mod.color};" title="${die.faceMod.mod.name}: ${die.faceMod.mod.desc}"> face${die.faceMod.faceIndex + 1}(${die.faceValues[die.faceMod.faceIndex]}):${die.faceMod.mod.icon}${die.faceMod.mod.name}</span>` : '<span style="opacity:0.4;">no mod</span>';
             html += `<div style="margin:4px 0; font-size:0.82em; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05);">

@@ -524,6 +524,20 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     font-weight: 700;
 }
 
+.slot-gold {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8em;
+    color: var(--gold);
+    margin-left: 6px;
+}
+
+.slot-poison {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8em;
+    color: var(--green-bright);
+    margin-left: 6px;
+}
+
 .slot-dice-grid {
     display: flex;
     gap: 8px;

@@ -201,9 +201,6 @@ export const Combat = {
         GS.consumableUsedThisTurn = false;
         exitRerollMode();
 
-        // Remove Midas Die temp dice from previous combat
-        GS.dice = GS.dice.filter(d => !d.midasTemp);
-
         // tempBuff: Void Lord weakened (Oracle: Defy)
         if (GS.enemy.name.includes('Void Lord') && GS.tempBuffs && GS.tempBuffs.voidLordWeakened) {
             GS.enemy.currentHp = Math.floor(GS.enemy.hp * 0.9);
@@ -217,7 +214,7 @@ export const Combat = {
             log(`Fortification Elixir: +${GS.tempBuffs.armorBonus} armor this combat! (${GS.tempBuffs.armorCombats} combats remain)`, 'info');
         }
 
-        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; delete d.slotId; });
+        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.rolledFaceIndex = -1; d.location = 'pool'; delete d.slotId; });
         GS.allocated = { strike: [], guard: [] };
         GS.rolled = false;
         GS.autoLifesteal = 0;
@@ -232,11 +229,11 @@ export const Combat = {
             log(`✨ Gilded Gauntlet: Spent 50 gold, dealt 15 damage!`, 'damage');
         }
 
-        // Midas Die: add temp d6 that auto-fires gold
+        // Midas Die: passive gold at combat start
         if (GS.artifacts.some(a => a.effect === 'midasDie')) {
-            const md = createDie(1, 6, 6);
-            md.midasTemp = true;
-            GS.dice.push(md);
+            const roll = rand(1, 6);
+            gainGold(roll);
+            log(`🎲 Midas Die: +${roll} gold!`, 'info');
         }
 
         // Gambler's Coin: flip at combat start
@@ -529,8 +526,6 @@ export const Combat = {
             }
         }
 
-        // Auto-tray retired — no auto-fire face mods or Midas Die in new system
-
         // Environment: modify player dice results
         if (GS.environment?.onDiceRoll) {
             const rollable = GS.dice.filter(d => d.rolled && d.location !== 'auto');
@@ -591,12 +586,20 @@ export const Combat = {
         // Ascend aura: pre-compute per-die bonus (applied to each die so runes amplify it)
         const defAscendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
 
-        // Utility die pre-passes (guard): Amplifier Die zone multiplier, Gold Die slot totals
+        // Utility die pre-passes (guard): Amplifier Die zone multiplier, utility zone base (Gold + Poison)
         let defAmpMul = 0; // zone-wide multiplier from Amplifier Die (highest wins)
-        const defGoldSlotTotal = {}; // slotId → sum of non-gold, non-amplifier guard dice values
+        GS.allocated.guard.forEach(d => { if (d.dieType === 'amplifier') defAmpMul = Math.max(defAmpMul, d.value / 100); });
+        const defNonUtilCount = GS.allocated.guard.filter(d => !d.dieType).length;
+        let defUtilZoneBase = 0;
         GS.allocated.guard.forEach(d => {
-            if (d.dieType === 'amplifier') defAmpMul = Math.max(defAmpMul, d.value / 100);
-            else if (d.dieType !== 'gold') defGoldSlotTotal[d.slotId] = (defGoldSlotTotal[d.slotId] || 0) + d.value;
+            if (d.dieType) return;
+            const rune = getSlotById(d.slotId)?.rune;
+            let val = d.value;
+            if (rune?.effect === 'amplifier') val *= 2;
+            else if (rune?.effect === 'titanBlow' && defNonUtilCount === 1) val *= 3;
+            else if (rune?.effect === 'leaden') val *= 2;
+            if (defAmpMul > 0) val = Math.floor(val * defAmpMul);
+            defUtilZoneBase += val;
         });
 
         GS.allocated.guard.forEach(d => {
@@ -617,8 +620,9 @@ export const Combat = {
             // Utility die types — handle effect and skip normal contribution
             if (d.dieType === 'amplifier') return; // contributes via multiplier pre-pass
             if (d.dieType === 'gold') {
-                const slotTotal = defGoldSlotTotal[d.slotId] || 0;
-                const goldGain = Math.floor(slotTotal * (d.value / 100));
+                const goldRune = getSlotById(d.slotId)?.rune;
+                const pct = (d.value / 100) * (goldRune?.effect === 'amplifier' ? 2 : 1);
+                const goldGain = Math.floor(defUtilZoneBase * pct);
                 if (goldGain > 0) { gainGold(goldGain); log(`💰 Gold Die: +${goldGain} gold!`, 'info'); }
                 return;
             }
@@ -746,12 +750,20 @@ export const Combat = {
             }
         });
 
-        // Utility die pre-passes (strike): Amplifier Die zone multiplier, Gold Die slot totals
+        // Utility die pre-passes (strike): Amplifier Die zone multiplier, utility zone base (Gold + Poison)
         let atkAmpMul = 0; // zone-wide multiplier from Amplifier Die (highest wins)
-        const atkGoldSlotTotal = {}; // slotId → sum of non-gold, non-amplifier strike dice values
+        GS.allocated.strike.forEach(d => { if (d.dieType === 'amplifier') atkAmpMul = Math.max(atkAmpMul, d.value / 100); });
+        const atkNonUtilCount = GS.allocated.strike.filter(d => !d.dieType).length;
+        let atkUtilZoneBase = 0;
         GS.allocated.strike.forEach(d => {
-            if (d.dieType === 'amplifier') atkAmpMul = Math.max(atkAmpMul, d.value / 100);
-            else if (d.dieType !== 'gold') atkGoldSlotTotal[d.slotId] = (atkGoldSlotTotal[d.slotId] || 0) + d.value;
+            if (d.dieType) return;
+            const rune = getSlotById(d.slotId)?.rune;
+            let val = d.value;
+            if (rune?.effect === 'amplifier') val *= 2;
+            else if (rune?.effect === 'titanBlow' && atkNonUtilCount === 1) val *= 3;
+            else if (rune?.effect === 'leaden') val *= 2;
+            if (atkAmpMul > 0) val = Math.floor(val * atkAmpMul);
+            atkUtilZoneBase += val;
         });
 
         GS.allocated.strike.forEach(d => {
@@ -776,12 +788,18 @@ export const Combat = {
             // Utility die types — handle effect and skip normal contribution
             if (d.dieType === 'amplifier') return; // contributes via multiplier pre-pass
             if (d.dieType === 'gold') {
-                const slotTotal = atkGoldSlotTotal[d.slotId] || 0;
-                const goldGain = Math.floor(slotTotal * (d.value / 100));
+                const goldRune = getSlotById(d.slotId)?.rune;
+                const pct = (d.value / 100) * (goldRune?.effect === 'amplifier' ? 2 : 1);
+                const goldGain = Math.floor(atkUtilZoneBase * pct);
                 if (goldGain > 0) { gainGold(goldGain); log(`💰 Gold Die: +${goldGain} gold!`, 'info'); }
                 return;
             }
-            if (d.dieType === 'poison') { applyEnemyPoison(dieVal); return; }
+            if (d.dieType === 'poison') {
+                const poisonRune = getSlotById(d.slotId)?.rune;
+                const pct = (d.value / 100) * (poisonRune?.effect === 'amplifier' ? 2 : 1);
+                applyEnemyPoison(Math.floor(atkUtilZoneBase * pct));
+                return;
+            }
             if (d.dieType === 'chill') { applyStatus('chill', dieVal); return; }
             if (d.dieType === 'burn') { applyStatus('burn', dieVal, 3); return; }
             if (d.dieType === 'mark') { applyStatus('mark', dieVal, 2); return; }
@@ -843,7 +861,7 @@ export const Combat = {
         if (GS.isFirstTurn) GS.isFirstTurn = false;
 
         // New artifact attack bonuses
-        atkBonus += GS.artifacts.filter(a => a.effect === 'hydrasCrest').reduce((s, a) => s + a.value * GS.dice.filter(d => !d.midasTemp).length, 0);
+        atkBonus += GS.artifacts.filter(a => a.effect === 'hydrasCrest').reduce((s, a) => s + a.value * GS.dice.length, 0);
         atkBonus += GS.enemyStatus?.mark || 0;
         atkBonus += GS.artifacts.filter(a => a.effect === 'festeringWound').reduce((s, a) => s + a.value * (GS.enemy.poison || 0), 0);
         if (GS.artifacts.some(a => a.effect === 'berserkersMask')) atkMult *= 1.5;
@@ -1595,7 +1613,7 @@ export const Combat = {
         GS.hasteDiceBonus = 0;
 
         // ── RESET DICE FOR NEW TURN ──
-        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; delete d.slotId; });
+        GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.rolledFaceIndex = -1; d.location = 'pool'; delete d.slotId; });
         GS.allocated = { strike: [], guard: [] };
         GS.rolled = false;
         GS.autoLifesteal = 0;

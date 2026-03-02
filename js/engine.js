@@ -18,13 +18,13 @@ export function resetDieIdCounter(n = 0) { dieIdCounter = n; }
 
 export function createDieFromFaces(faceValues) {
     const sorted = [...faceValues].sort((a, b) => a - b);
-    return { id: dieIdCounter++, min: sorted[0], max: sorted[sorted.length - 1], sides: sorted.length, faceValues: sorted, value: 0, rolled: false, rolledFaceIndex: -1, faceMod: null, location: 'pool' };
+    return { id: dieIdCounter++, min: sorted[0], max: sorted[sorted.length - 1], sides: sorted.length, faceValues: sorted, value: 0, rolled: false, rolledFaceIndex: -1, faceMods: [], location: 'pool' };
 }
 
 export function createDie(min = 1, max = 6, sides = 6) {
     const step = (max - min) / (sides - 1);
     const faceValues = Array.from({length: sides}, (_, i) => Math.round(min + step * i));
-    return { id: dieIdCounter++, min, max, sides, faceValues, value: 0, rolled: false, rolledFaceIndex: -1, faceMod: null, location: 'pool' };
+    return { id: dieIdCounter++, min, max, sides, faceValues, value: 0, rolled: false, rolledFaceIndex: -1, faceMods: [], location: 'pool' };
 }
 
 export function createUtilityDie(utDef) {
@@ -32,7 +32,7 @@ export function createUtilityDie(utDef) {
     return {
         id: dieIdCounter++, min: sorted[0], max: sorted[sorted.length - 1],
         sides: sorted.length, faceValues: sorted, value: 0, rolled: false, rolledFaceIndex: -1,
-        faceMod: null, location: 'pool',
+        faceMods: [], location: 'pool',
         dieType: utDef.id, name: utDef.name, icon: utDef.icon,
     };
 }
@@ -41,7 +41,7 @@ export function upgradeDie(die) {
     die.min++; die.max++;
     const step = (die.max - die.min) / (die.faceValues.length - 1);
     die.faceValues = Array.from({length: die.faceValues.length}, (_, i) => Math.round(die.min + step * i));
-    // faceMod uses faceIndex (array position) so it survives upgrades with no remapping
+    // faceMods use faceIndex (array position) so they survive upgrades with no remapping
 }
 
 export function rollSingleDie(die) {
@@ -61,8 +61,9 @@ export function rollSingleDie(die) {
     die.value = val;
     die.rolled = true;
     die.rolledFaceIndex = fIdx;
-    // Volatile face mod: if this roll landed on the face with the volatile mod, randomise
-    if (die.faceMod?.mod.effect === 'volatile' && die.faceMod.faceIndex === fIdx) {
+    // Volatile face mod: if this roll landed on a face with the volatile mod, randomise
+    const volatileMod = die.faceMods.find(m => m.mod.effect === 'volatile' && m.faceIndex === fIdx);
+    if (volatileMod) {
         die.value = rand(1, die.max * 2);
     }
     // Gambler's Coin: apply coin flip bonus/penalty
@@ -76,10 +77,9 @@ export function rollSingleDie(die) {
 }
 
 export function getActiveFace(die) {
-    if (!die.rolled || !die.faceMod) return null;
-    if (die.rolledFaceIndex === die.faceMod.faceIndex) {
-        return { faceValue: die.faceValues[die.faceMod.faceIndex], modifier: die.faceMod.mod };
-    }
+    if (!die.rolled || !die.faceMods.length) return null;
+    const hit = die.faceMods.find(m => m.faceIndex === die.rolledFaceIndex);
+    if (hit) return { faceValue: die.faceValues[hit.faceIndex], modifier: hit.mod };
     return null;
 }
 
@@ -92,8 +92,9 @@ export function renderFaceStrip(die, opts = {}) {
     const isGold = die.dieType === 'gold';
     const isPoison = die.dieType === 'poison';
     return die.faceValues.map((v, i) => {
-        const hasMod = die.faceMod && die.faceMod.faceIndex === i;
-        const mod = hasMod ? die.faceMod.mod : null;
+        const modEntry = die.faceMods.find(m => m.faceIndex === i);
+        const hasMod = !!modEntry;
+        const mod = hasMod ? modEntry.mod : null;
         const isHighlight = highlightVal === v;
         const bg = isHighlight ? 'rgba(212,165,52,0.25)' : 'rgba(255,255,255,0.05)';
         const border = isHighlight ? 'var(--gold)' : mod ? mod.color + '66' : 'rgba(255,255,255,0.1)';
@@ -542,8 +543,8 @@ export function makeDieElement(die, context) {
         el.style.borderColor = face.modifier.color;
         el.style.boxShadow = `0 0 10px ${face.modifier.color}40`;
         el.title = `${face.modifier.name}: ${face.modifier.desc}`;
-    } else if (die.faceMod) {
-        el.title = `${die.faceMod.mod.icon} ${die.faceMod.mod.name}: ${die.faceMod.mod.desc}`;
+    } else if (die.faceMods.length) {
+        el.title = die.faceMods.map(m => `${m.mod.icon} ${m.mod.name}: ${m.mod.desc}`).join(' | ');
     }
 
     const isAmpDie = die.dieType === 'amplifier';
@@ -563,9 +564,10 @@ export function makeDieElement(die, context) {
     }
 
     let faceIcon = '';
-    if (die.faceMod && !face) {
-        const mod = die.faceMod.mod;
-        faceIcon = `<span class="die-face-icon" style="opacity:${die.rolled ? '0.4' : '1'}" title="${mod.name}: ${mod.desc}">${mod.icon}</span>`;
+    if (die.faceMods.length && !face) {
+        const icons = die.faceMods.map(m => m.mod.icon).join('');
+        const titles = die.faceMods.map(m => `${m.mod.name}: ${m.mod.desc}`).join(' | ');
+        faceIcon = `<span class="die-face-icon" style="opacity:${die.rolled ? '0.4' : '1'}" title="${titles}">${icons}</span>`;
     }
 
     el.innerHTML = `<span class="die-label">${rangeLabel}</span>${valueDisplay}${faceIcon}${auraBadge}`;

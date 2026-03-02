@@ -1031,7 +1031,7 @@ const Rewards = {
         GS.dice.forEach(die => {
             const el = document.createElement('div');
             el.className = 'die'; el.style.cursor = 'pointer'; el.style.width = '70px'; el.style.height = '70px'; el.style.fontSize = '1.1em';
-            const facesStr = die.faceMod ? ` ${die.faceMod.mod.icon}` : '';
+            const facesStr = die.faceMods.length ? ` ${die.faceMods.map(m => m.mod.icon).join('')}` : '';
             el.innerHTML = `<span class="die-label">${die.min}-${die.max}</span>d${die.sides}${facesStr}`;
             el.onclick = () => {
                 const idx = selected.indexOf(die);
@@ -1055,7 +1055,7 @@ const Rewards = {
                 const [d1, d2] = selected;
                 const nMin = d1.min + d2.min, nMax = d1.max + d2.max, st = (nMax - nMin) / 5;
                 const vals = Array.from({length: 6}, (_, i) => Math.round(nMin + st * i));
-                const tf = (d1.faceMod ? 1 : 0) + (d2.faceMod ? 1 : 0);
+                const tf = d1.faceMods.length + d2.faceMods.length;
                 preview.innerHTML = `[${d1.min}-${d1.max}] + [${d2.min}-${d2.max}] → <strong>[${nMin}-${nMax}]</strong> d6<br><span style="font-size:0.85em; opacity:0.7;">Values: ${vals.join(', ')} | ${tf} source face mod(s)</span>`;
                 confirmBtn.disabled = false; confirmBtn.style.opacity = '1';
             } else if (selected.length === 1) {
@@ -1080,14 +1080,14 @@ const Rewards = {
 
         const slots = newValues.map(v => ({ value: v, mod: null }));
         const sourcePool = [];
-        if (d1.faceMod) sourcePool.push({ id: 'a0', mod: { ...d1.faceMod.mod }, fromDie: d1, assigned: -1 });
-        if (d2.faceMod) sourcePool.push({ id: 'b0', mod: { ...d2.faceMod.mod }, fromDie: d2, assigned: -1 });
+        d1.faceMods.forEach((fm, i) => sourcePool.push({ id: `a${i}`, mod: { ...fm.mod }, fromDie: d1, assigned: -1 }));
+        d2.faceMods.forEach((fm, i) => sourcePool.push({ id: `b${i}`, mod: { ...fm.mod }, fromDie: d2, assigned: -1 }));
 
         let selectedSrc = null;
 
         const info = document.createElement('div');
         info.style.cssText = 'text-align:center; margin-bottom:8px; font-family:EB Garamond, serif; color:var(--text-dim); font-size:0.85em;';
-        info.innerHTML = `Forging: <strong style="color:var(--gold)">[${newMin}-${newMax}]</strong> d6<br>Click a source face mod, then a die face to place it on. Only one face mod on the merged die.`;
+        info.innerHTML = `Forging: <strong style="color:var(--gold)">[${newMin}-${newMax}]</strong> d6<br>Click a source face mod, then a die face to place it on. One mod per face.`;
         c.appendChild(info);
 
         const poolLabel = document.createElement('div');
@@ -1113,12 +1113,11 @@ const Rewards = {
         forgeBtn.onclick = () => {
             GS.dice = GS.dice.filter(d => d.id !== d1.id && d.id !== d2.id);
             const merged = createDie(newMin, newMax, 6);
-            const modSlot = slots.findIndex(slot => slot.mod !== null);
-            if (modSlot >= 0) {
-                merged.faceMod = { faceIndex: modSlot, mod: { ...slots[modSlot].mod } };
-            }
+            slots.forEach((slot, i) => {
+                if (slot.mod) merged.faceMods.push({ faceIndex: i, mod: { ...slot.mod } });
+            });
             GS.dice.push(merged);
-            const fs = merged.faceMod ? ` [face ${modSlot}:${merged.faceMod.mod.icon}]` : '';
+            const fs = merged.faceMods.length ? ` [${merged.faceMods.map(m => `face${m.faceIndex}:${m.mod.icon}`).join(', ')}]` : '';
             log(`🔥 Forged: [${newMin}-${newMax}] d6${fs}`, 'info');
             updateStats();
             callback();
@@ -1311,7 +1310,7 @@ const Rewards = {
             const el = document.createElement('div');
             el.className = 'die';
             el.style.cssText = 'cursor:pointer; width:65px; height:65px; font-size:1em;';
-            const facesStr = die.faceMod ? ` ${die.faceMod.mod.icon}` : '';
+            const facesStr = die.faceMods.length ? ` ${die.faceMods.map(m => m.mod.icon).join('')}` : '';
             el.innerHTML = `<span class="die-label">${die.min}-${die.max}</span>${facesStr}`;
             el.onclick = () => {
                 const i = selected.indexOf(idx);
@@ -2039,19 +2038,21 @@ const Shop = {
         c.appendChild(preview);
 
         die.faceValues.forEach((v, fIdx) => {
-            const existing = die.faceMod && die.faceMod.faceIndex === fIdx ? die.faceMod : null;
+            const existingEntry = die.faceMods.find(m => m.faceIndex === fIdx);
             const card = document.createElement('div');
             card.className = 'card';
             const faceHtml = renderFaceStrip(die, { highlightVal: v, showArrow: true, arrowMod: mod });
             card.innerHTML = `
                 <div class="card-title" style="display:flex; align-items:center; gap:8px; justify-content:center;">
                     <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">${v}</span>
-                    ${existing ? `<span style="font-size:0.8em;">${existing.mod.icon} ${existing.mod.name}</span>` : '<span style="font-size:0.8em; opacity:0.4;">Empty</span>'}
+                    ${existingEntry ? `<span style="font-size:0.8em;">${existingEntry.mod.icon} ${existingEntry.mod.name}</span>` : '<span style="font-size:0.8em; opacity:0.4;">Empty</span>'}
                     <span style="color:var(--green-bright);">→ ${mod.icon} ${mod.name}</span>
                 </div>
             `;
             card.onclick = () => {
-                die.faceMod = { faceIndex: fIdx, mod };
+                const eIdx = die.faceMods.findIndex(m => m.faceIndex === fIdx);
+                if (eIdx >= 0) die.faceMods[eIdx] = { faceIndex: fIdx, mod };
+                else die.faceMods.push({ faceIndex: fIdx, mod });
                 log(`Applied ${mod.name} to face ${v}!`, 'info');
                 updateStats(); Shop.render();
             };
@@ -2116,13 +2117,13 @@ const Shop = {
         c.appendChild(preview);
 
         die.faceValues.forEach((val, idx) => {
-            const hasMod = die.faceMod && die.faceMod.faceIndex === idx;
+            const lostMod = die.faceMods.find(m => m.faceIndex === idx);
             const card = document.createElement('div');
             card.className = 'card';
             card.innerHTML = `
                 <div class="card-title" style="color:#ff6666; display:flex; align-items:center; gap:8px; justify-content:center;">
                     <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">✂️ ${val}</span>
-                    ${hasMod ? `<span style="font-size:0.85em;">${die.faceMod.mod.icon} ${die.faceMod.mod.name} — also lost!</span>` : ''}
+                    ${lostMod ? `<span style="font-size:0.85em;">${lostMod.mod.icon} ${lostMod.mod.name} — also lost!</span>` : ''}
                 </div>
                 <div class="card-desc" style="text-align:center;">Die becomes d${die.faceValues.length - 1}</div>
             `;
@@ -2131,10 +2132,9 @@ const Shop = {
                 die.sides = die.faceValues.length;
                 die.min = Math.min(...die.faceValues);
                 die.max = Math.max(...die.faceValues);
-                if (die.faceMod) {
-                    if (die.faceMod.faceIndex === idx) die.faceMod = null;
-                    else if (die.faceMod.faceIndex > idx) die.faceMod.faceIndex--;
-                }
+                die.faceMods = die.faceMods.filter(m => m.faceIndex !== idx).map(m => ({
+                    ...m, faceIndex: m.faceIndex > idx ? m.faceIndex - 1 : m.faceIndex
+                }));
                 log(`Trimmed face ${val} from die — now d${die.sides} [${die.min}-${die.max}]`, 'info');
                 updateStats();
                 Shop.render();
@@ -2322,17 +2322,19 @@ const Events = {
         const grid = document.createElement('div');
         grid.className = 'card-grid';
         die.faceValues.forEach((v, fIdx) => {
-            const existing = die.faceMod && die.faceMod.faceIndex === fIdx ? die.faceMod : null;
+            const existingEntry = die.faceMods.find(m => m.faceIndex === fIdx);
             const card = document.createElement('div');
             card.className = 'card';
             card.innerHTML = `
                 <div class="card-title" style="display:flex; align-items:center; gap:8px; justify-content:center;">
                     <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">${v}</span>
-                    ${existing ? `<span style="font-size:0.85em;">${existing.mod.icon} ${existing.mod.name}</span>` : '<span style="font-size:0.85em; opacity:0.4;">Empty</span>'}
+                    ${existingEntry ? `<span style="font-size:0.85em;">${existingEntry.mod.icon} ${existingEntry.mod.name}</span>` : '<span style="font-size:0.85em; opacity:0.4;">Empty</span>'}
                     <span style="color:var(--green-bright);">→ ${mod.icon} ${mod.name}</span>
                 </div>`;
             card.onclick = () => {
-                die.faceMod = { faceIndex: fIdx, mod };
+                const eIdx = die.faceMods.findIndex(m => m.faceIndex === fIdx);
+                if (eIdx >= 0) die.faceMods[eIdx] = { faceIndex: fIdx, mod };
+                else die.faceMods.push({ faceIndex: fIdx, mod });
                 log(`Applied ${mod.name} to face ${v}!`, 'info');
                 cb();
             };
@@ -2461,7 +2463,9 @@ const Events = {
                         const mod = pick(FACE_MODS);
                         const die = pick(GS.dice);
                         const fIdx = Math.floor(Math.random() * die.faceValues.length);
-                        die.faceMod = { faceIndex: fIdx, mod };
+                        const eIdx = die.faceMods.findIndex(m => m.faceIndex === fIdx);
+                        if (eIdx >= 0) die.faceMods[eIdx] = { faceIndex: fIdx, mod };
+                        else die.faceMods.push({ faceIndex: fIdx, mod });
                         log(`The shrine bestows ${mod.icon} ${mod.name} on face ${die.faceValues[fIdx]}!`, 'info');
                         const dieIdx = GS.dice.indexOf(die);
                         Events._showOutcome('Cursed Shrine', [
@@ -2682,7 +2686,7 @@ const Events = {
                             const n = die.faceValues.length;
                             const newVals = Array.from({length: n}, () => die.min + Math.floor(Math.random() * (die.max - die.min + 1))).sort((a, b) => a - b);
                             die.faceValues = newVals;
-                            // faceMod.faceIndex stays valid — same position, different value
+                            // faceMods faceIndex stays valid — same position, different value
                             log(`Reforged die! New faces: [${newVals.join(', ')}]`, 'info');
                             updateStats(); Game.nextFloor();
                         });
@@ -3253,15 +3257,14 @@ const Rest = {
             const facesB = sorted.filter((_, i) => i % 2 === 1);
             const dieA = createDieFromFaces(facesA);
             const dieB = createDieFromFaces(facesB);
-            // Distribute face mod to the split dice (even-indexed → dieA, odd-indexed → dieB)
-            if (die.faceMod) {
-                const origIdx = die.faceMod.faceIndex;
-                if (origIdx % 2 === 0) {
-                    dieA.faceMod = { faceIndex: Math.floor(origIdx / 2), mod: { ...die.faceMod.mod } };
+            // Distribute face mods to the split dice (even-indexed → dieA, odd-indexed → dieB)
+            die.faceMods.forEach(fm => {
+                if (fm.faceIndex % 2 === 0) {
+                    dieA.faceMods.push({ faceIndex: Math.floor(fm.faceIndex / 2), mod: { ...fm.mod } });
                 } else {
-                    dieB.faceMod = { faceIndex: Math.floor(origIdx / 2), mod: { ...die.faceMod.mod } };
+                    dieB.faceMods.push({ faceIndex: Math.floor(fm.faceIndex / 2), mod: { ...fm.mod } });
                 }
-            }
+            });
             GS.dice.splice(idx, 1, dieA, dieB);
             log(`💥 Fractured! d${sorted.length} → d${facesA.length} [${dieA.min}-${dieA.max}] + d${facesB.length} [${dieB.min}-${dieB.max}]`, 'info');
             updateStats();
@@ -3375,13 +3378,13 @@ const Rest = {
         grid.className = 'card-grid';
 
         die.faceValues.forEach((val, idx) => {
-            const hasMod = die.faceMod && die.faceMod.faceIndex === idx;
+            const lostMod = die.faceMods.find(m => m.faceIndex === idx);
             const card = document.createElement('div');
             card.className = 'card';
             card.innerHTML = `
                 <div class="card-title" style="color:#ff6666; display:flex; align-items:center; gap:8px; justify-content:center;">
                     <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">✂️ ${val}</span>
-                    ${hasMod ? `<span style="font-size:0.85em;">${die.faceMod.mod.icon} ${die.faceMod.mod.name} — also lost!</span>` : ''}
+                    ${lostMod ? `<span style="font-size:0.85em;">${lostMod.mod.icon} ${lostMod.mod.name} — also lost!</span>` : ''}
                 </div>
                 <div class="card-desc" style="text-align:center;">Die becomes d${die.faceValues.length - 1}</div>
             `;
@@ -3390,10 +3393,9 @@ const Rest = {
                 die.sides = die.faceValues.length;
                 die.min = Math.min(...die.faceValues);
                 die.max = Math.max(...die.faceValues);
-                if (die.faceMod) {
-                    if (die.faceMod.faceIndex === idx) die.faceMod = null;
-                    else if (die.faceMod.faceIndex > idx) die.faceMod.faceIndex--;
-                }
+                die.faceMods = die.faceMods.filter(m => m.faceIndex !== idx).map(m => ({
+                    ...m, faceIndex: m.faceIndex > idx ? m.faceIndex - 1 : m.faceIndex
+                }));
                 log(`Trimmed face ${val} — now d${die.sides} [${die.min}-${die.max}]`, 'info');
                 updateStats();
                 Rest._maintenanceDone = true;
@@ -3770,7 +3772,7 @@ const Inventory = {
             <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">🎲 DICE (${GS.dice.length})</div>`;
         GS.dice.forEach((die, i) => {
             const faces = die.faceValues ? die.faceValues.join(', ') : `${die.min}-${die.max}`;
-            const mods = die.faceMod ? `<span style="color:${die.faceMod.mod.color};" title="${die.faceMod.mod.name}: ${die.faceMod.mod.desc}"> face${die.faceMod.faceIndex + 1}(${die.faceValues[die.faceMod.faceIndex]}):${die.faceMod.mod.icon}${die.faceMod.mod.name}</span>` : '<span style="opacity:0.4;">no mod</span>';
+            const mods = die.faceMods.length ? die.faceMods.map(m => `<span style="color:${m.mod.color};" title="${m.mod.name}: ${m.mod.desc}"> face${m.faceIndex + 1}(${die.faceValues[m.faceIndex]}):${m.mod.icon}${m.mod.name}</span>`).join(' ') : '<span style="opacity:0.4;">no mod</span>';
             html += `<div style="margin:4px 0; font-size:0.82em; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
                 <strong>d${die.faceValues ? die.faceValues.length : die.sides}</strong> [${faces}] ${mods}
             </div>`;

@@ -312,6 +312,19 @@ export const Combat = {
             if (es.stun > 0)   statusIndicators += `<span style="color:#d0d020;font-size:0.75em;margin-left:8px;">⚡ Stunned</span>`;
         }
 
+        // Visual status overlay classes on the panel
+        const panel = $('enemy-panel');
+        panel.className = 'enemy-panel';
+        if (e.poison > 0)      panel.classList.add('status-poison');
+        if (es) {
+            if (es.freeze > 0) panel.classList.add('status-frozen');
+            else if (es.chill > 0) panel.classList.add('status-chill');
+            if (es.burn > 0)   panel.classList.add('status-burn');
+            if (es.mark > 0)   panel.classList.add('status-mark');
+            if (es.weaken > 0) panel.classList.add('status-weaken');
+            if (es.stun > 0)   panel.classList.add('status-stun');
+        }
+
         // Passive tags
         const passiveHtml = e.passives && e.passives.length > 0
             ? `<div class="enemy-passive-tags">${e.passives.map(p => `<span class="passive-tag">${p.name}: ${p.desc}</span>`).join('')}</div>`

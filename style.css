@@ -173,6 +173,9 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     padding: 20px;
     margin-bottom: 16px;
     text-align: center;
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow 0.4s ease, border-color 0.4s ease;
 }
 
 .enemy-name {
@@ -211,6 +214,83 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.9em;
     color: var(--red-bright);
+}
+
+/* ── Enemy Status Overlays ── */
+/* Ordered by visual priority (last wins in CSS cascade) */
+.enemy-panel.status-mark {
+    border-color: #cc4444;
+    box-shadow: inset 0 0 20px rgba(204, 68, 68, 0.1), 0 0 8px rgba(204, 68, 68, 0.2);
+}
+.enemy-panel.status-weaken {
+    border-color: #c060a0;
+    box-shadow: inset 0 0 20px rgba(192, 96, 160, 0.1), 0 0 8px rgba(192, 96, 160, 0.2);
+}
+.enemy-panel.status-chill {
+    border-color: #80c0e0;
+    box-shadow: inset 0 0 20px rgba(128, 192, 224, 0.08), 0 0 8px rgba(128, 192, 224, 0.15);
+}
+.enemy-panel.status-poison {
+    border-color: #50a030;
+    box-shadow: inset 0 0 25px rgba(80, 160, 48, 0.12), 0 0 10px rgba(80, 160, 48, 0.2);
+}
+.enemy-panel.status-poison::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 100%, rgba(80,160,48,0.1) 0%, transparent 60%);
+    pointer-events: none;
+    animation: poison-pulse 3s ease-in-out infinite;
+}
+@keyframes poison-pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+.enemy-panel.status-burn {
+    border-color: #d06020;
+    box-shadow: inset 0 0 25px rgba(208, 96, 32, 0.12), 0 0 10px rgba(208, 96, 32, 0.25);
+}
+.enemy-panel.status-burn::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 100%, rgba(255,120,30,0.15) 0%, transparent 50%);
+    pointer-events: none;
+    animation: burn-flicker 1.5s ease-in-out infinite alternate;
+}
+@keyframes burn-flicker {
+    0% { opacity: 0.4; }
+    30% { opacity: 1; }
+    60% { opacity: 0.6; }
+    100% { opacity: 0.9; }
+}
+.enemy-panel.status-stun {
+    border-color: #d0d020;
+    box-shadow: inset 0 0 25px rgba(208, 208, 32, 0.12), 0 0 10px rgba(208, 208, 32, 0.25);
+}
+.enemy-panel.status-stun::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 30%, rgba(220,220,40,0.1) 0%, transparent 50%);
+    pointer-events: none;
+    animation: stun-flash 0.8s ease-in-out infinite alternate;
+}
+@keyframes stun-flash {
+    0% { opacity: 0.3; }
+    100% { opacity: 1; }
+}
+.enemy-panel.status-frozen {
+    border-color: #60c0e0;
+    box-shadow: inset 0 0 30px rgba(96, 192, 224, 0.15), 0 0 12px rgba(96, 192, 224, 0.25);
+}
+.enemy-panel.status-frozen::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(100,200,240,0.12) 0%, transparent 40%);
+    pointer-events: none;
+    animation: frost-pulse 2s ease-in-out infinite;
+}
+@keyframes frost-pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
 }
 
 /* ── HP + CONSUMABLE ROW ── */

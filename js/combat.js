@@ -643,7 +643,8 @@ export const Combat = {
             const defRune = getSlotById(d.slotId)?.rune;
             const isAmplified = defRune?.effect === 'amplifier';
             const ampMul = isAmplified ? 2 : 1;
-            let dieVal = d.value + (GS.passives.swarmMaster || 0) + (d.dieType ? 0 : defAscendBonus);
+            const defVolley = (!d.dieType && GS.passives.volley && defCount >= 4) ? GS.passives.volley : 0;
+            let dieVal = d.value + (GS.passives.swarmMaster || 0) + (d.dieType ? 0 : defAscendBonus) + defVolley;
             if (isAmplified) dieVal *= 2;
             if (defRune?.effect === 'titanBlow' && defCount === 1) dieVal *= 3;
             if (defRune?.effect === 'leaden') dieVal *= 2;
@@ -714,7 +715,6 @@ export const Combat = {
         defBonus += GS.buffs.armor;
         // transformBuffs: Fortification defend multiplier
         if (GS.transformBuffs && GS.transformBuffs.fortified > 1) defMult *= GS.transformBuffs.fortified;
-        if (GS.passives.volley && defCount >= 3) defBase += GS.passives.volley;
         if (GS.passives.threshold) {
             GS.allocated.guard.forEach(d => { if (d.value >= 8) defBase += Math.floor(d.value * 0.5); });
         }
@@ -833,7 +833,8 @@ export const Combat = {
             // Splinter rune: die's value was distributed to others — skip own contribution
             if (atkRune?.effect === 'splinter') return;
 
-            let dieVal = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0) + (d.dieType ? 0 : atkAscendBonus) + (splinterBonus[d.id] || 0);
+            const atkVolley = (!d.dieType && GS.passives.volley && atkCount >= 4) ? GS.passives.volley : 0;
+            let dieVal = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0) + (d.dieType ? 0 : atkAscendBonus) + atkVolley + (splinterBonus[d.id] || 0);
             if (isAmplified) dieVal *= 2;
             if (atkRune?.effect === 'titanBlow' && atkCount === 1) dieVal *= 3;
             if (d.id === furyBoostDieId) dieVal *= 2;
@@ -959,7 +960,6 @@ export const Combat = {
         const goldScale = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
         if (goldScale > 0) atkBonus += goldScale;
         if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
-        if (GS.passives.volley && atkCount >= 3) atkBase += GS.passives.volley;
         if (GS.passives.threshold) {
             GS.allocated.strike.forEach(d => { if (d.value >= 8) atkBase += Math.floor(d.value * 0.5); });
         }

@@ -3223,7 +3223,8 @@ const Rest = {
             } else if (type === 'fracture') {
                 if (die.faceValues.length < 6) { disabled = true; reason = 'Needs ≥6 faces'; }
             } else if (type === 'ascend') {
-                if (rollable.length - 1 < 2) { disabled = true; reason = 'Need ≥2 dice remaining'; }
+                if (die.dieType) { disabled = true; reason = 'Cannot ascend utility dice'; }
+                else if (rollable.length - 1 < 2) { disabled = true; reason = 'Need ≥2 dice remaining'; }
             } else if (type === 'corrupt') {
                 if (die.corrupted) { disabled = true; reason = 'Already corrupted'; }
             }

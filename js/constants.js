@@ -433,7 +433,7 @@ export const SKILL_TREE = [
     { id: 'w_a', name: 'Extra Arms',   icon: '🐺', desc: '+1 Strike Slot',                          requires: ['root'], effect: (gs) => { gs.slots.strike.push({ id: `str-${Date.now()}`, rune: null }); } },
     { id: 'w_b', name: 'Pack Tactics', icon: '🐺', desc: 'Passive: +1 dmg per die in strike slot', requires: ['root'], effect: (gs) => { gs.passives.packTactics = (gs.passives.packTactics || 0) + 1; } },
     { id: 'w_c', name: 'Shield Wall',  icon: '🐺', desc: '+1 Guard Slot',                           requires: ['root'], effect: (gs) => { gs.slots.guard.push({ id: `grd-${Date.now()}`, rune: null }); } },
-    { id: 'w_d', name: 'Volley',       icon: '🐺', desc: 'Passive: 3+ dice in slot = +8 bonus',    requires: ['root'], effect: (gs) => { gs.passives.volley = (gs.passives.volley || 0) + 8; } },
+    { id: 'w_d', name: 'Volley',       icon: '🐺', desc: 'Passive: 4+ dice in zone = +3 per die', requires: ['root'], effect: (gs) => { gs.passives.volley = (gs.passives.volley || 0) + 3; } },
     { id: 'w_n', name: 'Swarm Master', icon: '👑', desc: 'Passive: +2 per die in ANY slot',        requires: ['w_a', 'w_b', 'w_c', 'w_d'], effect: (gs) => { gs.passives.swarmMaster = (gs.passives.swarmMaster || 0) + 2; } },
 
     // ── GOLD FACE 💰 — economy ──

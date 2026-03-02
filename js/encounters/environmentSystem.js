@@ -59,9 +59,8 @@ export const ENVIRONMENTS = {
         onDiceRoll(dice, isPlayer, combat) {
             if (dice.length === 0) return dice;
             const modified = [...dice];
-            // Both player and enemy dice are now die objects with .max
-            const allDice  = isPlayer ? combat.player.dice : [...combat.enemy.dice, ...combat.enemy.extraDice];
-            const maxValue = allDice[0]?.max || dice[0];
+            const sourceDie = combat._rolledDice?.[0];
+            const maxValue = sourceDie?.max ?? dice[0];
             modified[0] = maxValue;
             combat.log(`Arcane energy surges — first die is maximum! (${maxValue})`);
             return modified;

@@ -89,8 +89,7 @@ export function getActiveFace(die) {
 export function renderFaceStrip(die, opts = {}) {
     const { highlightVal, showArrow, arrowMod } = opts;
     const isAmp = die.dieType === 'amplifier';
-    const isGold = die.dieType === 'gold';
-    const isPoison = die.dieType === 'poison';
+    const isPct = ['gold','poison'].includes(die.dieType);
     return die.faceValues.map((v, i) => {
         const modEntry = die.faceMods.find(m => m.faceIndex === i);
         const hasMod = !!modEntry;
@@ -100,10 +99,10 @@ export function renderFaceStrip(die, opts = {}) {
         const border = isHighlight ? 'var(--gold)' : mod ? mod.color + '66' : 'rgba(255,255,255,0.1)';
         const modIcon = mod ? `<div style="font-size:0.65em; margin-top:1px;">${mod.icon}</div>` : '';
         const arrow = isHighlight && showArrow && arrowMod ? `<div style="font-size:0.6em; color:var(--green-bright);">→${arrowMod.icon}</div>` : '';
-        const label = isAmp ? `×${v / 100}` : (isGold || isPoison) ? `${v}%` : v;
+        const label = isAmp ? `×${v / 100}` : isPct ? `${v}%` : v;
         return `<div style="display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
             width:38px; height:44px; border-radius:6px; border:1.5px solid ${border}; background:${bg};
-            font-family:JetBrains Mono,monospace; font-weight:700; font-size:${(isAmp || isGold || isPoison) ? '0.8em' : '0.95em'}; margin:2px;">
+            font-family:JetBrains Mono,monospace; font-weight:700; font-size:${(isAmp || isPct) ? '0.8em' : '0.95em'}; margin:2px;">
             ${label}${modIcon}${arrow}
         </div>`;
     }).join('');
@@ -783,16 +782,25 @@ function calcUtilityPreviews(allocated) {
         if (ampMul > 0) val = Math.floor(val * ampMul);
         zoneBase += val;
     });
-    let gold = 0, poison = 0;
+    let gold = 0, poison = 0, chill = 0, burn = 0, mark = 0;
     allocated.forEach(d => {
-        if (d.dieType !== 'gold' && d.dieType !== 'poison') return;
         const rune = getSlotById(d.slotId)?.rune;
-        const pct = (d.value / 100) * (rune?.effect === 'amplifier' ? 2 : 1);
-        const amount = Math.floor(zoneBase * pct);
-        if (d.dieType === 'gold') gold += amount;
-        else poison += amount;
+        if (d.dieType === 'gold' || d.dieType === 'poison') {
+            const pct = (d.value / 100) * (rune?.effect === 'amplifier' ? 2 : 1);
+            const amount = Math.floor(zoneBase * pct);
+            if (d.dieType === 'gold') gold += amount;
+            else poison += amount;
+        } else if (d.dieType === 'chill' || d.dieType === 'burn' || d.dieType === 'mark') {
+            let val = d.value;
+            if (rune?.effect === 'amplifier') val *= 2;
+            else if (rune?.effect === 'titanBlow' && nonUtilCount === 1) val *= 3;
+            else if (rune?.effect === 'leaden') val *= 2;
+            if (d.dieType === 'chill') chill += val;
+            else if (d.dieType === 'burn') burn += val;
+            else mark += val;
+        }
     });
-    return { gold, poison };
+    return { gold, poison, chill, burn, mark };
 }
 
 export function updateSlotTotals() {
@@ -843,9 +851,12 @@ export function updateSlotTotals() {
     let finalAtk = Math.floor(atkTotal * atkMultiplier) + atkBonus;
     if (GS.artifacts.some(a => a.effect === 'sharpeningStone')) finalAtk = Math.ceil(finalAtk * 1.5);
     $('attack-total').textContent = finalAtk;
-    const { gold: atkGold, poison: atkPoison } = calcUtilityPreviews(GS.allocated.strike);
-    $('attack-gold').textContent = atkGold > 0 ? `💰${atkGold}g` : '';
+    const { gold: atkGold, poison: atkPoison, chill: atkChill, burn: atkBurn, mark: atkMark } = calcUtilityPreviews(GS.allocated.strike);
+    $('attack-gold').textContent   = atkGold   > 0 ? `💰${atkGold}g`  : '';
     $('attack-poison').textContent = atkPoison > 0 ? `☠️${atkPoison}p` : '';
+    $('attack-chill').textContent  = atkChill  > 0 ? `❄️${atkChill}`   : '';
+    $('attack-burn').textContent   = atkBurn   > 0 ? `🔥${atkBurn}`    : '';
+    $('attack-mark').textContent   = atkMark   > 0 ? `🎯${atkMark}`    : '';
 
     let atkSummary = '';
     if (atkMultiplier > 1) atkSummary += `×${atkMultiplier.toFixed(1).replace('.0','')} `;
@@ -879,8 +890,9 @@ export function updateSlotTotals() {
 
     const finalDef = Math.floor(defTotal * defMultiplier) + defBonus;
     $('defend-total').textContent = finalDef;
-    const { gold: defGold } = calcUtilityPreviews(GS.allocated.guard);
-    $('defend-gold').textContent = defGold > 0 ? `💰${defGold}g` : '';
+    const { gold: defGold, chill: defChill } = calcUtilityPreviews(GS.allocated.guard);
+    $('defend-gold').textContent  = defGold  > 0 ? `💰${defGold}g` : '';
+    $('defend-chill').textContent = defChill > 0 ? `❄️${defChill}` : '';
 
     let defSummary = '';
     if (defMultiplier > 1) defSummary += `×${defMultiplier.toFixed(1).replace('.0','')} `;

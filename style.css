@@ -618,6 +618,27 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     margin-left: 6px;
 }
 
+.slot-chill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8em;
+    color: var(--blue-bright);
+    margin-left: 6px;
+}
+
+.slot-burn {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8em;
+    color: var(--red-bright);
+    margin-left: 6px;
+}
+
+.slot-mark {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8em;
+    color: var(--purple);
+    margin-left: 6px;
+}
+
 .slot-dice-grid {
     display: flex;
     gap: 8px;

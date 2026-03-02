@@ -639,7 +639,15 @@ export const Combat = {
                 if (goldGain > 0) { gainGold(goldGain); log(`💰 Gold Die: +${goldGain} gold!`, 'info'); }
                 return;
             }
-            if (d.dieType === 'chill') { applyStatus('chill', dieVal); return; }
+            if (d.dieType === 'chill') {
+                const r = getSlotById(d.slotId)?.rune;
+                let val = d.value;
+                if (r?.effect === 'amplifier') val *= 2;
+                else if (r?.effect === 'titanBlow' && defCount === 1) val *= 3;
+                else if (r?.effect === 'leaden') val *= 2;
+                applyStatus('chill', val);
+                return;
+            }
             if (d.dieType === 'weaken') { applyStatus('weaken', 1, dieVal); return; }
             if (d.dieType === 'shield') { defBase += dieVal; crossSlotBonusAtk += dieVal; return; }
             if (d.dieType === 'mimic') {
@@ -813,9 +821,33 @@ export const Combat = {
                 applyEnemyPoison(Math.floor(atkUtilZoneBase * pct));
                 return;
             }
-            if (d.dieType === 'chill') { applyStatus('chill', dieVal); return; }
-            if (d.dieType === 'burn') { applyStatus('burn', dieVal, 3); return; }
-            if (d.dieType === 'mark') { applyStatus('mark', dieVal, 2); return; }
+            if (d.dieType === 'chill') {
+                const r = getSlotById(d.slotId)?.rune;
+                let val = d.value;
+                if (r?.effect === 'amplifier') val *= 2;
+                else if (r?.effect === 'titanBlow' && atkCount === 1) val *= 3;
+                else if (r?.effect === 'leaden') val *= 2;
+                applyStatus('chill', val);
+                return;
+            }
+            if (d.dieType === 'burn') {
+                const r = getSlotById(d.slotId)?.rune;
+                let val = d.value;
+                if (r?.effect === 'amplifier') val *= 2;
+                else if (r?.effect === 'titanBlow' && atkCount === 1) val *= 3;
+                else if (r?.effect === 'leaden') val *= 2;
+                applyStatus('burn', val, 3);
+                return;
+            }
+            if (d.dieType === 'mark') {
+                const r = getSlotById(d.slotId)?.rune;
+                let val = d.value;
+                if (r?.effect === 'amplifier') val *= 2;
+                else if (r?.effect === 'titanBlow' && atkCount === 1) val *= 3;
+                else if (r?.effect === 'leaden') val *= 2;
+                applyStatus('mark', val, 2);
+                return;
+            }
             if (d.dieType === 'weaken') { applyStatus('weaken', 1, dieVal); return; }
             if (d.dieType === 'shield') { atkBase += dieVal; crossSlotBonusDef += dieVal; return; }
             if (d.dieType === 'drain') { atkBase += dieVal; siphonHealing += dieVal; return; }

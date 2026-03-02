@@ -526,14 +526,8 @@ export const UTILITY_DICE = [
     { id: 'amplifier', name: 'Amplifier Die',  icon: '📡', zone: 'either', price: 100,
       desc: 'Multiplies total output of all other dice in its zone. Useless alone.',
       faceValues: [150, 175, 200, 225, 250, 300] },  // values are percentages (150 = ×1.5)
-    { id: 'drain',     name: 'Drain Die',      icon: '🩸', zone: 'strike', price: 75,
-      desc: 'Deals damage equal to its value AND heals the same amount (lifesteal die).',
-      faceValues: [2, 3, 4, 5, 6, 7] },
-    { id: 'weaken',    name: 'Weaken Die',     icon: '💔', zone: 'either', price: 65,
-      desc: 'Applies weaken to enemy for rolled turns (enemy deals 25% less).',
-      faceValues: [1, 1, 2, 2, 3, 3] },
     { id: 'mimic',     name: 'Mimic Die',      icon: '🪞', zone: 'either', price: 70,
-      desc: 'On resolution, copies the rolled value of a random die from your entire pool.',
+      desc: 'At roll time, copies a random die from your pool and rolls as if it were that die. Re-picks each turn.',
       faceValues: [1, 2, 3, 4, 5, 6] },
 ];
 

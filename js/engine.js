@@ -50,6 +50,23 @@ export function rollSingleDie(die) {
         die.rolled = true;
         return;
     }
+    // Mimic Die: copy a random non-mimic die's faceValues AND type, roll those faces
+    if (die.dieType === 'mimic') {
+        const others = GS.dice.filter(d => d.id !== die.id && d.dieType !== 'mimic' && d.faceValues?.length > 0);
+        if (others.length > 0) {
+            const target = others[Math.floor(Math.random() * others.length)];
+            const fIdx = Math.floor(Math.random() * target.faceValues.length);
+            die.value = target.faceValues[fIdx];
+            die._mimickedType = target.dieType ?? null; // null = normal die
+            die.rolled = true;
+            die.rolledFaceIndex = fIdx;
+            if (GS.gamblerCoinBonus) die.value = Math.max(1, die.value + GS.gamblerCoinBonus);
+            if (die.infuseFloor && die.value < die.infuseFloor) die.value = die.infuseFloor;
+            if (die.cursed) die.value = Math.max(1, die.value - 1);
+            return;
+        }
+        die._mimickedType = null; // fallback: roll own faceValues below
+    }
     let fIdx = Math.floor(Math.random() * die.faceValues.length);
     let val = die.faceValues[fIdx];
     // Precision Lens: roll twice, keep higher

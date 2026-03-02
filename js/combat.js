@@ -662,11 +662,25 @@ export const Combat = {
                 applyStatus('chill', val);
                 return;
             }
-            if (d.dieType === 'weaken') { applyStatus('weaken', 1, dieVal); return; }
             if (d.dieType === 'shield') { defBase += dieVal; crossSlotBonusAtk += dieVal; return; }
             if (d.dieType === 'mimic') {
-                const others = GS.dice.filter(x => x.id !== d.id && x.rolled && x.value > 0);
-                if (others.length) dieVal = others[Math.floor(Math.random() * others.length)].value;
+                const mimicType = d._mimickedType;
+                const r = getSlotById(d.slotId)?.rune;
+                if (mimicType === 'gold') {
+                    const pct = (d.value / 100) * (r?.effect === 'amplifier' ? 2 : 1);
+                    const goldGain = Math.floor(defUtilZoneBase * pct);
+                    if (goldGain > 0) { gainGold(goldGain); log(`💰 Mimic→Gold: +${goldGain}g`, 'info'); }
+                    return;
+                }
+                if (mimicType === 'chill') {
+                    let val = d.value;
+                    if (r?.effect === 'amplifier') val *= 2;
+                    else if (r?.effect === 'titanBlow' && defCount === 1) val *= 3;
+                    else if (r?.effect === 'leaden') val *= 2;
+                    applyStatus('chill', val); return;
+                }
+                if (mimicType === 'shield') { defBase += dieVal; crossSlotBonusAtk += dieVal; return; }
+                // burn/mark/poison are strike-only — contribute as normal defense
                 defBase += dieVal; return;
             }
             if (d.dieType) return; // unknown utility die: contribute 0
@@ -862,12 +876,44 @@ export const Combat = {
                 applyStatus('mark', val, 2);
                 return;
             }
-            if (d.dieType === 'weaken') { applyStatus('weaken', 1, dieVal); return; }
             if (d.dieType === 'shield') { atkBase += dieVal; crossSlotBonusDef += dieVal; return; }
-            if (d.dieType === 'drain') { atkBase += dieVal; siphonHealing += dieVal; return; }
             if (d.dieType === 'mimic') {
-                const others = GS.dice.filter(x => x.id !== d.id && x.rolled && x.value > 0);
-                if (others.length) dieVal = others[Math.floor(Math.random() * others.length)].value;
+                const mimicType = d._mimickedType;
+                const r = getSlotById(d.slotId)?.rune;
+                if (mimicType === 'gold') {
+                    const pct = (d.value / 100) * (r?.effect === 'amplifier' ? 2 : 1);
+                    const goldGain = Math.floor(atkUtilZoneBase * pct);
+                    if (goldGain > 0) { gainGold(goldGain); log(`💰 Mimic→Gold: +${goldGain}g`, 'info'); }
+                    return;
+                }
+                if (mimicType === 'poison') {
+                    const pct = (d.value / 100) * (r?.effect === 'amplifier' ? 2 : 1);
+                    applyEnemyPoison(Math.floor(atkUtilZoneBase * pct));
+                    return;
+                }
+                if (mimicType === 'chill') {
+                    let val = d.value;
+                    if (r?.effect === 'amplifier') val *= 2;
+                    else if (r?.effect === 'titanBlow' && atkCount === 1) val *= 3;
+                    else if (r?.effect === 'leaden') val *= 2;
+                    applyStatus('chill', val); return;
+                }
+                if (mimicType === 'burn') {
+                    let val = d.value;
+                    if (r?.effect === 'amplifier') val *= 2;
+                    else if (r?.effect === 'titanBlow' && atkCount === 1) val *= 3;
+                    else if (r?.effect === 'leaden') val *= 2;
+                    applyStatus('burn', val, 3); return;
+                }
+                if (mimicType === 'mark') {
+                    let val = d.value;
+                    if (r?.effect === 'amplifier') val *= 2;
+                    else if (r?.effect === 'titanBlow' && atkCount === 1) val *= 3;
+                    else if (r?.effect === 'leaden') val *= 2;
+                    applyStatus('mark', val, 2); return;
+                }
+                if (mimicType === 'shield') { atkBase += dieVal; crossSlotBonusDef += dieVal; return; }
+                // null (normal die), amplifier, or unknown → contribute as normal attack
                 atkBase += dieVal; return;
             }
             if (d.dieType) return; // unknown utility die: contribute 0

@@ -16,7 +16,10 @@ function spawnFloatText(text, anchorEl, type = 'damage') {
     const el = document.createElement('div');
     el.className = `float-text float-text--${type}`;
     el.textContent = text;
-    const xOffset = Math.random() * 40 - 20;
+    // Spread starting positions and randomise horizontal drift direction
+    const xOffset = Math.random() * 80 - 40;
+    const drift = Math.random() * 70 - 35;
+    el.style.setProperty('--drift', drift + 'px');
     el.style.left = (rect.left + rect.width / 2 + xOffset) + 'px';
     el.style.top  = (rect.top + 10) + 'px';
     document.body.appendChild(el);
@@ -429,7 +432,9 @@ export const Combat = {
 
         // Environment: modify enemy dice results
         if (GS.environment?.onDiceRoll) {
-            e.diceResults = GS.environment.onDiceRoll([...e.diceResults], false, combatCtx());
+            const ctx = combatCtx();
+            ctx._rolledDice = effectivePool;
+            e.diceResults = GS.environment.onDiceRoll([...e.diceResults], false, ctx);
         }
 
         // Chaos Storm: reroll one random enemy die
@@ -557,7 +562,9 @@ export const Combat = {
         if (GS.environment?.onDiceRoll) {
             const rollable = GS.dice.filter(d => d.rolled && d.location !== 'auto');
             const raw      = rollable.map(d => d.value);
-            const modified = GS.environment.onDiceRoll(raw, true, combatCtx());
+            const ctx = combatCtx();
+            ctx._rolledDice = rollable;
+            const modified = GS.environment.onDiceRoll(raw, true, ctx);
             modified.forEach((v, i) => { if (rollable[i]) rollable[i].value = v; });
         }
 

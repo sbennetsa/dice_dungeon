@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Dice Dungeon is a tactical dice-based roguelike dungeon crawler built as a Progressive Web App (PWA). Players allocate dice to Attack/Defend slots across 15 floors (3 acts x 5 floors, each with a boss). Built entirely in vanilla JavaScript with ES6 modules — no frameworks, no build step.
+Dice Dungeon is a tactical dice-based roguelike dungeon crawler built as a Progressive Web App (PWA). Players allocate dice to Strike/Guard zones across 15 floors (3 acts x 5 floors, each with a boss). Built entirely in vanilla JavaScript with ES6 modules — no frameworks, no build step.
 
 ## Tech Stack
 
@@ -25,6 +25,8 @@ js/
     environmentSystem.js
     eliteModifierSystem.js
     anomalySystem.js
+    dungeonBlueprint.js  — Seeded dungeon generation (all 15 floors pre-determined)
+    dungeonScoring.js    — Threat/reward budget values, per-floor and dungeon scoring
 docs/              — Design specs (enemies, consumables, events, artifacts, encounters)
 ```
 
@@ -63,3 +65,8 @@ No automated test suite. Testing is manual in-browser.
 See `docs/decisions.md` for the full record. Summary of decisions that affect coding:
 
 - **Elite EncounterChoice UI**: Show the visible modifier's effects as discrete named bullet points only — never aggregate computed stats (HP totals, avg damage, dice pool strings) that include both modifiers. Any aggregate number would be wrong in combat because the hidden modifier also applies. The hidden modifier must not be revealed before the player commits. See `docs/decisions.md` for full rationale.
+- **Strike / Guard zone naming**: The attack area is the **Strike zone**; the defend area is the **Guard zone**. "Slot" refers only to individual die positions within a zone. Code: `GS.slots.strike` / `GS.slots.guard`. See `docs/decisions.md`.
+- **Rune + Face Mod rework** *(spec complete, implementation pending)*: Runes attach to slots (always active, moderate power); face mods attach to one face of a die (high power, triggers ~1/N times). See `docs/rework_artifacts_runes.md` — 10 runes, 10 utility die types, 12 face mods, Runeforger Tall capstone.
+- **Dungeon Path screen**: A dedicated screen shown after `Game.start()` and before `Game.enterFloor()`. Displays the full seeded dungeon map with per-floor threat breakdowns and a collapsible Run Settings panel. `DungeonPath.proceed()` triggers floor entry. See `docs/decisions.md`.
+- **Run difficulty (Casual/Standard/Heroic)**: Stored on `GS.runDifficulty`; NOT baked into blueprint generation. Same seed always produces the same enemy/environment/schedule layout regardless of difficulty. Difficulty only affects `EncounterChoice.show()` UI behavior and the dungeon map threat display. See `docs/decisions.md`.
+- **Shop advantage scales by act**: `SHOP_ADVANTAGES = [4, 8, 12]` (Act 1/2/3). Early shops are worth less because players have had fewer combats and less gold to spend.

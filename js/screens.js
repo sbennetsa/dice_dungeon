@@ -2,9 +2,9 @@
 //  SCREENS — Game, Rewards, Shop, Events, Rest, Inventory
 //  Entry point: exposes all modules on window for onclick handlers
 // ════════════════════════════════════════════════════════════
-import { FACE_MODS, ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, getAct, getFloorType, getArtifactPool, pickConsumablesForMarket, pickWeightedConsumable } from './constants.js';
+import { FACE_MODS, ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, UTILITY_DICE, getAct, getFloorType, getArtifactPool, pickConsumablesForMarket, pickWeightedConsumable } from './constants.js';
 import { GS, $, rand, pick, shuffle, log, gainXP, gainGold, heal } from './state.js';
-import { createDie, createDieFromFaces, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones } from './engine.js';
+import { createDie, createDieFromFaces, createUtilityDie, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones } from './engine.js';
 import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } from './encounters/encounterGenerator.js';
 import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
@@ -32,7 +32,6 @@ function _applyArtifactOnAcquire(art) {
             if (d.max >= 9) {
                 d.faceValues = d.faceValues.map(v => v + art.value);
                 d.min += art.value; d.max += art.value;
-                d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
             }
         });
         log(`🏋️ Colossus Belt: dice with max≥9 gained +${art.value} to all faces!`, 'info');
@@ -40,7 +39,6 @@ function _applyArtifactOnAcquire(art) {
         GS.dice.forEach(d => {
             d.faceValues = d.faceValues.map(v => v + art.value);
             d.min += art.value; d.max += art.value;
-            d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value }));
         });
         GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2));
         GS.hp = Math.min(GS.hp, GS.maxHp);
@@ -150,8 +148,8 @@ function showRuneAttachment(rune, onDone) {
     grid.style.cssText = 'display:flex; flex-wrap:wrap; gap:10px; justify-content:center;';
 
     const allSlots = [
-        ...GS.slots.attack.map((s, i) => ({ ...s, type: 'attack', label: `⚔️ Attack Slot ${i + 1}` })),
-        ...GS.slots.defend.map((s, i) => ({ ...s, type: 'defend', label: `🛡️ Defend Slot ${i + 1}` })),
+        ...GS.slots.strike.map((s, i) => ({ ...s, type: 'strike', label: `⚔️ Strike Slot ${i + 1}` })),
+        ...GS.slots.guard.map((s, i) => ({ ...s, type: 'guard', label: `🛡️ Guard Slot ${i + 1}` })),
     ];
 
     allSlots.forEach(slotInfo => {
@@ -190,8 +188,8 @@ const Game = {
             level: 1, xp: 0, xpNext: 50,
             dice: [createDie(1,6), createDie(1,6), createDie(1,6)],
             slots: {
-                attack: [{ id: 'atk-0', rune: null }, { id: 'atk-1', rune: null }],
-                defend: [{ id: 'def-0', rune: null }, { id: 'def-1', rune: null }],
+                strike: [{ id: 'str-0', rune: null }, { id: 'str-1', rune: null }],
+                guard:  [{ id: 'grd-0', rune: null }, { id: 'grd-1', rune: null }],
             },
             pendingRunes: [],
             enemyStatus: { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: false },
@@ -204,7 +202,7 @@ const Game = {
             rerolls: 0, rerollsLeft: 0,
             enemy: null, enemiesKilled: 0, totalGold: 0,
             artifacts: [], buffs: { damageBoost: 0, armor: 0 },
-            allocated: { attack: [], defend: [] }, rolled: false,
+            allocated: { strike: [], guard: [] }, rolled: false,
             tempBuffs: {
                 poisonCombats: 0, armorCombats: 0, armorBonus: 0,
                 mastersHammer: false, shopReduced: false,
@@ -363,7 +361,7 @@ const Game = {
             };
         }});
 
-        const totalSlots = GS.slots.attack.length + GS.slots.defend.length;
+        const totalSlots = GS.slots.strike.length + GS.slots.guard.length;
         rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
             GS.dice.push(createDie(1, 6));
             log('Added new D6!', 'info');
@@ -628,7 +626,7 @@ const SkillDie = (() => {
             </div>
             <div class="sd-reveal-title">Reveal the Die</div>
             <div class="sd-reveal-desc">Spend your first skill point to unlock the skill die</div>
-            <div class="sd-reveal-effect">+1 Attack Slot · +1 Defend Slot</div>
+            <div class="sd-reveal-effect">+1 Strike Slot · +1 Guard Slot</div>
             <div class="sd-reveal-cta">Tap to reveal</div>
             <button class="sd-done-btn sd-reveal-skip" id="sd-reveal-skip">Skip →</button>
         `;
@@ -1034,7 +1032,7 @@ const Rewards = {
         GS.dice.forEach(die => {
             const el = document.createElement('div');
             el.className = 'die'; el.style.cursor = 'pointer'; el.style.width = '70px'; el.style.height = '70px'; el.style.fontSize = '1.1em';
-            const facesStr = die.faces.length > 0 ? ` ${die.faces.map(f => f.modifier.icon).join('')}` : '';
+            const facesStr = die.faceMod ? ` ${die.faceMod.mod.icon}` : '';
             el.innerHTML = `<span class="die-label">${die.min}-${die.max}</span>d${die.sides}${facesStr}`;
             el.onclick = () => {
                 const idx = selected.indexOf(die);
@@ -1058,8 +1056,8 @@ const Rewards = {
                 const [d1, d2] = selected;
                 const nMin = d1.min + d2.min, nMax = d1.max + d2.max, st = (nMax - nMin) / 5;
                 const vals = Array.from({length: 6}, (_, i) => Math.round(nMin + st * i));
-                const tf = d1.faces.length + d2.faces.length;
-                preview.innerHTML = `[${d1.min}-${d1.max}] + [${d2.min}-${d2.max}] → <strong>[${nMin}-${nMax}]</strong> d6<br><span style="font-size:0.85em; opacity:0.7;">Values: ${vals.join(', ')} | ${tf} source face(s)</span>`;
+                const tf = (d1.faceMod ? 1 : 0) + (d2.faceMod ? 1 : 0);
+                preview.innerHTML = `[${d1.min}-${d1.max}] + [${d2.min}-${d2.max}] → <strong>[${nMin}-${nMax}]</strong> d6<br><span style="font-size:0.85em; opacity:0.7;">Values: ${vals.join(', ')} | ${tf} source face mod(s)</span>`;
                 confirmBtn.disabled = false; confirmBtn.style.opacity = '1';
             } else if (selected.length === 1) {
                 preview.textContent = `Selected: [${selected[0].min}-${selected[0].max}] — pick one more`;
@@ -1081,16 +1079,16 @@ const Rewards = {
         const step = (newMax - newMin) / 5;
         const newValues = Array.from({length: 6}, (_, i) => Math.round(newMin + step * i));
 
-        const slots = newValues.map(v => ({ value: v, faces: [] }));
+        const slots = newValues.map(v => ({ value: v, mod: null }));
         const sourcePool = [];
-        d1.faces.forEach((f, i) => sourcePool.push({ id: 'a' + i, mod: { ...f.modifier }, fromDie: d1, assigned: -1 }));
-        d2.faces.forEach((f, i) => sourcePool.push({ id: 'b' + i, mod: { ...f.modifier }, fromDie: d2, assigned: -1 }));
+        if (d1.faceMod) sourcePool.push({ id: 'a0', mod: { ...d1.faceMod.mod }, fromDie: d1, assigned: -1 });
+        if (d2.faceMod) sourcePool.push({ id: 'b0', mod: { ...d2.faceMod.mod }, fromDie: d2, assigned: -1 });
 
         let selectedSrc = null;
 
         const info = document.createElement('div');
         info.style.cssText = 'text-align:center; margin-bottom:8px; font-family:EB Garamond, serif; color:var(--text-dim); font-size:0.85em;';
-        info.innerHTML = `Forging: <strong style="color:var(--gold)">[${newMin}-${newMax}]</strong> d6<br>Click a source face, then a die slot to assign. 2× same modifier on one slot = doubled effect.`;
+        info.innerHTML = `Forging: <strong style="color:var(--gold)">[${newMin}-${newMax}]</strong> d6<br>Click a source face mod, then a die face to place it on. Only one face mod on the merged die.`;
         c.appendChild(info);
 
         const poolLabel = document.createElement('div');
@@ -1116,22 +1114,12 @@ const Rewards = {
         forgeBtn.onclick = () => {
             GS.dice = GS.dice.filter(d => d.id !== d1.id && d.id !== d2.id);
             const merged = createDie(newMin, newMax, 6);
-            slots.forEach(slot => {
-                if (slot.faces.length === 0) return;
-                if (slot.faces.length === 1) {
-                    merged.faces.push({ faceValue: slot.value, modifier: { ...slot.faces[0] } });
-                } else if (slot.faces.length === 2) {
-                    const [a, b] = slot.faces;
-                    if (a.effect === b.effect) {
-                        const doubled = { ...a, value: a.value + b.value, name: a.name + ' ×2' };
-                        merged.faces.push({ faceValue: slot.value, modifier: doubled });
-                    } else {
-                        merged.faces.push({ faceValue: slot.value, modifier: { ...a } });
-                    }
-                }
-            });
+            const modSlot = slots.findIndex(slot => slot.mod !== null);
+            if (modSlot >= 0) {
+                merged.faceMod = { faceIndex: modSlot, mod: { ...slots[modSlot].mod } };
+            }
             GS.dice.push(merged);
-            const fs = merged.faces.length > 0 ? ` [${merged.faces.map(f => f.faceValue + ':' + f.modifier.icon).join(' ')}]` : '';
+            const fs = merged.faceMod ? ` [face ${modSlot}:${merged.faceMod.mod.icon}]` : '';
             log(`🔥 Forged: [${newMin}-${newMax}] d6${fs}`, 'info');
             updateStats();
             callback();
@@ -1155,33 +1143,26 @@ const Rewards = {
             });
 
             slotsDiv.innerHTML = '';
+            const anySlotHasMod = slots.some(s => s.mod !== null);
             slots.forEach((slot, si) => {
                 const el = document.createElement('div');
-                const has = slot.faces.length > 0;
+                const has = slot.mod !== null;
                 let content = `<div style="font-size:0.65em; opacity:0.4;">val ${slot.value}</div>`;
-                if (slot.faces.length === 0) {
+                if (!slot.mod) {
                     content += `<div style="font-size:1.1em; opacity:0.25;">—</div>`;
-                } else if (slot.faces.length === 1) {
-                    content += `<div style="font-size:1.2em;">${slot.faces[0].icon}</div><div style="font-size:0.45em; color:${slot.faces[0].color};">${slot.faces[0].name}</div>`;
                 } else {
-                    const [a, b] = slot.faces;
-                    if (a.effect === b.effect) {
-                        content += `<div style="font-size:1.2em;">${a.icon}×2</div><div style="font-size:0.45em; color:var(--gold);">DOUBLED</div>`;
-                    } else {
-                        content += `<div style="font-size:0.9em;">${a.icon}+${b.icon}</div><div style="font-size:0.45em; color:var(--red-bright);">keeps first</div>`;
-                    }
+                    content += `<div style="font-size:1.2em;">${slot.mod.icon}</div><div style="font-size:0.45em; color:${slot.mod.color};">${slot.mod.name}</div>`;
                 }
                 el.style.cssText = `width:68px; height:72px; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; border:2px solid ${has ? 'var(--gold)' : 'rgba(255,255,255,0.12)'}; background:${has ? 'rgba(212,165,52,0.08)' : 'rgba(0,0,0,0.3)'}; transition:all 0.15s;`;
                 el.innerHTML = content;
                 el.onclick = () => {
-                    if (selectedSrc !== null && slot.faces.length < 2) {
+                    if (selectedSrc !== null && slot.mod === null && !anySlotHasMod) {
                         const src = sourcePool.find(s => s.id === selectedSrc);
-                        if (src) { slot.faces.push({ ...src.mod }); src.assigned = si; selectedSrc = null; }
-                    } else if (slot.faces.length > 0 && selectedSrc === null) {
-                        const removed = slot.faces.pop();
-                        for (let j = sourcePool.length - 1; j >= 0; j--) {
-                            if (sourcePool[j].assigned === si && sourcePool[j].mod.effect === removed.effect) { sourcePool[j].assigned = -1; break; }
-                        }
+                        if (src) { slot.mod = { ...src.mod }; src.assigned = si; selectedSrc = null; }
+                    } else if (slot.mod !== null && selectedSrc === null) {
+                        const src = sourcePool.find(s => s.assigned === si);
+                        if (src) src.assigned = -1;
+                        slot.mod = null;
                     }
                     render();
                 };
@@ -1231,7 +1212,7 @@ const Rewards = {
 
         const rewards = [];
 
-        const totalSlots = GS.slots.attack.length + GS.slots.defend.length;
+        const totalSlots = GS.slots.strike.length + GS.slots.guard.length;
         rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — you have ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
             GS.dice.push(createDie(1, 6));
             log('Added new D6!', 'info');
@@ -1331,7 +1312,7 @@ const Rewards = {
             const el = document.createElement('div');
             el.className = 'die';
             el.style.cssText = 'cursor:pointer; width:65px; height:65px; font-size:1em;';
-            const facesStr = die.faces.length > 0 ? ` ${die.faces.map(f => f.modifier.icon).join('')}` : '';
+            const facesStr = die.faceMod ? ` ${die.faceMod.mod.icon}` : '';
             el.innerHTML = `<span class="die-label">${die.min}-${die.max}</span>${facesStr}`;
             el.onclick = () => {
                 const i = selected.indexOf(idx);
@@ -1362,16 +1343,16 @@ const Rewards = {
             btn.innerHTML = label;
             btn.onclick = () => {
                 selected.sort((a, b) => b - a).forEach(i => GS.dice.splice(i, 1));
-                if (type === 'attack') GS.slots.attack.push({ id: `atk-${Date.now()}`, rune: null });
-                else GS.slots.defend.push({ id: `def-${Date.now()}`, rune: null });
+                if (type === 'strike') GS.slots.strike.push({ id: `str-${Date.now()}`, rune: null });
+                else GS.slots.guard.push({ id: `grd-${Date.now()}`, rune: null });
                 log(`🔨 Sacrificed 3 dice for +1 ${type} slot!`, 'info');
                 updateStats();
                 callback();
             };
             return btn;
         };
-        slotBtns.appendChild(makeBtn(`⚔️ +1 Attack Slot (${GS.slots.attack.length} → ${GS.slots.attack.length + 1})`, 'attack'));
-        slotBtns.appendChild(makeBtn(`🛡️ +1 Defend Slot (${GS.slots.defend.length} → ${GS.slots.defend.length + 1})`, 'defend'));
+        slotBtns.appendChild(makeBtn(`⚔️ +1 Strike Slot (${GS.slots.strike.length} → ${GS.slots.strike.length + 1})`, 'strike'));
+        slotBtns.appendChild(makeBtn(`🛡️ +1 Guard Slot (${GS.slots.guard.length} → ${GS.slots.guard.length + 1})`, 'guard'));
         c.appendChild(slotBtns);
 
         const back = document.createElement('div');
@@ -1477,8 +1458,8 @@ const BattleSummary = {
             <div class="bs-stat-grid">
                 <span>❤️ HP: ${GS.hp}/${GS.maxHp}</span>
                 <span>💰 Gold: ${GS.gold}</span>
-                <span>⚔️ Atk Slots: ${GS.slots.attack.length}</span>
-                <span>🛡️ Def Slots: ${GS.slots.defend.length}</span>
+                <span>⚔️ Strike Slots: ${GS.slots.strike.length}</span>
+                <span>🛡️ Guard Slots: ${GS.slots.guard.length}</span>
                 <span>🎲 Dice: ${GS.dice.length}</span>
                 <span>⭐ Level: ${GS.level} (${GS.xp}/${GS.xpNext})</span>
             </div>
@@ -1670,7 +1651,7 @@ const BattleSummary = {
         };
 
         const rewards = [];
-        const totalSlots = GS.slots.attack.length + GS.slots.defend.length;
+        const totalSlots = GS.slots.strike.length + GS.slots.guard.length;
 
         rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
             GS.dice.push(createDie(1, 6));
@@ -1790,7 +1771,7 @@ const Shop = {
         let discount = GS.passives.shopDiscount || 0;
         if (GS.tempBuffs && GS.tempBuffs.merchantEscort) discount += 0.5;
         const applyDiscount = p => Math.floor(p * (1 - Math.min(discount, 0.5)));
-        const totalSlots = GS.slots.attack.length + GS.slots.defend.length;
+        const totalSlots = GS.slots.strike.length + GS.slots.guard.length;
 
         const all = [
             { title: '🎲 Weighted Die', desc: `Rolls 2-7 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 35, type: 'DICE',
@@ -1842,6 +1823,19 @@ const Shop = {
                     showRuneAttachment(rune, () => { Shop.render(); show('screen-shop'); });
                     return false;
                 },
+            });
+        });
+
+        // Utility dice: 1–2 random picks per shop visit
+        const utilityOfferCount = GS.act >= 2 ? 2 : 1;
+        shuffle([...UTILITY_DICE]).slice(0, utilityOfferCount).forEach(utDef => {
+            all.push({
+                title: `${utDef.icon} ${utDef.name}`,
+                desc: `Utility die (${utDef.zone}) — ${utDef.desc}`,
+                price: utDef.price,
+                type: 'UTILITY DIE',
+                effect: utDef.desc,
+                action: () => { GS.dice.push(createUtilityDie(utDef)); log(`Bought ${utDef.icon} ${utDef.name}!`, 'info'); },
             });
         });
 
@@ -2045,21 +2039,20 @@ const Shop = {
             <div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center;">${renderFaceStrip(die)}</div>`;
         c.appendChild(preview);
 
-        die.faceValues.forEach(v => {
-            const existing = die.faces.find(f => f.faceValue === v);
+        die.faceValues.forEach((v, fIdx) => {
+            const existing = die.faceMod && die.faceMod.faceIndex === fIdx ? die.faceMod : null;
             const card = document.createElement('div');
             card.className = 'card';
             const faceHtml = renderFaceStrip(die, { highlightVal: v, showArrow: true, arrowMod: mod });
             card.innerHTML = `
                 <div class="card-title" style="display:flex; align-items:center; gap:8px; justify-content:center;">
                     <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">${v}</span>
-                    ${existing ? `<span style="font-size:0.8em;">${existing.modifier.icon} ${existing.modifier.name}</span>` : '<span style="font-size:0.8em; opacity:0.4;">Empty</span>'}
+                    ${existing ? `<span style="font-size:0.8em;">${existing.mod.icon} ${existing.mod.name}</span>` : '<span style="font-size:0.8em; opacity:0.4;">Empty</span>'}
                     <span style="color:var(--green-bright);">→ ${mod.icon} ${mod.name}</span>
                 </div>
             `;
             card.onclick = () => {
-                die.faces = die.faces.filter(f => f.faceValue !== v);
-                die.faces.push({ faceValue: v, modifier: mod });
+                die.faceMod = { faceIndex: fIdx, mod };
                 log(`Applied ${mod.name} to face ${v}!`, 'info');
                 updateStats(); Shop.render();
             };
@@ -2124,13 +2117,13 @@ const Shop = {
         c.appendChild(preview);
 
         die.faceValues.forEach((val, idx) => {
-            const mod = die.faces.find(f => f.faceValue === val);
+            const hasMod = die.faceMod && die.faceMod.faceIndex === idx;
             const card = document.createElement('div');
             card.className = 'card';
             card.innerHTML = `
                 <div class="card-title" style="color:#ff6666; display:flex; align-items:center; gap:8px; justify-content:center;">
                     <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">✂️ ${val}</span>
-                    ${mod ? `<span style="font-size:0.85em;">${mod.modifier.icon} ${mod.modifier.name} — also lost!</span>` : ''}
+                    ${hasMod ? `<span style="font-size:0.85em;">${die.faceMod.mod.icon} ${die.faceMod.mod.name} — also lost!</span>` : ''}
                 </div>
                 <div class="card-desc" style="text-align:center;">Die becomes d${die.faceValues.length - 1}</div>
             `;
@@ -2139,7 +2132,10 @@ const Shop = {
                 die.sides = die.faceValues.length;
                 die.min = Math.min(...die.faceValues);
                 die.max = Math.max(...die.faceValues);
-                die.faces = die.faces.filter(f => f.faceValue !== val);
+                if (die.faceMod) {
+                    if (die.faceMod.faceIndex === idx) die.faceMod = null;
+                    else if (die.faceMod.faceIndex > idx) die.faceMod.faceIndex--;
+                }
                 log(`Trimmed face ${val} from die — now d${die.sides} [${die.min}-${die.max}]`, 'info');
                 updateStats();
                 Shop.render();
@@ -2240,11 +2236,11 @@ const Events = {
         GS.artifacts.push({ ...art });
         if (art.effect === 'colossussBelt') {
             GS.dice.forEach(d => {
-                if (d.max >= 9) { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value })); }
+                if (d.max >= 9) { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; }
             });
             log(`🏋️ Colossus Belt: dice with max≥9 gained +${art.value} to all faces!`, 'info');
         } else if (art.effect === 'glassCannon') {
-            GS.dice.forEach(d => { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + art.value })); });
+            GS.dice.forEach(d => { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; });
             GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2)); GS.hp = Math.min(GS.hp, GS.maxHp);
             log(`💥 Glass Cannon: all dice +${art.value} faces, max HP halved!`, 'damage');
         } else if (art.effect === 'titansDie') {
@@ -2324,19 +2320,18 @@ const Events = {
         panel.innerHTML = `<div class="event-text">Apply <strong style="color:${mod.color}">${mod.icon} ${mod.name}</strong> — Choose a face:</div>`;
         const grid = document.createElement('div');
         grid.className = 'card-grid';
-        die.faceValues.forEach(v => {
-            const existing = die.faces.find(f => f.faceValue === v);
+        die.faceValues.forEach((v, fIdx) => {
+            const existing = die.faceMod && die.faceMod.faceIndex === fIdx ? die.faceMod : null;
             const card = document.createElement('div');
             card.className = 'card';
             card.innerHTML = `
                 <div class="card-title" style="display:flex; align-items:center; gap:8px; justify-content:center;">
                     <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">${v}</span>
-                    ${existing ? `<span style="font-size:0.85em;">${existing.modifier.icon} ${existing.modifier.name}</span>` : '<span style="font-size:0.85em; opacity:0.4;">Empty</span>'}
+                    ${existing ? `<span style="font-size:0.85em;">${existing.mod.icon} ${existing.mod.name}</span>` : '<span style="font-size:0.85em; opacity:0.4;">Empty</span>'}
                     <span style="color:var(--green-bright);">→ ${mod.icon} ${mod.name}</span>
                 </div>`;
             card.onclick = () => {
-                die.faces = die.faces.filter(f => f.faceValue !== v);
-                die.faces.push({ faceValue: v, modifier: mod });
+                die.faceMod = { faceIndex: fIdx, mod };
                 log(`Applied ${mod.name} to face ${v}!`, 'info');
                 cb();
             };
@@ -2428,10 +2423,6 @@ const Events = {
                                 const step = (newMax - newMin) / (boostDie.faceValues.length - 1);
                                 boostDie.faceValues = Array.from({length: boostDie.faceValues.length}, (_, i) => Math.round(newMin + step * i));
                                 boostDie.min = newMin; boostDie.max = newMax;
-                                boostDie.faces = boostDie.faces.map(f => {
-                                    const closest = boostDie.faceValues.reduce((best, v) => Math.abs(v - (f.faceValue + 2)) < Math.abs(best - (f.faceValue + 2)) ? v : best);
-                                    return { ...f, faceValue: closest };
-                                });
                                 log(`Traded ${sacDie.min}-${sacDie.max} die, boosted to ${newMin}-${newMax}!`, 'info');
                                 updateStats(); Game.nextFloor();
                             });
@@ -2468,13 +2459,12 @@ const Events = {
                         GS.hp -= 15;
                         const mod = pick(FACE_MODS);
                         const die = pick(GS.dice);
-                        const v = pick(die.faceValues);
-                        die.faces = die.faces.filter(f => f.faceValue !== v);
-                        die.faces.push({ faceValue: v, modifier: mod });
-                        log(`The shrine bestows ${mod.icon} ${mod.name} on face ${v}!`, 'info');
+                        const fIdx = Math.floor(Math.random() * die.faceValues.length);
+                        die.faceMod = { faceIndex: fIdx, mod };
+                        log(`The shrine bestows ${mod.icon} ${mod.name} on face ${die.faceValues[fIdx]}!`, 'info');
                         const dieIdx = GS.dice.indexOf(die);
                         Events._showOutcome('Cursed Shrine', [
-                            `<span style="color:${mod.color}">${mod.icon} ${mod.name}</span> was placed on face <strong>${v}</strong> of Die #${dieIdx + 1} (d${die.max})`,
+                            `<span style="color:${mod.color}">${mod.icon} ${mod.name}</span> was placed on face <strong>${die.faceValues[fIdx]}</strong> of Die #${dieIdx + 1} (d${die.max})`,
                             `<span style="font-size:0.9em; opacity:0.8;">${mod.desc}</span>`
                         ], () => Game.nextFloor());
                     }
@@ -2634,7 +2624,7 @@ const Events = {
     },
 
     _forgottenForge() {
-        const hasRunes = GS.slots.attack.some(s => s.rune) || GS.slots.defend.some(s => s.rune);
+        const hasRunes = GS.slots.strike.some(s => s.rune) || GS.slots.guard.some(s => s.rune);
         Events._render(
             'The Forgotten Forge',
             'An ancient forge still burns. Tools of remarkable craft surround it...',
@@ -2644,10 +2634,9 @@ const Events = {
                     action: () => {
                         Events._chooseDie('Choose a die to reforge:', die => {
                             const n = die.faceValues.length;
-                            const modsByIdx = die.faceValues.map(v => die.faces.find(f => f.faceValue === v) || null);
                             const newVals = Array.from({length: n}, () => die.min + Math.floor(Math.random() * (die.max - die.min + 1))).sort((a, b) => a - b);
                             die.faceValues = newVals;
-                            die.faces = modsByIdx.map((f, i) => f ? { faceValue: newVals[i], modifier: f.modifier } : null).filter(Boolean);
+                            // faceMod.faceIndex stays valid — same position, different value
                             log(`Reforged die! New faces: [${newVals.join(', ')}]`, 'info');
                             updateStats(); Game.nextFloor();
                         });
@@ -2660,8 +2649,8 @@ const Events = {
                         const panel = $('event-panel');
                         panel.innerHTML = '<div class="event-text">Choose a slot whose rune to enhance:</div><div class="card-grid" id="event-rune-cards"></div>';
                         const slotsWithRunes = [
-                            ...GS.slots.attack.map((s, i) => ({ slot: s, label: `⚔️ Attack Slot ${i + 1}` })),
-                            ...GS.slots.defend.map((s, i) => ({ slot: s, label: `🛡️ Defend Slot ${i + 1}` })),
+                            ...GS.slots.strike.map((s, i) => ({ slot: s, label: `⚔️ Strike Slot ${i + 1}` })),
+                            ...GS.slots.guard.map((s, i) => ({ slot: s, label: `🛡️ Guard Slot ${i + 1}` })),
                         ].filter(x => x.slot.rune);
                         slotsWithRunes.forEach(({ slot, label }) => {
                             const card = document.createElement('div');
@@ -2734,7 +2723,6 @@ const Events = {
                                 d.faceValues = d.faceValues.map(v => v + 1);
                                 d.min = d.faceValues[0];
                                 d.max = d.faceValues[d.faceValues.length - 1];
-                                d.faces = d.faces.map(f => ({ ...f, faceValue: f.faceValue + 1 }));
                             });
                             log(`Sacrificed die! All remaining dice face values +1!`, 'info');
                             updateStats(); Game.nextFloor();
@@ -2862,13 +2850,13 @@ const Rest = {
             const expandCard = document.createElement('div');
             expandCard.className = 'card';
             expandCard.style.cssText = 'width:140px; cursor:pointer;';
-            const atkCap = GS.slots.attack.length >= 6, defCap = GS.slots.defend.length >= 6;
-            expandCard.innerHTML = `<div class="card-title">➕ Expand</div><div class="card-desc">+1 slot<br>${atkCap && defCap ? '<span style="color:#ff8080;">Max slots reached</span>' : `${GS.slots.attack.length}⚔️ / ${GS.slots.defend.length}🛡️`}</div>`;
+            const atkCap = GS.slots.strike.length >= 6, defCap = GS.slots.guard.length >= 6;
+            expandCard.innerHTML = `<div class="card-title">➕ Expand</div><div class="card-desc">+1 slot<br>${atkCap && defCap ? '<span style="color:#ff8080;">Max slots reached</span>' : `${GS.slots.strike.length}⚔️ / ${GS.slots.guard.length}🛡️`}</div>`;
             if (!(atkCap && defCap)) expandCard.onclick = () => Rest.showExpand();
             else expandCard.classList.add('disabled');
             transGrid.appendChild(expandCard);
 
-            const canSacAtk = GS.slots.attack.length > 1, canSacDef = GS.slots.defend.length > 1;
+            const canSacAtk = GS.slots.strike.length > 1, canSacDef = GS.slots.guard.length > 1;
             const sacCard = document.createElement('div');
             sacCard.className = 'card' + (canSacAtk || canSacDef ? '' : ' disabled');
             sacCard.style.cssText = 'width:140px; cursor:pointer;';
@@ -3017,24 +3005,24 @@ const Rest = {
         content.innerHTML = '<div class="section-title">➕ Expand — Choose a slot type</div>';
         const info = document.createElement('div');
         info.style.cssText = 'text-align:center; margin-bottom:12px; font-size:0.85em; color:var(--text-dim);';
-        info.innerHTML = `Current: ${GS.slots.attack.length} Attack slots / ${GS.slots.defend.length} Defend slots`;
+        info.innerHTML = `Current: ${GS.slots.strike.length} Strike slots / ${GS.slots.guard.length} Guard slots`;
         content.appendChild(info);
 
         const grid = document.createElement('div');
         grid.className = 'card-grid';
 
-        const atkCapped = GS.slots.attack.length >= 6;
+        const atkCapped = GS.slots.strike.length >= 6;
         const atkCard = document.createElement('div');
         atkCard.className = 'card' + (atkCapped ? ' disabled' : '');
-        atkCard.innerHTML = `<div class="card-title">⚔️ +1 Attack Slot</div><div class="card-desc">${GS.slots.attack.length} → ${GS.slots.attack.length + 1}${atkCapped ? ' (MAX)' : ''}</div>`;
-        if (!atkCapped) atkCard.onclick = () => { GS.slots.attack.push({ id: `atk-${Date.now()}`, rune: null }); log('➕ +1 attack slot!', 'info'); updateStats(); Rest._transformDone = true; Rest._render(); };
+        atkCard.innerHTML = `<div class="card-title">⚔️ +1 Strike Slot</div><div class="card-desc">${GS.slots.strike.length} → ${GS.slots.strike.length + 1}${atkCapped ? ' (MAX)' : ''}</div>`;
+        if (!atkCapped) atkCard.onclick = () => { GS.slots.strike.push({ id: `str-${Date.now()}`, rune: null }); log('➕ +1 strike slot!', 'info'); updateStats(); Rest._transformDone = true; Rest._render(); };
         grid.appendChild(atkCard);
 
-        const defCapped = GS.slots.defend.length >= 6;
+        const defCapped = GS.slots.guard.length >= 6;
         const defCard = document.createElement('div');
         defCard.className = 'card' + (defCapped ? ' disabled' : '');
-        defCard.innerHTML = `<div class="card-title">🛡️ +1 Defend Slot</div><div class="card-desc">${GS.slots.defend.length} → ${GS.slots.defend.length + 1}${defCapped ? ' (MAX)' : ''}</div>`;
-        if (!defCapped) defCard.onclick = () => { GS.slots.defend.push({ id: `def-${Date.now()}`, rune: null }); log('➕ +1 defend slot!', 'info'); updateStats(); Rest._transformDone = true; Rest._render(); };
+        defCard.innerHTML = `<div class="card-title">🛡️ +1 Guard Slot</div><div class="card-desc">${GS.slots.guard.length} → ${GS.slots.guard.length + 1}${defCapped ? ' (MAX)' : ''}</div>`;
+        if (!defCapped) defCard.onclick = () => { GS.slots.guard.push({ id: `grd-${Date.now()}`, rune: null }); log('➕ +1 guard slot!', 'info'); updateStats(); Rest._transformDone = true; Rest._render(); };
         grid.appendChild(defCard);
 
         const back = document.createElement('div');
@@ -3062,8 +3050,8 @@ const Rest = {
         grid.className = 'card-grid';
 
         const allSlots = [
-            ...GS.slots.attack.map((s, i) => ({ ...s, type: 'attack', label: `⚔️ Attack Slot ${i + 1}`, isMin: GS.slots.attack.length <= 1 })),
-            ...GS.slots.defend.map((s, i) => ({ ...s, type: 'defend', label: `🛡️ Defend Slot ${i + 1}`, isMin: GS.slots.defend.length <= 1 })),
+            ...GS.slots.strike.map((s, i) => ({ ...s, type: 'strike', label: `⚔️ Strike Slot ${i + 1}`, isMin: GS.slots.strike.length <= 1 })),
+            ...GS.slots.guard.map((s, i) => ({ ...s, type: 'guard', label: `🛡️ Guard Slot ${i + 1}`, isMin: GS.slots.guard.length <= 1 })),
         ];
 
         allSlots.forEach(slotInfo => {
@@ -3072,8 +3060,8 @@ const Rest = {
             const runeNote = slotInfo.rune
                 ? `<div style="color:${slotInfo.rune.color}; font-size:0.85em; margin-top:4px;">${slotInfo.rune.icon} ${slotInfo.rune.name} <span style="color:#ff8080;">(will be lost)</span></div>`
                 : '<div style="opacity:0.5; font-size:0.85em; margin-top:4px;">no rune</div>';
-            const slotTypeLabel = slotInfo.type === 'attack' ? 'attack' : 'defend';
-            const enhancements = slotInfo.type === 'attack' ? '🔥 Fury Chamber · ☠️ Conduit · ⚒️ Gold Forge' : '🏰 Fortification · 🌿 Thorns Aura · 🧛 Vampiric Ward';
+            const slotTypeLabel = slotInfo.type === 'strike' ? 'strike' : 'guard';
+            const enhancements = slotInfo.type === 'strike' ? '🔥 Fury Chamber · ☠️ Conduit · ⚒️ Gold Forge' : '🏰 Fortification · 🌿 Thorns Aura · 🧛 Vampiric Ward';
             card.innerHTML = `
                 <div class="card-title">${slotInfo.label}</div>
                 ${runeNote}
@@ -3096,12 +3084,12 @@ const Rest = {
         content.innerHTML = `<div class="section-title">🔥 Sacrifice ${slotType} slot — Choose Enhancement</div>`;
         const remaining = GS.slots[slotType].length - 1;
 
-        const enhancements = slotType === 'attack' ? [
-            { name: 'Fury Chamber', icon: '🔥', desc: `All ${remaining} remaining attack slots deal ×1.5 damage${GS.transformBuffs.furyChambered > 1 ? ' (stacks × existing)' : ''}`, effect: 'furyChambered', value: 1.5 },
-            { name: 'Conduit', icon: '☠️', desc: `Each attack die applies +2 poison per turn (currently: ${GS.transformBuffs.conduit} → ${GS.transformBuffs.conduit + 2})`, effect: 'conduit', value: 2 },
-            { name: 'Gold Forge', icon: '⚒️', desc: `Each attack die generates gold equal to its rolled value after you attack`, effect: 'goldForge', value: true },
+        const enhancements = slotType === 'strike' ? [
+            { name: 'Fury Chamber', icon: '🔥', desc: `All ${remaining} remaining strike slots deal ×1.5 damage${GS.transformBuffs.furyChambered > 1 ? ' (stacks × existing)' : ''}`, effect: 'furyChambered', value: 1.5 },
+            { name: 'Conduit', icon: '☠️', desc: `Each strike die applies +2 poison per turn (currently: ${GS.transformBuffs.conduit} → ${GS.transformBuffs.conduit + 2})`, effect: 'conduit', value: 2 },
+            { name: 'Gold Forge', icon: '⚒️', desc: `Each strike die generates gold equal to its rolled value after you attack`, effect: 'goldForge', value: true },
         ] : [
-            { name: 'Fortification', icon: '🏰', desc: `All ${remaining} remaining defend slots block ×1.5${GS.transformBuffs.fortified > 1 ? ' (stacks × existing)' : ''}`, effect: 'fortified', value: 1.5 },
+            { name: 'Fortification', icon: '🏰', desc: `All ${remaining} remaining guard slots block ×1.5${GS.transformBuffs.fortified > 1 ? ' (stacks × existing)' : ''}`, effect: 'fortified', value: 1.5 },
             { name: 'Thorns Aura', icon: '🌿', desc: `When you take damage, reflect ${GS.transformBuffs.thornsAura + 5} back to the enemy (currently: ${GS.transformBuffs.thornsAura} → ${GS.transformBuffs.thornsAura + 5})`, effect: 'thornsAura', value: 5 },
             { name: 'Vampiric Ward', icon: '🧛', desc: `All blocked damage heals you for 25% of the amount blocked`, effect: 'vampiricWard', value: true },
         ];
@@ -3219,18 +3207,15 @@ const Rest = {
             const facesB = sorted.filter((_, i) => i % 2 === 1);
             const dieA = createDieFromFaces(facesA);
             const dieB = createDieFromFaces(facesB);
-            // Distribute special face modifiers to the split dice
-            die.faces.forEach(f => {
-                if (dieA.faceValues.includes(f.faceValue)) {
-                    dieA.faces.push({ faceValue: f.faceValue, modifier: { ...f.modifier } });
-                } else if (dieB.faceValues.includes(f.faceValue)) {
-                    dieB.faces.push({ faceValue: f.faceValue, modifier: { ...f.modifier } });
+            // Distribute face mod to the split dice (even-indexed → dieA, odd-indexed → dieB)
+            if (die.faceMod) {
+                const origIdx = die.faceMod.faceIndex;
+                if (origIdx % 2 === 0) {
+                    dieA.faceMod = { faceIndex: Math.floor(origIdx / 2), mod: { ...die.faceMod.mod } };
                 } else {
-                    // Face value doesn't match exactly; assign to closest in dieA
-                    const closest = dieA.faceValues.reduce((best, v) => Math.abs(v - f.faceValue) < Math.abs(best - f.faceValue) ? v : best);
-                    dieA.faces.push({ faceValue: closest, modifier: { ...f.modifier } });
+                    dieB.faceMod = { faceIndex: Math.floor(origIdx / 2), mod: { ...die.faceMod.mod } };
                 }
-            });
+            }
             GS.dice.splice(idx, 1, dieA, dieB);
             log(`💥 Fractured! d${sorted.length} → d${facesA.length} [${dieA.min}-${dieA.max}] + d${facesB.length} [${dieB.min}-${dieB.max}]`, 'info');
             updateStats();
@@ -3344,13 +3329,13 @@ const Rest = {
         grid.className = 'card-grid';
 
         die.faceValues.forEach((val, idx) => {
-            const mod = die.faces.find(f => f.faceValue === val);
+            const hasMod = die.faceMod && die.faceMod.faceIndex === idx;
             const card = document.createElement('div');
             card.className = 'card';
             card.innerHTML = `
                 <div class="card-title" style="color:#ff6666; display:flex; align-items:center; gap:8px; justify-content:center;">
                     <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">✂️ ${val}</span>
-                    ${mod ? `<span style="font-size:0.85em;">${mod.modifier.icon} ${mod.modifier.name} — also lost!</span>` : ''}
+                    ${hasMod ? `<span style="font-size:0.85em;">${die.faceMod.mod.icon} ${die.faceMod.mod.name} — also lost!</span>` : ''}
                 </div>
                 <div class="card-desc" style="text-align:center;">Die becomes d${die.faceValues.length - 1}</div>
             `;
@@ -3359,7 +3344,10 @@ const Rest = {
                 die.sides = die.faceValues.length;
                 die.min = Math.min(...die.faceValues);
                 die.max = Math.max(...die.faceValues);
-                die.faces = die.faces.filter(f => f.faceValue !== val);
+                if (die.faceMod) {
+                    if (die.faceMod.faceIndex === idx) die.faceMod = null;
+                    else if (die.faceMod.faceIndex > idx) die.faceMod.faceIndex--;
+                }
                 log(`Trimmed face ${val} — now d${die.sides} [${die.min}-${die.max}]`, 'info');
                 updateStats();
                 Rest._maintenanceDone = true;
@@ -3691,15 +3679,15 @@ const Inventory = {
 
         let html = '';
 
-        const runeCount = [...GS.slots.attack, ...GS.slots.defend].filter(s => s.rune).length;
+        const runeCount = [...GS.slots.strike, ...GS.slots.guard].filter(s => s.rune).length;
 
         html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
             <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">⚙️ STATS</div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; font-size:0.85em;">
                 <span>❤️ HP: ${GS.hp}/${GS.maxHp}${GS.regenStacks > 0 ? ` (+${GS.regenStacks} regen)` : ''}</span>
                 <span>💰 Gold: ${GS.gold}</span>
-                <span>⚔️ Atk Slots: ${GS.slots.attack.length}</span>
-                <span>🛡️ Def Slots: ${GS.slots.defend.length}</span>
+                <span>⚔️ Strike Slots: ${GS.slots.strike.length}</span>
+                <span>🛡️ Guard Slots: ${GS.slots.guard.length}</span>
                 <span>🎲 Dice: ${GS.dice.length}</span>
                 <span>🔮 Runes: ${runeCount}</span>
                 <span>⚔️ Dmg Boost: +${GS.buffs.damageBoost}</span>
@@ -3735,7 +3723,7 @@ const Inventory = {
             <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">🎲 DICE (${GS.dice.length})</div>`;
         GS.dice.filter(d => !d.midasTemp).forEach((die, i) => {
             const faces = die.faceValues ? die.faceValues.join(', ') : `${die.min}-${die.max}`;
-            const mods = die.faces.length ? die.faces.map(f => `<span style="color:${f.modifier.color};" title="${f.modifier.name}: ${f.modifier.desc}">  ${f.faceValue}:${f.modifier.icon}${f.modifier.name}</span>`).join('') : '<span style="opacity:0.4;">no mods</span>';
+            const mods = die.faceMod ? `<span style="color:${die.faceMod.mod.color};" title="${die.faceMod.mod.name}: ${die.faceMod.mod.desc}"> face${die.faceMod.faceIndex + 1}(${die.faceValues[die.faceMod.faceIndex]}):${die.faceMod.mod.icon}${die.faceMod.mod.name}</span>` : '<span style="opacity:0.4;">no mod</span>';
             html += `<div style="margin:4px 0; font-size:0.82em; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
                 <strong>d${die.faceValues ? die.faceValues.length : die.sides}</strong> [${faces}] ${mods}
             </div>`;
@@ -3744,13 +3732,13 @@ const Inventory = {
 
         html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
             <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">🔮 SLOT RUNES</div>`;
-        GS.slots.attack.forEach((slot, i) => {
+        GS.slots.strike.forEach((slot, i) => {
             const rs = slot.rune ? `<span style="color:${slot.rune.color};" title="${slot.rune.name}: ${slot.rune.desc}">${slot.rune.icon} ${slot.rune.name}</span>` : '<span style="opacity:0.4;">no rune</span>';
-            html += `<div style="font-size:0.82em; margin:3px 0;">⚔️ Attack Slot ${i + 1}: ${rs}</div>`;
+            html += `<div style="font-size:0.82em; margin:3px 0;">⚔️ Strike Slot ${i + 1}: ${rs}</div>`;
         });
-        GS.slots.defend.forEach((slot, i) => {
+        GS.slots.guard.forEach((slot, i) => {
             const rs = slot.rune ? `<span style="color:${slot.rune.color};" title="${slot.rune.name}: ${slot.rune.desc}">${slot.rune.icon} ${slot.rune.name}</span>` : '<span style="opacity:0.4;">no rune</span>';
-            html += `<div style="font-size:0.82em; margin:3px 0;">🛡️ Defend Slot ${i + 1}: ${rs}</div>`;
+            html += `<div style="font-size:0.82em; margin:3px 0;">🛡️ Guard Slot ${i + 1}: ${rs}</div>`;
         });
         html += `</div>`;
 

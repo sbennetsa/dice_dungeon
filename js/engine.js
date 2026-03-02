@@ -5,8 +5,8 @@ import { GS, $, log, gainGold, rand } from './state.js';
 import { getFloorType } from './constants.js';
 
 export function getSlotById(id) {
-    return GS.slots.attack.find(s => s.id === id)
-        || GS.slots.defend.find(s => s.id === id)
+    return GS.slots.strike.find(s => s.id === id)
+        || GS.slots.guard.find(s => s.id === id)
         || null;
 }
 
@@ -18,24 +18,30 @@ export function resetDieIdCounter(n = 0) { dieIdCounter = n; }
 
 export function createDieFromFaces(faceValues) {
     const sorted = [...faceValues].sort((a, b) => a - b);
-    return { id: dieIdCounter++, min: sorted[0], max: sorted[sorted.length - 1], sides: sorted.length, faceValues: sorted, value: 0, rolled: false, faces: [], location: 'pool' };
+    return { id: dieIdCounter++, min: sorted[0], max: sorted[sorted.length - 1], sides: sorted.length, faceValues: sorted, value: 0, rolled: false, faceMod: null, location: 'pool' };
 }
 
 export function createDie(min = 1, max = 6, sides = 6) {
     const step = (max - min) / (sides - 1);
     const faceValues = Array.from({length: sides}, (_, i) => Math.round(min + step * i));
-    return { id: dieIdCounter++, min, max, sides, faceValues, value: 0, rolled: false, faces: [], location: 'pool' };
+    return { id: dieIdCounter++, min, max, sides, faceValues, value: 0, rolled: false, faceMod: null, location: 'pool' };
+}
+
+export function createUtilityDie(utDef) {
+    const sorted = [...utDef.faceValues].sort((a, b) => a - b);
+    return {
+        id: dieIdCounter++, min: sorted[0], max: sorted[sorted.length - 1],
+        sides: sorted.length, faceValues: sorted, value: 0, rolled: false,
+        faceMod: null, location: 'pool',
+        dieType: utDef.id, name: utDef.name, icon: utDef.icon,
+    };
 }
 
 export function upgradeDie(die) {
     die.min++; die.max++;
     const step = (die.max - die.min) / (die.faceValues.length - 1);
     die.faceValues = Array.from({length: die.faceValues.length}, (_, i) => Math.round(die.min + step * i));
-    die.faces = die.faces.map(f => {
-        const oldVal = f.faceValue;
-        const closest = die.faceValues.reduce((best, v) => Math.abs(v - oldVal) < Math.abs(best - oldVal) ? v : best);
-        return { ...f, faceValue: closest };
-    });
+    // faceMod uses faceIndex (array position) so it survives upgrades with no remapping
 }
 
 export function rollSingleDie(die) {
@@ -54,9 +60,8 @@ export function rollSingleDie(die) {
     }
     die.value = val;
     die.rolled = true;
-    // Volatile face mod: replace value with random(1, max×2)
-    const activeFace = die.faces.find(f => f.faceValue === val);
-    if (activeFace && activeFace.modifier.effect === 'volatile') {
+    // Volatile face mod: if this roll landed on the face with the volatile mod, randomise
+    if (die.faceMod?.mod.effect === 'volatile' && die.faceMod.faceIndex === fIdx) {
         die.value = rand(1, die.max * 2);
     }
     // Gambler's Coin: apply coin flip bonus/penalty
@@ -70,8 +75,11 @@ export function rollSingleDie(die) {
 }
 
 export function getActiveFace(die) {
-    if (!die.rolled || !die.faces.length) return null;
-    return die.faces.find(f => f.faceValue === die.value) || null;
+    if (!die.rolled || !die.faceMod) return null;
+    if (die.value === die.faceValues[die.faceMod.faceIndex]) {
+        return { faceValue: die.faceValues[die.faceMod.faceIndex], modifier: die.faceMod.mod };
+    }
+    return null;
 }
 
 // ════════════════════════════════════════════════════════════
@@ -79,12 +87,13 @@ export function getActiveFace(die) {
 // ════════════════════════════════════════════════════════════
 export function renderFaceStrip(die, opts = {}) {
     const { highlightVal, showArrow, arrowMod } = opts;
-    return die.faceValues.map(v => {
-        const existing = die.faces.find(f => f.faceValue === v);
+    return die.faceValues.map((v, i) => {
+        const hasMod = die.faceMod && die.faceMod.faceIndex === i;
+        const mod = hasMod ? die.faceMod.mod : null;
         const isHighlight = highlightVal === v;
         const bg = isHighlight ? 'rgba(212,165,52,0.25)' : 'rgba(255,255,255,0.05)';
-        const border = isHighlight ? 'var(--gold)' : existing ? existing.modifier.color + '66' : 'rgba(255,255,255,0.1)';
-        const modIcon = existing ? `<div style="font-size:0.65em; margin-top:1px;">${existing.modifier.icon}</div>` : '';
+        const border = isHighlight ? 'var(--gold)' : mod ? mod.color + '66' : 'rgba(255,255,255,0.1)';
+        const modIcon = mod ? `<div style="font-size:0.65em; margin-top:1px;">${mod.icon}</div>` : '';
         const arrow = isHighlight && showArrow && arrowMod ? `<div style="font-size:0.6em; color:var(--green-bright);">→${arrowMod.icon}</div>` : '';
         return `<div style="display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
             width:38px; height:44px; border-radius:6px; border:1.5px solid ${border}; background:${bg};
@@ -97,7 +106,9 @@ export function renderFaceStrip(die, opts = {}) {
 export function renderDieCard(die, index, opts = {}) {
     const { clickable = true, extraDesc = '' } = opts;
     const facesHtml = renderFaceStrip(die);
+    const utLabel = die.dieType ? `<div style="font-size:0.7em; color:var(--gold); font-family:JetBrains Mono,monospace; margin-bottom:2px;">${die.icon || ''} ${die.name || die.dieType.toUpperCase()}</div>` : '';
     return `
+        ${utLabel}
         <div class="card-title">d${die.faceValues.length}: ${die.min}–${die.max}</div>
         <div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center; margin:8px 0;">${facesHtml}</div>
         ${extraDesc ? `<div class="card-desc">${extraDesc}</div>` : ''}
@@ -174,8 +185,8 @@ export function updateStats() {
         hpFill.style.width = `${Math.max(0, (GS.hp / GS.maxHp) * 100)}%`;
         $('player-hp-text').textContent = `${GS.hp}/${GS.maxHp}`;
     }
-    const slotsStr = `${GS.slots.attack.length}⚔️ ${GS.slots.defend.length}🛡️`;
-    const runeCount = [...GS.slots.attack, ...GS.slots.defend].filter(s => s.rune).length;
+    const slotsStr = `${GS.slots.strike.length}⚔️ ${GS.slots.guard.length}🛡️`;
+    const runeCount = [...GS.slots.strike, ...GS.slots.guard].filter(s => s.rune).length;
     const runeStr = runeCount > 0 ? ` 🔮${runeCount}` : '';
     const diceStr = `${GS.dice.filter(d => !d.midasTemp).length}`;
     const rerollStr = GS.rerolls > 0 ? ` 🔄${GS.rerolls}` : '';
@@ -320,15 +331,15 @@ function _touchEnd(e) {
         document.querySelectorAll('.die').forEach(d => { d.style.opacity = ''; });
         const touch = e.changedTouches[0];
         const target = document.elementFromPoint(touch.clientX, touch.clientY);
-        const dropSlot = target?.closest('#slot-attack') ? 'attack'
-                       : target?.closest('#slot-defend') ? 'defend'
+        const dropSlot = target?.closest('#slot-attack') ? 'strike'
+                       : target?.closest('#slot-defend') ? 'guard'
                        : target?.closest('#dice-pool')   ? 'pool'
                        : null;
         if (dropSlot && dropSlot !== touchOriginSlot) {
             if (dropSlot === 'pool') {
                 touchDragDie.location = 'pool';
-                GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== touchDragDie.id);
-                GS.allocated.defend = GS.allocated.defend.filter(d => d.id !== touchDragDie.id);
+                GS.allocated.strike = GS.allocated.strike.filter(d => d.id !== touchDragDie.id);
+                GS.allocated.guard = GS.allocated.guard.filter(d => d.id !== touchDragDie.id);
                 renderCombatDice();
             } else {
                 allocateDie(touchDragDie, dropSlot);
@@ -357,26 +368,26 @@ export function renderCombatDice() {
 
     const rollHint = $('roll-hint');
     const allRolled = GS.dice.every(d => d.rolled);
-    const effectiveAtkSlots = GS.slots.attack.length;
-    const effectiveDefSlots = GS.slots.defend.length;
-    const atkFull = GS.allocated.attack.length >= effectiveAtkSlots;
-    const defFull = GS.allocated.defend.length >= effectiveDefSlots;
-    const hasAttack = GS.allocated.attack.length > 0;
-    const hasDefend = GS.allocated.defend.length > 0;
+    const effectiveStrSlots = GS.slots.strike.length;
+    const effectiveGrdSlots = GS.slots.guard.length;
+    const strFull = GS.allocated.strike.length >= effectiveStrSlots;
+    const grdFull = GS.allocated.guard.length >= effectiveGrdSlots;
+    const hasStrike = GS.allocated.strike.length > 0;
+    const hasGuard = GS.allocated.guard.length > 0;
     const noneInPool = !GS.dice.some(d => d.location === 'pool');
-    const allSlotsFull = atkFull && defFull;
-    const hasAnyAllocated = hasAttack || hasDefend;
+    const allSlotsFull = strFull && grdFull;
+    const hasAnyAllocated = hasStrike || hasGuard;
     const canExecute = allRolled && (hasAnyAllocated || noneInPool || allSlotsFull);
 
     const atkCountEl = $('atk-slot-count');
     const defCountEl = $('def-slot-count');
     if (atkCountEl) {
-        atkCountEl.textContent = `(${GS.allocated.attack.length}/${effectiveAtkSlots})`;
-        atkCountEl.className = atkFull ? 'slot-count full' : 'slot-count';
+        atkCountEl.textContent = `(${GS.allocated.strike.length}/${effectiveStrSlots})`;
+        atkCountEl.className = strFull ? 'slot-count full' : 'slot-count';
     }
     if (defCountEl) {
-        defCountEl.textContent = `(${GS.allocated.defend.length}/${effectiveDefSlots})`;
-        defCountEl.className = defFull ? 'slot-count full' : 'slot-count';
+        defCountEl.textContent = `(${GS.allocated.guard.length}/${effectiveGrdSlots})`;
+        defCountEl.className = grdFull ? 'slot-count full' : 'slot-count';
     }
 
     if (!GS.rolled) {
@@ -404,23 +415,9 @@ export function renderCombatDice() {
     const returnBtn = $('btn-return-all');
     if (returnBtn) returnBtn.style.display = (allRolled && hasAnyAllocated) ? 'inline-block' : 'none';
 
-    // Auto-triggered effects — compact golden chips instead of full die cards
+    // Auto-tray retired (no auto-fire face mods remain)
     const autoTray = $('autofire-tray');
-    const autoDiceEl = $('autofire-dice');
-    if (autoDice.length > 0) {
-        autoTray.style.display = 'flex';
-        autoDiceEl.innerHTML = '';
-        autoDice.forEach(d => {
-            const face = getActiveFace(d);
-            const chip = document.createElement('span');
-            chip.className = 'auto-chip';
-            chip.title = face ? `${face.modifier.name}: ${face.modifier.desc}` : 'Auto-triggered';
-            chip.innerHTML = `${face ? face.modifier.icon : '✨'} <strong>${d.value}</strong>`;
-            autoDiceEl.appendChild(chip);
-        });
-    } else {
-        autoTray.style.display = 'none';
-    }
+    if (autoTray) autoTray.style.display = 'none';
 
     // Ascended aura — slim inline bar
     const auraTray = $('aura-tray');
@@ -439,7 +436,7 @@ export function renderCombatDice() {
 
     const atkDice = $('slot-attack-dice');
     atkDice.innerHTML = '';
-    GS.slots.attack.forEach(slot => {
+    GS.slots.strike.forEach(slot => {
         const slotEl = document.createElement('div');
         const isSealed = sealedIds.includes(slot.id);
         slotEl.className = 'individual-slot' + (isSealed ? ' slot-sealed' : '');
@@ -458,9 +455,9 @@ export function renderCombatDice() {
             ph.title = 'Sealed!';
             slotEl.appendChild(ph);
         } else {
-            const allocatedDie = GS.allocated.attack.find(d => d.slotId === slot.id);
+            const allocatedDie = GS.allocated.strike.find(d => d.slotId === slot.id);
             if (allocatedDie) {
-                slotEl.appendChild(makeDieElement(allocatedDie, 'attack'));
+                slotEl.appendChild(makeDieElement(allocatedDie, 'strike'));
             } else {
                 const ph = document.createElement('div');
                 ph.className = 'slot-placeholder';
@@ -473,7 +470,7 @@ export function renderCombatDice() {
 
     const defDice = $('slot-defend-dice');
     defDice.innerHTML = '';
-    GS.slots.defend.forEach(slot => {
+    GS.slots.guard.forEach(slot => {
         const slotEl = document.createElement('div');
         const isSealed = sealedIds.includes(slot.id);
         slotEl.className = 'individual-slot' + (isSealed ? ' slot-sealed' : '');
@@ -492,9 +489,9 @@ export function renderCombatDice() {
             ph.title = 'Sealed!';
             slotEl.appendChild(ph);
         } else {
-            const allocatedDie = GS.allocated.defend.find(d => d.slotId === slot.id);
+            const allocatedDie = GS.allocated.guard.find(d => d.slotId === slot.id);
             if (allocatedDie) {
-                slotEl.appendChild(makeDieElement(allocatedDie, 'defend'));
+                slotEl.appendChild(makeDieElement(allocatedDie, 'guard'));
             } else {
                 const ph = document.createElement('div');
                 ph.className = 'slot-placeholder';
@@ -539,8 +536,8 @@ export function makeDieElement(die, context) {
         el.style.borderColor = face.modifier.color;
         el.style.boxShadow = `0 0 10px ${face.modifier.color}40`;
         el.title = `${face.modifier.name}: ${face.modifier.desc}`;
-    } else if (die.faces.length > 0) {
-        el.title = die.faces.map(f => `${f.modifier.icon} ${f.modifier.name}: ${f.modifier.desc}`).join('\n');
+    } else if (die.faceMod) {
+        el.title = `${die.faceMod.mod.icon} ${die.faceMod.mod.name}: ${die.faceMod.mod.desc}`;
     }
 
     const rangeLabel = `${die.min}-${die.max}`;
@@ -559,15 +556,9 @@ export function makeDieElement(die, context) {
     }
 
     let faceIcon = '';
-    if (die.faces.length > 0) {
-        const faceSpans = die.faces.map(f =>
-            `<span title="${f.modifier.name}: ${f.modifier.desc}">${f.modifier.icon}</span>`
-        ).join('');
-        if (!die.rolled) {
-            faceIcon = `<span class="die-face-icon">${faceSpans}</span>`;
-        } else if (!face) {
-            faceIcon = `<span class="die-face-icon" style="opacity:0.4">${faceSpans}</span>`;
-        }
+    if (die.faceMod && !face) {
+        const mod = die.faceMod.mod;
+        faceIcon = `<span class="die-face-icon" style="opacity:${die.rolled ? '0.4' : '1'}" title="${mod.name}: ${mod.desc}">${mod.icon}</span>`;
     }
 
     el.innerHTML = `<span class="die-label">${rangeLabel}</span>${valueDisplay}${faceIcon}${auraBadge}`;
@@ -580,17 +571,6 @@ export function makeDieElement(die, context) {
         if (GS.rerollsLeft === 0) rerollMode = false;
         const oldVal = die.value;
         rollSingleDie(die);
-        const newFace = getActiveFace(die);
-        if (newFace && newFace.modifier.autoFire) {
-            GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== die.id);
-            GS.allocated.defend = GS.allocated.defend.filter(d => d.id !== die.id);
-            die.location = 'auto';
-            const m = newFace.modifier;
-            if (m.effect === 'heal') { if (!GS.regenStacks) GS.regenStacks = 0; GS.regenStacks += m.value; log(`${m.icon} Auto: +${m.value} regen (${GS.regenStacks} total)`, 'heal'); }
-            if (m.effect === 'lifesteal') { GS.autoLifesteal += m.value; log(`${m.icon} Lifesteal ${Math.round(m.value * 100)}% armed`, 'info'); }
-            if (m.effect === 'gold') { const g = gainGold(m.value); log(`${m.icon} Gold Rush: +${g} gold`, 'info'); }
-            if (m.effect === 'scavGold') { const g = gainGold(m.value); log(`${m.icon} Scavenger: +${g} gold`, 'info'); }
-        }
         log(`🔄 Reroll: ${oldVal} → ${die.value} (${GS.rerollsLeft} left)`, 'info');
         renderCombatDice();
         return true;
@@ -604,8 +584,8 @@ export function makeDieElement(die, context) {
             e.preventDefault();
             if (rerollMode) { tryReroll(); return; }
             if (e.button === 1 && tryReroll()) return;
-            if (e.button === 0) allocateDie(die, 'attack');
-            else if (e.button === 2) allocateDie(die, 'defend');
+            if (e.button === 0) allocateDie(die, 'strike');
+            else if (e.button === 2) allocateDie(die, 'guard');
         };
 
         // Touch: tap=attack, long-press=defend, drag=drag-to-slot; in reroll mode: tap=reroll
@@ -629,7 +609,7 @@ export function makeDieElement(die, context) {
             touchLongPressTimer = setTimeout(() => {
                 touchHandled = true;
                 touchDragDie = null;
-                allocateDie(die, 'defend');
+                allocateDie(die, 'guard');
             }, 400);
         };
         el.ontouchend = e => {
@@ -637,7 +617,7 @@ export function makeDieElement(die, context) {
             if (touchDragging) return; // handled by _touchEnd
             clearTimeout(touchLongPressTimer);
             touchLongPressTimer = null;
-            if (!touchHandled) allocateDie(die, 'attack');
+            if (!touchHandled) allocateDie(die, 'strike');
             touchHandled = false;
             touchDragDie = null;
         };
@@ -651,7 +631,7 @@ export function makeDieElement(die, context) {
         };
         el.ondragend = () => { el.classList.remove('dragging'); dragDie = null; };
 
-    } else if (die.rolled && (context === 'attack' || context === 'defend')) {
+    } else if (die.rolled && (context === 'strike' || context === 'guard')) {
         el.style.cursor = 'pointer';
         el.title = 'Click to return to pool';
         el.onmousedown = e => {
@@ -659,8 +639,8 @@ export function makeDieElement(die, context) {
             if (rerollMode) { tryReroll(); return; }
             if (e.button === 1 && tryReroll()) return;
             die.location = 'pool';
-            GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== die.id);
-            GS.allocated.defend = GS.allocated.defend.filter(d => d.id !== die.id);
+            GS.allocated.strike = GS.allocated.strike.filter(d => d.id !== die.id);
+            GS.allocated.guard = GS.allocated.guard.filter(d => d.id !== die.id);
             renderCombatDice();
         };
 
@@ -687,8 +667,8 @@ export function makeDieElement(die, context) {
                 setTimeout(() => {
                     if (lastSlotTap > 0) {
                         die.location = 'pool';
-                        GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== die.id);
-                        GS.allocated.defend = GS.allocated.defend.filter(d => d.id !== die.id);
+                        GS.allocated.strike = GS.allocated.strike.filter(d => d.id !== die.id);
+                        GS.allocated.guard = GS.allocated.guard.filter(d => d.id !== die.id);
                         renderCombatDice();
                     }
                 }, 320);
@@ -723,7 +703,7 @@ export function makeDieElement(die, context) {
 export function setupDropZones() {
     ['slot-attack', 'slot-defend'].forEach(slotId => {
         const slot = $(slotId);
-        const type = slotId === 'slot-attack' ? 'attack' : 'defend';
+        const type = slotId === 'slot-attack' ? 'strike' : 'guard';
         slot.ondragover = e => { e.preventDefault(); slot.classList.add('drag-over'); };
         slot.ondragleave = () => slot.classList.remove('drag-over');
         slot.ondrop = e => {
@@ -741,22 +721,22 @@ export function setupDropZones() {
         pool.classList.remove('drag-over');
         if (dragDie) {
             dragDie.location = 'pool';
-            GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== dragDie.id);
-            GS.allocated.defend = GS.allocated.defend.filter(d => d.id !== dragDie.id);
+            GS.allocated.strike = GS.allocated.strike.filter(d => d.id !== dragDie.id);
+            GS.allocated.guard = GS.allocated.guard.filter(d => d.id !== dragDie.id);
             renderCombatDice();
         }
     };
 }
 
 export function allocateDie(die, slot) {
-    // Berserker's Mask: max 1 die in defend
-    if (slot === 'defend' && GS.artifacts.some(a => a.effect === 'berserkersMask') && GS.allocated.defend.length >= 1) {
+    // Berserker's Mask: max 1 die in guard
+    if (slot === 'guard' && GS.artifacts.some(a => a.effect === 'berserkersMask') && GS.allocated.guard.length >= 1) {
         log("😤 Berserker's Mask: only 1 die in defense!", 'damage');
         return;
     }
     if (GS.allocated[slot].length >= GS.slots[slot].length) return;
-    GS.allocated.attack = GS.allocated.attack.filter(d => d.id !== die.id);
-    GS.allocated.defend = GS.allocated.defend.filter(d => d.id !== die.id);
+    GS.allocated.strike = GS.allocated.strike.filter(d => d.id !== die.id);
+    GS.allocated.guard = GS.allocated.guard.filter(d => d.id !== die.id);
     const sealedIds = (GS.playerDebuffs?.disabledSlots || []).map(ds => ds.slotId);
     const occupiedIds = GS.allocated[slot].map(d => d.slotId);
     const targetSlot = GS.slots[slot].find(s => !occupiedIds.includes(s.id) && !sealedIds.includes(s.id));
@@ -769,6 +749,9 @@ export function allocateDie(die, slot) {
     die.slotId = targetSlot.id;
     die.location = slot;
     GS.allocated[slot].push(die);
+    // Lucky rune: +1 reroll when die is placed in a slot with the Lucky rune
+    const luckyRune = targetSlot.rune?.effect === 'lucky';
+    if (luckyRune) { GS.rerollsLeft++; log('🎰 Lucky rune: +1 reroll!', 'info'); }
     // Echo Stone: track first die allocated this turn
     if (GS.artifacts.some(a => a.effect === 'echoStone') && GS.echoStoneDieId === null) {
         GS.echoStoneDieId = die.id;
@@ -777,69 +760,48 @@ export function allocateDie(die, slot) {
 }
 
 export function updateSlotTotals() {
-    // ── ATTACK TOTAL ──
-    let atkTotal = 0;
-    let atkMultiplier = 1;
-    let atkBonus = 0;
-    const atkCount = GS.allocated.attack.length;
     const echoId = GS.echoStoneDieId;
     const hasEcho = GS.artifacts.some(a => a.effect === 'echoStone');
+    const ascendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
+    const nonUtilCount = (allocated) => allocated.filter(d => {
+        const m = getActiveFace(d)?.modifier;
+        return !m || !['frostbite','searing','marked','freezeStrike','jackpot','shieldBash','poisonBurst'].includes(m.effect);
+    }).length;
 
-    // Pack Tactics: pre-compute bonus per attack die (face mods + passive)
-    const ptAtkFace = GS.allocated.attack.reduce((sum, d) => {
-        const f = getActiveFace(d); const mo = f && !f.modifier.autoFire ? f.modifier : null;
-        return mo?.effect === 'packTactics' ? sum + mo.value : sum;
-    }, 0);
-    const ptAtkPerDie = ptAtkFace + (GS.passives.packTactics || 0);
-    // Non-utility attack count for Titan's Blow (autoFire + slot-modifier/utility faces don't count)
-    const _titanUtil = new Set(['lucky','poison','midasGold','searing','marked','frostbite','slotMultiply']);
-    const _isTitanUtil = d => { const f = getActiveFace(d); return f?.modifier?.autoFire || _titanUtil.has(f?.modifier?.effect); };
-    const nonUtilAtkCount = GS.allocated.attack.filter(d => !_isTitanUtil(d)).length;
-    const atkAscendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
+    // ── STRIKE TOTAL ──
+    let atkTotal = 0, atkMultiplier = 1, atkBonus = 0;
+    const atkCount = GS.allocated.strike.length;
+    const nonUtilAtk = nonUtilCount(GS.allocated.strike);
 
-    GS.allocated.attack.forEach(d => {
-        const face = getActiveFace(d);
-        const m = face && !face.modifier.autoFire ? face.modifier : null;
-        const baseVal = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0) + atkAscendBonus;
-        let dieContrib = 0;
-        if (m) {
-            if (m.effect === 'slotMultiply') { atkMultiplier *= m.value; dieContrib = baseVal; }
-            else if (m.effect === 'slotAdd') { dieContrib = baseVal + m.value * atkCount; }
-            else if (m.effect === 'packTactics') { dieContrib = baseVal; }  // bonus already in baseVal
-            else if (m.effect === 'volley') { dieContrib = baseVal + (atkCount >= 3 ? m.value : 0); }
-            else if (m.effect === 'threshold') { dieContrib = baseVal * m.value; }
-            else if (m.effect === 'lucky' || m.effect === 'poison' || m.effect === 'midasGold'
-                  || m.effect === 'searing' || m.effect === 'marked' || m.effect === 'frostbite') { /* utility: no value contribution */ }
-            else { dieContrib = baseVal; }
-        } else {
-            dieContrib = baseVal;
-        }
-        // Per-slot rune effects
-        const atkDieRune = getSlotById(d.slotId)?.rune;
-        if (atkDieRune?.effect === 'amplifier') dieContrib *= 2;
-        if (atkDieRune?.effect === 'titanBlow' && nonUtilAtkCount === 1) dieContrib *= 3;
-        // Echo Stone: first allocated die counts twice
-        if (hasEcho && echoId !== null && d.id === echoId) dieContrib += d.value;
-        atkTotal += dieContrib;
+    GS.allocated.strike.forEach(d => {
+        const rune = getSlotById(d.slotId)?.rune;
+        let dieVal = d.value + (GS.passives.packTactics || 0) + (GS.passives.swarmMaster || 0) + ascendBonus;
+        if (rune?.effect === 'amplifier') dieVal *= 2;
+        if (rune?.effect === 'titanBlow' && nonUtilAtk === 1) dieVal *= 3;
+        if (rune?.effect === 'splinter') { /* splinter spreads value to others — preview only shows raw */ }
+        if (hasEcho && echoId !== null && d.id === echoId) dieVal += d.value;
+        const m = getActiveFace(d)?.modifier;
+        if (m?.effect === 'executioner') dieVal *= 5;
+        else if (m?.effect === 'vampiricStrike') dieVal *= 3;
+        else if (m?.effect === 'chainLightning') dieVal *= 2;
+        // utility/status face mods don't contribute own value to slot
+        const utilEffects = new Set(['frostbite','searing','marked','freezeStrike','jackpot','poisonBurst','shieldBash']);
+        if (!m || !utilEffects.has(m.effect)) atkTotal += dieVal;
     });
 
     atkBonus += GS.buffs.damageBoost;
     const goldScalePreview = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
     if (goldScalePreview > 0) atkBonus += goldScalePreview;
     if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
-    atkBonus += GS.artifacts.filter(a => a.effect === 'hydrasCrest').reduce((s, a) => s + a.value * GS.dice.length, 0);
+    atkBonus += GS.artifacts.filter(a => a.effect === 'hydrasCrest').reduce((s, a) => s + a.value * GS.dice.filter(d => !d.midasTemp).length, 0);
     atkBonus += GS.enemyStatus?.mark || 0;
     atkBonus += GS.artifacts.filter(a => a.effect === 'festeringWound').reduce((s, a) => s + a.value * (GS.enemy?.poison || 0), 0);
-    if (GS.passives.volley && atkCount >= 3) atkTotal += GS.passives.volley;
     if (GS.passives.threshold) {
-        GS.allocated.attack.forEach(d => { if (d.value >= 8) atkTotal += Math.floor(d.value * 0.5); });
+        GS.allocated.strike.forEach(d => { if (d.value >= 8) atkTotal += Math.floor(d.value * 0.5); });
     }
-    if (GS.passives.titanWrath && atkCount === 1) atkMultiplier *= 3;
     if (GS.artifacts.some(a => a.effect === 'berserkersMask')) atkMultiplier *= 1.5;
     if (GS.artifacts.some(a => a.effect === 'bloodPact')) atkMultiplier *= 1.3;
     if (atkCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) atkMultiplier *= 1.5;
-
-    // TransformBuffs
     atkMultiplier *= (GS.transformBuffs?.furyChambered || 1);
 
     let finalAtk = Math.floor(atkTotal * atkMultiplier) + atkBonus;
@@ -851,59 +813,29 @@ export function updateSlotTotals() {
     if (atkBonus > 0) atkSummary += `+${atkBonus} bonus `;
     $('attack-summary').textContent = atkSummary;
 
-    // ── DEFEND TOTAL ──
-    let defTotal = 0;
-    let defMultiplier = 1;
-    let defBonus = 0;
-    const defCount = GS.allocated.defend.length;
+    // ── GUARD TOTAL ──
+    let defTotal = 0, defMultiplier = 1, defBonus = 0;
+    const defCount = GS.allocated.guard.length;
+    const nonUtilDef = nonUtilCount(GS.allocated.guard);
 
-    // Pack Tactics: pre-compute bonus per defend die (face mods only — passive is attack-side)
-    const ptDefFace = GS.allocated.defend.reduce((sum, d) => {
-        const f = getActiveFace(d); const mo = f && !f.modifier.autoFire ? f.modifier : null;
-        return mo?.effect === 'packTactics' ? sum + mo.value : sum;
-    }, 0);
-    // Non-utility defend count for Titan's Blow (reuse same helper defined above)
-    const nonUtilDefCount = GS.allocated.defend.filter(d => !_isTitanUtil(d)).length;
-    const defAscendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
-
-    GS.allocated.defend.forEach(d => {
-        const face = getActiveFace(d);
-        const m = face && !face.modifier.autoFire ? face.modifier : null;
-        const baseVal = d.value + ptDefFace + (GS.passives.swarmMaster || 0) + defAscendBonus;
-        let dieContrib = 0;
-        if (m) {
-            if (m.effect === 'slotMultiply') { defMultiplier *= m.value; dieContrib = baseVal; }
-            else if (m.effect === 'slotAdd') { dieContrib = baseVal + m.value * defCount; }
-            else if (m.effect === 'packTactics') { dieContrib = baseVal; }  // bonus already in baseVal
-            else if (m.effect === 'volley') { dieContrib = baseVal + (defCount >= 3 ? m.value : 0); }
-            else if (m.effect === 'threshold') { dieContrib = baseVal * m.value; }
-            else if (m.effect === 'defAdd') { dieContrib = baseVal + m.value; }
-            else if (m.effect === 'lucky' || m.effect === 'poison' || m.effect === 'midasGold'
-                  || m.effect === 'searing' || m.effect === 'marked' || m.effect === 'frostbite') { /* utility: no value contribution */ }
-            else { dieContrib = baseVal; }
-        } else {
-            dieContrib = baseVal;
-        }
-        // Per-slot rune effects
-        const defDieRune = getSlotById(d.slotId)?.rune;
-        if (defDieRune?.effect === 'amplifier') dieContrib *= 2;
-        if (defDieRune?.effect === 'titanBlow' && nonUtilDefCount === 1) dieContrib *= 3;
-        if (defDieRune?.effect === 'leaden') dieContrib *= 2;
-        // Echo Stone: first allocated die counts twice
-        if (hasEcho && echoId !== null && d.id === echoId) dieContrib += d.value;
-        defTotal += dieContrib;
+    GS.allocated.guard.forEach(d => {
+        const rune = getSlotById(d.slotId)?.rune;
+        let dieVal = d.value + (GS.passives.swarmMaster || 0) + ascendBonus;
+        if (rune?.effect === 'amplifier') dieVal *= 2;
+        if (rune?.effect === 'titanBlow' && nonUtilDef === 1) dieVal *= 3;
+        if (rune?.effect === 'leaden') dieVal *= 2;
+        if (hasEcho && echoId !== null && d.id === echoId) dieVal += d.value;
+        const m = getActiveFace(d)?.modifier;
+        const utilEffects = new Set(['frostbite','searing','marked','shieldBash']);
+        if (!m || !utilEffects.has(m.effect)) defTotal += dieVal;
     });
 
     defBonus += GS.buffs.armor;
     defBonus += GS.artifacts.filter(a => a.effect === 'goldenAegis').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
-    if (GS.passives.volley && defCount >= 3) defTotal += GS.passives.volley;
     if (GS.passives.threshold) {
-        GS.allocated.defend.forEach(d => { if (d.value >= 8) defTotal += Math.floor(d.value * 0.5); });
+        GS.allocated.guard.forEach(d => { if (d.value >= 8) defTotal += Math.floor(d.value * 0.5); });
     }
-    if (GS.passives.titanWrath && defCount === 1) defMultiplier *= 3;
     if (defCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) defMultiplier *= 1.5;
-
-    // TransformBuffs
     defMultiplier *= (GS.transformBuffs?.fortified || 1);
 
     const finalDef = Math.floor(defTotal * defMultiplier) + defBonus;

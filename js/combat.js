@@ -218,7 +218,7 @@ export const Combat = {
         }
 
         GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; delete d.slotId; });
-        GS.allocated = { attack: [], defend: [] };
+        GS.allocated = { strike: [], guard: [] };
         GS.rolled = false;
         GS.autoLifesteal = 0;
         GS.regenStacks = 0;
@@ -326,7 +326,7 @@ export const Combat = {
             debuffHtml += `<span class="passive-tag" style="color:#f07070;border-color:rgba(200,60,60,0.3)">☠️ You: Poison ×${GS.playerDebuffs.poison} (${GS.playerDebuffs.poisonTurns}t)</span>`;
         if (GS.playerDebuffs.disabledSlots && GS.playerDebuffs.disabledSlots.length > 0)
             GS.playerDebuffs.disabledSlots.forEach(ds => {
-                const slotType = ds.slotId.startsWith('atk') ? 'attack' : 'defend';
+                const slotType = ds.slotId.startsWith('str') ? 'strike' : 'guard';
                 debuffHtml += `<span class="passive-tag" style="color:#f07070;border-color:rgba(200,60,60,0.3)">🔒 ${slotType} slot sealed (${ds.turnsLeft}t)</span>`;
             });
         if (debuffHtml) debuffHtml = `<div class="enemy-passive-tags">${debuffHtml}</div>`;
@@ -388,7 +388,7 @@ export const Combat = {
         // Expose: +1 die per attack slot (always empty at roll time since player hasn't allocated yet)
         const exposeP = e.passives.find(p => p.id === 'expose');
         if (exposeP) {
-            const slotCount = GS.slots.attack.length;
+            const slotCount = GS.slots.strike.length;
             for (let i = 0; i < slotCount; i++) turnBonusDice.push(enemyDie(exposeP.params.dieSize));
         }
 
@@ -529,35 +529,7 @@ export const Combat = {
             }
         }
 
-        GS.dice.forEach(d => {
-            // Midas Die: auto-fire gold on roll
-            if (d.midasTemp && d.rolled && d.location !== 'auto') {
-                const g = gainGold(d.value);
-                d.location = 'auto';
-                log(`🎲 Midas Die: +${g} gold!`, 'info');
-                return;
-            }
-            const face = getActiveFace(d);
-            if (face && face.modifier.autoFire) {
-                d.location = 'auto';
-                const m = face.modifier;
-                if (m.effect === 'heal') {
-                    if (!GS.regenStacks) GS.regenStacks = 0;
-                    GS.regenStacks += m.value;
-                    log(`${m.icon} Auto: +${m.value} regen (${GS.regenStacks} total)`, 'heal');
-                } else if (m.effect === 'gold') {
-                    const g = gainGold(m.value);
-                    log(`${m.icon} Auto: +${g} gold`, 'info');
-                } else if (m.effect === 'scavGold') {
-                    const g = gainGold(m.value);
-                    log(`${m.icon} Scavenger: +${g} gold`, 'info');
-                } else if (m.effect === 'lifesteal') {
-                    if (!GS.autoLifesteal) GS.autoLifesteal = 0;
-                    GS.autoLifesteal += m.value;
-                    log(`${m.icon} Auto: ${Math.round(m.value * 100)}% lifesteal active`, 'info');
-                }
-            }
-        });
+        // Auto-tray retired — no auto-fire face mods or Midas Die in new system
 
         // Environment: modify player dice results
         if (GS.environment?.onDiceRoll) {
@@ -589,10 +561,8 @@ export const Combat = {
     },
 
     returnAll() {
-        GS.dice.forEach(d => {
-            if (d.location !== 'auto') d.location = 'pool';
-        });
-        GS.allocated = { attack: [], defend: [] };
+        GS.dice.forEach(d => { d.location = 'pool'; });
+        GS.allocated = { strike: [], guard: [] };
         renderCombatDice();
     },
 
@@ -608,63 +578,77 @@ export const Combat = {
         const e = GS.enemy;
         const es = GS.enemyStatus;
 
-        const atkCount = GS.allocated.attack.length;
-        const defCount = GS.allocated.defend.length;
+        const atkCount = GS.allocated.strike.length;
+        const defCount = GS.allocated.guard.length;
 
         // ── DEFEND CALCULATION (before enemy attack for defense resolution) ──
         let defBase = 0, defMult = 1, defBonus = 0;
         let mirrorDmg = 0, regenCoreHeal = 0, steadfastContrib = 0;
         let poisonToApply = 0;
         let siphonHealing = 0;
+        let crossSlotBonusAtk = 0; // from guard-slot critical face mods
 
-        // Pack Tactics: pre-compute bonus per defend die (face mods only)
-        const ptDefFace = GS.allocated.defend.reduce((sum, d) => {
-            const f = getActiveFace(d); const mo = f && !f.modifier.autoFire ? f.modifier : null;
-            return mo?.effect === 'packTactics' ? sum + mo.value : sum;
-        }, 0);
-        // Non-utility defend count for Titan's Blow (autoFire + slot-modifier/utility faces don't count)
-        const _titanUtil = new Set(['lucky','poison','midasGold','searing','marked','frostbite','slotMultiply']);
-        const _isTitanUtil = d => { const f = getActiveFace(d); return f?.modifier?.autoFire || _titanUtil.has(f?.modifier?.effect); };
-        const nonUtilDefCount = GS.allocated.defend.filter(d => !_isTitanUtil(d)).length;
         // Ascend aura: pre-compute per-die bonus (applied to each die so runes amplify it)
         const defAscendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
 
-        GS.allocated.defend.forEach(d => {
-            const face = getActiveFace(d);
-            const m = face && !face.modifier.autoFire ? face.modifier : null;
+        // Utility die pre-passes (guard): Amplifier Die slot multipliers, Gold Die slot totals
+        const defAmpDieMul = {}; // slotId → multiplier from Amplifier Die (dieType='amplifier')
+        const defGoldSlotTotal = {}; // slotId → sum of non-gold, non-amplifier guard dice values
+        GS.allocated.guard.forEach(d => {
+            if (d.dieType === 'amplifier') defAmpDieMul[d.slotId] = d.value / 100;
+            else if (d.dieType !== 'gold') defGoldSlotTotal[d.slotId] = (defGoldSlotTotal[d.slotId] || 0) + d.value;
+        });
 
-            // Per-slot rune: apply before contributing to base
+        GS.allocated.guard.forEach(d => {
+            const face = getActiveFace(d);
+            const m = face ? face.modifier : null;
+
             const defRune = getSlotById(d.slotId)?.rune;
             const isAmplified = defRune?.effect === 'amplifier';
             const ampMul = isAmplified ? 2 : 1;
-            let dieVal = d.value + ptDefFace + (GS.passives.swarmMaster || 0) + defAscendBonus;
+            let dieVal = d.value + (GS.passives.swarmMaster || 0) + defAscendBonus;
             if (isAmplified) dieVal *= 2;
-            if (defRune?.effect === 'titanBlow' && nonUtilDefCount === 1) dieVal *= 3;
+            if (defRune?.effect === 'titanBlow' && defCount === 1) dieVal *= 3;
             if (defRune?.effect === 'leaden') dieVal *= 2;
             if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
+            // Amplifier Die in this slot boosts this die (if this die isn't the amplifier)
+            if (d.dieType !== 'amplifier' && defAmpDieMul[d.slotId]) dieVal = Math.floor(dieVal * defAmpDieMul[d.slotId]);
+
+            // Utility die types — handle effect and skip normal contribution
+            if (d.dieType === 'amplifier') return; // contributes via multiplier pre-pass
+            if (d.dieType === 'gold') {
+                const slotTotal = defGoldSlotTotal[d.slotId] || 0;
+                const goldGain = Math.floor(slotTotal * (d.value / 100));
+                if (goldGain > 0) { gainGold(goldGain); log(`💰 Gold Die: +${goldGain} gold!`, 'info'); }
+                return;
+            }
+            if (d.dieType === 'chill') { applyStatus('chill', dieVal); return; }
+            if (d.dieType === 'weaken') { applyStatus('weaken', 1, dieVal); return; }
+            if (d.dieType === 'shield') { defBase += dieVal; crossSlotBonusAtk += dieVal; return; }
+            if (d.dieType === 'mimic') {
+                const others = GS.dice.filter(x => x.id !== d.id && x.rolled && x.value > 0);
+                if (others.length) dieVal = others[Math.floor(Math.random() * others.length)].value;
+                defBase += dieVal; return;
+            }
+            if (d.dieType) return; // unknown utility die: contribute 0
 
             if (m) {
-                if (m.effect === 'lucky') { GS.rerollsLeft += m.value * ampMul; log(`🎰 Lucky! +${m.value * ampMul} reroll`, 'info'); }
-                if (m.effect === 'poison') { poisonToApply += m.value * ampMul; }
-                if (m.effect === 'midasGold') { const mg = gainGold(dieVal); log(`👑 Midas: +${mg} gold`, 'info'); }
-                if (m.effect === 'frostbite') { applyStatus('chill', 2 * ampMul); }
-
-                if (m.effect === 'slotMultiply') { defMult *= m.value * ampMul; defBase += dieVal; }
-                else if (m.effect === 'slotAdd') { defBase += dieVal + m.value * defCount * ampMul; }
-                else if (m.effect === 'packTactics') { defBase += dieVal; }  // bonus already in dieVal
-                else if (m.effect === 'volley') { defBase += dieVal + (defCount >= 3 ? m.value * ampMul : 0); }
-                else if (m.effect === 'threshold') { defBase += dieVal * m.value; }
-                else if (m.effect === 'defAdd') { defBase += dieVal + m.value * ampMul; }
-                else if (m.effect === 'lucky' || m.effect === 'poison' || m.effect === 'midasGold'
-                      || m.effect === 'searing' || m.effect === 'marked' || m.effect === 'frostbite') { /* utility: no value contribution */ }
+                if (m.effect === 'frostbite') { applyStatus('chill', 2 * ampMul); defBase += dieVal; }
+                else if (m.effect === 'shieldBash') { mirrorDmg += dieVal; defBase += dieVal; }
+                else if (m.effect === 'executioner') { defBase += dieVal * 5; }
+                else if (m.effect === 'chainLightning') { defBase += dieVal * 2; }
+                else if (m.effect === 'vampiricStrike') { const vVal = dieVal * 3; defBase += vVal; siphonHealing += vVal; }
+                else if (m.effect === 'freezeStrike') { applyStatus('freeze', 1); defBase += dieVal; }
+                else if (m.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); defBase += dieVal; }
+                else if (m.effect === 'critical') { defBase += dieVal; crossSlotBonusAtk += dieVal; }
                 else { defBase += dieVal; }
             } else {
                 defBase += dieVal;
             }
-            // Track slot rune secondary effects
             if (defRune?.effect === 'regenCore') regenCoreHeal += Math.ceil(dieVal * 0.5);
             if (defRune?.effect === 'mirror') mirrorDmg += dieVal;
             if (defRune?.effect === 'steadfast') steadfastContrib += dieVal;
+            if (defRune?.effect === 'poisonCore') applyEnemyPoison(dieVal);
         });
 
         defBonus += GS.buffs.armor;
@@ -672,9 +656,8 @@ export const Combat = {
         if (GS.transformBuffs && GS.transformBuffs.fortified > 1) defMult *= GS.transformBuffs.fortified;
         if (GS.passives.volley && defCount >= 3) defBase += GS.passives.volley;
         if (GS.passives.threshold) {
-            GS.allocated.defend.forEach(d => { if (d.value >= 8) defBase += Math.floor(d.value * 0.5); });
+            GS.allocated.guard.forEach(d => { if (d.value >= 8) defBase += Math.floor(d.value * 0.5); });
         }
-        if (GS.passives.titanWrath && defCount === 1) defMult *= 3;
         // New artifact defend bonuses
         defBonus += GS.artifacts.filter(a => a.effect === 'goldenAegis').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
         if (defCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) defMult *= 1.5;
@@ -723,8 +706,8 @@ export const Combat = {
         if (!isImmune) {
         // ── EVASION PASSIVE: negate one random attack die ──
         const evasionP = e.passives.find(p => p.id === 'evasion');
-        if (evasionP && GS.allocated.attack.length > 0) {
-            const dodgeDie = GS.allocated.attack[Math.floor(Math.random() * GS.allocated.attack.length)];
+        if (evasionP && GS.allocated.strike.length > 0) {
+            const dodgeDie = GS.allocated.strike[Math.floor(Math.random() * GS.allocated.strike.length)];
             const dodgedVal = dodgeDie.value;
             dodgeDie.value = 0;
             log(`💨 ${e.name} evades — negates ${dodgedVal} from one attack die!`, 'info');
@@ -732,20 +715,14 @@ export const Combat = {
 
         // ── ATTACK CALCULATION ──
         let atkBase = 0, atkMult = 1, atkBonus = 0;
+        let crossSlotBonusDef = 0; // from strike-slot critical face mods
 
-        // Pack Tactics: pre-compute bonus per attack die (face mods + passive)
-        const ptAtkFace = GS.allocated.attack.reduce((sum, d) => {
-            const f = getActiveFace(d); const mo = f && !f.modifier.autoFire ? f.modifier : null;
-            return mo?.effect === 'packTactics' ? sum + mo.value : sum;
-        }, 0);
-        const ptAtkPerDie = ptAtkFace + (GS.passives.packTactics || 0);
-        // Non-utility attack count for Titan's Blow (reuse same helper defined above in this execute())
-        const nonUtilAtkCount = GS.allocated.attack.filter(d => !_isTitanUtil(d)).length;
+        const ptAtkPerDie = GS.passives.packTactics || 0;
 
         // Battle Fury: boost highest attack die if 3+ fury charges
         let furyBoostDieId = null;
         if (GS.furyCharges >= 3 && atkCount > 0) {
-            const topDie = GS.allocated.attack.reduce((best, d) => d.value > (best?.value || -1) ? d : best, null);
+            const topDie = GS.allocated.strike.reduce((best, d) => d.value > (best?.value || -1) ? d : best, null);
             furyBoostDieId = topDie?.id || null;
             if (furyBoostDieId) {
                 log(`🔥 Battle Fury! Highest attack die ×2 this turn!`, 'info');
@@ -756,41 +733,91 @@ export const Combat = {
         // Ascend aura: pre-compute per-die bonus (applied to each die so runes amplify it)
         const atkAscendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
 
-        GS.allocated.attack.forEach(d => {
-            const face = getActiveFace(d);
-            const m = face && !face.modifier.autoFire ? face.modifier : null;
+        // Splinter rune: pre-compute bonus per die from Splinter dice in the same slot
+        const splinterBonus = {};
+        GS.allocated.strike.forEach(d => {
+            const rune = getSlotById(d.slotId)?.rune;
+            if (rune?.effect === 'splinter') {
+                const others = GS.allocated.strike.filter(x => x.slotId === d.slotId && x.id !== d.id);
+                if (others.length > 0) {
+                    const share = Math.floor(d.value / others.length);
+                    others.forEach(x => { splinterBonus[x.id] = (splinterBonus[x.id] || 0) + share; });
+                }
+            }
+        });
 
-            // Per-slot rune: apply before contributing to base
+        // Utility die pre-passes (strike): Amplifier Die slot multipliers, Gold Die slot totals
+        const atkAmpDieMul = {}; // slotId → multiplier from Amplifier Die
+        const atkGoldSlotTotal = {}; // slotId → sum of non-gold, non-amplifier strike dice values
+        GS.allocated.strike.forEach(d => {
+            if (d.dieType === 'amplifier') atkAmpDieMul[d.slotId] = d.value / 100;
+            else if (d.dieType !== 'gold') atkGoldSlotTotal[d.slotId] = (atkGoldSlotTotal[d.slotId] || 0) + d.value;
+        });
+
+        GS.allocated.strike.forEach(d => {
+            const face = getActiveFace(d);
+            const m = face ? face.modifier : null;
+
             const atkRune = getSlotById(d.slotId)?.rune;
             const isAmplified = atkRune?.effect === 'amplifier';
             const ampMul = isAmplified ? 2 : 1;
-            let dieVal = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0) + atkAscendBonus;
+
+            // Splinter rune: die's value was distributed to others — skip own contribution
+            if (atkRune?.effect === 'splinter') return;
+
+            let dieVal = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0) + atkAscendBonus + (splinterBonus[d.id] || 0);
             if (isAmplified) dieVal *= 2;
-            if (atkRune?.effect === 'titanBlow' && nonUtilAtkCount === 1) dieVal *= 3;
+            if (atkRune?.effect === 'titanBlow' && atkCount === 1) dieVal *= 3;
             if (d.id === furyBoostDieId) dieVal *= 2;
             if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
+            // Amplifier Die in this slot boosts this die
+            if (d.dieType !== 'amplifier' && atkAmpDieMul[d.slotId]) dieVal = Math.floor(dieVal * atkAmpDieMul[d.slotId]);
+
+            // Utility die types — handle effect and skip normal contribution
+            if (d.dieType === 'amplifier') return; // contributes via multiplier pre-pass
+            if (d.dieType === 'gold') {
+                const slotTotal = atkGoldSlotTotal[d.slotId] || 0;
+                const goldGain = Math.floor(slotTotal * (d.value / 100));
+                if (goldGain > 0) { gainGold(goldGain); log(`💰 Gold Die: +${goldGain} gold!`, 'info'); }
+                return;
+            }
+            if (d.dieType === 'poison') { applyEnemyPoison(dieVal); return; }
+            if (d.dieType === 'chill') { applyStatus('chill', dieVal); return; }
+            if (d.dieType === 'burn') { applyStatus('burn', dieVal, 3); return; }
+            if (d.dieType === 'mark') { applyStatus('mark', dieVal, 2); return; }
+            if (d.dieType === 'weaken') { applyStatus('weaken', 1, dieVal); return; }
+            if (d.dieType === 'shield') { atkBase += dieVal; crossSlotBonusDef += dieVal; return; }
+            if (d.dieType === 'drain') { atkBase += dieVal; siphonHealing += dieVal; return; }
+            if (d.dieType === 'mimic') {
+                const others = GS.dice.filter(x => x.id !== d.id && x.rolled && x.value > 0);
+                if (others.length) dieVal = others[Math.floor(Math.random() * others.length)].value;
+                atkBase += dieVal; return;
+            }
+            if (d.dieType) return; // unknown utility die: contribute 0
+
+            if (atkRune?.effect === 'siphon') siphonHealing += dieVal;
+            if (atkRune?.effect === 'poisonCore') applyEnemyPoison(dieVal);
 
             if (m) {
-                if (m.effect === 'lucky') { GS.rerollsLeft += m.value * ampMul; log(`🎰 Lucky! +${m.value * ampMul} reroll`, 'info'); }
-                if (m.effect === 'poison') { poisonToApply += m.value * ampMul; }
-                if (m.effect === 'midasGold') { const mg = gainGold(dieVal); log(`👑 Midas: +${mg} gold`, 'info'); }
-                if (m.effect === 'searing') { applyStatus('burn', 2 * ampMul, 3); }
-                if (m.effect === 'marked') { applyStatus('mark', 3 * ampMul, 2); }
-
-                if (m.effect === 'slotMultiply') { atkMult *= m.value * ampMul; atkBase += dieVal; }
-                else if (m.effect === 'slotAdd') { atkBase += dieVal + m.value * atkCount * ampMul; }
-                else if (m.effect === 'packTactics') { atkBase += dieVal; }  // bonus already in dieVal
-                else if (m.effect === 'volley') { atkBase += dieVal + (atkCount >= 3 ? m.value * ampMul : 0); }
-                else if (m.effect === 'threshold') { atkBase += dieVal * m.value; }
-                else if (m.effect === 'defAdd') { atkBase += dieVal; }
-                else if (m.effect === 'lucky' || m.effect === 'poison' || m.effect === 'midasGold'
-                      || m.effect === 'searing' || m.effect === 'marked' || m.effect === 'frostbite') { /* utility: no value contribution */ }
+                if (m.effect === 'searing') { applyStatus('burn', 2 * ampMul, 3); atkBase += dieVal; }
+                else if (m.effect === 'marked') { applyStatus('mark', 3 * ampMul, 2); atkBase += dieVal; }
+                else if (m.effect === 'frostbite') { applyStatus('chill', 2 * ampMul); atkBase += dieVal; }
+                else if (m.effect === 'executioner') { atkBase += dieVal * 5; }
+                else if (m.effect === 'chainLightning') { atkBase += dieVal * 2; }
+                else if (m.effect === 'vampiricStrike') { const vVal = dieVal * 3; atkBase += vVal; siphonHealing += vVal; }
+                else if (m.effect === 'freezeStrike') { applyStatus('freeze', 1); atkBase += dieVal; }
+                else if (m.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); atkBase += dieVal; }
+                else if (m.effect === 'poisonBurst') { applyEnemyPoison(dieVal * 3); atkBase += dieVal; }
+                else if (m.effect === 'critical') { atkBase += dieVal; crossSlotBonusDef += dieVal; }
                 else { atkBase += dieVal; }
             } else {
                 atkBase += dieVal;
             }
-            if (atkRune?.effect === 'siphon') siphonHealing += dieVal * (atkRune.value || 1);
         });
+
+        // Apply cross-slot bonuses from critical face mods
+        atkBase += crossSlotBonusAtk;
+        defBase += crossSlotBonusDef;
 
         atkBonus += GS.buffs.damageBoost;
         // transformBuffs: Fury Chamber attack multiplier
@@ -804,9 +831,8 @@ export const Combat = {
         if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
         if (GS.passives.volley && atkCount >= 3) atkBase += GS.passives.volley;
         if (GS.passives.threshold) {
-            GS.allocated.attack.forEach(d => { if (d.value >= 8) atkBase += Math.floor(d.value * 0.5); });
+            GS.allocated.strike.forEach(d => { if (d.value >= 8) atkBase += Math.floor(d.value * 0.5); });
         }
-        if (GS.passives.titanWrath && atkCount === 1) atkMult *= 3;
         const rerollsUsed = GS.rerolls - GS.rerollsLeft;
         if (rerollsUsed > 0) {
             let rerollDmg = GS.artifacts.filter(a => a.effect === 'rerollDmg').reduce((s, a) => s + a.value, 0) * rerollsUsed;
@@ -824,8 +850,8 @@ export const Combat = {
         if (GS.artifacts.some(a => a.effect === 'bloodPact')) atkMult *= 1.3;
         if (atkCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) atkMult *= 1.5;
         // Echo Chamber: highest attack die counted twice
-        if (GS.artifacts.some(a => a.effect === 'echoChamber') && GS.allocated.attack.length > 0) {
-            const top = GS.allocated.attack.reduce((b, d) => d.value > (b?.value || -1) ? d : b, null);
+        if (GS.artifacts.some(a => a.effect === 'echoChamber') && GS.allocated.strike.length > 0) {
+            const top = GS.allocated.strike.reduce((b, d) => d.value > (b?.value || -1) ? d : b, null);
             if (top && top.value > 0) { atkBonus += top.value; log(`🔊 Echo Chamber: +${top.value} echoes!`, 'info'); }
         }
 
@@ -930,7 +956,7 @@ export const Combat = {
 
         // Gold Forge: each attack die generates gold equal to its rolled value
         if (GS.transformBuffs && GS.transformBuffs.goldForge && finalAtk > 0) {
-            GS.allocated.attack.forEach(d => {
+            GS.allocated.strike.forEach(d => {
                 if (d.value > 0) {
                     const g = gainGold(d.value);
                     log(`⚒️ Gold Forge: +${g} gold!`, 'info');
@@ -1116,11 +1142,11 @@ export const Combat = {
                     const duration = ab.fixedDuration || 1;
                     // Build pool of candidate slots, optionally filtered by slotTarget
                     let candidates = [
-                        ...GS.slots.attack.map(s => s.id),
-                        ...GS.slots.defend.map(s => s.id),
+                        ...GS.slots.strike.map(s => s.id),
+                        ...GS.slots.guard.map(s => s.id),
                     ];
-                    if (ab.slotTarget === 'attack') candidates = GS.slots.attack.map(s => s.id);
-                    else if (ab.slotTarget === 'defend') candidates = GS.slots.defend.map(s => s.id);
+                    if (ab.slotTarget === 'strike') candidates = GS.slots.strike.map(s => s.id);
+                    else if (ab.slotTarget === 'guard') candidates = GS.slots.guard.map(s => s.id);
                     // Exclude already-sealed slots
                     const alreadySealed = (GS.playerDebuffs.disabledSlots || []).map(ds => ds.slotId);
                     candidates = candidates.filter(id => !alreadySealed.includes(id));
@@ -1130,7 +1156,7 @@ export const Combat = {
                     if (!GS.playerDebuffs.disabledSlots) GS.playerDebuffs.disabledSlots = [];
                     toSeal.forEach(slotId => GS.playerDebuffs.disabledSlots.push({ slotId, turnsLeft: duration }));
                     if (toSeal.length > 0) {
-                        const names = toSeal.map(id => id.startsWith('atk') ? 'attack' : 'defend');
+                        const names = toSeal.map(id => id.startsWith('str') ? 'strike' : 'guard');
                         log(`${ab.icon} ${ab.name}! ${toSeal.length} slot${toSeal.length > 1 ? 's' : ''} sealed (${names.join(', ')}) for ${duration} turn${duration > 1 ? 's' : ''}!`, 'damage');
                     }
                 }
@@ -1318,12 +1344,12 @@ export const Combat = {
             } else {
                 if (!GS.playerDebuffs.disabledSlots) GS.playerDebuffs.disabledSlots = [];
                 const alreadySealed = GS.playerDebuffs.disabledSlots.map(ds => ds.slotId);
-                const allSlots = [...GS.slots.attack.map(s => s.id), ...GS.slots.defend.map(s => s.id)];
+                const allSlots = [...GS.slots.strike.map(s => s.id), ...GS.slots.guard.map(s => s.id)];
                 const candidates = allSlots.filter(id => !alreadySealed.includes(id));
                 if (candidates.length > 0) {
                     const pick = candidates[Math.floor(Math.random() * candidates.length)];
                     GS.playerDebuffs.disabledSlots.push({ slotId: pick, turnsLeft: 1 });
-                    const slotType = pick.startsWith('atk') ? 'attack' : 'defend';
+                    const slotType = pick.startsWith('str') ? 'strike' : 'guard';
                     log(`💨 Wing Buffet! ${slotType} slot sealed for 1 turn!`, 'damage');
                 }
             }
@@ -1558,7 +1584,7 @@ export const Combat = {
             });
             if (expired.length > 0) {
                 GS.playerDebuffs.disabledSlots = GS.playerDebuffs.disabledSlots.filter(ds => ds.turnsLeft > 0);
-                const names = expired.map(ds => ds.slotId.startsWith('atk') ? 'attack' : 'defend');
+                const names = expired.map(ds => ds.slotId.startsWith('str') ? 'strike' : 'guard');
                 log(`🔓 ${expired.length} slot${expired.length > 1 ? 's' : ''} unsealed (${names.join(', ')}).`, 'info');
             }
         }
@@ -1570,7 +1596,7 @@ export const Combat = {
 
         // ── RESET DICE FOR NEW TURN ──
         GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.location = 'pool'; delete d.slotId; });
-        GS.allocated = { attack: [], defend: [] };
+        GS.allocated = { strike: [], guard: [] };
         GS.rolled = false;
         GS.autoLifesteal = 0;
         GS.rerollsLeft = GS.rerolls;

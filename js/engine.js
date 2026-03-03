@@ -839,7 +839,7 @@ export function updateSlotTotals() {
     const ascendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
     const nonUtilCount = (allocated) => allocated.filter(d => {
         const m = getActiveFace(d)?.modifier;
-        return !m || !['frostbite','searing','marked','freezeStrike','jackpot','shieldBash','poisonBurst'].includes(m.effect);
+        return !m || !['freezeStrike','jackpot','shieldBash','poisonBurst'].includes(m.effect);
     }).length;
 
     // Helper: compute a single die's contribution and tooltip
@@ -865,7 +865,7 @@ export function updateSlotTotals() {
         if (m?.effect === 'executioner') { val *= 5; parts.push('executioner: ×5'); }
         else if (m?.effect === 'vampiricStrike') { val *= 3; parts.push('vampiric: ×3'); }
         else if (m?.effect === 'chainLightning') { val *= 2; parts.push('chain: ×2'); }
-        const utilFx = new Set(['frostbite','searing','marked','freezeStrike','jackpot','poisonBurst','shieldBash','critical']);
+        const utilFx = new Set(['freezeStrike','jackpot','poisonBurst','shieldBash','critical']);
         const isUtil = m && utilFx.has(m.effect);
         if (isUtil) { parts.push(`${m.effect}: status only`); val = 0; }
         return { val, tip: parts.join(' | '), skip: false };

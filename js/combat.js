@@ -694,8 +694,7 @@ export const Combat = {
             if (d.dieType) return; // unknown utility die: contribute 0
 
             if (m) {
-                if (m.effect === 'frostbite') { applyStatus('chill', 2 * ampMul); defBase += dieVal; }
-                else if (m.effect === 'shieldBash') { mirrorDmg += dieVal; defBase += dieVal; }
+                if (m.effect === 'shieldBash') { mirrorDmg += dieVal; defBase += dieVal; }
                 else if (m.effect === 'executioner') { defBase += dieVal * 5; }
                 else if (m.effect === 'chainLightning') { defBase += dieVal * 2; }
                 else if (m.effect === 'vampiricStrike') { const vVal = dieVal * 3; defBase += vVal; siphonHealing += vVal; }
@@ -930,10 +929,7 @@ export const Combat = {
             if (atkRune?.effect === 'poisonCore') applyEnemyPoison(dieVal);
 
             if (m) {
-                if (m.effect === 'searing') { applyStatus('burn', 2 * ampMul, 3); atkBase += dieVal; }
-                else if (m.effect === 'marked') { applyStatus('mark', 3 * ampMul, 2); atkBase += dieVal; }
-                else if (m.effect === 'frostbite') { applyStatus('chill', 2 * ampMul); atkBase += dieVal; }
-                else if (m.effect === 'executioner') { atkBase += dieVal * 5; }
+                if (m.effect === 'executioner') { atkBase += dieVal * 5; }
                 else if (m.effect === 'chainLightning') { atkBase += dieVal * 2; }
                 else if (m.effect === 'vampiricStrike') { const vVal = dieVal * 3; atkBase += vVal; siphonHealing += vVal; }
                 else if (m.effect === 'freezeStrike') { applyStatus('freeze', 1); atkBase += dieVal; }

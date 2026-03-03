@@ -142,7 +142,7 @@ function showRuneAttachment(rune, onDone) {
 
     const info = document.createElement('div');
     info.style.cssText = 'text-align:center; margin-bottom:16px; color:var(--text-dim); font-family:EB Garamond,serif;';
-    info.innerHTML = `<strong style="color:${rune.color};">${rune.icon} ${rune.name}</strong>: ${rune.desc}<br><span style="font-size:0.85em; opacity:0.7;">Best for: ${rune.slot === 'either' ? 'any slot' : rune.slot + ' slot'}</span>`;
+    info.innerHTML = `<strong style="color:${rune.color};">${rune.icon} ${rune.name}</strong>: ${rune.desc}<br><span style="font-size:0.85em; opacity:0.7;">Best for: ${rune.slot === 'either' ? 'any zone' : rune.slot + ' zone'}</span>`;
     c.appendChild(info);
 
     const grid = document.createElement('div');
@@ -159,7 +159,7 @@ function showRuneAttachment(rune, onDone) {
         card.className = 'card';
         card.style.cssText = `width:160px; cursor:pointer;${!compatible ? ' opacity:0.6;' : ''}`;
         const existingRuneNote = slotInfo.rune ? `<div style="color:#ff8080; font-size:0.78em; margin-top:4px;">⚠️ Replaces ${slotInfo.rune.icon} ${slotInfo.rune.name}</div>` : '<div style="opacity:0.5; font-size:0.78em; margin-top:4px;">empty slot</div>';
-        const compatNote = !compatible ? `<div style="color:#ff8080; font-size:0.78em; margin-top:4px;">⚠️ Not ideal for ${slotInfo.type}</div>` : '';
+        const compatNote = !compatible ? `<div style="color:#ff8080; font-size:0.78em; margin-top:4px;">⚠️ Not ideal for the ${slotInfo.type} zone</div>` : '';
         card.innerHTML = `
             <div class="card-title">${slotInfo.label}</div>
             ${existingRuneNote}${compatNote}
@@ -1212,7 +1212,7 @@ const Rewards = {
             card.innerHTML = `
                 <div class="card-title" style="color:${rune.color};">${rune.icon} ${rune.name}</div>
                 <div class="card-desc">${rune.desc}</div>
-                <div class="card-effect" style="font-size:0.78em; opacity:0.7;">Best for: ${rune.slot === 'either' ? 'any slot' : rune.slot + ' slot'}</div>
+                <div class="card-effect" style="font-size:0.78em; opacity:0.7;">Best for: ${rune.slot === 'either' ? 'any zone' : rune.slot + ' zone'}</div>
             `;
             card.onclick = () => showRuneAttachment(rune, callback);
             runeGrid.appendChild(card);
@@ -1259,7 +1259,7 @@ const Rewards = {
         }});
 
         if (GS.dice.length >= 5) {
-            rewards.push({ title: '🔨 Sacrifice Dice', desc: `Destroy 3 dice → +1 Attack or Defend slot (${GS.dice.length} dice)`, action: () => {
+            rewards.push({ title: '🔨 Sacrifice Dice', desc: `Destroy 3 dice → +1 Strike or Guard slot (${GS.dice.length} dice)`, action: () => {
                 Rewards.showDiceSacrifice(() => Game.nextFloor());
             }});
         }
@@ -1345,7 +1345,7 @@ const Rewards = {
                 }
                 preview.textContent = selected.length < 3
                     ? `Selected ${selected.length}/3 dice...`
-                    : `3 dice selected — choose slot type below`;
+                    : `3 dice selected — choose zone below`;
                 slotBtns.style.display = selected.length === 3 ? 'flex' : 'none';
             };
             grid.appendChild(el);
@@ -2032,11 +2032,13 @@ const Shop = {
         title.innerHTML = `Apply ${mod.icon} ${mod.name} — Choose a Die`;
         c.parentNode.insertBefore(title, c);
 
+        const utilityBlocked = ['critical', 'shieldBash'];
         GS.dice.forEach((die, i) => {
+            const blocked = die.dieType && utilityBlocked.includes(mod.effect);
             const card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = renderDieCard(die, i);
-            card.onclick = () => { if (title.parentNode) title.remove(); Shop.showFaceSlot(die, mod); };
+            card.className = 'card' + (blocked ? ' disabled' : '');
+            card.innerHTML = renderDieCard(die, i) + (blocked ? `<div style="font-size:0.75em;color:var(--red,#c04040);margin-top:4px;">${mod.name} cannot be applied to utility dice</div>` : '');
+            if (!blocked) card.onclick = () => { if (title.parentNode) title.remove(); Shop.showFaceSlot(die, mod); };
             c.appendChild(card);
         });
 
@@ -2342,11 +2344,13 @@ const Events = {
     _applyModFlow(mod, cb) {
         const panel = $('event-panel');
         panel.innerHTML = `<div class="event-text">Apply <strong style="color:${mod.color}">${mod.icon} ${mod.name}</strong> — Choose a die:</div><div class="card-grid" id="event-dice-cards"></div>`;
+        const utilityBlocked = ['critical', 'shieldBash'];
         GS.dice.forEach((die, i) => {
+            const blocked = die.dieType && utilityBlocked.includes(mod.effect);
             const card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = renderDieCard(die, i);
-            card.onclick = () => Events._pickFaceForModCb(die, mod, cb);
+            card.className = 'card' + (blocked ? ' disabled' : '');
+            card.innerHTML = renderDieCard(die, i) + (blocked ? `<div style="font-size:0.75em;color:var(--red,#c04040);margin-top:4px;">${mod.name} cannot be applied to utility dice</div>` : '');
+            if (!blocked) card.onclick = () => Events._pickFaceForModCb(die, mod, cb);
             $('event-dice-cards').appendChild(card);
         });
         show('screen-event');
@@ -2513,7 +2517,9 @@ const Events = {
                     action: () => {
                         GS.hp -= 15;
                         const mod = pick(FACE_MODS);
-                        const die = pick(GS.dice);
+                        const utilityBlocked = ['critical', 'shieldBash'];
+                        const eligibleDice = (mod.effect && utilityBlocked.includes(mod.effect)) ? GS.dice.filter(d => !d.dieType) : GS.dice;
+                        const die = pick(eligibleDice.length ? eligibleDice : GS.dice);
                         const fIdx = Math.floor(Math.random() * die.faceValues.length);
                         const eIdx = die.faceMods.findIndex(m => m.faceIndex === fIdx);
                         if (eIdx >= 0) die.faceMods[eIdx] = { faceIndex: fIdx, mod };
@@ -3104,7 +3110,7 @@ const Rest = {
     // ── EXPAND ──
     showExpand() {
         const content = $('rest-content');
-        content.innerHTML = '<div class="section-title">➕ Expand — Choose a slot type</div>';
+        content.innerHTML = '<div class="section-title">➕ Expand — Choose a zone</div>';
         const info = document.createElement('div');
         info.style.cssText = 'text-align:center; margin-bottom:12px; font-size:0.85em; color:var(--text-dim);';
         info.innerHTML = `Current: ${GS.slots.strike.length} Strike slots / ${GS.slots.guard.length} Guard slots`;
@@ -3235,7 +3241,7 @@ const Rest = {
         const transforms = [
             { name: 'Infuse', icon: '⚡', desc: 'Set a minimum face value on a die. Rolls below the chosen value are raised to it. (Requires ≥4 faces)' },
             { name: 'Fracture', icon: '💥', desc: 'Split a die into two smaller dice by interleaving face values. Face mods are lost. (Requires ≥6 faces)' },
-            { name: 'Ascend', icon: '🌟', desc: 'Remove from dice pool — becomes a passive aura adding half its average to every attack and defend slot each turn. (Requires ≥3 dice remain)' },
+            { name: 'Ascend', icon: '🌟', desc: 'Remove from dice pool — becomes a passive aura adding half its average to every strike and guard slot each turn. (Requires ≥3 dice remain)' },
             { name: 'Corrupt', icon: '💀', desc: 'Double all face values on the die. Powerful, but deals 3 unblockable damage to you at the start of each combat turn. (Cannot re-corrupt)' },
         ];
 

@@ -622,7 +622,13 @@ export const Combat = {
 
         // Utility die pre-passes (guard): Amplifier Die zone multiplier, utility zone base (Gold + Poison)
         let defAmpMul = 0; // zone-wide multiplier from Amplifier Die (highest wins)
-        GS.allocated.guard.forEach(d => { if (d.dieType === 'amplifier') defAmpMul = Math.max(defAmpMul, d.value / 100); });
+        GS.allocated.guard.forEach(d => {
+            if (d.dieType === 'amplifier') {
+                const face = getActiveFace(d);
+                const chainMul = face?.modifier?.effect === 'chainLightning' ? 2 : 1;
+                defAmpMul = Math.max(defAmpMul, (d.value / 100) * chainMul);
+            }
+        });
         const defNonUtilCount = GS.allocated.guard.filter(d => !d.dieType).length;
         let defUtilZoneBase = 0;
         GS.allocated.guard.forEach(d => {
@@ -653,10 +659,17 @@ export const Combat = {
             if (d.dieType !== 'amplifier' && defAmpMul) dieVal = Math.floor(dieVal * defAmpMul);
 
             // Utility die types — handle effect and skip normal contribution
-            if (d.dieType === 'amplifier') return; // contributes via multiplier pre-pass
+            if (d.dieType === 'amplifier') {
+                if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
+                if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
+                return; // zone multiplier already applied via pre-pass
+            }
             if (d.dieType === 'gold') {
                 const goldRune = getSlotById(d.slotId)?.rune;
-                const pct = (d.value / 100) * (goldRune?.effect === 'amplifier' ? 2 : 1);
+                let pct = (d.value / 100) * (goldRune?.effect === 'amplifier' ? 2 : 1);
+                if (m?.effect === 'chainLightning') pct *= 2;
+                if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
+                if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
                 const goldGain = Math.floor(defUtilZoneBase * pct);
                 if (goldGain > 0) { gainGold(goldGain); log(`💰 Gold Die: +${goldGain} gold!`, 'info'); }
                 return;
@@ -667,10 +680,18 @@ export const Combat = {
                 if (r?.effect === 'amplifier') val *= 2;
                 else if (r?.effect === 'titanBlow' && defCount === 1) val *= 3;
                 else if (r?.effect === 'leaden') val *= 2;
+                if (m?.effect === 'chainLightning') val *= 2;
+                if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
+                if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
                 applyStatus('chill', val);
                 return;
             }
-            if (d.dieType === 'shield') { defBase += dieVal; crossSlotBonusAtk += dieVal; return; }
+            if (d.dieType === 'shield') {
+                if (m?.effect === 'chainLightning') dieVal *= 2;
+                if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
+                if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
+                defBase += dieVal; crossSlotBonusAtk += dieVal; return;
+            }
             if (d.dieType === 'mimic') {
                 const mimicType = d._mimickedType;
                 const r = getSlotById(d.slotId)?.rune;
@@ -809,7 +830,13 @@ export const Combat = {
 
         // Utility die pre-passes (strike): Amplifier Die zone multiplier, utility zone base (Gold + Poison)
         let atkAmpMul = 0; // zone-wide multiplier from Amplifier Die (highest wins)
-        GS.allocated.strike.forEach(d => { if (d.dieType === 'amplifier') atkAmpMul = Math.max(atkAmpMul, d.value / 100); });
+        GS.allocated.strike.forEach(d => {
+            if (d.dieType === 'amplifier') {
+                const face = getActiveFace(d);
+                const chainMul = face?.modifier?.effect === 'chainLightning' ? 2 : 1;
+                atkAmpMul = Math.max(atkAmpMul, (d.value / 100) * chainMul);
+            }
+        });
         const atkNonUtilCount = GS.allocated.strike.filter(d => !d.dieType).length;
         let atkUtilZoneBase = 0;
         GS.allocated.strike.forEach(d => {
@@ -844,17 +871,27 @@ export const Combat = {
             if (d.dieType !== 'amplifier' && atkAmpMul) dieVal = Math.floor(dieVal * atkAmpMul);
 
             // Utility die types — handle effect and skip normal contribution
-            if (d.dieType === 'amplifier') return; // contributes via multiplier pre-pass
+            if (d.dieType === 'amplifier') {
+                if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
+                if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
+                return; // zone multiplier already applied via pre-pass
+            }
             if (d.dieType === 'gold') {
                 const goldRune = getSlotById(d.slotId)?.rune;
-                const pct = (d.value / 100) * (goldRune?.effect === 'amplifier' ? 2 : 1);
+                let pct = (d.value / 100) * (goldRune?.effect === 'amplifier' ? 2 : 1);
+                if (m?.effect === 'chainLightning') pct *= 2;
+                if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
+                if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
                 const goldGain = Math.floor(atkUtilZoneBase * pct);
                 if (goldGain > 0) { gainGold(goldGain); log(`💰 Gold Die: +${goldGain} gold!`, 'info'); }
                 return;
             }
             if (d.dieType === 'poison') {
                 const poisonRune = getSlotById(d.slotId)?.rune;
-                const pct = (d.value / 100) * (poisonRune?.effect === 'amplifier' ? 2 : 1);
+                let pct = (d.value / 100) * (poisonRune?.effect === 'amplifier' ? 2 : 1);
+                if (m?.effect === 'chainLightning') pct *= 2;
+                if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
+                if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
                 applyEnemyPoison(Math.floor(atkUtilZoneBase * pct));
                 return;
             }
@@ -864,6 +901,9 @@ export const Combat = {
                 if (r?.effect === 'amplifier') val *= 2;
                 else if (r?.effect === 'titanBlow' && atkCount === 1) val *= 3;
                 else if (r?.effect === 'leaden') val *= 2;
+                if (m?.effect === 'chainLightning') val *= 2;
+                if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
+                if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
                 applyStatus('chill', val);
                 return;
             }
@@ -873,6 +913,9 @@ export const Combat = {
                 if (r?.effect === 'amplifier') val *= 2;
                 else if (r?.effect === 'titanBlow' && atkCount === 1) val *= 3;
                 else if (r?.effect === 'leaden') val *= 2;
+                if (m?.effect === 'chainLightning') val *= 2;
+                if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
+                if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
                 applyStatus('burn', val, 3);
                 return;
             }
@@ -882,10 +925,18 @@ export const Combat = {
                 if (r?.effect === 'amplifier') val *= 2;
                 else if (r?.effect === 'titanBlow' && atkCount === 1) val *= 3;
                 else if (r?.effect === 'leaden') val *= 2;
+                if (m?.effect === 'chainLightning') val *= 2;
+                if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
+                if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
                 applyStatus('mark', val, 2);
                 return;
             }
-            if (d.dieType === 'shield') { atkBase += dieVal; crossSlotBonusDef += dieVal; return; }
+            if (d.dieType === 'shield') {
+                if (m?.effect === 'chainLightning') dieVal *= 2;
+                if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
+                if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
+                atkBase += dieVal; crossSlotBonusDef += dieVal; return;
+            }
             if (d.dieType === 'mimic') {
                 const mimicType = d._mimickedType;
                 const r = getSlotById(d.slotId)?.rune;

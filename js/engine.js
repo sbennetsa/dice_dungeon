@@ -815,8 +815,10 @@ function calcUtilityPreviews(allocated) {
     let gold = 0, poison = 0, chill = 0, burn = 0, mark = 0;
     allocated.forEach(d => {
         const rune = getSlotById(d.slotId)?.rune;
+        const face = getActiveFace(d);
+        const chainMul = face?.modifier?.effect === 'chainLightning' ? 2 : 1;
         if (d.dieType === 'gold' || d.dieType === 'poison') {
-            const pct = (d.value / 100) * (rune?.effect === 'amplifier' ? 2 : 1);
+            let pct = (d.value / 100) * (rune?.effect === 'amplifier' ? 2 : 1) * chainMul;
             const amount = Math.floor(zoneBase * pct);
             if (d.dieType === 'gold') gold += amount;
             else poison += amount;
@@ -825,6 +827,7 @@ function calcUtilityPreviews(allocated) {
             if (rune?.effect === 'amplifier') val *= 2;
             else if (rune?.effect === 'titanBlow' && nonUtilCount === 1) val *= 3;
             else if (rune?.effect === 'leaden') val *= 2;
+            val *= chainMul;
             if (d.dieType === 'chill') chill += val;
             else if (d.dieType === 'burn') burn += val;
             else mark += val;
@@ -877,11 +880,20 @@ export function updateSlotTotals() {
 
     // Amplifier zone multiplier (preview)
     let atkAmpMul = 0;
-    GS.allocated.strike.forEach(d => { if (d.dieType === 'amplifier') atkAmpMul = Math.max(atkAmpMul, d.value / 100); });
+    GS.allocated.strike.forEach(d => {
+        if (d.dieType === 'amplifier') {
+            const face = getActiveFace(d);
+            const chainMul = face?.modifier?.effect === 'chainLightning' ? 2 : 1;
+            atkAmpMul = Math.max(atkAmpMul, (d.value / 100) * chainMul);
+        }
+    });
 
     GS.allocated.strike.forEach(d => {
         if (d.dieType === 'amplifier') {
-            atkTipLines.push(`amplifier: ×${d.value / 100} zone`);
+            const face = getActiveFace(d);
+            const chainMul = face?.modifier?.effect === 'chainLightning' ? 2 : 1;
+            const dispMul = (d.value / 100) * chainMul;
+            atkTipLines.push(`amplifier: ×${dispMul}` + (chainMul > 1 ? ' (⚡×2)' : '') + ' zone');
             return;
         }
         if (d.dieType) return; // other utility dice: handled by calcUtilityPreviews
@@ -946,11 +958,20 @@ export function updateSlotTotals() {
 
     // Amplifier zone multiplier (preview)
     let defAmpMul = 0;
-    GS.allocated.guard.forEach(d => { if (d.dieType === 'amplifier') defAmpMul = Math.max(defAmpMul, d.value / 100); });
+    GS.allocated.guard.forEach(d => {
+        if (d.dieType === 'amplifier') {
+            const face = getActiveFace(d);
+            const chainMul = face?.modifier?.effect === 'chainLightning' ? 2 : 1;
+            defAmpMul = Math.max(defAmpMul, (d.value / 100) * chainMul);
+        }
+    });
 
     GS.allocated.guard.forEach(d => {
         if (d.dieType === 'amplifier') {
-            defTipLines.push(`amplifier: ×${d.value / 100} zone`);
+            const face = getActiveFace(d);
+            const chainMul = face?.modifier?.effect === 'chainLightning' ? 2 : 1;
+            const dispMul = (d.value / 100) * chainMul;
+            defTipLines.push(`amplifier: ×${dispMul}` + (chainMul > 1 ? ' (⚡×2)' : '') + ' zone');
             return;
         }
         if (d.dieType) return;

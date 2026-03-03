@@ -185,7 +185,7 @@ export const ENEMIES = {
             },
             passives: [
                 { id: 'evasion', name: 'Evasion', desc: 'One random attack die is ignored each turn', params: {} },
-                { id: 'expose', name: 'Expose', desc: 'Gains +1d6 per player strike slot', params: { dieSize: 6 } },
+                { id: 'expose', name: 'Expose', desc: 'Gains +1d6 per slot in the player\'s strike zone', params: { dieSize: 6 } },
             ],
             pattern: ['strike', 'strike', 'vanish'],
         },
@@ -426,10 +426,10 @@ export const SKILL_TREE = [
 
     // ── WIDE FACE 🐺 — slots & quantity ──
     { id: 'w_a', name: 'Extra Arms',   icon: '🐺', desc: '+1 Strike Slot',                          requires: ['root'], effect: (gs) => { gs.slots.strike.push({ id: `str-${Date.now()}`, rune: null }); } },
-    { id: 'w_b', name: 'Pack Tactics', icon: '🐺', desc: 'Passive: +1 dmg per die in strike slot', requires: ['root'], effect: (gs) => { gs.passives.packTactics = (gs.passives.packTactics || 0) + 1; } },
+    { id: 'w_b', name: 'Pack Tactics', icon: '🐺', desc: 'Passive: +1 dmg per die in the strike zone', requires: ['root'], effect: (gs) => { gs.passives.packTactics = (gs.passives.packTactics || 0) + 1; } },
     { id: 'w_c', name: 'Shield Wall',  icon: '🐺', desc: '+1 Guard Slot',                           requires: ['root'], effect: (gs) => { gs.slots.guard.push({ id: `grd-${Date.now()}`, rune: null }); } },
     { id: 'w_d', name: 'Volley',       icon: '🐺', desc: 'Passive: 4+ dice in zone = +3 per die', requires: ['root'], effect: (gs) => { gs.passives.volley = (gs.passives.volley || 0) + 3; } },
-    { id: 'w_n', name: 'Swarm Master', icon: '👑', desc: 'Passive: +2 per die in ANY slot',        requires: ['w_a', 'w_b', 'w_c', 'w_d'], effect: (gs) => { gs.passives.swarmMaster = (gs.passives.swarmMaster || 0) + 2; } },
+    { id: 'w_n', name: 'Swarm Master', icon: '👑', desc: 'Passive: +2 per die in any zone',        requires: ['w_a', 'w_b', 'w_c', 'w_d'], effect: (gs) => { gs.passives.swarmMaster = (gs.passives.swarmMaster || 0) + 2; } },
 
     // ── GOLD FACE 💰 — economy ──
     { id: 'g_a', name: 'Prospector',    icon: '💰', desc: '+15 gold immediately, +4 gold per combat',   requires: ['root'], effect: (gs) => { gs.gold += 15; gs.passives.goldPerCombat = (gs.passives.goldPerCombat || 0) + 4; } },

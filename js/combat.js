@@ -4,7 +4,7 @@
 import { pickWeightedConsumable } from './constants.js';
 import { calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { GS, $, log, gainXP, gainGold, heal, pick, rand } from './state.js';
-import { rollSingleDie, getActiveFace, renderCombatDice, renderConsumables, updateStats, setupDropZones, show, createDie, getSlotById, enterRerollMode, exitRerollMode, sortPoolDice, resetSortMode } from './engine.js';
+import { rollSingleDie, getActiveFace, renderCombatDice, renderConsumables, updateStats, setupDropZones, show, createDie, getSlotById, getSlotRunes, enterRerollMode, exitRerollMode, sortPoolDice, resetSortMode } from './engine.js';
 
 // window.Game and window.Rewards are set by screens.js at load time
 // to avoid circular module dependencies
@@ -633,11 +633,13 @@ export const Combat = {
         let defUtilZoneBase = 0;
         GS.allocated.guard.forEach(d => {
             if (d.dieType) return;
-            const rune = getSlotById(d.slotId)?.rune;
+            const runes = getSlotRunes(d.slotId);
             let val = d.value;
-            if (rune?.effect === 'amplifier') val *= 2;
-            else if (rune?.effect === 'titanBlow' && defNonUtilCount === 1) val *= 3;
-            else if (rune?.effect === 'leaden') val *= 2;
+            for (const r of runes) {
+                if (r.effect === 'amplifier') val *= 2;
+                else if (r.effect === 'titanBlow' && defNonUtilCount === 1) val *= 3;
+                else if (r.effect === 'leaden') val *= 2;
+            }
             if (defAmpMul > 0) val = Math.floor(val * defAmpMul);
             defUtilZoneBase += val;
         });
@@ -646,14 +648,14 @@ export const Combat = {
             const face = getActiveFace(d);
             const m = face ? face.modifier : null;
 
-            const defRune = getSlotById(d.slotId)?.rune;
-            const isAmplified = defRune?.effect === 'amplifier';
-            const ampMul = isAmplified ? 2 : 1;
+            const defRunes = getSlotRunes(d.slotId);
             const defVolley = (!d.dieType && GS.passives.volley && defCount >= 4) ? GS.passives.volley : 0;
             let dieVal = d.value + (GS.passives.swarmMaster || 0) + (d.dieType ? 0 : defAscendBonus) + defVolley;
-            if (isAmplified) dieVal *= 2;
-            if (defRune?.effect === 'titanBlow' && defCount === 1) dieVal *= 3;
-            if (defRune?.effect === 'leaden') dieVal *= 2;
+            for (const r of defRunes) {
+                if (r.effect === 'amplifier') dieVal *= 2;
+                if (r.effect === 'titanBlow' && defCount === 1) dieVal *= 3;
+                if (r.effect === 'leaden') dieVal *= 2;
+            }
             if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
             // Amplifier Die boosts all non-amplifier dice in the guard zone
             if (d.dieType !== 'amplifier' && defAmpMul) dieVal = Math.floor(dieVal * defAmpMul);
@@ -665,8 +667,8 @@ export const Combat = {
                 return; // zone multiplier already applied via pre-pass
             }
             if (d.dieType === 'gold') {
-                const goldRune = getSlotById(d.slotId)?.rune;
-                let pct = (d.value / 100) * (goldRune?.effect === 'amplifier' ? 2 : 1);
+                const goldRunes = getSlotRunes(d.slotId);
+                let pct = (d.value / 100) * (goldRunes.some(r => r.effect === 'amplifier') ? 2 : 1);
                 if (m?.effect === 'chainLightning') pct *= 2;
                 if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
                 if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
@@ -675,11 +677,13 @@ export const Combat = {
                 return;
             }
             if (d.dieType === 'chill') {
-                const r = getSlotById(d.slotId)?.rune;
+                const chillRunes = getSlotRunes(d.slotId);
                 let val = d.value;
-                if (r?.effect === 'amplifier') val *= 2;
-                else if (r?.effect === 'titanBlow' && defCount === 1) val *= 3;
-                else if (r?.effect === 'leaden') val *= 2;
+                for (const r of chillRunes) {
+                    if (r.effect === 'amplifier') val *= 2;
+                    else if (r.effect === 'titanBlow' && defCount === 1) val *= 3;
+                    else if (r.effect === 'leaden') val *= 2;
+                }
                 if (m?.effect === 'chainLightning') val *= 2;
                 if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
                 if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
@@ -694,18 +698,20 @@ export const Combat = {
             }
             if (d.dieType === 'mimic') {
                 const mimicType = d._mimickedType;
-                const r = getSlotById(d.slotId)?.rune;
+                const mimicRunes = getSlotRunes(d.slotId);
                 if (mimicType === 'gold') {
-                    const pct = (d.value / 100) * (r?.effect === 'amplifier' ? 2 : 1);
+                    const pct = (d.value / 100) * (mimicRunes.some(r => r.effect === 'amplifier') ? 2 : 1);
                     const goldGain = Math.floor(defUtilZoneBase * pct);
                     if (goldGain > 0) { gainGold(goldGain); log(`💰 Mimic→Gold: +${goldGain}g`, 'info'); }
                     return;
                 }
                 if (mimicType === 'chill') {
                     let val = d.value;
-                    if (r?.effect === 'amplifier') val *= 2;
-                    else if (r?.effect === 'titanBlow' && defCount === 1) val *= 3;
-                    else if (r?.effect === 'leaden') val *= 2;
+                    for (const r of mimicRunes) {
+                        if (r.effect === 'amplifier') val *= 2;
+                        else if (r.effect === 'titanBlow' && defCount === 1) val *= 3;
+                        else if (r.effect === 'leaden') val *= 2;
+                    }
                     applyStatus('chill', val); return;
                 }
                 if (mimicType === 'shield') { defBase += dieVal; crossSlotBonusAtk += dieVal; return; }
@@ -722,10 +728,12 @@ export const Combat = {
                 if (m.effect === 'critical') crossSlotBonusAtk += dieVal;
             }
             defBase += dieVal;
-            if (defRune?.effect === 'regenCore') regenCoreHeal += Math.ceil(dieVal * 0.5);
-            if (defRune?.effect === 'mirror') mirrorDmg += dieVal;
-            if (defRune?.effect === 'steadfast') steadfastContrib += dieVal;
-            if (defRune?.effect === 'poisonCore') applyEnemyPoison(dieVal);
+            for (const r of defRunes) {
+                if (r.effect === 'regenCore') regenCoreHeal += Math.ceil(dieVal * 0.5);
+                if (r.effect === 'mirror') mirrorDmg += dieVal;
+                if (r.effect === 'steadfast') steadfastContrib += dieVal;
+                if (r.effect === 'poisonCore') applyEnemyPoison(dieVal);
+            }
         });
 
         defBonus += GS.buffs.armor;
@@ -818,8 +826,8 @@ export const Combat = {
         // Splinter rune: pre-compute bonus per die from Splinter dice in the same slot
         const splinterBonus = {};
         GS.allocated.strike.forEach(d => {
-            const rune = getSlotById(d.slotId)?.rune;
-            if (rune?.effect === 'splinter') {
+            const splinterRunes = getSlotRunes(d.slotId);
+            if (splinterRunes.some(r => r.effect === 'splinter')) {
                 const others = GS.allocated.strike.filter(x => x.slotId === d.slotId && x.id !== d.id);
                 if (others.length > 0) {
                     const share = Math.floor(d.value / others.length);
@@ -841,11 +849,13 @@ export const Combat = {
         let atkUtilZoneBase = 0;
         GS.allocated.strike.forEach(d => {
             if (d.dieType) return;
-            const rune = getSlotById(d.slotId)?.rune;
+            const runes = getSlotRunes(d.slotId);
             let val = d.value;
-            if (rune?.effect === 'amplifier') val *= 2;
-            else if (rune?.effect === 'titanBlow' && atkNonUtilCount === 1) val *= 3;
-            else if (rune?.effect === 'leaden') val *= 2;
+            for (const r of runes) {
+                if (r.effect === 'amplifier') val *= 2;
+                else if (r.effect === 'titanBlow' && atkNonUtilCount === 1) val *= 3;
+                else if (r.effect === 'leaden') val *= 2;
+            }
             if (atkAmpMul > 0) val = Math.floor(val * atkAmpMul);
             atkUtilZoneBase += val;
         });
@@ -854,17 +864,18 @@ export const Combat = {
             const face = getActiveFace(d);
             const m = face ? face.modifier : null;
 
-            const atkRune = getSlotById(d.slotId)?.rune;
-            const isAmplified = atkRune?.effect === 'amplifier';
-            const ampMul = isAmplified ? 2 : 1;
+            const atkRunes = getSlotRunes(d.slotId);
 
             // Splinter rune: die's value was distributed to others — skip own contribution
-            if (atkRune?.effect === 'splinter') return;
+            if (atkRunes.some(r => r.effect === 'splinter')) return;
 
             const atkVolley = (!d.dieType && GS.passives.volley && atkCount >= 4) ? GS.passives.volley : 0;
             let dieVal = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0) + (d.dieType ? 0 : atkAscendBonus) + atkVolley + (splinterBonus[d.id] || 0);
-            if (isAmplified) dieVal *= 2;
-            if (atkRune?.effect === 'titanBlow' && atkCount === 1) dieVal *= 3;
+            for (const r of atkRunes) {
+                if (r.effect === 'amplifier') dieVal *= 2;
+                if (r.effect === 'titanBlow' && atkCount === 1) dieVal *= 3;
+                if (r.effect === 'leaden') dieVal *= 2;
+            }
             if (d.id === furyBoostDieId) dieVal *= 2;
             if (GS.artifacts.some(a => a.effect === 'echoStone') && d.id === GS.echoStoneDieId) dieVal += d.value;
             // Amplifier Die boosts all non-amplifier dice in the strike zone
@@ -877,8 +888,8 @@ export const Combat = {
                 return; // zone multiplier already applied via pre-pass
             }
             if (d.dieType === 'gold') {
-                const goldRune = getSlotById(d.slotId)?.rune;
-                let pct = (d.value / 100) * (goldRune?.effect === 'amplifier' ? 2 : 1);
+                const goldRunes = getSlotRunes(d.slotId);
+                let pct = (d.value / 100) * (goldRunes.some(r => r.effect === 'amplifier') ? 2 : 1);
                 if (m?.effect === 'chainLightning') pct *= 2;
                 if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
                 if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
@@ -887,8 +898,8 @@ export const Combat = {
                 return;
             }
             if (d.dieType === 'poison') {
-                const poisonRune = getSlotById(d.slotId)?.rune;
-                let pct = (d.value / 100) * (poisonRune?.effect === 'amplifier' ? 2 : 1);
+                const poisonRunes = getSlotRunes(d.slotId);
+                let pct = (d.value / 100) * (poisonRunes.some(r => r.effect === 'amplifier') ? 2 : 1);
                 if (m?.effect === 'chainLightning') pct *= 2;
                 if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
                 if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
@@ -896,11 +907,13 @@ export const Combat = {
                 return;
             }
             if (d.dieType === 'chill') {
-                const r = getSlotById(d.slotId)?.rune;
+                const chillRunes = getSlotRunes(d.slotId);
                 let val = d.value;
-                if (r?.effect === 'amplifier') val *= 2;
-                else if (r?.effect === 'titanBlow' && atkCount === 1) val *= 3;
-                else if (r?.effect === 'leaden') val *= 2;
+                for (const r of chillRunes) {
+                    if (r.effect === 'amplifier') val *= 2;
+                    else if (r.effect === 'titanBlow' && atkCount === 1) val *= 3;
+                    else if (r.effect === 'leaden') val *= 2;
+                }
                 if (m?.effect === 'chainLightning') val *= 2;
                 if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
                 if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
@@ -908,11 +921,13 @@ export const Combat = {
                 return;
             }
             if (d.dieType === 'burn') {
-                const r = getSlotById(d.slotId)?.rune;
+                const burnRunes = getSlotRunes(d.slotId);
                 let val = d.value;
-                if (r?.effect === 'amplifier') val *= 2;
-                else if (r?.effect === 'titanBlow' && atkCount === 1) val *= 3;
-                else if (r?.effect === 'leaden') val *= 2;
+                for (const r of burnRunes) {
+                    if (r.effect === 'amplifier') val *= 2;
+                    else if (r.effect === 'titanBlow' && atkCount === 1) val *= 3;
+                    else if (r.effect === 'leaden') val *= 2;
+                }
                 if (m?.effect === 'chainLightning') val *= 2;
                 if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
                 if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
@@ -920,11 +935,13 @@ export const Combat = {
                 return;
             }
             if (d.dieType === 'mark') {
-                const r = getSlotById(d.slotId)?.rune;
+                const markRunes = getSlotRunes(d.slotId);
                 let val = d.value;
-                if (r?.effect === 'amplifier') val *= 2;
-                else if (r?.effect === 'titanBlow' && atkCount === 1) val *= 3;
-                else if (r?.effect === 'leaden') val *= 2;
+                for (const r of markRunes) {
+                    if (r.effect === 'amplifier') val *= 2;
+                    else if (r.effect === 'titanBlow' && atkCount === 1) val *= 3;
+                    else if (r.effect === 'leaden') val *= 2;
+                }
                 if (m?.effect === 'chainLightning') val *= 2;
                 if (m?.effect === 'freezeStrike') applyStatus('freeze', 1);
                 if (m?.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
@@ -939,37 +956,43 @@ export const Combat = {
             }
             if (d.dieType === 'mimic') {
                 const mimicType = d._mimickedType;
-                const r = getSlotById(d.slotId)?.rune;
+                const mimicRunes = getSlotRunes(d.slotId);
                 if (mimicType === 'gold') {
-                    const pct = (d.value / 100) * (r?.effect === 'amplifier' ? 2 : 1);
+                    const pct = (d.value / 100) * (mimicRunes.some(r => r.effect === 'amplifier') ? 2 : 1);
                     const goldGain = Math.floor(atkUtilZoneBase * pct);
                     if (goldGain > 0) { gainGold(goldGain); log(`💰 Mimic→Gold: +${goldGain}g`, 'info'); }
                     return;
                 }
                 if (mimicType === 'poison') {
-                    const pct = (d.value / 100) * (r?.effect === 'amplifier' ? 2 : 1);
+                    const pct = (d.value / 100) * (mimicRunes.some(r => r.effect === 'amplifier') ? 2 : 1);
                     applyEnemyPoison(Math.floor(atkUtilZoneBase * pct));
                     return;
                 }
                 if (mimicType === 'chill') {
                     let val = d.value;
-                    if (r?.effect === 'amplifier') val *= 2;
-                    else if (r?.effect === 'titanBlow' && atkCount === 1) val *= 3;
-                    else if (r?.effect === 'leaden') val *= 2;
+                    for (const r of mimicRunes) {
+                        if (r.effect === 'amplifier') val *= 2;
+                        else if (r.effect === 'titanBlow' && atkCount === 1) val *= 3;
+                        else if (r.effect === 'leaden') val *= 2;
+                    }
                     applyStatus('chill', val); return;
                 }
                 if (mimicType === 'burn') {
                     let val = d.value;
-                    if (r?.effect === 'amplifier') val *= 2;
-                    else if (r?.effect === 'titanBlow' && atkCount === 1) val *= 3;
-                    else if (r?.effect === 'leaden') val *= 2;
+                    for (const r of mimicRunes) {
+                        if (r.effect === 'amplifier') val *= 2;
+                        else if (r.effect === 'titanBlow' && atkCount === 1) val *= 3;
+                        else if (r.effect === 'leaden') val *= 2;
+                    }
                     applyStatus('burn', val, 3); return;
                 }
                 if (mimicType === 'mark') {
                     let val = d.value;
-                    if (r?.effect === 'amplifier') val *= 2;
-                    else if (r?.effect === 'titanBlow' && atkCount === 1) val *= 3;
-                    else if (r?.effect === 'leaden') val *= 2;
+                    for (const r of mimicRunes) {
+                        if (r.effect === 'amplifier') val *= 2;
+                        else if (r.effect === 'titanBlow' && atkCount === 1) val *= 3;
+                        else if (r.effect === 'leaden') val *= 2;
+                    }
                     applyStatus('mark', val, 2); return;
                 }
                 if (mimicType === 'shield') { atkBase += dieVal; crossSlotBonusDef += dieVal; return; }
@@ -984,8 +1007,10 @@ export const Combat = {
                 if (m.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
                 if (m.effect === 'critical') crossSlotBonusDef += dieVal;
             }
-            if (atkRune?.effect === 'siphon') siphonHealing += dieVal;
-            if (atkRune?.effect === 'poisonCore') applyEnemyPoison(dieVal);
+            for (const r of atkRunes) {
+                if (r.effect === 'siphon') siphonHealing += dieVal;
+                if (r.effect === 'poisonCore') applyEnemyPoison(dieVal);
+            }
             atkBase += dieVal;
         });
 

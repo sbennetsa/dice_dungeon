@@ -77,38 +77,44 @@
 
             <div class="diff-card diff-card--casual" onclick="DifficultySelect.pick('casual')">
                 <img class="diff-card__img" src="assets/difficulty/casual_dungeon_entrance.webp" alt="Casual">
-                <div class="diff-card__name">Casual</div>
-                <div class="diff-card__tagline">Learn the Dungeon</div>
-                <div class="diff-card__desc">Standard encounters only. No elite upgrade options are presented — every combat is a straightforward fight.</div>
-                <div class="diff-card__traits">
-                    <span class="diff-card__trait">Standard enemies</span>
-                    <span class="diff-card__trait">No elite risk</span>
+                <div class="diff-card__body">
+                    <div class="diff-card__name">Casual</div>
+                    <div class="diff-card__tagline">Learn the Dungeon</div>
+                    <div class="diff-card__desc">Standard encounters only. No elite upgrade options are presented — every combat is a straightforward fight.</div>
+                    <div class="diff-card__traits">
+                        <span class="diff-card__trait">Standard enemies</span>
+                        <span class="diff-card__trait">No elite risk</span>
+                    </div>
+                    <button class="btn diff-card__btn diff-card__btn--casual">Choose Casual</button>
                 </div>
-                <button class="btn diff-card__btn diff-card__btn--casual">Choose Casual</button>
             </div>
 
             <div class="diff-card diff-card--standard" onclick="DifficultySelect.pick('standard')">
                 <img class="diff-card__img" src="assets/difficulty/standard_dungeon_entrance.webp" alt="Standard">
-                <div class="diff-card__name">Standard</div>
-                <div class="diff-card__tagline">The Intended Experience</div>
-                <div class="diff-card__desc">Every combat offers an elite upgrade option for greater risk and reward. You choose whether to gamble.</div>
-                <div class="diff-card__traits">
-                    <span class="diff-card__trait">Optional elites</span>
-                    <span class="diff-card__trait">Your call each floor</span>
+                <div class="diff-card__body">
+                    <div class="diff-card__name">Standard</div>
+                    <div class="diff-card__tagline">The Intended Experience</div>
+                    <div class="diff-card__desc">Every combat offers an elite upgrade option for greater risk and reward. You choose whether to gamble.</div>
+                    <div class="diff-card__traits">
+                        <span class="diff-card__trait">Optional elites</span>
+                        <span class="diff-card__trait">Your call each floor</span>
+                    </div>
+                    <button class="btn diff-card__btn diff-card__btn--standard">Choose Standard</button>
                 </div>
-                <button class="btn diff-card__btn diff-card__btn--standard">Choose Standard</button>
             </div>
 
             <div class="diff-card diff-card--heroic" onclick="DifficultySelect.pick('heroic')">
                 <img class="diff-card__img" src="assets/difficulty/heroic_dungeon_entrance.webp" alt="Heroic">
-                <div class="diff-card__name">Heroic</div>
-                <div class="diff-card__tagline">Pure Gauntlet Mode</div>
-                <div class="diff-card__desc">All combats are forced elite. No standard option is offered. The dungeon will not yield.</div>
-                <div class="diff-card__traits">
-                    <span class="diff-card__trait">Forced elites</span>
-                    <span class="diff-card__trait">Highest rewards</span>
+                <div class="diff-card__body">
+                    <div class="diff-card__name">Heroic</div>
+                    <div class="diff-card__tagline">Pure Gauntlet Mode</div>
+                    <div class="diff-card__desc">All combats are forced elite. No standard option is offered. The dungeon will not yield.</div>
+                    <div class="diff-card__traits">
+                        <span class="diff-card__trait">Forced elites</span>
+                        <span class="diff-card__trait">Highest rewards</span>
+                    </div>
+                    <button class="btn diff-card__btn diff-card__btn--heroic">Choose Heroic</button>
                 </div>
-                <button class="btn diff-card__btn diff-card__btn--heroic">Choose Heroic</button>
             </div>
 
         </div>

@@ -2395,17 +2395,19 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 .diff-card {
     flex: 1 1 220px;
     max-width: 260px;
+    min-height: 420px;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    padding: 28px 20px 20px;
+    justify-content: flex-end;
+    padding: 0;
     border-radius: 12px;
     border: 2px solid var(--border);
-    background: var(--bg-surface);
+    background: var(--bg-deep);
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
     text-align: center;
-    gap: 10px;
+    position: relative;
+    overflow: hidden;
 }
 
 .diff-card:hover {
@@ -2414,7 +2416,7 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 
 .diff-card--casual  { border-color: var(--green); box-shadow: 0 0 12px rgba(64, 160, 96, 0.08); }
 .diff-card--standard { border-color: var(--gold-dim); box-shadow: 0 0 12px rgba(212, 165, 52, 0.08); }
-.diff-card--heroic  { border-color: var(--red-dim); box-shadow: 0 0 12px rgba(196, 64, 64, 0.08); background: linear-gradient(170deg, #1e1212 0%, var(--bg-surface) 60%); }
+.diff-card--heroic  { border-color: var(--red-dim); box-shadow: 0 0 12px rgba(196, 64, 64, 0.08); }
 
 .diff-card--casual:hover  { box-shadow: 0 8px 32px rgba(64, 160, 96, 0.28); border-color: var(--green-bright); }
 .diff-card--standard:hover { box-shadow: 0 8px 32px rgba(212, 165, 52, 0.28); border-color: var(--gold); }
@@ -2423,11 +2425,12 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 .diff-card__icon { font-size: 2.4em; line-height: 1; }
 
 .diff-card__img {
-    width: calc(100% + 40px);
-    margin: -28px -20px 0;
-    aspect-ratio: 16 / 9;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
-    border-radius: 10px 10px 0 0;
+    object-position: center top;
     display: block;
     pointer-events: none;
     background-color: var(--bg-deep);
@@ -2435,6 +2438,18 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 
 .diff-card--casual .diff-card__img {
     mix-blend-mode: multiply;
+}
+
+.diff-card__body {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.92) 20%);
 }
 
 .diff-card__name {
@@ -2504,14 +2519,8 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     .diff-select-wrapper { padding: 20px 12px; }
     .diff-select-title { font-size: 1.4em; }
     .diff-card-row { flex-direction: column; align-items: center; gap: 12px; }
-    .diff-card { max-width: 100%; width: 100%; flex-direction: row; flex-wrap: wrap; padding: 16px; gap: 8px; text-align: left; }
-    .diff-card__img { width: calc(100% + 32px); margin: -16px -16px 0; border-radius: 8px 8px 0 0; }
-    .diff-card__icon { font-size: 1.8em; align-self: center; }
-    .diff-card__name { font-size: 1.1em; align-self: center; }
-    .diff-card__tagline,
-    .diff-card__desc,
-    .diff-card__traits,
-    .diff-card__btn { flex-basis: 100%; }
+    .diff-card { max-width: 100%; width: 100%; min-height: 320px; }
+    .diff-card__body { padding: 16px; }
 }
 
 /* ── Run Settings Panel ── */

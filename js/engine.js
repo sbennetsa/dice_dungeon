@@ -10,6 +10,10 @@ export function getSlotById(id) {
         || null;
 }
 
+export function getSlotRunes(slotId) {
+    return getSlotById(slotId)?.runes || [];
+}
+
 // ════════════════════════════════════════════════════════════
 //  DICE CREATION & MANAGEMENT
 // ════════════════════════════════════════════════════════════
@@ -209,7 +213,7 @@ export function updateStats() {
         $('player-hp-text').textContent = `${GS.hp}/${GS.maxHp}`;
     }
     const slotsStr = `${GS.slots.strike.length}⚔️ ${GS.slots.guard.length}🛡️`;
-    const runeCount = [...GS.slots.strike, ...GS.slots.guard].filter(s => s.rune).length;
+    const runeCount = [...GS.slots.strike, ...GS.slots.guard].reduce((n, s) => n + (s.runes?.length || 0), 0);
     const runeStr = runeCount > 0 ? ` 🔮${runeCount}` : '';
     const diceStr = `${GS.dice.length}`;
     const rerollStr = GS.rerolls > 0 ? ` 🔄${GS.rerolls}` : '';
@@ -463,12 +467,12 @@ export function renderCombatDice() {
         const slotEl = document.createElement('div');
         const isSealed = sealedIds.includes(slot.id);
         slotEl.className = 'individual-slot' + (isSealed ? ' slot-sealed' : '');
-        if (slot.rune && !isSealed) {
+        if (slot.runes?.length && !isSealed) {
             const ri = document.createElement('div');
             ri.className = 'slot-rune-indicator';
-            ri.style.color = slot.rune.color;
-            ri.title = `${slot.rune.name}: ${slot.rune.desc}`;
-            ri.textContent = slot.rune.icon;
+            ri.style.color = slot.runes[0].color;
+            ri.title = slot.runes.map(r => `${r.name}: ${r.desc}`).join(' | ');
+            ri.textContent = slot.runes.map(r => r.icon).join('');
             slotEl.appendChild(ri);
         }
         if (isSealed) {
@@ -497,12 +501,12 @@ export function renderCombatDice() {
         const slotEl = document.createElement('div');
         const isSealed = sealedIds.includes(slot.id);
         slotEl.className = 'individual-slot' + (isSealed ? ' slot-sealed' : '');
-        if (slot.rune && !isSealed) {
+        if (slot.runes?.length && !isSealed) {
             const ri = document.createElement('div');
             ri.className = 'slot-rune-indicator';
-            ri.style.color = slot.rune.color;
-            ri.title = `${slot.rune.name}: ${slot.rune.desc}`;
-            ri.textContent = slot.rune.icon;
+            ri.style.color = slot.runes[0].color;
+            ri.title = slot.runes.map(r => `${r.name}: ${r.desc}`).join(' | ');
+            ri.textContent = slot.runes.map(r => r.icon).join('');
             slotEl.appendChild(ri);
         }
         if (isSealed) {
@@ -604,7 +608,7 @@ export function makeDieElement(die, context) {
 
     const tryReroll = () => {
         if (!die.rolled || GS.rerollsLeft <= 0) return false;
-        if (die.slotId && getSlotById(die.slotId)?.rune?.effect === 'leaden') return false; // Leaden slot: cannot reroll
+        if (die.slotId && getSlotRunes(die.slotId).some(r => r.effect === 'leaden')) return false; // Leaden slot: cannot reroll
         GS.rerollsLeft--;
         if (GS.rerollsLeft === 0) rerollMode = false;
         const oldVal = die.value;
@@ -730,7 +734,7 @@ export function makeDieElement(die, context) {
         el.title = 'Auto-triggered effect';
     }
 
-    const inLeadenSlot = die.slotId && getSlotById(die.slotId)?.rune?.effect === 'leaden';
+    const inLeadenSlot = die.slotId && getSlotRunes(die.slotId).some(r => r.effect === 'leaden');
     if (rerollMode && die.rolled && context !== 'auto' && !inLeadenSlot) {
         el.classList.add('reroll-selectable');
     }
@@ -787,9 +791,9 @@ export function allocateDie(die, slot) {
     die.slotId = targetSlot.id;
     die.location = slot;
     GS.allocated[slot].push(die);
-    // Lucky rune: +1 reroll when die is placed in a slot with the Lucky rune
-    const luckyRune = targetSlot.rune?.effect === 'lucky';
-    if (luckyRune) { GS.rerollsLeft++; log('🎰 Lucky rune: +1 reroll!', 'info'); }
+    // Lucky rune: +1 reroll per lucky rune when die is placed in a slot
+    const luckyCount = (targetSlot.runes || []).filter(r => r.effect === 'lucky').length;
+    if (luckyCount > 0) { GS.rerollsLeft += luckyCount; log(`🎰 Lucky rune: +${luckyCount} reroll!`, 'info'); }
     // Echo Stone: track first die allocated this turn
     if (GS.artifacts.some(a => a.effect === 'echoStone') && GS.echoStoneDieId === null) {
         GS.echoStoneDieId = die.id;
@@ -804,29 +808,38 @@ function calcUtilityPreviews(allocated) {
     let zoneBase = 0;
     allocated.forEach(d => {
         if (d.dieType) return;
-        const rune = getSlotById(d.slotId)?.rune;
+        const runes = getSlotRunes(d.slotId);
         let val = d.value;
-        if (rune?.effect === 'amplifier') val *= 2;
-        else if (rune?.effect === 'titanBlow' && nonUtilCount === 1) val *= 3;
-        else if (rune?.effect === 'leaden') val *= 2;
+        let runeMul = 1;
+        for (const r of runes) {
+            if (r.effect === 'amplifier') runeMul *= 2;
+            else if (r.effect === 'titanBlow' && nonUtilCount === 1) runeMul *= 3;
+            else if (r.effect === 'leaden') runeMul *= 2;
+        }
+        val *= runeMul;
         if (ampMul > 0) val = Math.floor(val * ampMul);
         zoneBase += val;
     });
     let gold = 0, poison = 0, chill = 0, burn = 0, mark = 0;
     allocated.forEach(d => {
-        const rune = getSlotById(d.slotId)?.rune;
+        const runes = getSlotRunes(d.slotId);
         const face = getActiveFace(d);
         const chainMul = face?.modifier?.effect === 'chainLightning' ? 2 : 1;
         if (d.dieType === 'gold' || d.dieType === 'poison') {
-            let pct = (d.value / 100) * (rune?.effect === 'amplifier' ? 2 : 1) * chainMul;
+            const isAmplified = runes.some(r => r.effect === 'amplifier');
+            let pct = (d.value / 100) * (isAmplified ? 2 : 1) * chainMul;
             const amount = Math.floor(zoneBase * pct);
             if (d.dieType === 'gold') gold += amount;
             else poison += amount;
         } else if (d.dieType === 'chill' || d.dieType === 'burn' || d.dieType === 'mark') {
             let val = d.value;
-            if (rune?.effect === 'amplifier') val *= 2;
-            else if (rune?.effect === 'titanBlow' && nonUtilCount === 1) val *= 3;
-            else if (rune?.effect === 'leaden') val *= 2;
+            let runeMul = 1;
+            for (const r of runes) {
+                if (r.effect === 'amplifier') runeMul *= 2;
+                else if (r.effect === 'titanBlow' && nonUtilCount === 1) runeMul *= 3;
+                else if (r.effect === 'leaden') runeMul *= 2;
+            }
+            val *= runeMul;
             val *= chainMul;
             if (d.dieType === 'chill') chill += val;
             else if (d.dieType === 'burn') burn += val;
@@ -848,7 +861,7 @@ export function updateSlotTotals() {
     // Helper: compute a single die's contribution and tooltip
     function dieContribution(d, zoneAllocated, zoneAscend) {
         if (d.dieType) return { val: 0, tip: '', skip: true }; // utility dice don't contribute to zone total
-        const rune = getSlotById(d.slotId)?.rune;
+        const runes = getSlotRunes(d.slotId);
         const nonUtil = zoneAllocated.filter(x => !x.dieType).length;
         const zoneCount = zoneAllocated.length;
         let val = d.value;
@@ -860,9 +873,11 @@ export function updateSlotTotals() {
         if (sw) { val += sw; parts.push(`swarmMaster: +${sw}`); }
         if (vy) { val += vy; parts.push(`volley: +${vy}`); }
         if (zoneAscend) { val += zoneAscend; parts.push(`ascend: +${zoneAscend}`); }
-        if (rune?.effect === 'amplifier') { val *= 2; parts.push('amplifier rune: ×2'); }
-        if (rune?.effect === 'titanBlow' && nonUtil === 1) { val *= 3; parts.push('titan blow: ×3'); }
-        if (rune?.effect === 'leaden') { val *= 2; parts.push('leaden: ×2'); }
+        for (const r of runes) {
+            if (r.effect === 'amplifier') { val *= 2; parts.push('amplifier rune: ×2'); }
+            if (r.effect === 'titanBlow' && nonUtil === 1) { val *= 3; parts.push('titan blow: ×3'); }
+            if (r.effect === 'leaden') { val *= 2; parts.push('leaden: ×2'); }
+        }
         if (hasEcho && echoId !== null && d.id === echoId) { val += d.value; parts.push(`echo: +${d.value}`); }
         const m = getActiveFace(d)?.modifier;
         if (m?.effect === 'executioner') { val *= 5; parts.push('executioner: ×5'); }

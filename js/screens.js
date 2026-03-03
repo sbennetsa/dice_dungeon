@@ -158,7 +158,14 @@ function showRuneAttachment(rune, onDone) {
         const card = document.createElement('div');
         card.className = 'card';
         card.style.cssText = `width:160px; cursor:pointer;${!compatible ? ' opacity:0.6;' : ''}`;
-        const existingRuneNote = slotInfo.rune ? `<div style="color:#ff8080; font-size:0.78em; margin-top:4px;">⚠️ Replaces ${slotInfo.rune.icon} ${slotInfo.rune.name}</div>` : '<div style="opacity:0.5; font-size:0.78em; margin-top:4px;">empty slot</div>';
+        const runeCount = slotInfo.runes?.length || 0;
+        const maxRunes = GS.passives.runeforger ? 3 : 1;
+        const willAdd = runeCount < maxRunes;
+        const existingRuneNote = runeCount > 0
+            ? (willAdd
+                ? `<div style="color:var(--green-bright); font-size:0.78em; margin-top:4px;">✅ Adds (${runeCount}/${maxRunes} runes)</div>`
+                : `<div style="color:#ff8080; font-size:0.78em; margin-top:4px;">⚠️ Full — replaces oldest rune</div>`)
+            : '<div style="opacity:0.5; font-size:0.78em; margin-top:4px;">empty slot</div>';
         const compatNote = !compatible ? `<div style="color:#ff8080; font-size:0.78em; margin-top:4px;">⚠️ Not ideal for the ${slotInfo.type} zone</div>` : '';
         card.innerHTML = `
             <div class="card-title">${slotInfo.label}</div>
@@ -166,7 +173,14 @@ function showRuneAttachment(rune, onDone) {
         `;
         card.onclick = () => {
             const slot = GS.slots[slotInfo.type].find(s => s.id === slotInfo.id);
-            if (slot) slot.rune = { ...rune };
+            if (slot) {
+                if (slot.runes.length < maxRunes) {
+                    slot.runes.push({ ...rune });
+                } else {
+                    slot.runes.shift(); // remove oldest, add new
+                    slot.runes.push({ ...rune });
+                }
+            }
             log(`🔮 ${rune.icon} ${rune.name} attached to ${slotInfo.label}!`, 'info');
             updateStats();
             onDone?.();
@@ -189,8 +203,8 @@ const Game = {
             level: 1, xp: 0, xpNext: 50,
             dice: [createDie(1,6), createDie(1,6), createDie(1,6)],
             slots: {
-                strike: [{ id: 'str-0', rune: null }, { id: 'str-1', rune: null }],
-                guard:  [{ id: 'grd-0', rune: null }, { id: 'grd-1', rune: null }],
+                strike: [{ id: 'str-0', runes: [] }, { id: 'str-1', runes: [] }],
+                guard:  [{ id: 'grd-0', runes: [] }, { id: 'grd-1', runes: [] }],
             },
             pendingRunes: [],
             enemyStatus: { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: false },
@@ -1362,8 +1376,8 @@ const Rewards = {
             btn.innerHTML = label;
             btn.onclick = () => {
                 selected.sort((a, b) => b - a).forEach(i => GS.dice.splice(i, 1));
-                if (type === 'strike') GS.slots.strike.push({ id: `str-${Date.now()}`, rune: null });
-                else GS.slots.guard.push({ id: `grd-${Date.now()}`, rune: null });
+                if (type === 'strike') GS.slots.strike.push({ id: `str-${Date.now()}`, runes: [] });
+                else GS.slots.guard.push({ id: `grd-${Date.now()}`, runes: [] });
                 log(`🔨 Sacrificed 3 dice for +1 ${type} slot!`, 'info');
                 updateStats();
                 callback();
@@ -2733,7 +2747,7 @@ const Events = {
     },
 
     _forgottenForge() {
-        const hasRunes = GS.slots.strike.some(s => s.rune) || GS.slots.guard.some(s => s.rune);
+        const hasRunes = GS.slots.strike.some(s => s.runes?.length) || GS.slots.guard.some(s => s.runes?.length);
         Events._render(
             'The Forgotten Forge',
             'An ancient forge still burns. Tools of remarkable craft surround it...',
@@ -2760,14 +2774,15 @@ const Events = {
                         const slotsWithRunes = [
                             ...GS.slots.strike.map((s, i) => ({ slot: s, label: `⚔️ Strike Slot ${i + 1}` })),
                             ...GS.slots.guard.map((s, i) => ({ slot: s, label: `🛡️ Guard Slot ${i + 1}` })),
-                        ].filter(x => x.slot.rune);
+                        ].filter(x => x.slot.runes?.length);
                         slotsWithRunes.forEach(({ slot, label }) => {
                             const card = document.createElement('div');
                             card.className = 'card';
-                            card.innerHTML = `<div class="card-title" style="color:${slot.rune.color};">${slot.rune.icon} ${slot.rune.name}</div><div class="card-effect">${label} → rune value doubled</div>`;
+                            const firstRune = slot.runes[0];
+                            card.innerHTML = `<div class="card-title" style="color:${firstRune.color};">${slot.runes.map(r => r.icon).join('')} ${slot.runes.map(r => r.name).join(', ')}</div><div class="card-effect">${label} → all rune values doubled</div>`;
                             card.onclick = () => {
-                                slot.rune.value = (slot.rune.value || 1) * 2;
-                                log(`Enhanced ${slot.rune.icon} ${slot.rune.name}! Value doubled.`, 'info');
+                                slot.runes.forEach(r => { r.value = (r.value || 1) * 2; });
+                                log(`Enhanced ${slot.runes.map(r => r.name).join(', ')}! Values doubled.`, 'info');
                                 updateStats(); Game.nextFloor();
                             };
                             $('event-rune-cards').appendChild(card);
@@ -3166,8 +3181,8 @@ const Rest = {
         allSlots.forEach(slotInfo => {
             const card = document.createElement('div');
             card.className = 'card' + (slotInfo.isMin ? ' disabled' : '');
-            const runeNote = slotInfo.rune
-                ? `<div style="color:${slotInfo.rune.color}; font-size:0.85em; margin-top:4px;">${slotInfo.rune.icon} ${slotInfo.rune.name} <span style="color:#ff8080;">(will be lost)</span></div>`
+            const runeNote = slotInfo.runes?.length
+                ? `<div style="color:${slotInfo.runes[0].color}; font-size:0.85em; margin-top:4px;">${slotInfo.runes.map(r => r.icon).join('')} ${slotInfo.runes.map(r => r.name).join(', ')} <span style="color:#ff8080;">(will be lost)</span></div>`
                 : '<div style="opacity:0.5; font-size:0.85em; margin-top:4px;">no rune</div>';
             const slotTypeLabel = slotInfo.type === 'strike' ? 'strike' : 'guard';
             const enhancements = slotInfo.type === 'strike' ? '🔥 Fury Chamber · ☠️ Conduit · ⚒️ Gold Forge' : '🏰 Fortification · 🌿 Thorns Aura · 🧛 Vampiric Ward';
@@ -3803,7 +3818,7 @@ const Inventory = {
 
         let html = '';
 
-        const runeCount = [...GS.slots.strike, ...GS.slots.guard].filter(s => s.rune).length;
+        const runeCount = [...GS.slots.strike, ...GS.slots.guard].reduce((n, s) => n + (s.runes?.length || 0), 0);
 
         html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
             <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">⚙️ STATS</div>
@@ -3857,11 +3872,15 @@ const Inventory = {
         html += `<div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px;">
             <div style="font-family:JetBrains Mono,monospace; font-size:0.8em; color:var(--gold); margin-bottom:8px;">🔮 SLOT RUNES</div>`;
         GS.slots.strike.forEach((slot, i) => {
-            const rs = slot.rune ? `<span style="color:${slot.rune.color};" title="${slot.rune.name}: ${slot.rune.desc}">${slot.rune.icon} ${slot.rune.name}</span>` : '<span style="opacity:0.4;">no rune</span>';
+            const rs = slot.runes?.length
+                ? slot.runes.map(r => `<span style="color:${r.color};" title="${r.name}: ${r.desc}">${r.icon} ${r.name}</span>`).join(' ')
+                : '<span style="opacity:0.4;">no rune</span>';
             html += `<div style="font-size:0.82em; margin:3px 0;">⚔️ Strike Slot ${i + 1}: ${rs}</div>`;
         });
         GS.slots.guard.forEach((slot, i) => {
-            const rs = slot.rune ? `<span style="color:${slot.rune.color};" title="${slot.rune.name}: ${slot.rune.desc}">${slot.rune.icon} ${slot.rune.name}</span>` : '<span style="opacity:0.4;">no rune</span>';
+            const rs = slot.runes?.length
+                ? slot.runes.map(r => `<span style="color:${r.color};" title="${r.name}: ${r.desc}">${r.icon} ${r.name}</span>`).join(' ')
+                : '<span style="opacity:0.4;">no rune</span>';
             html += `<div style="font-size:0.82em; margin:3px 0;">🛡️ Guard Slot ${i + 1}: ${rs}</div>`;
         });
         html += `</div>`;

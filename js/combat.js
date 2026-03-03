@@ -749,6 +749,12 @@ export const Combat = {
             }
         }
 
+        // Consume freeze/stun AFTER the enemy turn check so that:
+        //  - Guard-zone freeze takes effect THIS turn then expires
+        //  - Strike-zone freeze persists to NEXT turn's enemy check
+        if (es && es.freeze > 0) es.freeze--;
+        if (es && es.stun > 0) es.stun--;
+
         const isImmune = e.immune; // Vanish sets this during ability resolve
         e.immune = false;
 
@@ -1700,13 +1706,12 @@ export const Combat = {
         }
 
         // ── ENEMY STATUS COUNTDOWNS ──
+        // Note: freeze and stun are decremented in execute() after the enemy turn check
         if (GS.enemyStatus) {
             const esc = GS.enemyStatus;
             if (esc.chillTurns > 0) { esc.chillTurns--; if (esc.chillTurns <= 0) esc.chill = 0; }
             if (esc.markTurns > 0) { esc.markTurns--; if (esc.markTurns <= 0) esc.mark = 0; }
             if (esc.weaken > 0) esc.weaken--;
-            if (esc.freeze > 0) esc.freeze--;
-            if (esc.stun > 0) esc.stun--;
             esc.stunCooldown = false;
         }
 

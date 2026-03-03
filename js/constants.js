@@ -291,10 +291,8 @@ export const FACE_MODS = [
     { name: 'Executioner',     icon: '⚔️', desc: 'This face: ×5 this die\'s value',                                     effect: 'executioner',   color: '#d03030' },
     { name: 'Freeze Strike',   icon: '🧊', desc: 'This face: freeze enemy (they skip their next attack)',                effect: 'freezeStrike',  color: '#60c0e0' },
     { name: 'Jackpot',         icon: '💰', desc: 'This face: gain 50 gold',                                              effect: 'jackpot',       color: '#d4a534' },
-    { name: 'Vampiric Strike', icon: '🩸', desc: 'This face: ×3 this die\'s value AND heal that amount',                 effect: 'vampiricStrike',color: '#c02060' },
     { name: 'Chain Lightning', icon: '⚡', desc: 'This face: this die\'s value is applied twice (×2)',                   effect: 'chainLightning',color: '#8080e0' },
     { name: 'Critical',        icon: '💥', desc: 'This face: die\'s value is added to ALL slots simultaneously',         effect: 'critical',      color: '#e0a020' },
-    { name: 'Poison Burst',    icon: '☠️', desc: 'This face: apply poison equal to ×3 this die\'s value (strike only)', effect: 'poisonBurst',   color: '#50a030' },
     { name: 'Shield Bash',     icon: '🛡️', desc: 'This face: block value also dealt as damage (guard only)',            effect: 'shieldBash',    color: '#4060c0' },
 
     // ── STATUS TIER (apply status effects on trigger) ──

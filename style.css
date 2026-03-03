@@ -2642,6 +2642,163 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     font-style: italic;
 }
 
+/* ── Campaign Screen ── */
+.campaign-screen {
+    max-width: 560px;
+    margin: 0 auto;
+    padding: 28px 20px 40px;
+}
+
+.campaign-screen h2 {
+    font-family: 'Uncial Antiqua', serif;
+    font-size: 1.6em;
+    color: var(--gold);
+    text-align: center;
+    margin-bottom: 28px;
+    letter-spacing: 0.04em;
+}
+
+/* ── Rank path ── */
+.campaign-path {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 32px;
+    padding: 0 8px;
+}
+
+.campaign-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    width: 100%;
+}
+
+.campaign-step-icon {
+    font-size: 1.1em;
+    width: 24px;
+    text-align: center;
+    flex-shrink: 0;
+    padding-top: 2px;
+}
+
+.campaign-step-body {
+    flex: 1;
+}
+
+.campaign-step-title {
+    font-family: 'EB Garamond', serif;
+    font-size: 1.05em;
+    font-weight: 700;
+}
+
+.campaign-step-hint {
+    font-family: 'EB Garamond', serif;
+    font-size: 0.85em;
+    font-style: italic;
+    margin-top: 2px;
+}
+
+/* step states */
+.campaign-step--done .campaign-step-icon  { color: var(--gold-dim); }
+.campaign-step--done .campaign-step-title { color: var(--text-dim); }
+
+.campaign-step--current .campaign-step-icon  { color: var(--gold); font-size: 1.3em; }
+.campaign-step--current .campaign-step-title { color: var(--gold); font-size: 1.15em; }
+.campaign-step--current .campaign-step-hint  { color: var(--text-dim); }
+
+.campaign-step--locked .campaign-step-icon  { color: var(--text-dim); opacity: 0.5; }
+.campaign-step--locked .campaign-step-title { color: var(--text-dim); opacity: 0.5; }
+.campaign-step--locked .campaign-step-hint  { color: var(--text-dim); opacity: 0.4; font-size: 0.8em; }
+
+.campaign-step-connector {
+    width: 2px;
+    height: 24px;
+    background: var(--border);
+    margin-left: 11px;   /* centres under the icon */
+    flex-shrink: 0;
+}
+
+.campaign-step-connector--done {
+    background: var(--gold-dim);
+}
+
+/* ── Milestones ── */
+.campaign-milestones {
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+}
+
+.campaign-milestones-title {
+    font-family: 'Uncial Antiqua', serif;
+    font-size: 0.95em;
+    color: var(--gold-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+}
+
+.campaign-milestone {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.campaign-milestone:last-child { border-bottom: none; }
+
+.milestone-icon {
+    font-size: 1em;
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+    padding-top: 2px;
+}
+
+.milestone-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.milestone-title {
+    font-family: 'EB Garamond', serif;
+    font-size: 0.98em;
+    font-weight: 700;
+}
+
+.milestone-desc {
+    font-family: 'EB Garamond', serif;
+    font-size: 0.84em;
+    font-style: italic;
+}
+
+.milestone-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72em;
+    color: var(--text-dim);
+    flex-shrink: 0;
+    padding-top: 4px;
+}
+
+.campaign-milestone--earned .milestone-icon  { color: var(--gold-dim); }
+.campaign-milestone--earned .milestone-title { color: var(--text); }
+.campaign-milestone--earned .milestone-desc  { color: var(--text-dim); }
+
+.campaign-milestone--locked .milestone-icon  { color: var(--text-dim); opacity: 0.4; }
+.campaign-milestone--locked .milestone-title { color: var(--text-dim); opacity: 0.5; }
+.campaign-milestone--locked .milestone-desc  { color: var(--text-dim); opacity: 0.35; }
+
+/* ── Start screen secondary buttons ── */
+.start-secondary-btns {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
 /* ── Run Settings Panel ── */
 .run-settings-toggle {
     width: 100%;

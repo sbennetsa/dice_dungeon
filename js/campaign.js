@@ -80,7 +80,7 @@ export const Campaign = {
     // ── Persistence ──────────────────────────────────────────
 
     _defaultState() {
-        return { rankIndex: 0, achievements: [] };
+        return { rankIndex: 0, achievements: [], skillDieRevealed: false };
     },
 
     load() {
@@ -89,8 +89,9 @@ export const Campaign = {
             if (!raw) return this._defaultState();
             const parsed = JSON.parse(raw);
             return {
-                rankIndex:    parsed.rankIndex    ?? 0,
-                achievements: parsed.achievements ?? [],
+                rankIndex:        parsed.rankIndex        ?? 0,
+                achievements:     parsed.achievements     ?? [],
+                skillDieRevealed: parsed.skillDieRevealed ?? false,
             };
         } catch {
             return this._defaultState();
@@ -120,6 +121,21 @@ export const Campaign = {
     /** True if the given difficulty ('casual'|'standard'|'heroic') is unlocked. */
     isDifficultyUnlocked(diff) {
         return this.getRank().unlockedDifficulties.includes(diff);
+    },
+
+    // ── Skill die ─────────────────────────────────────────────
+
+    /** True if the player has ever revealed the skill die (one-time event). */
+    isSkillDieRevealed() {
+        return this.load().skillDieRevealed === true;
+    },
+
+    /** Record that the skill die has been revealed. Idempotent. */
+    setSkillDieRevealed() {
+        const state = this.load();
+        if (state.skillDieRevealed) return;
+        state.skillDieRevealed = true;
+        this.save(state);
     },
 
     // ── Achievement checking ──────────────────────────────────

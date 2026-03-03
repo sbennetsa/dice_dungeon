@@ -11,7 +11,7 @@ import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } fr
 import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
 import { scoreFloorDetailed, scorePlayerAdvantage, SHOP_ADVANTAGES, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
 import { RunHistory } from './persistence.js';
-import { Campaign } from './campaign.js';
+import { Campaign, RANKS, ACHIEVEMENTS } from './campaign.js';
 
 // ════════════════════════════════════════════════════════════
 //  CAMPAIGN STATE
@@ -302,6 +302,14 @@ const Game = {
         console.log(`[Dungeon] Seed: ${blueprint.seed} | Challenge Rating: ${blueprint.scoring.challengeRating}/10`);
         console.log(`[Dungeon] Net Challenge: ${blueprint.scoring.netChallenge} (Combat: ${blueprint.scoring.totalCombatThreat}, Player Advantage: ${blueprint.scoring.totalPlayerAdvantage})`);
         console.log(`[Dungeon] Schedules: ${blueprint.acts.map(a => a.schedule.join('-')).join(' | ')}`);
+
+        // If the player has previously revealed the skill die, pre-apply the root node benefit.
+        // This skips the reveal overlay and grants the permanent +1 Strike, +1 Guard slot from run start.
+        if (Campaign.isSkillDieRevealed()) {
+            GS.unlockedNodes.push('root');
+            GS.slots.strike.push({ id: 'str-2', runes: [] });
+            GS.slots.guard.push({ id: 'grd-2', runes: [] });
+        }
 
         DifficultySelect.show();
     },
@@ -725,6 +733,8 @@ const SkillDie = (() => {
                 if (rootNode) { rootNode.effect(GS); log(`🌟 ${rootNode.name}: ${rootNode.desc}`, 'info'); }
                 GS.pendingSkillPoints = Math.max(0, _sp() - 1);
                 updateStats();
+                // Record as a one-time campaign milestone — next runs start with root pre-applied
+                Campaign.setSkillDieRevealed();
             }
             document.getElementById('sd-reveal-overlay').classList.add('sd-hidden');
             document.getElementById('sd-main').classList.add('sd-visible');
@@ -2657,6 +2667,14 @@ const Events = {
     },
 
     _trainingGrounds() {
+        const _afterXP = () => {
+            updateStats();
+            if ((GS.pendingSkillPoints || 0) > 0) {
+                Rewards.slotChoice(() => { updateStats(); Game.nextFloor(); });
+            } else {
+                Game.nextFloor();
+            }
+        };
         Events._render(
             'Training Grounds',
             'An old training yard carved into the dungeon rock. Straw dummies and sparring marks line the floor...',
@@ -2668,7 +2686,7 @@ const Events = {
                         Events._showOutcome('Light Training', [
                             '<span style="color:var(--gold);">+20 XP</span>',
                             'A quick warm-up sharpens your instincts.'
-                        ], () => { updateStats(); Game.nextFloor(); });
+                        ], _afterXP);
                     }
                 },
                 {
@@ -2681,7 +2699,7 @@ const Events = {
                             '<span style="color:var(--red-bright);">-10 HP</span>',
                             '<span style="color:var(--gold);">+35 XP</span>',
                             'Bruised but battle-ready.'
-                        ], () => { updateStats(); Game.nextFloor(); });
+                        ], _afterXP);
                     }
                 },
                 {
@@ -2694,7 +2712,7 @@ const Events = {
                             success
                                 ? '<span style="color:var(--gold);">+50 XP!</span><br>You dominated the trial.'
                                 : '<span style="color:var(--text-dim);">+10 XP</span><br>The trial got the better of you.'
-                        ], () => { updateStats(); Game.nextFloor(); });
+                        ], _afterXP);
                     }
                 },
             ]
@@ -3745,6 +3763,11 @@ const SCHEDULE_NAMES = ['Standard', 'Front-loaded', 'Event-heavy', 'Double shop'
 // ════════════════════════════════════════════════════════════
 const DifficultySelect = {
     show() {
+        // Reset any leftover animation classes from a previous pick
+        document.querySelectorAll('.diff-card').forEach(c => {
+            c.classList.remove('diff-card--door-open', 'diff-card--exit-left', 'diff-card--exit-right');
+        });
+
         // Update last-run bar
         const lastRunEl = $('diff-select-last-run');
         if (lastRunEl) {
@@ -4413,6 +4436,112 @@ const EncounterChoice = {
 };
 
 // ════════════════════════════════════════════════════════════
+//  CAMPAIGN SCREEN — The Ancient Order progression view
+// ════════════════════════════════════════════════════════════
+const CampaignScreen = {
+
+    show() {
+        this._render();
+        show('screen-campaign');
+    },
+
+    back() {
+        _refreshHomeRank();
+        show('screen-start');
+    },
+
+    _render() {
+        const el = document.getElementById('campaign-content');
+        if (!el) return;
+
+        const state     = Campaign.getState();
+        const earned    = new Set(state.achievements.map(a => a.id));
+        const earnedMap = Object.fromEntries(state.achievements.map(a => [a.id, a.completedAt]));
+        const current   = state.rankIndex;
+
+        // ── Rank path ──────────────────────────────────────────
+        const UNLOCK_HINTS = [
+            '',                              // The Outsider — starting rank
+            'Complete any run',              // The Descended
+            'Win a Casual run',              // Initiate of the Order
+            'Win a Standard run',            // The Acolyte
+            'Win a Heroic run',              // The Adept
+        ];
+
+        const steps = RANKS.map((rank, i) => {
+            const isDone    = i < current;
+            const isCurrent = i === current;
+            const isLocked  = i > current;
+
+            let cls, icon, hint;
+            if (isDone)    { cls = 'campaign-step--done';    icon = '✓'; hint = ''; }
+            else if (isCurrent) { cls = 'campaign-step--current'; icon = '★'; hint = rank.flavour; }
+            else           { cls = 'campaign-step--locked';  icon = '🔒'; hint = UNLOCK_HINTS[i] ? `Unlock: ${UNLOCK_HINTS[i]}` : ''; }
+
+            const connector = i < RANKS.length - 1
+                ? `<div class="campaign-step-connector ${isDone ? 'campaign-step-connector--done' : ''}"></div>`
+                : '';
+
+            return `
+                <div class="campaign-step ${cls}">
+                    <div class="campaign-step-icon">${icon}</div>
+                    <div class="campaign-step-body">
+                        <div class="campaign-step-title">${rank.title}</div>
+                        ${hint ? `<div class="campaign-step-hint">${hint}</div>` : ''}
+                    </div>
+                </div>
+                ${connector}`;
+        }).join('');
+
+        // ── Milestones ─────────────────────────────────────────
+        const milestoneRows = ACHIEVEMENTS.map(ach => {
+            const ts = earnedMap[ach.id];
+            if (ts) {
+                const d = new Date(ts);
+                const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                return `
+                    <div class="campaign-milestone campaign-milestone--earned">
+                        <span class="milestone-icon">✓</span>
+                        <div class="milestone-body">
+                            <span class="milestone-title">${ach.title}</span>
+                            <span class="milestone-desc">${ach.description}</span>
+                        </div>
+                        <span class="milestone-date">${dateStr}</span>
+                    </div>`;
+            } else {
+                return `
+                    <div class="campaign-milestone campaign-milestone--locked">
+                        <span class="milestone-icon">🔒</span>
+                        <div class="milestone-body">
+                            <span class="milestone-title">${ach.title}</span>
+                            <span class="milestone-desc">${ach.description}</span>
+                        </div>
+                    </div>`;
+            }
+        }).join('');
+
+        // ── Skill die milestone ────────────────────────────────
+        const skillDieEarned = state.skillDieRevealed;
+        const skillDieRow = `
+            <div class="campaign-milestone ${skillDieEarned ? 'campaign-milestone--earned' : 'campaign-milestone--locked'}">
+                <span class="milestone-icon">${skillDieEarned ? '✓' : '🔒'}</span>
+                <div class="milestone-body">
+                    <span class="milestone-title">The Die Awakens</span>
+                    <span class="milestone-desc">Reveal the skill die for the first time. It will be pre-allocated in all future runs.</span>
+                </div>
+            </div>`;
+
+        el.innerHTML = `
+            <div class="campaign-path">${steps}</div>
+            <div class="campaign-milestones">
+                <h3 class="campaign-milestones-title">Milestones</h3>
+                ${milestoneRows}
+                ${skillDieRow}
+            </div>`;
+    },
+};
+
+// ════════════════════════════════════════════════════════════
 //  STATS — run history screen
 // ════════════════════════════════════════════════════════════
 const Stats = {
@@ -4523,6 +4652,7 @@ window.DifficultySelect = DifficultySelect;
 window.addConsumableToInventory = addConsumableToInventory;
 window.EncounterChoice = EncounterChoice;
 window.Stats = Stats;
+window.CampaignScreen = CampaignScreen;
 
 // Prevent right-click context menu on combat screen
 document.getElementById('screen-combat').addEventListener('contextmenu', e => e.preventDefault());

@@ -697,7 +697,6 @@ export const Combat = {
                 if (m.effect === 'shieldBash') { mirrorDmg += dieVal; defBase += dieVal; }
                 else if (m.effect === 'executioner') { defBase += dieVal * 5; }
                 else if (m.effect === 'chainLightning') { defBase += dieVal * 2; }
-                else if (m.effect === 'vampiricStrike') { const vVal = dieVal * 3; defBase += vVal; siphonHealing += vVal; }
                 else if (m.effect === 'freezeStrike') { applyStatus('freeze', 1); defBase += dieVal; }
                 else if (m.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); defBase += dieVal; }
                 else if (m.effect === 'critical') { defBase += dieVal; crossSlotBonusAtk += dieVal; }
@@ -931,10 +930,8 @@ export const Combat = {
             if (m) {
                 if (m.effect === 'executioner') { atkBase += dieVal * 5; }
                 else if (m.effect === 'chainLightning') { atkBase += dieVal * 2; }
-                else if (m.effect === 'vampiricStrike') { const vVal = dieVal * 3; atkBase += vVal; siphonHealing += vVal; }
                 else if (m.effect === 'freezeStrike') { applyStatus('freeze', 1); atkBase += dieVal; }
                 else if (m.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); atkBase += dieVal; }
-                else if (m.effect === 'poisonBurst') { applyEnemyPoison(dieVal * 3); atkBase += dieVal; }
                 else if (m.effect === 'critical') { atkBase += dieVal; crossSlotBonusDef += dieVal; }
                 else { atkBase += dieVal; }
             } else {

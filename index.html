@@ -39,7 +39,7 @@
             <input type="text" id="seed-input" class="seed-input" placeholder="optional" maxlength="8" autocomplete="off" spellcheck="false">
         </div>
         <button class="btn btn-primary start-btn" onclick="Game.start()">Enter the Dungeon</button>
-        <button class="btn stats-link-btn" onclick="Stats.show()">Statistics</button>
+        <button class="btn stats-link-btn" onclick="Stats.show()">📊 Statistics</button>
     </div>
 </div>
 
@@ -61,7 +61,6 @@
         <div class="dungeon-path-header">
             <h2>Dungeon Path</h2>
         </div>
-        <div id="dungeon-path-last-run"></div>
         <div id="dungeon-path-settings"></div>
         <div id="dungeon-path-seed"></div>
         <div id="dungeon-path-content"></div>
@@ -74,6 +73,7 @@
     <div class="diff-select-wrapper">
         <h2 class="diff-select-title">Choose Your Fate</h2>
         <p class="diff-select-subtitle">Select a difficulty before descending.</p>
+        <div id="diff-select-last-run"></div>
         <div class="diff-card-row">
 
             <div class="diff-card diff-card--casual" onclick="DifficultySelect.pick('casual')">

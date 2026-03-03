@@ -590,9 +590,10 @@ const SkillDie = (() => {
         { key: 'gold',  label: 'Gold',  color: '#d4a534', icon: '💰' },
         { key: 'tall',  label: 'Tall',  color: '#d48830', icon: '🔨' },
         { key: 'venom', label: 'Venom', color: '#9050c0', icon: '🧪' },
+        { key: 'heart', label: 'Heart', color: '#e05050', icon: '❤️' },
     ];
-    const SD_NORMALS = [[0,0,1],[1,0,0],[0,0,-1],[-1,0,0]];
-    const SD_FACE_CSS = ['sd-face-front','sd-face-right','sd-face-back','sd-face-left'];
+    const SD_NORMALS = [[0,0,1],[1,0,0],[0,0,-1],[-1,0,0],[0,1,0]];
+    const SD_FACE_CSS = ['sd-face-front','sd-face-right','sd-face-back','sd-face-left','sd-face-top'];
     const SD_GRID = [[-1,-1],[1,-1],[-1,1],[1,1]]; // [col, row] offsets for passives
     const SD_HALF = 155, SD_GRID_PX = 98;
 
@@ -736,12 +737,10 @@ const SkillDie = (() => {
             _cubeEl.appendChild(faceDiv);
         });
 
-        ['sd-face-top','sd-face-bottom'].forEach(cls => {
-            const d = document.createElement('div');
-            d.className = `sd-face ${cls}`;
-            d.innerHTML = `<span style="font-size:1.8em;opacity:0.12">🎲</span>`;
-            _cubeEl.appendChild(d);
-        });
+        const d = document.createElement('div');
+        d.className = 'sd-face sd-face-bottom';
+        d.innerHTML = `<span style="font-size:1.8em;opacity:0.12">🎲</span>`;
+        _cubeEl.appendChild(d);
     }
 
     function _makeNodeEl(id, emoji, name, isNotable) {
@@ -3698,6 +3697,26 @@ const SCHEDULE_NAMES = ['Standard', 'Front-loaded', 'Event-heavy', 'Double shop'
 // ════════════════════════════════════════════════════════════
 const DifficultySelect = {
     show() {
+        const lastRunEl = $('diff-select-last-run');
+        if (lastRunEl) {
+            const runs = RunHistory.getAll();
+            const last = runs.length ? runs[runs.length - 1] : null;
+            if (last) {
+                const isVictory = last.outcome === 'victory';
+                const diff = last.difficulty || 'standard';
+                lastRunEl.innerHTML = `
+                    <div class="last-run-bar">
+                        <span class="last-run-outcome ${isVictory ? 'victory' : 'defeat'}">${isVictory ? '🏆 Victory' : '💀 Defeated'}</span>
+                        <span class="last-run-stat">Floor ${last.floor}/15</span>
+                        <span class="last-run-stat">Lvl ${last.level}</span>
+                        <span class="last-run-stat">⚔️ ${last.enemiesKilled || 0}</span>
+                        <span class="last-run-stat">💰 ${last.totalGold || 0}g</span>
+                        <span class="last-run-diff last-run-diff--${diff}">${diff.charAt(0).toUpperCase() + diff.slice(1)}</span>
+                    </div>`;
+            } else {
+                lastRunEl.innerHTML = '';
+            }
+        }
         show('screen-difficulty-select');
     },
 
@@ -3729,28 +3748,6 @@ const DungeonPath = {
         DungeonPath._settings = { schedules: [null, null, null], difficulty: chosenDifficulty, anomalyRate: 'normal' };
         DungeonPath._open = false;
         GS.runDifficulty = chosenDifficulty;
-
-        // Render last run stats if any
-        const lastRunEl = $('dungeon-path-last-run');
-        if (lastRunEl) {
-            const runs = RunHistory.getAll();
-            const last = runs.length ? runs[runs.length - 1] : null;
-            if (last) {
-                const isVictory = last.outcome === 'victory';
-                const diff = last.difficulty || 'standard';
-                lastRunEl.innerHTML = `
-                    <div class="last-run-bar">
-                        <span class="last-run-outcome ${isVictory ? 'victory' : 'defeat'}">${isVictory ? '🏆 Victory' : '💀 Defeated'}</span>
-                        <span class="last-run-stat">Floor ${last.floor}/15</span>
-                        <span class="last-run-stat">Lvl ${last.level}</span>
-                        <span class="last-run-stat">⚔️ ${last.enemiesKilled || 0}</span>
-                        <span class="last-run-stat">💰 ${last.totalGold || 0}g</span>
-                        <span class="last-run-diff last-run-diff--${diff}">${diff.charAt(0).toUpperCase() + diff.slice(1)}</span>
-                    </div>`;
-            } else {
-                lastRunEl.innerHTML = '';
-            }
-        }
 
         DungeonPath._renderSettings();
         DungeonMap.render('dungeon-path-seed', 'dungeon-path-content', { showAll: true, difficulty: chosenDifficulty });

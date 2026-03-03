@@ -2745,13 +2745,14 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
    ════════════════════════════════════════ */
 .stats-link-btn {
     display: block;
-    margin: 8px auto 0;
-    font-size: 0.8em;
-    color: var(--text-dim);
-    border-color: transparent;
-    background: transparent;
+    margin: 10px auto 0;
+    font-size: 0.9em;
+    color: var(--text);
+    border-color: var(--border);
+    background: var(--bg-surface);
+    padding: 8px 28px;
 }
-.stats-link-btn:hover { color: var(--text); background: transparent; border-color: var(--border); transform: none; }
+.stats-link-btn:hover { border-color: var(--gold-dim); color: var(--gold); background: var(--bg-raised); }
 
 .stats-screen {
     max-width: 680px;

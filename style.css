@@ -2357,6 +2357,147 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     padding: 14px;
 }
 
+/* ════════════════════════════════════════════════════════════
+   DIFFICULTY SELECT SCREEN
+════════════════════════════════════════════════════════════ */
+.diff-select-wrapper {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    text-align: center;
+}
+
+.diff-select-title {
+    color: var(--gold);
+    font-family: 'Uncial Antiqua', cursive;
+    font-size: 1.8em;
+    margin-bottom: 8px;
+    text-shadow: 0 0 30px rgba(212, 165, 52, 0.2);
+}
+
+.diff-select-subtitle {
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78em;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 36px;
+}
+
+.diff-card-row {
+    display: flex;
+    flex-direction: row;
+    gap: 16px;
+    justify-content: center;
+    align-items: stretch;
+}
+
+.diff-card {
+    flex: 1 1 220px;
+    max-width: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 28px 20px 20px;
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    background: var(--bg-surface);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    text-align: center;
+    gap: 10px;
+}
+
+.diff-card:hover {
+    transform: translateY(-6px);
+}
+
+.diff-card--casual  { border-color: var(--green); box-shadow: 0 0 12px rgba(64, 160, 96, 0.08); }
+.diff-card--standard { border-color: var(--gold-dim); box-shadow: 0 0 12px rgba(212, 165, 52, 0.08); }
+.diff-card--heroic  { border-color: var(--red-dim); box-shadow: 0 0 12px rgba(196, 64, 64, 0.08); background: linear-gradient(170deg, #1e1212 0%, var(--bg-surface) 60%); }
+
+.diff-card--casual:hover  { box-shadow: 0 8px 32px rgba(64, 160, 96, 0.28); border-color: var(--green-bright); }
+.diff-card--standard:hover { box-shadow: 0 8px 32px rgba(212, 165, 52, 0.28); border-color: var(--gold); }
+.diff-card--heroic:hover  { box-shadow: 0 8px 32px rgba(196, 64, 64, 0.35); border-color: var(--red); }
+
+.diff-card__icon { font-size: 2.4em; line-height: 1; }
+
+.diff-card__name {
+    font-family: 'Uncial Antiqua', cursive;
+    font-size: 1.3em;
+}
+.diff-card--casual  .diff-card__name { color: var(--green-bright); }
+.diff-card--standard .diff-card__name { color: var(--gold); }
+.diff-card--heroic  .diff-card__name { color: var(--red-bright); }
+
+.diff-card__tagline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68em;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+}
+
+.diff-card__desc {
+    font-family: 'EB Garamond', serif;
+    font-size: 0.92em;
+    color: var(--text);
+    line-height: 1.6;
+    flex: 1;
+}
+
+.diff-card__traits {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.diff-card__trait {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65em;
+    padding: 3px 8px;
+    border-radius: 20px;
+    border: 1px solid;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.diff-card--casual  .diff-card__trait { color: var(--green-bright); border-color: rgba(64,160,96,0.4); background: rgba(64,160,96,0.08); }
+.diff-card--standard .diff-card__trait { color: var(--gold); border-color: rgba(212,165,52,0.4); background: rgba(212,165,52,0.08); }
+.diff-card--heroic  .diff-card__trait { color: var(--red-bright); border-color: rgba(196,64,64,0.4); background: rgba(196,64,64,0.08); }
+
+.diff-card__btn {
+    width: 100%;
+    pointer-events: none;
+    margin-top: 6px;
+}
+.diff-card--casual  .diff-card__btn { background: rgba(64,160,96,0.12); border-color: var(--green); color: var(--green-bright); }
+.diff-card--standard .diff-card__btn { background: rgba(212,165,52,0.12); border-color: var(--gold-dim); color: var(--gold); }
+.diff-card--heroic  .diff-card__btn { background: rgba(196,64,64,0.12); border-color: var(--red-dim); color: var(--red-bright); }
+
+.diff-card--casual:hover  .diff-card__btn { background: var(--green); border-color: var(--green); color: #000; }
+.diff-card--standard:hover .diff-card__btn { background: var(--gold); border-color: var(--gold); color: var(--bg-deep); }
+.diff-card--heroic:hover  .diff-card__btn { background: var(--red); border-color: var(--red); color: #fff; }
+
+@media (max-width: 768px) {
+    #screen-difficulty-select {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 12px;
+    }
+    .diff-select-wrapper { padding: 20px 12px; }
+    .diff-select-title { font-size: 1.4em; }
+    .diff-card-row { flex-direction: column; align-items: center; gap: 12px; }
+    .diff-card { max-width: 100%; width: 100%; flex-direction: row; flex-wrap: wrap; padding: 16px; gap: 8px; text-align: left; }
+    .diff-card__icon { font-size: 1.8em; align-self: center; }
+    .diff-card__name { font-size: 1.1em; align-self: center; }
+    .diff-card__tagline,
+    .diff-card__desc,
+    .diff-card__traits,
+    .diff-card__btn { flex-basis: 100%; }
+}
+
 /* ── Run Settings Panel ── */
 .run-settings-toggle {
     width: 100%;

@@ -247,7 +247,7 @@ const Game = {
         console.log(`[Dungeon] Net Challenge: ${blueprint.scoring.netChallenge} (Combat: ${blueprint.scoring.totalCombatThreat}, Player Advantage: ${blueprint.scoring.totalPlayerAdvantage})`);
         console.log(`[Dungeon] Schedules: ${blueprint.acts.map(a => a.schedule.join('-')).join(' | ')}`);
 
-        DungeonPath.show();
+        DifficultySelect.show();
     },
 
     enterFloor() {
@@ -3671,16 +3671,31 @@ const DungeonMap = {
 
 const SCHEDULE_NAMES = ['Standard', 'Front-loaded', 'Event-heavy', 'Double shop', 'Gauntlet'];
 
+// ════════════════════════════════════════════════════════════
+//  DIFFICULTY SELECT SCREEN
+// ════════════════════════════════════════════════════════════
+const DifficultySelect = {
+    show() {
+        show('screen-difficulty-select');
+    },
+
+    pick(difficulty) {
+        GS.runDifficulty = difficulty;
+        DungeonPath.show(difficulty);
+    },
+};
+
 const DungeonPath = {
     _settings: { schedules: [null, null, null], difficulty: 'standard', anomalyRate: 'normal' },
     _open: false,
 
-    show() {
-        DungeonPath._settings = { schedules: [null, null, null], difficulty: 'standard', anomalyRate: 'normal' };
+    show(difficulty) {
+        const chosenDifficulty = difficulty || 'standard';
+        DungeonPath._settings = { schedules: [null, null, null], difficulty: chosenDifficulty, anomalyRate: 'normal' };
         DungeonPath._open = false;
-        GS.runDifficulty = 'standard';
+        GS.runDifficulty = chosenDifficulty;
         DungeonPath._renderSettings();
-        DungeonMap.render('dungeon-path-seed', 'dungeon-path-content', { showAll: true, difficulty: 'standard' });
+        DungeonMap.render('dungeon-path-seed', 'dungeon-path-content', { showAll: true, difficulty: chosenDifficulty });
         show('screen-dungeon-path');
     },
 
@@ -4351,6 +4366,7 @@ window.Rest = Rest;
 window.Inventory = Inventory;
 window.DungeonMap = DungeonMap;
 window.DungeonPath = DungeonPath;
+window.DifficultySelect = DifficultySelect;
 window.addConsumableToInventory = addConsumableToInventory;
 window.EncounterChoice = EncounterChoice;
 window.Stats = Stats;

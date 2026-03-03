@@ -44,8 +44,8 @@ function _applyArtifactOnAcquire(art) {
         GS.hp = Math.min(GS.hp, GS.maxHp);
         log(`💥 Glass Cannon: all dice +${art.value} faces, max HP halved to ${GS.maxHp}!`, 'damage');
     } else if (art.effect === 'titansDie') {
-        GS.dice.push(createDie(1, art.value));
-        log(`🎲 Titan's Die: permanent d${art.value} added to your pool!`, 'info');
+        GS.dice.push(createDieFromFaces([12, 12, 12, 12, 12, 12]));
+        log(`🎲 Titan's Die: permanent d12 added to your pool!`, 'info');
     }
 }
 

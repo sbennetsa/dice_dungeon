@@ -39,6 +39,19 @@
             <input type="text" id="seed-input" class="seed-input" placeholder="optional" maxlength="8" autocomplete="off" spellcheck="false">
         </div>
         <button class="btn btn-primary start-btn" onclick="Game.start()">Enter the Dungeon</button>
+        <button class="btn stats-link-btn" onclick="Stats.show()">Statistics</button>
+    </div>
+</div>
+
+<!-- ═══════════ STATS SCREEN ═══════════ -->
+<div id="screen-stats" class="screen">
+    <div class="stats-screen">
+        <h2>Statistics</h2>
+        <div id="stats-content"></div>
+        <div style="margin-top:24px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="Stats.back()">Back to Menu</button>
+            <button class="btn" onclick="Stats.clearHistory()" style="color:var(--red);">Clear History</button>
+        </div>
     </div>
 </div>
 

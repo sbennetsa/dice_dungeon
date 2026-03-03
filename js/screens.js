@@ -10,6 +10,7 @@ import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } fr
 import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
 import { scoreFloorDetailed, scorePlayerAdvantage, SHOP_ADVANTAGES, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
+import { RunHistory } from './persistence.js';
 
 // ════════════════════════════════════════════════════════════
 //  HELPERS
@@ -277,6 +278,17 @@ const Game = {
     },
 
     defeat() {
+        if (!GS.challengeMode) {
+            RunHistory.save({
+                outcome:      'defeat',
+                difficulty:   GS.runDifficulty,
+                floor:        GS.floor,
+                level:        GS.level,
+                enemiesKilled: GS.enemiesKilled,
+                totalGold:    GS.totalGold,
+                seed:         GS.seed,
+            });
+        }
         const t = $('go-title');
         t.textContent = '💀 Defeated';
         t.className = 'defeat';
@@ -291,6 +303,15 @@ const Game = {
     },
 
     victory() {
+        RunHistory.save({
+            outcome:      'victory',
+            difficulty:   GS.runDifficulty,
+            floor:        15,
+            level:        GS.level,
+            enemiesKilled: GS.enemiesKilled,
+            totalGold:    GS.totalGold,
+            seed:         GS.seed,
+        });
         const t = $('go-title');
         t.textContent = '🏆 Victory!';
         t.className = 'victory';
@@ -4225,6 +4246,98 @@ const EncounterChoice = {
 };
 
 // ════════════════════════════════════════════════════════════
+//  STATS — run history screen
+// ════════════════════════════════════════════════════════════
+const Stats = {
+
+    show() {
+        const stats = RunHistory.getStats();
+        $('stats-content').innerHTML = stats ? this._render(stats) : this._empty();
+        show('screen-stats');
+    },
+
+    back() {
+        show('screen-start');
+    },
+
+    clearHistory() {
+        if (!confirm('Clear all run history? This cannot be undone.')) return;
+        RunHistory.clear();
+        this.show();
+    },
+
+    _empty() {
+        return '<p style="color:var(--text-dim); text-align:center; padding:40px 0; font-family:EB Garamond,serif;">No runs recorded yet.<br>Enter the dungeon!</p>';
+    },
+
+    _render(stats) {
+        const pct = (w, t) => t ? Math.round(w / t * 100) + '%' : '—';
+        const fmt = n => n.toLocaleString();
+
+        const diffLabels = { casual: 'Casual', standard: 'Standard', heroic: 'Heroic' };
+        const diffRows = ['casual', 'standard', 'heroic']
+            .filter(d => stats.byDifficulty[d].total > 0)
+            .map(d => {
+                const s = stats.byDifficulty[d];
+                return `<tr>
+                    <td>${diffLabels[d]}</td>
+                    <td>${s.total}</td>
+                    <td>${s.wins}</td>
+                    <td>${pct(s.wins, s.total)}</td>
+                    <td>Floor ${s.bestFloor}</td>
+                </tr>`;
+            }).join('');
+
+        const recentRows = stats.recentRuns.map(r => {
+            const date = new Date(r.id).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            const winCss = r.outcome === 'victory' ? 'color:var(--gold)' : 'color:var(--red)';
+            const result = r.outcome === 'victory' ? '✓ Win' : '✗ Loss';
+            const diff   = r.difficulty.charAt(0).toUpperCase() + r.difficulty.slice(1);
+            const seed   = r.seed
+                ? (r.seed >>> 0).toString(16).toUpperCase().padStart(8, '0').replace(/(.{4})(.{4})/, '$1 $2')
+                : '—';
+            return `<tr>
+                <td style="color:var(--text-dim)">${date}</td>
+                <td>${diff}</td>
+                <td style="${winCss}">${result}</td>
+                <td>Floor ${r.floor}</td>
+                <td>${r.enemiesKilled}</td>
+                <td style="color:var(--text-dim); font-size:0.8em; font-family:'JetBrains Mono',monospace">${seed}</td>
+            </tr>`;
+        }).join('');
+
+        return `
+<div class="stats-section">
+    <h3>Lifetime</h3>
+    <div class="stats-grid">
+        <div class="stats-kv"><span>Total Runs</span><span>${stats.totalRuns}</span></div>
+        <div class="stats-kv"><span>Victories</span><span>${stats.totalWins} (${pct(stats.totalWins, stats.totalRuns)})</span></div>
+        <div class="stats-kv"><span>Enemies Slain</span><span>${fmt(stats.totalEnemies)}</span></div>
+        <div class="stats-kv"><span>Gold Earned</span><span>${fmt(stats.totalGold)}</span></div>
+    </div>
+</div>
+<div class="stats-section">
+    <h3>By Difficulty</h3>
+    ${diffRows
+        ? `<table class="stats-table">
+            <thead><tr><th>Difficulty</th><th>Runs</th><th>Wins</th><th>Win%</th><th>Best</th></tr></thead>
+            <tbody>${diffRows}</tbody>
+           </table>`
+        : '<p style="color:var(--text-dim); font-size:0.85em">No data yet.</p>'}
+</div>
+<div class="stats-section">
+    <h3>Recent Runs</h3>
+    ${recentRows
+        ? `<table class="stats-table">
+            <thead><tr><th>Date</th><th>Difficulty</th><th>Result</th><th>Floor</th><th>Kills</th><th>Seed</th></tr></thead>
+            <tbody>${recentRows}</tbody>
+           </table>`
+        : '<p style="color:var(--text-dim); font-size:0.85em">No runs yet.</p>'}
+</div>`;
+    },
+};
+
+// ════════════════════════════════════════════════════════════
 //  INIT — expose modules on window for inline onclick handlers
 // ════════════════════════════════════════════════════════════
 window.Game = Game;
@@ -4240,6 +4353,7 @@ window.DungeonMap = DungeonMap;
 window.DungeonPath = DungeonPath;
 window.addConsumableToInventory = addConsumableToInventory;
 window.EncounterChoice = EncounterChoice;
+window.Stats = Stats;
 
 // Prevent right-click context menu on combat screen
 document.getElementById('screen-combat').addEventListener('contextmenu', e => e.preventDefault());

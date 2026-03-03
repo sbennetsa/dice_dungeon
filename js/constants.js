@@ -299,9 +299,6 @@ export const FACE_MODS = [
 
     // ── STATUS TIER (apply status effects on trigger) ──
     { name: 'Volatile',  icon: '🎲', desc: 'This face: replace die value with rand(1, max×2)',              effect: 'volatile',  color: '#d07020' },
-    { name: 'Frostbite', icon: '❄️', desc: 'This face: apply 2 chill to enemy (guard slot)',               effect: 'frostbite', color: '#80c0e0' },
-    { name: 'Searing',   icon: '🔥', desc: 'This face: apply 2 burn to enemy for 3 turns (strike slot)',   effect: 'searing',   color: '#d06020' },
-    { name: 'Marked',    icon: '🎯', desc: 'This face: apply 3 mark to enemy for 2 turns (strike slot)',   effect: 'marked',    color: '#c04040' },
 ];
 
 // ════════════════════════════════════════════════════════════

@@ -288,15 +288,15 @@ export function pickEnemy(floor) {
 // ════════════════════════════════════════════════════════════
 export const FACE_MODS = [
     // ── SPIKE TIER (high power, triggers ~1/N times) ──
-    { name: 'Executioner',     icon: '⚔️', desc: 'This face: ×5 this die\'s value',                                     effect: 'executioner',   color: '#d03030' },
+    { name: 'Executioner',     icon: '⚔️', desc: 'This face: ×5 the rolled face value',                                  effect: 'executioner',   color: '#d03030' },
     { name: 'Freeze Strike',   icon: '🧊', desc: 'This face: freeze enemy (they skip their next attack)',                effect: 'freezeStrike',  color: '#60c0e0' },
     { name: 'Jackpot',         icon: '💰', desc: 'This face: gain 50 gold',                                              effect: 'jackpot',       color: '#d4a534' },
-    { name: 'Chain Lightning', icon: '⚡', desc: 'This face: this die\'s value is applied twice (×2)',                   effect: 'chainLightning',color: '#8080e0' },
-    { name: 'Critical',        icon: '💥', desc: 'This face: die\'s value is added to ALL slots simultaneously',         effect: 'critical',      color: '#e0a020' },
+    { name: 'Chain Lightning', icon: '⚡', desc: 'This face: the rolled face value is applied twice (×2)',                effect: 'chainLightning',color: '#8080e0' },
+    { name: 'Critical',        icon: '💥', desc: 'This face: rolled face value is added to ALL slots simultaneously',     effect: 'critical',      color: '#e0a020' },
     { name: 'Shield Bash',     icon: '🛡️', desc: 'This face: block value also dealt as damage (guard only)',            effect: 'shieldBash',    color: '#4060c0' },
 
     // ── STATUS TIER (apply status effects on trigger) ──
-    { name: 'Volatile',  icon: '🎲', desc: 'This face: replace die value with rand(1, max×2)',              effect: 'volatile',  color: '#d07020' },
+    { name: 'Volatile',  icon: '🎲', desc: 'This face: replace rolled value with rand(1, max×2)',           effect: 'volatile',  color: '#d07020' },
 ];
 
 // ════════════════════════════════════════════════════════════

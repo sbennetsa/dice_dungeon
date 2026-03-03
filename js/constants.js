@@ -370,7 +370,7 @@ export const LEGENDARY_ARTIFACT_POOL = [
     {
         name: "Titan's Die",
         icon: '🎲',
-        desc: 'Permanently add a d12 to your dice pool.',
+        desc: 'Permanently add a die that always rolls 12 to your pool.',
         effect: 'titansDie',
         value: 12,
         category: 'enabler',

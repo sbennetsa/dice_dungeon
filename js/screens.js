@@ -3729,6 +3729,29 @@ const DungeonPath = {
         DungeonPath._settings = { schedules: [null, null, null], difficulty: chosenDifficulty, anomalyRate: 'normal' };
         DungeonPath._open = false;
         GS.runDifficulty = chosenDifficulty;
+
+        // Render last run stats if any
+        const lastRunEl = $('dungeon-path-last-run');
+        if (lastRunEl) {
+            const runs = RunHistory.getAll();
+            const last = runs.length ? runs[runs.length - 1] : null;
+            if (last) {
+                const isVictory = last.outcome === 'victory';
+                const diff = last.difficulty || 'standard';
+                lastRunEl.innerHTML = `
+                    <div class="last-run-bar">
+                        <span class="last-run-outcome ${isVictory ? 'victory' : 'defeat'}">${isVictory ? '🏆 Victory' : '💀 Defeated'}</span>
+                        <span class="last-run-stat">Floor ${last.floor}/15</span>
+                        <span class="last-run-stat">Lvl ${last.level}</span>
+                        <span class="last-run-stat">⚔️ ${last.enemiesKilled || 0}</span>
+                        <span class="last-run-stat">💰 ${last.totalGold || 0}g</span>
+                        <span class="last-run-diff last-run-diff--${diff}">${diff.charAt(0).toUpperCase() + diff.slice(1)}</span>
+                    </div>`;
+            } else {
+                lastRunEl.innerHTML = '';
+            }
+        }
+
         DungeonPath._renderSettings();
         DungeonMap.render('dungeon-path-seed', 'dungeon-path-content', { showAll: true, difficulty: chosenDifficulty });
         show('screen-dungeon-path');
@@ -3747,8 +3770,16 @@ const DungeonPath = {
             anomalyRate: s.anomalyRate,
         });
         GS.blueprint = bp;
+        GS.seed = bp.seed;
         DungeonMap.render('dungeon-path-seed', 'dungeon-path-content', { showAll: true, difficulty: s.difficulty });
         DungeonPath._renderSettings();
+    },
+
+    setSeed(value) {
+        const trimmed = (value || '').replace(/[\s\-]/g, '');
+        const parsed = trimmed ? parseInt(trimmed, 16) : NaN;
+        GS.seed = !isNaN(parsed) ? parsed : null;
+        DungeonPath.regenerate();
     },
 
     toggleSettings() {
@@ -3807,6 +3838,14 @@ const DungeonPath = {
                     ${anomalyBtns}
                 </div>
                 <div class="run-schedules-row">${scheduleSelects}</div>
+                <div class="run-settings-row run-seed-row">
+                    <span class="run-settings-label">Seed</span>
+                    <input type="text" class="run-seed-input" value="${DungeonMap.formatSeed(GS.seed)}"
+                        placeholder="hex seed…"
+                        onchange="DungeonPath.setSeed(this.value)"
+                        onkeydown="if(event.key==='Enter'){this.blur();}">
+                    <button class="run-modifier-btn" onclick="DungeonPath.setSeed('')" title="Generate new random seed">🎲 Random</button>
+                </div>
             </div>`;
     },
 };

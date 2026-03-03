@@ -2624,6 +2624,43 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 .run-modifier-btn.heroic.active { background: var(--red); border-color: var(--red); color: #fff; }
 .run-modifier-btn.casual.active { background: var(--green, #51cf66); border-color: var(--green, #51cf66); color: #000; }
 
+.run-seed-row { align-items: center; gap: 8px; }
+.run-seed-input {
+    flex: 1;
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78em;
+    padding: 4px 8px;
+    min-width: 0;
+}
+.run-seed-input:focus { outline: none; border-color: var(--gold-dim); }
+
+/* ── Last Run Bar ── */
+.last-run-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75em;
+    flex-wrap: wrap;
+}
+.last-run-outcome { font-weight: 700; }
+.last-run-outcome.victory { color: var(--gold); }
+.last-run-outcome.defeat  { color: var(--red-bright); }
+.last-run-stat { color: var(--text-dim); }
+.last-run-diff { padding: 2px 7px; border-radius: 10px; border: 1px solid; font-size: 0.9em; }
+.last-run-diff--casual   { color: var(--green-bright); border-color: rgba(64,160,96,0.4); }
+.last-run-diff--standard { color: var(--gold); border-color: rgba(212,165,52,0.4); }
+.last-run-diff--heroic   { color: var(--red-bright); border-color: rgba(196,64,64,0.4); }
+
 /* ── Threat / Advantage Badges ── */
 .map-node-threat {
     margin-left: auto;

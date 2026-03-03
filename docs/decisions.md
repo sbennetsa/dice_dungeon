@@ -94,8 +94,8 @@ The Tall skill tree capstone (`t_n`) changes:
 ### Rationale
 Titan's Wrath as a passive overlapped directly with the Titan's Blow rune (same ×3 effect, same condition). Having both created redundancy. Runeforger is a more interesting capstone: it enables the Tall power fantasy of stacking Amplifier + Titan's Blow + Siphon on one slot for ×6 damage with full lifesteal — unambiguously a Tall-only strategy that Wide cannot exploit.
 
-### Code change
-With Runeforger active, slot shape changes from `{ id: 'str-0', rune: null }` to `{ id: 'str-0', runes: [] }` (array, max length 3). The combat engine checks which form is present for backwards compatibility.
+### Implementation notes
+Slots always use `{ id: 'str-0', runes: [] }` (array). Without Runeforger the max is 1 (adding to a full slot replaces the existing rune via `shift()/push()`). With Runeforger the max is 3. `GS.passives.runeforger = true` is the flag; `getSlotRunes(slotId)` returns the array (or `[]` if none).
 
 ---
 

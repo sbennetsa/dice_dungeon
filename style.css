@@ -2490,18 +2490,34 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 .diff-card--standard .diff-card__trait { color: var(--gold); border-color: rgba(212,165,52,0.4); background: rgba(212,165,52,0.08); }
 .diff-card--heroic  .diff-card__trait { color: var(--red-bright); border-color: rgba(196,64,64,0.4); background: rgba(196,64,64,0.08); }
 
-.diff-card__btn {
-    width: 100%;
-    pointer-events: none;
-    margin-top: 6px;
-}
-.diff-card--casual  .diff-card__btn { background: rgba(64,160,96,0.12); border-color: var(--green); color: var(--green-bright); }
-.diff-card--standard .diff-card__btn { background: rgba(212,165,52,0.12); border-color: var(--gold-dim); color: var(--gold); }
-.diff-card--heroic  .diff-card__btn { background: rgba(196,64,64,0.12); border-color: var(--red-dim); color: var(--red-bright); }
+.diff-card:hover { filter: brightness(1.15); }
 
-.diff-card--casual:hover  .diff-card__btn { background: var(--green); border-color: var(--green); color: #000; }
-.diff-card--standard:hover .diff-card__btn { background: var(--gold); border-color: var(--gold); color: var(--bg-deep); }
-.diff-card--heroic:hover  .diff-card__btn { background: var(--red); border-color: var(--red); color: #fff; }
+/* ── Card selection animations ── */
+@keyframes diff-door-open {
+    0%   { transform: perspective(900px) rotateY(0deg); opacity: 1; }
+    75%  { transform: perspective(900px) rotateY(-82deg); opacity: 1; }
+    100% { transform: perspective(900px) rotateY(-90deg); opacity: 0; }
+}
+@keyframes diff-exit-left {
+    to { transform: translateX(-60px) scale(0.88); opacity: 0; }
+}
+@keyframes diff-exit-right {
+    to { transform: translateX(60px) scale(0.88); opacity: 0; }
+}
+
+.diff-card--door-open {
+    animation: diff-door-open 0.6s ease-in forwards;
+    transform-origin: left center;
+    pointer-events: none;
+}
+.diff-card--exit-left {
+    animation: diff-exit-left 0.35s ease-in forwards;
+    pointer-events: none;
+}
+.diff-card--exit-right {
+    animation: diff-exit-right 0.35s ease-in forwards;
+    pointer-events: none;
+}
 
 @media (max-width: 768px) {
     #screen-difficulty-select {

@@ -3702,8 +3702,21 @@ const DifficultySelect = {
     },
 
     pick(difficulty) {
-        GS.runDifficulty = difficulty;
-        DungeonPath.show(difficulty);
+        const cards = Array.from(document.querySelectorAll('.diff-card'));
+        const selectedIdx = cards.findIndex(c => c.classList.contains(`diff-card--${difficulty}`));
+        cards.forEach((card, i) => {
+            if (i === selectedIdx) {
+                card.classList.add('diff-card--door-open');
+            } else if (i < selectedIdx) {
+                card.classList.add('diff-card--exit-left');
+            } else {
+                card.classList.add('diff-card--exit-right');
+            }
+        });
+        setTimeout(() => {
+            GS.runDifficulty = difficulty;
+            DungeonPath.show(difficulty);
+        }, 650);
     },
 };
 

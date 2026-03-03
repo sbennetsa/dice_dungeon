@@ -2,7 +2,7 @@
 //  SCREENS — Game, Rewards, Shop, Events, Rest, Inventory
 //  Entry point: exposes all modules on window for onclick handlers
 // ════════════════════════════════════════════════════════════
-import { FACE_MODS, ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, UTILITY_DICE, getAct, getFloorType, getArtifactPool, pickConsumablesForMarket, pickWeightedConsumable } from './constants.js';
+import { FACE_MODS, ARTIFACT_POOL, LEGENDARY_ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, UTILITY_DICE, getAct, getFloorType, getArtifactPool, pickConsumablesForMarket, pickWeightedConsumable } from './constants.js';
 import { GS, $, rand, pick, shuffle, log, gainXP, gainGold, heal } from './state.js';
 import { createDie, createDieFromFaces, createUtilityDie, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones } from './engine.js';
 import { Combat } from './combat.js';
@@ -1592,7 +1592,7 @@ const BattleSummary = {
         choicesEl.innerHTML = '';
 
         // Update section header if multiple picks
-        if (picksRemaining > 1) {
+        if (GS._artifactPickTotal > 1) {
             const header = $('bs-artifact-section')?.querySelector('.bs-section-title');
             if (header) header.textContent = `✨ Choose Artifact (Pick ${GS._artifactPickTotal - picksRemaining + 1} of ${GS._artifactPickTotal})`;
         }

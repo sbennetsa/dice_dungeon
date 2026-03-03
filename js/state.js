@@ -132,7 +132,8 @@ export function gainGold(amount) {
 
 export function heal(amount) {
     const mult   = GS.environment?.healingMultiplier || 1.0;
-    const scaled = Math.floor(amount * mult);
+    let scaled   = Math.floor(amount * mult);
+    if (GS.passives?.lifeWeave) scaled *= 2;
     const actual = Math.min(scaled, GS.maxHp - GS.hp);
     GS.hp += actual;
     return actual;

@@ -20,6 +20,7 @@
 <div id="screen-start" class="screen active">
     <div class="start-screen">
         <h1>Dice Dungeon</h1>
+        <div id="home-rank-display" class="home-rank"></div>
         <div class="subtitle">A Tactical Roguelike</div>
         <div class="flavor">
             Roll your dice. Choose your battles.<br>
@@ -319,6 +320,7 @@
     <div class="gameover-screen">
         <h2 id="go-title">Defeated</h2>
         <div class="final-stats" id="go-stats"></div>
+        <div id="go-unlocks"></div>
         <div id="go-buttons" style="margin-top:20px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
             <button class="btn btn-primary" onclick="Game.start()">Try Again</button>
         </div>

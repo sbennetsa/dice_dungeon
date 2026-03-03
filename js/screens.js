@@ -11,10 +11,52 @@ import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } fr
 import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
 import { scoreFloorDetailed, scorePlayerAdvantage, SHOP_ADVANTAGES, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
 import { RunHistory } from './persistence.js';
+import { Campaign } from './campaign.js';
+
+// ════════════════════════════════════════════════════════════
+//  CAMPAIGN STATE
+// ════════════════════════════════════════════════════════════
+// Achievements unlocked by the most recently completed run.
+// Rendered on the game-over screen then cleared.
+let _pendingUnlocks = [];
 
 // ════════════════════════════════════════════════════════════
 //  HELPERS
 // ════════════════════════════════════════════════════════════
+
+/** Populate #home-rank-display with the player's current campaign rank title. */
+function _refreshHomeRank() {
+    const el = document.getElementById('home-rank-display');
+    if (!el) return;
+    const rank = Campaign.getRank();
+    el.textContent = rank.title;
+}
+
+/** Render any newly unlocked achievements into #go-unlocks on the game-over screen. */
+function _renderUnlockNotification() {
+    const el = document.getElementById('go-unlocks');
+    if (!el) return;
+    if (!_pendingUnlocks.length) {
+        el.innerHTML = '';
+        return;
+    }
+    const newRank = Campaign.getRank();
+    const achHtml = _pendingUnlocks.map(a =>
+        `<div class="unlock-achievement">
+            <span class="unlock-ach-title">${a.title}</span>
+            <span class="unlock-ach-desc">${a.description}</span>
+        </div>`
+    ).join('');
+    el.innerHTML = `
+        <div class="unlock-notification">
+            <div class="unlock-header">The Order Stirs</div>
+            ${achHtml}
+            <div class="unlock-new-rank">Rank: <strong>${newRank.title}</strong></div>
+            <div class="unlock-flavour">${newRank.flavour}</div>
+        </div>`;
+    _pendingUnlocks = [];
+}
+
 // Applies a die upgrade, doubling the effect if mastersHammer is active
 function applyUpgrade(die) {
     upgradeDie(die);
@@ -293,7 +335,7 @@ const Game = {
 
     defeat() {
         if (!GS.challengeMode) {
-            RunHistory.save({
+            const runData = {
                 outcome:      'defeat',
                 difficulty:   GS.runDifficulty,
                 floor:        GS.floor,
@@ -301,7 +343,9 @@ const Game = {
                 enemiesKilled: GS.enemiesKilled,
                 totalGold:    GS.totalGold,
                 seed:         GS.seed,
-            });
+            };
+            RunHistory.save(runData);
+            _pendingUnlocks = Campaign.checkRun(runData);
         }
         const t = $('go-title');
         t.textContent = '💀 Defeated';
@@ -313,11 +357,12 @@ const Game = {
             ['Gold Earned', GS.totalGold],
             ['Seed', DungeonMap.formatSeed(GS.seed)],
         ].map(([k,v]) => `<div class="final-stat-row"><span>${k}</span><span>${v}</span></div>`).join('');
+        _renderUnlockNotification();
         show('screen-gameover');
     },
 
     victory() {
-        RunHistory.save({
+        const runData = {
             outcome:      'victory',
             difficulty:   GS.runDifficulty,
             floor:        15,
@@ -325,7 +370,9 @@ const Game = {
             enemiesKilled: GS.enemiesKilled,
             totalGold:    GS.totalGold,
             seed:         GS.seed,
-        });
+        };
+        RunHistory.save(runData);
+        _pendingUnlocks = Campaign.checkRun(runData);
         const t = $('go-title');
         t.textContent = '🏆 Victory!';
         t.className = 'victory';
@@ -355,6 +402,7 @@ const Game = {
         };
         btns.appendChild(challenge);
 
+        _renderUnlockNotification();
         show('screen-gameover');
     },
 
@@ -488,7 +536,7 @@ const Game = {
                 crush:  { name: 'Crushing Blow', icon: '💥', type: 'attack', desc: 'Deal damage (3 pierce)', penetrate: 3 },
             },
             passives: [
-                { id: 'escalate', name: 'Eternal Wrath', desc: '+1d8 every 3 turns', params: { interval: 3, dieSize: 8 } },
+                { id: 'escalate', name: 'Eternal Wrath', desc: '+1d12 every 2 turns', params: { interval: 2, dieSize: 12 } },
             ],
             pattern: ['strike', 'strike', 'gather', 'crush'],
             phases: null,
@@ -3697,6 +3745,7 @@ const SCHEDULE_NAMES = ['Standard', 'Front-loaded', 'Event-heavy', 'Double shop'
 // ════════════════════════════════════════════════════════════
 const DifficultySelect = {
     show() {
+        // Update last-run bar
         const lastRunEl = $('diff-select-last-run');
         if (lastRunEl) {
             const runs = RunHistory.getAll();
@@ -3717,10 +3766,38 @@ const DifficultySelect = {
                 lastRunEl.innerHTML = '';
             }
         }
+
+        // Apply campaign locks to difficulty cards
+        const LOCK_HINTS = {
+            standard: 'Win a Casual run to unlock',
+            heroic:   'Win a Standard run to unlock',
+        };
+        for (const diff of ['standard', 'heroic']) {
+            const card = document.querySelector(`.diff-card--${diff}`);
+            if (!card) continue;
+            const locked = !Campaign.isDifficultyUnlocked(diff);
+            card.classList.toggle('diff-card--locked', locked);
+            // Inject or remove the lock overlay
+            let overlay = card.querySelector('.diff-card__lock-overlay');
+            if (locked) {
+                if (!overlay) {
+                    overlay = document.createElement('div');
+                    overlay.className = 'diff-card__lock-overlay';
+                    card.prepend(overlay);
+                }
+                overlay.innerHTML = `<span class="lock-icon">🔒</span><span class="lock-hint">${LOCK_HINTS[diff]}</span>`;
+            } else if (overlay) {
+                overlay.remove();
+            }
+        }
+
         show('screen-difficulty-select');
     },
 
     pick(difficulty) {
+        // Block locked difficulties
+        if (!Campaign.isDifficultyUnlocked(difficulty)) return;
+
         const cards = Array.from(document.querySelectorAll('.diff-card'));
         const selectedIdx = cards.findIndex(c => c.classList.contains(`diff-card--${difficulty}`));
         cards.forEach((card, i) => {
@@ -4347,6 +4424,7 @@ const Stats = {
     },
 
     back() {
+        _refreshHomeRank();
         show('screen-start');
     },
 
@@ -4450,3 +4528,7 @@ window.Stats = Stats;
 document.getElementById('screen-combat').addEventListener('contextmenu', e => e.preventDefault());
 
 updateStats();
+_refreshHomeRank();
+
+// Expose Campaign on window for tester console access
+window.Campaign = Campaign;

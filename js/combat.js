@@ -238,6 +238,11 @@ export const Combat = {
         GS.regenStacks = 0;
         GS.rerollsLeft = GS.rerolls;
 
+        if (GS.passives.combatStartHeal) {
+            const h = heal(GS.passives.combatStartHeal);
+            if (h > 0) { log(`❤️ Fortify: +${h} HP`, 'heal'); spawnFloatText(`+${h}`, $('player-hp-bar'), 'heal'); }
+        }
+
         const gildedArtifact = GS.artifacts.find(a => a.effect === 'goldToDmg');
         if (gildedArtifact && GS.gold >= 50) {
             GS.gold -= 50;
@@ -462,6 +467,8 @@ export const Combat = {
 
         // halfDamage (Wing Buffet): halve the intent after computing
         if (ability.halfDamage) e.intentValue = Math.floor(e.intentValue / 2);
+        // maxDamage: cap unblockable abilities (e.g. Void Lord Dark Pulse)
+        if (ability.maxDamage !== undefined) e.intentValue = Math.min(e.intentValue, ability.maxDamage);
     },
 
     _buildIntentText() {
@@ -651,7 +658,8 @@ export const Combat = {
 
             const defRunes = getSlotRunes(d.slotId);
             const defVolley = (!d.dieType && GS.passives.volley && defCount >= 4) ? GS.passives.volley : 0;
-            let dieVal = d.value + (GS.passives.swarmMaster || 0) + (d.dieType ? 0 : defAscendBonus) + defVolley;
+            const bulwarkBonus = (!d.dieType && GS.passives.bulwark && GS.hp >= GS.maxHp * 0.75) ? 2 : 0;
+            let dieVal = d.value + (GS.passives.swarmMaster || 0) + (d.dieType ? 0 : defAscendBonus) + defVolley + bulwarkBonus;
             for (const r of defRunes) {
                 if (r.effect === 'amplifier') dieVal *= 2;
                 if (r.effect === 'titanBlow' && defCount === 1) dieVal *= 3;
@@ -1819,6 +1827,7 @@ export const Combat = {
         // ── PLAYER REGEN ──
         let regenAmt = 0; // regen rune removed; regen from passives only
         if (GS.passives.regen) regenAmt += GS.passives.regen;
+        if (GS.passives.ironVitality) regenAmt += Math.floor(GS.maxHp / 8);
         if (regenAmt > 0) {
             const h = heal(regenAmt);
             if (h > 0) { log(`💚 Regen: +${h} HP`, 'heal'); spawnFloatText(`+${h}`, $('player-hp-bar'), 'heal'); }
@@ -1967,6 +1976,17 @@ export const Combat = {
             GS.parasiteGoldPerCombat += GS.artifacts.filter(a => a.effect === 'parasite').length;
             summary.bonuses.push({ icon: '🦠', text: `Parasite: +1 max HP (${GS.maxHp})` });
             log(`🦠 Parasite: +1 max HP (${GS.maxHp}), gold/combat now +${GS.parasiteGoldPerCombat}`, 'info');
+        }
+
+        // Convalescence: heal 25% of missing HP after each combat
+        if (GS.passives.postCombatRecovery) {
+            const missing = GS.maxHp - GS.hp;
+            const amt = Math.ceil(missing * GS.passives.postCombatRecovery);
+            if (amt > 0) {
+                heal(amt);
+                summary.bonuses.push({ icon: '❤️', text: `+${amt} HP (Convalescence)` });
+                log(`❤️ Convalescence: +${amt} HP`, 'heal');
+            }
         }
 
         const taxGold = GS.artifacts.filter(a => a.effect === 'goldPerKill').reduce((s, a) => s + a.value, 0);

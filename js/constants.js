@@ -144,7 +144,7 @@ export const ENEMIES = {
     // ── ACT 3 ──
     3: [
         {
-            name: 'Demon', hp: 75, dice: [8, 8, 8], gold: [35, 55], xp: [55, 80], image: 'assets/enemies/Demon.webp',
+            name: 'Demon', hp: 90, dice: [12, 12, 12], gold: [35, 55], xp: [55, 80], image: 'assets/enemies/Demon.webp',
             abilities: {
                 strike:   { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 hellfire: { name: 'Hellfire', icon: '🔥', type: 'unblockable', desc: 'Deal unblockable damage' },
@@ -155,7 +155,7 @@ export const ENEMIES = {
             pattern: ['strike', 'hellfire'],
         },
         {
-            name: 'Lich', hp: 65, dice: [8, 8], gold: [40, 60], xp: [60, 85], image: 'assets/enemies/Lich.webp',
+            name: 'Lich', hp: 80, dice: [12, 12], gold: [40, 60], xp: [60, 85], image: 'assets/enemies/Lich.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 decay:  { name: 'Decay', icon: '💀', type: 'decay', desc: 'All your dice permanently lose 1 max value this fight' },
@@ -166,7 +166,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'decay'],
         },
         {
-            name: 'Dragon Whelp', hp: 85, dice: [8, 8, 8, 8], gold: [45, 65], xp: [65, 90], image: 'assets/enemies/Dragon_Whelp.webp',
+            name: 'Dragon Whelp', hp: 110, dice: [12, 12, 12, 12], gold: [45, 65], xp: [65, 90], image: 'assets/enemies/Dragon_Whelp.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 charge: { name: 'Breath Charge', icon: '🔥', type: 'charge', desc: 'Charging... next attack is doubled!' },
@@ -178,7 +178,7 @@ export const ENEMIES = {
             pattern: ['strike', 'charge', 'breath'],
         },
         {
-            name: 'Shadow Assassin', hp: 45, dice: [8, 8, 8], gold: [35, 55], xp: [55, 85], image: 'assets/enemies/Shadow_Assassin.webp',
+            name: 'Shadow Assassin', hp: 70, dice: [12, 12, 12], gold: [35, 55], xp: [55, 85], image: 'assets/enemies/Shadow_Assassin.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '🗡️', type: 'attack', desc: 'Deal damage' },
                 vanish: { name: 'Vanish', icon: '💨', type: 'charge', desc: 'Disappears — immune to damage this turn. Next strike is doubled.', immune: true },
@@ -190,13 +190,13 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'vanish'],
         },
         {
-            name: 'Iron Golem', hp: 100, dice: [6, 6], gold: [50, 70], xp: [70, 95], image: 'assets/enemies/Iron_Golem.webp',
+            name: 'Iron Golem', hp: 130, dice: [10, 10, 10], gold: [50, 70], xp: [70, 95], image: 'assets/enemies/Iron_Golem.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
             passives: [
                 { id: 'armor', name: 'Iron Armor', desc: 'Reduces ALL incoming damage by 5 (including poison)', params: { reduction: 5 } },
-                { id: 'escalate', name: 'Escalate', desc: 'Gains +1d6 every 3 turns', params: { interval: 3, dieSize: 6 } },
+                { id: 'escalate', name: 'Escalate', desc: 'Gains +1d8 every 3 turns', params: { interval: 3, dieSize: 8 } },
                 { id: 'overcharge', name: 'Overcharge', desc: 'If hit for 25+ in one turn, stunned next turn', params: { threshold: 25 } },
             ],
             pattern: ['strike'],
@@ -220,7 +220,7 @@ export const BOSSES = {
         phases: null,
     },
     10: {
-        name: 'Crimson Wyrm', hp: 250, dice: [8, 8, 8, 8], gold: 150, xp: 80, image: 'assets/enemies/Crimson_Dragon.webp',
+        name: 'Crimson Wyrm', hp: 300, dice: [10, 10, 10, 10], gold: 150, xp: 80, image: 'assets/enemies/Crimson_Dragon.webp',
         abilities: {
             strike:  { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             breath:  { name: 'Fire Breath', icon: '🔥', type: 'attack', desc: 'Deal damage + apply burn', applyBurn: 3 },
@@ -232,7 +232,7 @@ export const BOSSES = {
             {
                 trigger: { hpPercent: 0.5 },
                 changes: {
-                    addDice: [8, 8],
+                    addDice: [10, 10],
                     addPassives: [{ id: 'burnOnPhase', name: 'Inferno', desc: 'All attacks apply 2 burn', params: { burn: 2 } }],
                     log: 'The Crimson Wyrm roars with fury! Flames engulf its body!',
                 },
@@ -244,7 +244,7 @@ export const BOSSES = {
         abilities: {
             strike:    { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             voidRift:  { name: 'Void Rift', icon: '🌀', type: 'curse', desc: 'Seal 2 random slots for 1 turn', slotsToSeal: 2, fixedDuration: 1 },
-            darkPulse: { name: 'Dark Pulse', icon: '💜', type: 'unblockable', desc: 'Deal unblockable damage' },
+            darkPulse: { name: 'Dark Pulse', icon: '💜', type: 'unblockable', desc: 'Deal unblockable damage (max 22)', maxDamage: 22 },
         },
         passives: [],
         pattern: ['strike', 'voidRift', 'darkPulse'],
@@ -451,6 +451,13 @@ export const SKILL_TREE = [
     { id: 'v_c', name: 'Gambler',      icon: '🧪', desc: '+1 Reroll, rerolls deal 2 dmg',   requires: ['root'], effect: (gs) => { gs.rerolls++; gs.passives.rerollDmg = (gs.passives.rerollDmg || 0) + 2; } },
     { id: 'v_d', name: 'Regeneration', icon: '🧪', desc: 'Heal 3 HP at start of each turn', requires: ['root'], effect: (gs) => { gs.passives.regen = (gs.passives.regen || 0) + 3; } },
     { id: 'v_n', name: 'Plague Lord',  icon: '👑', desc: 'Poison ×2, +2 poison/turn',       requires: ['v_a', 'v_b', 'v_c', 'v_d'], effect: (gs) => { gs.passives.plagueLord = true; } },
+
+    // ── HEART FACE ❤️ — sustain ──
+    { id: 'h_a', name: 'Fortify',       icon: '❤️', desc: '+15 Max HP; heal 8 HP at the start of each combat',          requires: ['root'], effect: (gs) => { gs.maxHp += 15; gs.hp = Math.min(gs.hp + 15, gs.maxHp); gs.passives.combatStartHeal = (gs.passives.combatStartHeal || 0) + 8; } },
+    { id: 'h_b', name: 'Convalescence', icon: '❤️', desc: 'After each combat, heal 25% of missing HP',                   requires: ['root'], effect: (gs) => { gs.passives.postCombatRecovery = (gs.passives.postCombatRecovery || 0) + 0.25; } },
+    { id: 'h_c', name: 'Iron Vitality', icon: '❤️', desc: '+1 regen/turn per 8 Max HP (scales with HP investment)',     requires: ['root'], effect: (gs) => { gs.passives.ironVitality = true; } },
+    { id: 'h_d', name: 'Bulwark',       icon: '❤️', desc: 'While above 75% HP, guard dice each count +2 to their value', requires: ['root'], effect: (gs) => { gs.passives.bulwark = true; } },
+    { id: 'h_n', name: 'Life Weave',    icon: '👑', desc: 'All healing is doubled',                                      requires: ['h_a', 'h_b', 'h_c', 'h_d'], effect: (gs) => { gs.passives.lifeWeave = true; } },
 ];
 
 // ════════════════════════════════════════════════════════════

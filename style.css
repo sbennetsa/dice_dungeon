@@ -2535,6 +2535,113 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     .diff-card__body { padding: 16px; }
 }
 
+/* ── Campaign: Locked difficulty card ── */
+.diff-card--locked {
+    opacity: 0.45;
+    filter: grayscale(0.7);
+    pointer-events: none;
+    position: relative;
+    cursor: default;
+}
+
+.diff-card__lock-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 2;
+    border-radius: 10px;
+}
+
+.lock-icon {
+    font-size: 2em;
+    line-height: 1;
+}
+
+.lock-hint {
+    font-family: 'EB Garamond', serif;
+    font-size: 0.85em;
+    color: var(--text-dim);
+    text-align: center;
+    padding: 0 16px;
+    font-style: italic;
+}
+
+/* ── Campaign: Home screen rank display ── */
+.home-rank {
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 0.95em;
+    color: var(--gold-dim);
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+    min-height: 1.2em;
+}
+
+/* ── Campaign: Post-run unlock notification ── */
+.unlock-notification {
+    margin: 18px auto 0;
+    padding: 16px 20px;
+    max-width: 480px;
+    border: 1px solid rgba(212, 165, 52, 0.35);
+    border-radius: 8px;
+    background: rgba(212, 165, 52, 0.06);
+    text-align: center;
+}
+
+.unlock-header {
+    font-family: 'Uncial Antiqua', serif;
+    font-size: 0.85em;
+    color: var(--gold-dim);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+}
+
+.unlock-achievement {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 10px;
+}
+
+.unlock-ach-title {
+    font-family: 'EB Garamond', serif;
+    font-size: 1.05em;
+    font-weight: 700;
+    color: var(--gold);
+}
+
+.unlock-ach-desc {
+    font-family: 'EB Garamond', serif;
+    font-size: 0.88em;
+    color: var(--text-dim);
+    font-style: italic;
+}
+
+.unlock-new-rank {
+    margin-top: 10px;
+    font-family: 'EB Garamond', serif;
+    font-size: 0.95em;
+    color: var(--text);
+}
+
+.unlock-new-rank strong {
+    color: var(--gold);
+}
+
+.unlock-flavour {
+    margin-top: 4px;
+    font-family: 'EB Garamond', serif;
+    font-size: 0.82em;
+    color: var(--text-dim);
+    font-style: italic;
+}
+
 /* ── Run Settings Panel ── */
 .run-settings-toggle {
     width: 100%;

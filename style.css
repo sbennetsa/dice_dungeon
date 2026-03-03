@@ -454,6 +454,8 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 
 .die:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
 .die.dragging { opacity: 0.4; cursor: grabbing; }
+.die.die--sm { font-size: 1.1em; }
+.die.die--xs { font-size: 0.85em; }
 
 .die .die-label {
     position: absolute;

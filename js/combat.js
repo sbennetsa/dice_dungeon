@@ -634,7 +634,8 @@ export const Combat = {
         GS.allocated.guard.forEach(d => {
             if (d.dieType) return;
             const runes = getSlotRunes(d.slotId);
-            let val = d.value;
+            const defBaseVolley = (GS.passives.volley && defCount >= 4) ? GS.passives.volley : 0;
+            let val = d.value + (GS.passives.swarmMaster || 0) + defAscendBonus + defBaseVolley;
             for (const r of runes) {
                 if (r.effect === 'amplifier') val *= 2;
                 else if (r.effect === 'titanBlow' && defNonUtilCount === 1) val *= 3;
@@ -850,7 +851,8 @@ export const Combat = {
         GS.allocated.strike.forEach(d => {
             if (d.dieType) return;
             const runes = getSlotRunes(d.slotId);
-            let val = d.value;
+            const atkBaseVolley = (GS.passives.volley && atkCount >= 4) ? GS.passives.volley : 0;
+            let val = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0) + atkAscendBonus + atkBaseVolley + (splinterBonus[d.id] || 0);
             for (const r of runes) {
                 if (r.effect === 'amplifier') val *= 2;
                 else if (r.effect === 'titanBlow' && atkNonUtilCount === 1) val *= 3;

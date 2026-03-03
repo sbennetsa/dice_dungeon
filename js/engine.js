@@ -569,8 +569,11 @@ export function makeDieElement(die, context) {
     }
 
     const isAmpDie = die.dieType === 'amplifier';
-    const rangeLabel = isAmpDie ? `×${die.min / 100}-×${die.max / 100}` : `${die.min}-${die.max}`;
-    let valueDisplay = die.rolled ? (face ? `<span title="${face.modifier.name}: ${face.modifier.desc}">${face.modifier.icon}</span>` : (isAmpDie ? `×${die.value / 100}` : die.value)) : '?';
+    const isPctDie = die.dieType === 'gold' || die.dieType === 'poison';
+    const rangeLabel = isAmpDie ? `×${die.min / 100}-×${die.max / 100}`
+        : isPctDie ? `${die.min}%-${die.max}%`
+        : `${die.min}-${die.max}`;
+    let valueDisplay = die.rolled ? (face ? `<span title="${face.modifier.name}: ${face.modifier.desc}">${face.modifier.icon}</span>` : (isAmpDie ? `×${die.value / 100}` : isPctDie ? `${die.value}%` : die.value)) : '?';
 
     // Per-die bonuses: ascend aura + volley (skip utility dice)
     let ascendBonus = 0, volleyBonus = 0;
@@ -602,6 +605,10 @@ export function makeDieElement(die, context) {
         const titles = die.faceMods.map(m => `${m.mod.name}: ${m.mod.desc}`).join(' | ');
         faceIcon = `<span class="die-face-icon" style="opacity:${die.rolled ? '0.4' : '1'}" title="${titles}">${icons}</span>`;
     }
+
+    const rawDisplayLen = String(valueDisplay).replace(/<[^>]*>/g, '').length;
+    if (rawDisplayLen >= 4) el.classList.add('die--xs');
+    else if (rawDisplayLen >= 3) el.classList.add('die--sm');
 
     el.innerHTML = `<span class="die-label">${rangeLabel}</span>${valueDisplay}${faceIcon}${badges}`;
     el.oncontextmenu = e => e.preventDefault();
@@ -801,15 +808,19 @@ export function allocateDie(die, slot) {
     renderCombatDice();
 }
 
-function calcUtilityPreviews(allocated) {
+function calcUtilityPreviews(allocated, isStrike = false) {
     let ampMul = 0;
     allocated.forEach(d => { if (d.dieType === 'amplifier') ampMul = Math.max(ampMul, d.value / 100); });
     const nonUtilCount = allocated.filter(d => !d.dieType).length;
+    const ascendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
+    const volley = (GS.passives.volley && allocated.length >= 4) ? GS.passives.volley : 0;
+    const packTactics = isStrike ? (GS.passives.packTactics || 0) : 0;
+    const swarmMaster = GS.passives.swarmMaster || 0;
     let zoneBase = 0;
     allocated.forEach(d => {
         if (d.dieType) return;
         const runes = getSlotRunes(d.slotId);
-        let val = d.value;
+        let val = d.value + packTactics + swarmMaster + ascendBonus + volley;
         let runeMul = 1;
         for (const r of runes) {
             if (r.effect === 'amplifier') runeMul *= 2;
@@ -953,7 +964,7 @@ export function updateSlotTotals() {
 
     $('attack-total').textContent = finalAtk;
     $('attack-total').title = atkTipLines.join('\n');
-    const { gold: atkGold, poison: atkPoison, chill: atkChill, burn: atkBurn, mark: atkMark } = calcUtilityPreviews(GS.allocated.strike);
+    const { gold: atkGold, poison: atkPoison, chill: atkChill, burn: atkBurn, mark: atkMark } = calcUtilityPreviews(GS.allocated.strike, true);
     $('attack-gold').textContent   = atkGold   > 0 ? `💰${atkGold}g`  : '';
     $('attack-poison').textContent = atkPoison > 0 ? `☠️${atkPoison}p` : '';
     $('attack-chill').textContent  = atkChill  > 0 ? `❄️${atkChill}`   : '';

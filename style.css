@@ -2430,6 +2430,11 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     border-radius: 10px 10px 0 0;
     display: block;
     pointer-events: none;
+    background-color: var(--bg-deep);
+}
+
+.diff-card--casual .diff-card__img {
+    mix-blend-mode: multiply;
 }
 
 .diff-card__name {

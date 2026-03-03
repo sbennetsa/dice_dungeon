@@ -694,16 +694,14 @@ export const Combat = {
             if (d.dieType) return; // unknown utility die: contribute 0
 
             if (m) {
-                if (m.effect === 'shieldBash') { mirrorDmg += dieVal; defBase += dieVal; }
-                else if (m.effect === 'executioner') { defBase += dieVal * 5; }
-                else if (m.effect === 'chainLightning') { defBase += dieVal * 2; }
-                else if (m.effect === 'freezeStrike') { applyStatus('freeze', 1); defBase += dieVal; }
-                else if (m.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); defBase += dieVal; }
-                else if (m.effect === 'critical') { defBase += dieVal; crossSlotBonusAtk += dieVal; }
-                else { defBase += dieVal; }
-            } else {
-                defBase += dieVal;
+                if (m.effect === 'executioner') dieVal *= 5;
+                if (m.effect === 'shieldBash') mirrorDmg += dieVal;
+                if (m.effect === 'chainLightning') dieVal *= 2;
+                if (m.effect === 'freezeStrike') applyStatus('freeze', 1);
+                if (m.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
+                if (m.effect === 'critical') crossSlotBonusAtk += dieVal;
             }
+            defBase += dieVal;
             if (defRune?.effect === 'regenCore') regenCoreHeal += Math.ceil(dieVal * 0.5);
             if (defRune?.effect === 'mirror') mirrorDmg += dieVal;
             if (defRune?.effect === 'steadfast') steadfastContrib += dieVal;
@@ -930,19 +928,16 @@ export const Combat = {
             }
             if (d.dieType) return; // unknown utility die: contribute 0
 
+            if (m) {
+                if (m.effect === 'executioner') dieVal *= 5;
+                if (m.effect === 'chainLightning') dieVal *= 2;
+                if (m.effect === 'freezeStrike') applyStatus('freeze', 1);
+                if (m.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
+                if (m.effect === 'critical') crossSlotBonusDef += dieVal;
+            }
             if (atkRune?.effect === 'siphon') siphonHealing += dieVal;
             if (atkRune?.effect === 'poisonCore') applyEnemyPoison(dieVal);
-
-            if (m) {
-                if (m.effect === 'executioner') { atkBase += dieVal * 5; }
-                else if (m.effect === 'chainLightning') { atkBase += dieVal * 2; }
-                else if (m.effect === 'freezeStrike') { applyStatus('freeze', 1); atkBase += dieVal; }
-                else if (m.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); atkBase += dieVal; }
-                else if (m.effect === 'critical') { atkBase += dieVal; crossSlotBonusDef += dieVal; }
-                else { atkBase += dieVal; }
-            } else {
-                atkBase += dieVal;
-            }
+            atkBase += dieVal;
         });
 
         // Apply cross-slot bonuses from critical face mods

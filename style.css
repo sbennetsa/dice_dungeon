@@ -2395,10 +2395,8 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 .diff-card {
     flex: 1 1 220px;
     max-width: 260px;
-    min-height: 420px;
     display: flex;
     flex-direction: column;
-    justify-content: flex-end;
     padding: 0;
     border-radius: 12px;
     border: 2px solid var(--border);
@@ -2406,7 +2404,6 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
     text-align: center;
-    position: relative;
     overflow: hidden;
 }
 
@@ -2425,31 +2422,27 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
 .diff-card__icon { font-size: 2.4em; line-height: 1; }
 
 .diff-card__img {
-    position: absolute;
-    inset: 0;
     width: 100%;
-    height: 100%;
+    height: 200px;
     object-fit: cover;
     object-position: center top;
     display: block;
     pointer-events: none;
-    background-color: var(--bg-deep);
+    flex-shrink: 0;
 }
 
-.diff-card--casual .diff-card__img {
-    mix-blend-mode: multiply;
-}
+.diff-card--casual  .diff-card__img { background-color: #0d2010; border-bottom: 2px solid var(--green); }
+.diff-card--standard .diff-card__img { background-color: #1a1500; border-bottom: 2px solid var(--gold-dim); }
+.diff-card--heroic  .diff-card__img { background-color: #1a0808; border-bottom: 2px solid var(--red-dim); }
 
 .diff-card__body {
-    position: relative;
-    z-index: 1;
     width: 100%;
     padding: 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 10px;
-    background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.92) 20%);
+    flex: 1;
 }
 
 .diff-card__name {
@@ -2519,7 +2512,8 @@ h1, h2, h3 { font-family: 'Uncial Antiqua', cursive; letter-spacing: 0.02em; }
     .diff-select-wrapper { padding: 20px 12px; }
     .diff-select-title { font-size: 1.4em; }
     .diff-card-row { flex-direction: column; align-items: center; gap: 12px; }
-    .diff-card { max-width: 100%; width: 100%; min-height: 320px; }
+    .diff-card { max-width: 100%; width: 100%; }
+    .diff-card__img { height: 160px; }
     .diff-card__body { padding: 16px; }
 }
 

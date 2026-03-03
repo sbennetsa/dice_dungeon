@@ -1141,7 +1141,6 @@ const Rewards = {
             });
 
             slotsDiv.innerHTML = '';
-            const anySlotHasMod = slots.some(s => s.mod !== null);
             slots.forEach((slot, si) => {
                 const el = document.createElement('div');
                 const has = slot.mod !== null;
@@ -1154,7 +1153,7 @@ const Rewards = {
                 el.style.cssText = `width:68px; height:72px; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; border:2px solid ${has ? 'var(--gold)' : 'rgba(255,255,255,0.12)'}; background:${has ? 'rgba(212,165,52,0.08)' : 'rgba(0,0,0,0.3)'}; transition:all 0.15s;`;
                 el.innerHTML = content;
                 el.onclick = () => {
-                    if (selectedSrc !== null && slot.mod === null && !anySlotHasMod) {
+                    if (selectedSrc !== null && slot.mod === null) {
                         const src = sourcePool.find(s => s.id === selectedSrc);
                         if (src) { slot.mod = { ...src.mod }; src.assigned = si; selectedSrc = null; }
                     } else if (slot.mod !== null && selectedSrc === null) {

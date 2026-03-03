@@ -365,6 +365,7 @@ const Game = {
 
         rewards.push({ title: '⭐ Skill Point', desc: 'Unlock a passive on the skill die', action: () => {
             GS.challengePrep--;
+            GS.pendingSkillPoints = (GS.pendingSkillPoints || 0) + 1;
             Rewards.slotChoice(() => {
                 if (GS.challengePrep > 0) Game.showChallengePrep();
                 else Game.launchChallengeBoss();
@@ -519,7 +520,7 @@ const Game = {
 
         // Reset dice and combat allocations
         GS.dice.forEach(d => { d.rolled = false; d.value = 0; d.rolledFaceIndex = -1; d.location = 'pool'; delete d.slotId; });
-        GS.allocated = { attack: [], defend: [] };
+        GS.allocated = { strike: [], guard: [] };
         GS.rolled = false;
         GS.rerollsLeft = GS.rerolls;
         GS.autoLifesteal = 0;

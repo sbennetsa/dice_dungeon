@@ -575,8 +575,8 @@ export function makeDieElement(die, context) {
         : `${die.min}-${die.max}`;
     let valueDisplay = die.rolled ? (face ? `<span title="${face.modifier.name}: ${face.modifier.desc}">${face.modifier.icon}</span>` : (isAmpDie ? `×${die.value / 100}` : isPctDie ? `${die.value}%` : die.value)) : '?';
 
-    // Per-die bonuses: ascend aura + volley (skip utility dice)
-    let ascendBonus = 0, volleyBonus = 0;
+    // Per-die bonuses: ascend aura + volley + packTactics + swarmMaster (skip utility dice)
+    let ascendBonus = 0, volleyBonus = 0, ptBonus = 0, swBonus = 0;
     if (die.rolled && !die.dieType) {
         if (GS.ascendedDice && GS.ascendedDice.length > 0)
             ascendBonus = GS.ascendedDice.reduce((s, a) => s + a.bonus, 0);
@@ -584,8 +584,11 @@ export function makeDieElement(die, context) {
             const zone = die.slotId.startsWith('str') ? GS.allocated.strike : GS.allocated.guard;
             if (zone.length >= 4) volleyBonus = GS.passives.volley;
         }
+        ptBonus = GS.passives.packTactics || 0;
+        swBonus = GS.passives.swarmMaster || 0;
     }
-    const totalBonus = ascendBonus + volleyBonus;
+    const passiveBonus = ptBonus + swBonus;
+    const totalBonus = ascendBonus + volleyBonus + passiveBonus;
     let badges = '';
     if (totalBonus > 0 && !face) {
         valueDisplay = die.value + totalBonus;
@@ -597,6 +600,9 @@ export function makeDieElement(die, context) {
     if (volleyBonus > 0) {
         badges += `<span class="die-volley-badge">+${volleyBonus}</span>`;
         el.classList.add('volley-boosted');
+    }
+    if (passiveBonus > 0) {
+        badges += `<span class="die-passive-badge">+${passiveBonus}</span>`;
     }
 
     let faceIcon = '';

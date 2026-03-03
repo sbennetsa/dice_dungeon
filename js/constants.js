@@ -147,7 +147,7 @@ export const ENEMIES = {
             name: 'Demon', hp: 90, dice: [12, 12, 12], gold: [35, 55], xp: [55, 80], image: 'assets/enemies/Demon.webp',
             abilities: {
                 strike:   { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
-                hellfire: { name: 'Hellfire', icon: '🔥', type: 'unblockable', desc: 'Deal unblockable damage' },
+                hellfire: { name: 'Hellfire', icon: '🔥', type: 'unblockable', desc: 'Deal unblockable damage (max 20)', maxDamage: 20 },
             },
             passives: [
                 { id: 'soulPact', name: 'Soul Pact', desc: 'Overkill damage reflects back to player', params: {} },
@@ -185,7 +185,6 @@ export const ENEMIES = {
             },
             passives: [
                 { id: 'evasion', name: 'Evasion', desc: 'One random attack die is ignored each turn', params: {} },
-                { id: 'expose', name: 'Expose', desc: 'Gains +1d6 per slot in the player\'s strike zone', params: { dieSize: 6 } },
             ],
             pattern: ['strike', 'strike', 'vanish'],
         },

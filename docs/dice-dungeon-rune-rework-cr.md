@@ -45,7 +45,7 @@ Face mods go on ONE face of a die. They only trigger when that specific face is 
 
 | Face Mod | Effect on trigger |
 |----------|-------------------|
-| Executioner | ×5 the rolled face value |
+| Executioner | Permanently ×5 a face's value (no mod slot used) |
 | Freeze Strike | Freeze enemy (skip next attack) |
 | Jackpot | Gain 50 gold |
 | Vampiric Strike | ×3 value + heal full amount |

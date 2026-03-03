@@ -288,7 +288,7 @@ export function pickEnemy(floor) {
 // ════════════════════════════════════════════════════════════
 export const FACE_MODS = [
     // ── SPIKE TIER (high power, triggers ~1/N times) ──
-    { name: 'Executioner',     icon: '⚔️', desc: 'This face: ×5 the rolled face value',                                  effect: 'executioner',   color: '#d03030' },
+    { name: 'Executioner',     icon: '⚔️', desc: 'Permanently ×5 a face\'s value (does not use the mod slot)',          effect: 'executioner',   color: '#d03030', transform: 5 },
     { name: 'Freeze Strike',   icon: '🧊', desc: 'This face: freeze enemy (they skip their next attack)',                effect: 'freezeStrike',  color: '#60c0e0' },
     { name: 'Jackpot',         icon: '💰', desc: 'This face: gain 50 gold',                                              effect: 'jackpot',       color: '#d4a534' },
     { name: 'Chain Lightning', icon: '⚡', desc: 'This face: the rolled face value is applied twice (×2)',                effect: 'chainLightning',color: '#8080e0' },

@@ -694,7 +694,6 @@ export const Combat = {
             if (d.dieType) return; // unknown utility die: contribute 0
 
             if (m) {
-                if (m.effect === 'executioner') dieVal *= 5;
                 if (m.effect === 'shieldBash') mirrorDmg += dieVal;
                 if (m.effect === 'chainLightning') dieVal *= 2;
                 if (m.effect === 'freezeStrike') applyStatus('freeze', 1);
@@ -929,7 +928,6 @@ export const Combat = {
             if (d.dieType) return; // unknown utility die: contribute 0
 
             if (m) {
-                if (m.effect === 'executioner') dieVal *= 5;
                 if (m.effect === 'chainLightning') dieVal *= 2;
                 if (m.effect === 'freezeStrike') applyStatus('freeze', 1);
                 if (m.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }

@@ -2040,21 +2040,37 @@ const Shop = {
             const existingEntry = die.faceMods.find(m => m.faceIndex === fIdx);
             const card = document.createElement('div');
             card.className = 'card';
-            const faceHtml = renderFaceStrip(die, { highlightVal: v, showArrow: true, arrowMod: mod });
-            card.innerHTML = `
-                <div class="card-title" style="display:flex; align-items:center; gap:8px; justify-content:center;">
-                    <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">${v}</span>
-                    ${existingEntry ? `<span style="font-size:0.8em;">${existingEntry.mod.icon} ${existingEntry.mod.name}</span>` : '<span style="font-size:0.8em; opacity:0.4;">Empty</span>'}
-                    <span style="color:var(--green-bright);">→ ${mod.icon} ${mod.name}</span>
-                </div>
-            `;
-            card.onclick = () => {
-                const eIdx = die.faceMods.findIndex(m => m.faceIndex === fIdx);
-                if (eIdx >= 0) die.faceMods[eIdx] = { faceIndex: fIdx, mod };
-                else die.faceMods.push({ faceIndex: fIdx, mod });
-                log(`Applied ${mod.name} to face ${v}!`, 'info');
-                updateStats(); Shop.render();
-            };
+            if (mod.transform) {
+                const newVal = v * mod.transform;
+                card.innerHTML = `
+                    <div class="card-title" style="display:flex; align-items:center; gap:8px; justify-content:center;">
+                        <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">${v}</span>
+                        <span style="color:var(--green-bright);">→ ${newVal}</span>
+                    </div>`;
+                card.onclick = () => {
+                    die.faceValues[fIdx] = newVal;
+                    die.min = Math.min(...die.faceValues);
+                    die.max = Math.max(...die.faceValues);
+                    log(`${mod.icon} ${mod.name}: face ${v} → ${newVal}!`, 'info');
+                    updateStats(); Shop.render();
+                };
+            } else {
+                const faceHtml = renderFaceStrip(die, { highlightVal: v, showArrow: true, arrowMod: mod });
+                card.innerHTML = `
+                    <div class="card-title" style="display:flex; align-items:center; gap:8px; justify-content:center;">
+                        <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">${v}</span>
+                        ${existingEntry ? `<span style="font-size:0.8em;">${existingEntry.mod.icon} ${existingEntry.mod.name}</span>` : '<span style="font-size:0.8em; opacity:0.4;">Empty</span>'}
+                        <span style="color:var(--green-bright);">→ ${mod.icon} ${mod.name}</span>
+                    </div>
+                `;
+                card.onclick = () => {
+                    const eIdx = die.faceMods.findIndex(m => m.faceIndex === fIdx);
+                    if (eIdx >= 0) die.faceMods[eIdx] = { faceIndex: fIdx, mod };
+                    else die.faceMods.push({ faceIndex: fIdx, mod });
+                    log(`Applied ${mod.name} to face ${v}!`, 'info');
+                    updateStats(); Shop.render();
+                };
+            }
             c.appendChild(card);
         });
 
@@ -2324,19 +2340,35 @@ const Events = {
             const existingEntry = die.faceMods.find(m => m.faceIndex === fIdx);
             const card = document.createElement('div');
             card.className = 'card';
-            card.innerHTML = `
-                <div class="card-title" style="display:flex; align-items:center; gap:8px; justify-content:center;">
-                    <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">${v}</span>
-                    ${existingEntry ? `<span style="font-size:0.85em;">${existingEntry.mod.icon} ${existingEntry.mod.name}</span>` : '<span style="font-size:0.85em; opacity:0.4;">Empty</span>'}
-                    <span style="color:var(--green-bright);">→ ${mod.icon} ${mod.name}</span>
-                </div>`;
-            card.onclick = () => {
-                const eIdx = die.faceMods.findIndex(m => m.faceIndex === fIdx);
-                if (eIdx >= 0) die.faceMods[eIdx] = { faceIndex: fIdx, mod };
-                else die.faceMods.push({ faceIndex: fIdx, mod });
-                log(`Applied ${mod.name} to face ${v}!`, 'info');
-                cb();
-            };
+            if (mod.transform) {
+                const newVal = v * mod.transform;
+                card.innerHTML = `
+                    <div class="card-title" style="display:flex; align-items:center; gap:8px; justify-content:center;">
+                        <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">${v}</span>
+                        <span style="color:var(--green-bright);">→ ${newVal}</span>
+                    </div>`;
+                card.onclick = () => {
+                    die.faceValues[fIdx] = newVal;
+                    die.min = Math.min(...die.faceValues);
+                    die.max = Math.max(...die.faceValues);
+                    log(`${mod.icon} ${mod.name}: face ${v} → ${newVal}!`, 'info');
+                    cb();
+                };
+            } else {
+                card.innerHTML = `
+                    <div class="card-title" style="display:flex; align-items:center; gap:8px; justify-content:center;">
+                        <span style="font-size:1.3em; font-family:JetBrains Mono,monospace;">${v}</span>
+                        ${existingEntry ? `<span style="font-size:0.85em;">${existingEntry.mod.icon} ${existingEntry.mod.name}</span>` : '<span style="font-size:0.85em; opacity:0.4;">Empty</span>'}
+                        <span style="color:var(--green-bright);">→ ${mod.icon} ${mod.name}</span>
+                    </div>`;
+                card.onclick = () => {
+                    const eIdx = die.faceMods.findIndex(m => m.faceIndex === fIdx);
+                    if (eIdx >= 0) die.faceMods[eIdx] = { faceIndex: fIdx, mod };
+                    else die.faceMods.push({ faceIndex: fIdx, mod });
+                    log(`Applied ${mod.name} to face ${v}!`, 'info');
+                    cb();
+                };
+            }
             grid.appendChild(card);
         });
         panel.appendChild(grid);

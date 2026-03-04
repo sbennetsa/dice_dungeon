@@ -5,7 +5,7 @@
 //  across difficulty modes and elite modifier pairings.
 //
 //  Fields:
-//    baseThreat       — standalone threat (no environment, no elite)
+//    baseThreat       — computed from the threat formula (see computeBaseThreat)
 //    eliteAffinities  — per-modifier threat delta for this enemy.
 //                       Replaces the flat ELITE_THREATS lookup.
 //                       Positive = modifier makes this enemy harder.
@@ -16,6 +16,233 @@
 // ════════════════════════════════════════════════════════════
 
 // ────────────────────────────────────────────────────────────
+//  Base Threat Formula
+//  baseThreat = (durability × offense) / K + disruption
+//
+//  durability = baseHP × armorMult × evasionMult × (1 + sustainFactor)
+//  offense    = avgDPS × patternMult + bypassDamage
+//  disruption = additive score for sealing/decay/DoTs/etc.
+//
+//  K adapts to the stat magnitude to normalize across the wide range
+//  of enemy stats (14 HP goblin to 450 HP boss). Mathematically:
+//  K = (dur×off)^(1−P) / C, which is equivalent to:
+//  baseThreat = (dur×off)^P × C + disruption
+//  where P = 0.55 and C = 1.0 (regular) or 1.35 (boss).
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Compute baseThreat from an enemy's stats using the threat formula.
+ * @param {object} enemy - Enemy template from ENEMIES or BOSSES
+ * @param {boolean} [isBoss=false] - Boss fights are longer, compounding mechanics matter more
+ * @returns {{ baseThreat: number, components: object }} Rounded threat + breakdown
+ */
+export function computeBaseThreat(enemy, isBoss = false) {
+    const passives = enemy.passives || [];
+    const abilities = enemy.abilities || {};
+    const pattern = enemy.pattern || ['strike'];
+    const dice = enemy.dice || [];
+
+    // ── DURABILITY ──────────────────────────────────────
+    const baseHP = enemy.hp;
+    let armorMult = 1.0;
+    let evasionMult = 1.0;
+    let sustainFactor = 0;
+
+    for (const p of passives) {
+        switch (p.id) {
+            case 'thickHide':
+                armorMult += 0.5;
+                break;
+            case 'armor':
+                armorMult += 0.05 * (p.params.reduction || 5);
+                break;
+            case 'scales':
+                armorMult += 0.04 * (p.params.perSlot || 8);
+                break;
+            case 'brittle':
+                armorMult -= 0.25;
+                break;
+            case 'regen':
+                sustainFactor += (p.params.amount || 3) * 0.05;
+                break;
+            case 'lifesteal':
+                sustainFactor += (p.params.percent || 0.5) * 0.5;
+                break;
+            case 'evasion':
+                evasionMult += 0.25;
+                break;
+            case 'phylactery':
+                sustainFactor += (p.params.revivePercent || 0.4);
+                break;
+            case 'mitosis':
+                sustainFactor += 0.4;
+                break;
+            case 'bloodFrenzy':
+                sustainFactor += 0.1;
+                break;
+            case 'greedTax':
+                sustainFactor += 0.1;
+                break;
+            // soulPact, escalate, overcharge handled elsewhere
+        }
+    }
+
+    // Ability-based sustain
+    for (const [key, ab] of Object.entries(abilities)) {
+        const freq = pattern.filter(p => p === key).length / pattern.length;
+        if (ab.type === 'heal') sustainFactor += freq * 0.4;
+        if (ab.type === 'shield') sustainFactor += freq * 0.3;
+        // Summon snowball: longer fight + growing dice pool
+        if (ab.type === 'summon_die') sustainFactor += freq * 0.8;
+        // Vanish/immune turns: enemy can't be hit = effective HP multiplier
+        if (ab.type === 'charge' && ab.immune) evasionMult += freq * 0.5;
+    }
+
+    // Boss phases that add dice or enable double action
+    if (enemy.phases) {
+        for (const phase of enemy.phases) {
+            if (phase.changes.addDice) sustainFactor += 0.1 * phase.changes.addDice.length;
+            if (phase.changes.doubleAction) sustainFactor += 0.15;
+        }
+    }
+
+    const durability = baseHP * Math.max(0.5, armorMult) * evasionMult * (1 + sustainFactor);
+
+    // ── OFFENSE ─────────────────────────────────────────
+    const avgDieSum = dice.reduce((s, d) => s + (d + 1) / 2, 0);
+
+    // Pattern multiplier: fraction of turns that deal damage
+    const damageTypes = ['attack', 'poison', 'unblockable'];
+    const damageKeys = Object.entries(abilities)
+        .filter(([_, ab]) => damageTypes.includes(ab.type))
+        .map(([k]) => k);
+    let patternMult = pattern.filter(p => damageKeys.includes(p)).length / pattern.length;
+
+    // Buff abilities (war cry) store damage for spike turns
+    const buffKeys = Object.entries(abilities)
+        .filter(([_, ab]) => ab.type === 'buff')
+        .map(([k]) => k);
+    if (buffKeys.length) {
+        patternMult += 0.15 * (pattern.filter(p => buffKeys.includes(p)).length / pattern.length);
+    }
+
+    // Charge cycles (non-immune): doubled attack next turn, small burst bonus
+    const chargeKeys = Object.entries(abilities)
+        .filter(([_, ab]) => ab.type === 'charge' && !ab.immune)
+        .map(([k]) => k);
+    if (chargeKeys.length) {
+        patternMult += 0.05 * (pattern.filter(p => chargeKeys.includes(p)).length / pattern.length);
+    }
+
+    // Multi-hit bonus: each die hits separately, harder to block
+    const hasMultiHit = Object.values(abilities).some(a => a.multiHit);
+    const multiHitMult = hasMultiHit ? 1.15 : 1.0;
+
+    // Bypass damage: penetrate or unblockable
+    let bypassDamage = 0;
+    for (const [key, ab] of Object.entries(abilities)) {
+        const freq = pattern.filter(p => p === key).length / pattern.length;
+        if (ab.penetrate) bypassDamage += ab.penetrate * freq;
+        // Unblockable: 60% weight since it's capped and doesn't always max roll
+        if (ab.type === 'unblockable') {
+            bypassDamage += Math.min(avgDieSum, ab.maxDamage || Infinity) * freq * 0.6;
+        }
+    }
+
+    // Summon die: snowball offense (avg ~4 summons over a boss fight)
+    let summonBonus = 0;
+    for (const [key, ab] of Object.entries(abilities)) {
+        if (ab.type === 'summon_die') {
+            const freq = pattern.filter(p => p === key).length / pattern.length;
+            summonBonus += ((ab.dieSize + 1) / 2) * freq * 4;
+        }
+    }
+
+    // Escalate: gains extra dice over time
+    let escalateBonus = 0;
+    const escalateP = passives.find(p => p.id === 'escalate');
+    if (escalateP) {
+        escalateBonus += (escalateP.params.dieSize + 1) / 2 * 0.4;
+    }
+
+    // Greed tax: conditional extra dice
+    const greedP = passives.find(p => p.id === 'greedTax');
+    if (greedP) {
+        escalateBonus += (greedP.params.dieSize + 1) / 2 * 0.8;
+    }
+
+    const offense = avgDieSum * patternMult * multiHitMult + bypassDamage + escalateBonus + summonBonus;
+
+    // ── DISRUPTION ──────────────────────────────────────
+    let disruption = 0;
+
+    for (const [key, ab] of Object.entries(abilities)) {
+        const freq = pattern.filter(p => p === key).length / pattern.length;
+
+        // Slot sealing (curse): devastating, reduces player output
+        if (ab.type === 'curse') {
+            disruption += (ab.slotsToSeal || 1) * (ab.fixedDuration || 1) * 8 * freq;
+        }
+
+        // Decay: permanently shrinks player dice — extremely disruptive
+        if (ab.type === 'decay') {
+            disruption += 25 * freq;
+        }
+
+        // Poison: damage + stacking compounds over turns
+        if (ab.type === 'poison') {
+            disruption += avgDieSum * 3.0 * freq;
+        }
+
+        // Burn application
+        if (ab.applyBurn) {
+            disruption += ab.applyBurn * 2 * freq;
+        }
+
+        // Steal (gold theft)
+        if (ab.type === 'steal') {
+            disruption += 3 * freq;
+        }
+
+        // Slot seal on attack abilities (wing buffet)
+        if (ab.sealSlot && ab.type === 'attack') {
+            disruption += ab.sealSlot * 3 * freq;
+        }
+    }
+
+    // Passive disruption
+    for (const p of passives) {
+        if (p.id === 'soulPact') disruption += 6;
+    }
+
+    // Boss phase disruption (entropy, burn-on-phase, etc.)
+    if (enemy.phases) {
+        for (const phase of enemy.phases) {
+            if (phase.changes.addPassives) {
+                for (const pp of phase.changes.addPassives) {
+                    if (pp.id === 'entropy') disruption += 22;
+                    if (pp.id === 'burnOnPhase') disruption += (pp.params.burn || 2) * 5;
+                }
+            }
+        }
+    }
+
+    // ── COMPUTE ─────────────────────────────────────────
+    // baseThreat = (durability × offense) / K + disruption
+    // K adapts: K = product^(1−P) / C ⟹ baseThreat = product^P × C + disruption
+    const P = 0.55;
+    const C = isBoss ? 1.35 : 1.0;
+    const product = durability * offense;
+    const K = Math.pow(product, 1 - P) / C;
+    const baseThreat = Math.round(product / K + disruption);
+
+    return {
+        baseThreat,
+        components: { baseHP, armorMult, evasionMult, sustainFactor, durability, avgDieSum, patternMult, multiHitMult, bypassDamage, escalateBonus, summonBonus, offense, disruption, K },
+    };
+}
+
+// ────────────────────────────────────────────────────────────
 //  Standard Enemy Profiles
 // ────────────────────────────────────────────────────────────
 
@@ -24,7 +251,7 @@ export const ENEMY_PROFILES = {
     // ── ACT 1 ──────────────────────────────────────────────
 
     'Goblin': {
-        baseThreat: 16,   // 16 HP, 3d6, simple strike — avg 10.5 dmg
+        baseThreat: 17,   // formula: dur=16 × off=10.5, no disruption
         eliteAffinities: {
             deadly:       10,   // 3d6+2 = 3d8, avg 13.5; 16 HP still fragile
             armored:       8,   // reduction 2 meaningful vs early player dice
@@ -53,7 +280,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Dire Rat': {
-        baseThreat: 14,   // 14 HP, 4d4, multi-hit frenzy — avg 10
+        baseThreat: 16,   // formula: dur=14 × off=11.5 (multi-hit 1.15×)
         eliteAffinities: {
             deadly:        8,   // +2 on d4 → d6, avg jumps to 14
             armored:       9,   // reduction 2 makes this rat tanky relative to its HP
@@ -82,7 +309,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Fungal Creep': {
-        baseThreat: 18,   // 16 HP, 3d2, spore deals damage + poison — avg 4.5 (×2 effective)
+        baseThreat: 17,   // formula: dur=16 × off=4.5, disruption=6.8 (poison stacking)
         eliteAffinities: {
             deadly:       12,   // +2 on d2 → d4, doubles avg; poison scales hard
             armored:       9,   // 16 HP is low; armor extends poison stacking time
@@ -107,11 +334,11 @@ export const ENEMY_PROFILES = {
             bloodMoon:        -2,
             chaosStorm:        1,
         },
-        notes: 'Spore Cloud now deals damage AND poisons. 3d4 = lower spikes but constant pressure. Each turn compounds.',
+        notes: 'Spore Cloud deals damage AND poisons. 3d2 = low per-hit but compounding poison pressure.',
     },
 
     'Slime': {
-        baseThreat: 20,   // 22 HP, 2d6, mitosis at turn 3 (gains 2d8 + 15 HP)
+        baseThreat: 19,   // formula: dur=31 (mitosis +0.4 sustain) × off=7
         eliteAffinities: {
             deadly:       11,   // bigger starting dice + mitosis evolve = strong
             armored:      10,   // survives to mitosis more reliably
@@ -140,7 +367,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Skeleton': {
-        baseThreat: 15,   // 20 HP, 2d8, brittle (threshold 4)
+        baseThreat: 15,   // formula: dur=15 (brittle −0.25 armor) × off=9
         eliteAffinities: {
             deadly:        8,
             armored:      14,   // armored negates the brittle weakness — huge synergy
@@ -171,7 +398,7 @@ export const ENEMY_PROFILES = {
     // ── ACT 2 ──────────────────────────────────────────────
 
     'Orc Warrior': {
-        baseThreat: 34,   // 48 HP, 3d8, war cry buff — avg 13.5
+        baseThreat: 29,   // formula: dur=48 × off=9.7 (war cry +0.15 pattern)
         eliteAffinities: {
             deadly:       16,   // war cry + bigger dice = huge buffed strikes
             armored:      14,
@@ -200,7 +427,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Dark Mage': {
-        baseThreat: 35,   // 28 HP, 3d8, penetrate + slot seal — glass cannon avg 13.5
+        baseThreat: 29,   // formula: dur=28 × off=11, disruption=5.3 (penetrate + curse seal)
         eliteAffinities: {
             deadly:       14,
             armored:      12,   // 28 HP is low; armor helps survive
@@ -229,7 +456,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Troll': {
-        baseThreat: 38,   // 55 HP, 2d8, thick hide (10) + regen 3
+        baseThreat: 35,   // formula: dur=106 (thickHide +0.5, regen +0.15, heal +0.13) × off=6
         eliteAffinities: {
             deadly:       14,
             armored:      18,   // armor + thick hide + high HP = near-unkillable wall
@@ -258,7 +485,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Vampire': {
-        baseThreat: 38,   // 40 HP, 3d8, lifesteal 50% + blood frenzy — avg 13.5
+        baseThreat: 38,   // formula: dur=54 (lifesteal +0.25, bloodFrenzy +0.1) × off=13.5
         eliteAffinities: {
             deadly:       16,   // bigger dice = more lifesteal healing
             armored:      12,
@@ -287,7 +514,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Mimic': {
-        baseThreat: 30,   // 35 HP, 2d8, greed tax (+1d8 per 100g)
+        baseThreat: 27,   // formula: dur=39 (greedTax +0.1) × off=9.6, disruption=1
         eliteAffinities: {
             deadly:       11,
             armored:       9,
@@ -318,7 +545,7 @@ export const ENEMY_PROFILES = {
     // ── ACT 3 ──────────────────────────────────────────────
 
     'Demon': {
-        baseThreat: 65,   // 90 HP, 3d12, unblockable hellfire + soul pact
+        baseThreat: 76,   // formula: dur=90 × off=25.4 (unblockable ×0.6), disruption=6
         eliteAffinities: {
             deadly:       18,
             armored:      16,   // 90 HP + armor on d12 attacks = extreme
@@ -347,7 +574,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Lich': {
-        baseThreat: 68,   // 80 HP, 2d12, decay + phylactery revive at 40%
+        baseThreat: 52,   // formula: dur=112 (phylactery +0.4) × off=8.7, disruption=8.3 (decay)
         eliteAffinities: {
             deadly:       18,
             armored:      16,   // 80 HP × revive + armor = enormous effective HP
@@ -376,7 +603,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Dragon Whelp': {
-        baseThreat: 78,   // 110 HP, 4d12, charge/breath + dragon scales (8)
+        baseThreat: 77,   // formula: dur=145 (scales +0.32) × off=17.8, disruption=2 (burn)
         eliteAffinities: {
             deadly:       20,   // 4d12+2 = 4d14 with scales; monstrous
             armored:      18,   // scales (8) + armor (2) = 10 reduction per slot
@@ -405,7 +632,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Shadow Assassin': {
-        baseThreat: 62,   // 70 HP, 3d12, evasion + vanish (immune turn)
+        baseThreat: 51,   // formula: dur=99 (evasion +0.25, vanish immune +0.17) × off=13
         eliteAffinities: {
             deadly:       16,
             armored:      12,   // evasion already reduces incoming; armor stacks
@@ -434,7 +661,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Iron Golem': {
-        baseThreat: 72,   // 130 HP, 3d10, armor (5) + escalate + overcharge
+        baseThreat: 81,   // formula: dur=163 (armor +0.25) × off=18.3 (escalate +1.8)
         eliteAffinities: {
             deadly:       18,
             armored:      20,   // armor 5 + armor 2 = 7 flat reduction; brutal
@@ -470,7 +697,7 @@ export const ENEMY_PROFILES = {
 export const BOSS_PROFILES = {
 
     5: {   // The Bone King
-        baseThreat: 80,
+        baseThreat: 59,   // formula (boss C=1.35): dur=108 (summon +0.2, shield +0.08) × off=8.8
         eliteAffinities: {
             deadly:     20,
             enraged:    28,   // raiseDead + bigger dice = snowball
@@ -495,7 +722,7 @@ export const BOSS_PROFILES = {
     },
 
     10: {   // Crimson Wyrm
-        baseThreat: 150,
+        baseThreat: 200,  // formula (boss C=1.35): dur=360 (phase +0.2) × off=22, disruption=12.3
         eliteAffinities: {
             deadly:     30,   // 4d10+4 = 4d14; fire breath with burn
             enraged:    40,   // d10→d16; inferno phase adds burn on all attacks
@@ -520,7 +747,7 @@ export const BOSS_PROFILES = {
     },
 
     15: {   // The Void Lord
-        baseThreat: 250,
+        baseThreat: 259,  // formula (boss C=1.35): dur=608 (phases) × off=19.1, disruption=27.3
         eliteAffinities: {
             deadly:     35,
             enraged:    45,   // d10→d16 with double action at 20% = potential wipe

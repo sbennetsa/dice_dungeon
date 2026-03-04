@@ -82,32 +82,32 @@ export const ENEMY_PROFILES = {
     },
 
     'Fungal Creep': {
-        baseThreat: 18,   // 16 HP, 2d6, poison stacking — avg 7 + poison
+        baseThreat: 20,   // 16 HP, 3d4, spore deals damage + poison — avg 7.5
         eliteAffinities: {
-            deadly:        9,
-            armored:       8,
-            swift:         7,
-            enraged:      12,   // bigger dice = more poison applied per spore
-            regenerating:  8,   // extends fight = more poison stacking
-            vampiric:      5,   // low base damage
+            deadly:       10,   // +2 on d4 → d6, avg jumps to 10.5 + more poison
+            armored:       9,   // 16 HP is low; armor extends poison stacking time
+            swift:         8,   // +1d6 boosts both damage and poison
+            enraged:      14,   // +4 on d4 → d8, massive poison stacking + real damage
+            regenerating: 10,   // extends fight = more poison stacking rounds
+            vampiric:      6,   // spore now deals damage, so lifesteal works on it
             brittle:      -2,
-            cursed:        9,   // -1 dice + poison stacking = player loses value faster
-            berserker:     5,
+            cursed:       10,   // -1 dice + poison stacking = player crumbles
+            berserker:     6,
         },
         envAffinities: {
             burningGround:    -2,   // 16 HP is vulnerable
-            healingAura:       4,   // heals enemy while poison stacks on player
-            slipperyFloor:    -1,
-            arcaneNexus:       1,   // max d6 = 6
-            narrowCorridor:    2,
+            healingAura:       5,   // heals enemy while poison + damage ticks on player
+            slipperyFloor:    -1,   // d4-1 = d3, hurts proportionally
+            arcaneNexus:       1,   // max d4 = 4
+            narrowCorridor:    3,   // +5 on spore that now deals damage
             thornsAura:        1,
             unstableGround:    0,
             consecratedGround: 5,
-            voidZone:         -1,
+            voidZone:         -2,   // d4 dice often <3
             bloodMoon:        -2,
             chaosStorm:        1,
         },
-        notes: 'Poison stacks are the real threat. Each turn alive = escalating cumulative damage to player.',
+        notes: 'Spore Cloud now deals damage AND poisons. 3d4 = lower spikes but constant pressure. Each turn compounds.',
     },
 
     'Slime': {

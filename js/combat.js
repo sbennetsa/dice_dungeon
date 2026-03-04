@@ -502,8 +502,8 @@ export const Combat = {
         const iv = e.intentValue;
 
         let mods = [];
-        if (es && es.chill > 0 && (ab.type === 'attack' || ab.type === 'unblockable')) mods.push(`❄️−${es.chill}`);
-        if (es && es.weaken > 0 && (ab.type === 'attack' || ab.type === 'unblockable')) mods.push('💔×0.75');
+        if (es && es.chill > 0 && (ab.type === 'attack' || ab.type === 'unblockable' || ab.type === 'poison')) mods.push(`❄️−${es.chill}`);
+        if (es && es.weaken > 0 && (ab.type === 'attack' || ab.type === 'unblockable' || ab.type === 'poison')) mods.push('💔×0.75');
         // Phase passive: show resist indicator on protected turns
         const phasePassive = e.passives.find(p => p.id === 'phase');
         if (phasePassive && e.turnsAlive % 2 === 0) mods.push('🌀 RESIST TURN');
@@ -523,7 +523,7 @@ export const Combat = {
             case 'shield':
                 return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → gains ${sum} shield`;
             case 'poison':
-                return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → apply ${sum} poison stacks`;
+                return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → ${iv} damage + ${sum} poison${modStr}`;
             case 'curse': {
                 const sealCount = ab.slotsToSeal || 1;
                 const sealDur = ab.fixedDuration || 1;
@@ -1370,9 +1370,13 @@ export const Combat = {
                 break;
 
             case 'poison': {
+                // Poison deals blockable damage AND applies poison stacks
                 const stacks = e.intentValue;
+                const ended = Combat._resolveEnemyAttack(ab, e, es, totalDef, steadfastContrib);
+                if (ended) return true;
                 GS.playerDebuffs.poison += stacks;
-                log(`${ab.icon} ${ab.name}! ${stacks} poison applied! (${GS.playerDebuffs.poison} stacks)`, 'damage');
+                log(`${ab.icon} ${stacks} poison applied! (${GS.playerDebuffs.poison} stacks)`, 'damage');
+                Combat.renderPlayerStatus();
                 break;
             }
 

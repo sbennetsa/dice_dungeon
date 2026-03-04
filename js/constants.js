@@ -54,11 +54,11 @@ export const ENEMIES = {
             pattern: ['frenzy'],
         },
         {
-            name: 'Fungal Creep', hp: 16, dice: [6, 6], gold: [15, 22], xp: [20, 35],
+            name: 'Fungal Creep', hp: 16, dice: [4, 4, 4], gold: [15, 22], xp: [20, 35],
             image: 'assets/enemies/fungal_creep.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
-                spore:  { name: 'Spore Cloud', icon: '🍄', type: 'poison', desc: 'Apply poison equal to dice sum' },
+                spore:  { name: 'Spore Cloud', icon: '🍄', type: 'poison', desc: 'Deal damage and apply poison equal to dice sum' },
             },
             passives: [],
             pattern: ['strike', 'spore'],

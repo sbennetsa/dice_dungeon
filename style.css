@@ -3139,6 +3139,9 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   padding: 32px;
   overflow: hidden;
   background: #0e0a04;
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
 }
 
 .bestiary-shell {
@@ -3558,6 +3561,9 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     padding: 0;
     overflow: auto;
     background: #0a0703;
+    width: 100%;
+    height: auto;
+    min-height: 100vh;
   }
   .bestiary-shell {
     flex-direction: column;

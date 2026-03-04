@@ -36,7 +36,7 @@ export const ENEMIES = {
     // ── ACT 1 ──
     1: [
         {
-            name: 'Goblin', hp: 20, dice: [4, 4], gold: [15, 25], xp: [20, 30],
+            name: 'Goblin', hp: 16, dice: [6, 6, 6], gold: [15, 25], xp: [20, 30],
             image: 'assets/enemies/goblin.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
@@ -45,7 +45,7 @@ export const ENEMIES = {
             pattern: ['strike'],
         },
         {
-            name: 'Dire Rat', hp: 14, dice: [3, 3, 3], gold: [12, 20], xp: [15, 25],
+            name: 'Dire Rat', hp: 14, dice: [4, 4, 4, 4], gold: [12, 20], xp: [15, 25],
             image: 'assets/enemies/direrat.webp',
             abilities: {
                 frenzy: { name: 'Frenzy', icon: '🐀', type: 'attack', desc: 'Each die hits separately', multiHit: true },
@@ -54,7 +54,7 @@ export const ENEMIES = {
             pattern: ['frenzy'],
         },
         {
-            name: 'Fungal Creep', hp: 22, dice: [4, 4], gold: [15, 22], xp: [20, 35],
+            name: 'Fungal Creep', hp: 16, dice: [6, 6], gold: [15, 22], xp: [20, 35],
             image: 'assets/enemies/fungal_creep.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
@@ -64,24 +64,24 @@ export const ENEMIES = {
             pattern: ['strike', 'spore'],
         },
         {
-            name: 'Slime', hp: 28, dice: [4, 4], gold: [18, 28], xp: [25, 40],
+            name: 'Slime', hp: 22, dice: [6, 6], gold: [18, 28], xp: [25, 40],
             image: 'assets/enemies/slime.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
             passives: [
                 { id: 'mitosis', name: 'Mitosis', desc: 'After 3 turns, evolves: gains bigger dice and +15 HP',
-                  params: { turnTrigger: 3, newDice: [6, 6], bonusHp: 15 } },
+                  params: { turnTrigger: 3, newDice: [8, 8], bonusHp: 15 } },
             ],
             pattern: ['strike'],
         },
         {
-            name: 'Skeleton', hp: 18, dice: [6, 6], gold: [14, 22], xp: [20, 30], image: 'assets/enemies/skeleton.webp',
+            name: 'Skeleton', hp: 20, dice: [8, 8], gold: [14, 22], xp: [20, 30], image: 'assets/enemies/skeleton.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
             passives: [
-                { id: 'brittle', name: 'Brittle', desc: 'Takes +3 damage from every hit', params: { bonus: 3 } },
+                { id: 'brittle', name: 'Brittle', desc: 'Per-slot damage above 4 is doubled', params: { threshold: 4 } },
             ],
             pattern: ['strike'],
         },
@@ -89,7 +89,7 @@ export const ENEMIES = {
     // ── ACT 2 ──
     2: [
         {
-            name: 'Orc Warrior', hp: 45, dice: [6, 6, 6], gold: [20, 30], xp: [35, 50], image: 'assets/enemies/orc_warrior.webp',
+            name: 'Orc Warrior', hp: 48, dice: [8, 8, 8], gold: [20, 30], xp: [35, 50], image: 'assets/enemies/orc_warrior.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 warCry: { name: 'War Cry', icon: '📯', type: 'buff', desc: 'Store dice sum, add to next Strike', buffTarget: 'strike' },
@@ -98,7 +98,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'warCry'],
         },
         {
-            name: 'Dark Mage', hp: 32, dice: [6, 6], gold: [22, 35], xp: [40, 60], image: 'assets/enemies/Dark_Mage.webp',
+            name: 'Dark Mage', hp: 28, dice: [8, 8, 8], gold: [22, 35], xp: [40, 60], image: 'assets/enemies/Dark_Mage.webp',
             abilities: {
                 bolt:  { name: 'Shadow Bolt', icon: '🔮', type: 'attack', desc: 'Deal damage (penetrates 3 block)', penetrate: 3 },
                 curse: { name: 'Curse', icon: '💀', type: 'curse', desc: 'Seal 1 strike slot for 2 turns', slotsToSeal: 1, slotTarget: 'strike', fixedDuration: 2 },
@@ -119,24 +119,24 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'heal'],
         },
         {
-            name: 'Vampire', hp: 38, dice: [6, 6, 6], gold: [25, 40], xp: [45, 65], image: 'assets/enemies/Vampire.webp',
+            name: 'Vampire', hp: 40, dice: [8, 8, 8], gold: [25, 40], xp: [45, 65], image: 'assets/enemies/Vampire.webp',
             abilities: {
                 drain: { name: 'Drain', icon: '🩸', type: 'attack', desc: 'Deal damage and heal 50% of amount dealt' },
             },
             passives: [
                 { id: 'lifesteal', name: 'Lifesteal', desc: 'Heals 50% of damage dealt to player', params: { percent: 0.5 } },
-                { id: 'bloodFrenzy', name: 'Blood Frenzy', desc: 'Below 20% HP, gains 2 extra d6', params: { hpPercent: 0.2, extraDice: [6, 6] } },
+                { id: 'bloodFrenzy', name: 'Blood Frenzy', desc: 'Below 20% HP, gains 2 extra d8', params: { hpPercent: 0.2, extraDice: [8, 8] } },
             ],
             pattern: ['drain'],
         },
         {
-            name: 'Mimic', hp: 35, dice: [6, 6], gold: [20, 30], xp: [35, 50], image: 'assets/enemies/Mimic.webp',
+            name: 'Mimic', hp: 35, dice: [8, 8], gold: [20, 30], xp: [35, 50], image: 'assets/enemies/Mimic.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 steal:  { name: 'Gold Snatch', icon: '💰', type: 'steal', desc: 'Steal gold equal to dice sum' },
             },
             passives: [
-                { id: 'greedTax', name: 'Greed Tax', desc: 'Gains +1d6 per 100 gold player holds', params: { goldPer: 100, dieSize: 6 } },
+                { id: 'greedTax', name: 'Greed Tax', desc: 'Gains +1d8 per 100 gold player holds', params: { goldPer: 100, dieSize: 8 } },
             ],
             pattern: ['steal', 'strike', 'strike'],
         },

@@ -79,8 +79,8 @@ export const ELITE_MODIFIERS = [
         addPassive: {
             id: 'brittle',
             name: '💎 Brittle',
-            desc: 'Takes +3 bonus damage from every hit',
-            params: { bonus: 3 },
+            desc: 'Per-slot damage above threshold is doubled',
+            params: { threshold: 4 },
         },
         hpMult: 0.8,
         goldMult: 1.3,
@@ -286,8 +286,8 @@ export function scaleElitePassives(enemy, floor = 15) {
                 p.desc = `Heals ${Math.round(v.percent * 100)}% of damage dealt to player`;
                 break;
             case 'brittle':
-                v.bonus = Math.round(v.bonus * s);
-                p.desc = `Takes +${v.bonus} damage from every hit`;
+                // threshold is derived from act at combat time; no scaling needed
+                p.desc = `Per-slot damage above threshold is doubled`;
                 break;
             case 'escalate':
                 v.interval = Math.max(2, v.interval - 1);

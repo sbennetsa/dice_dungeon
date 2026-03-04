@@ -575,7 +575,7 @@ const Game = {
         };
 
         // Reset combat state (mirrors Combat.start)
-        GS.playerDebuffs = { poison: 0, poisonTurns: 0, disabledSlots: [], diceReduction: 0 };
+        GS.playerDebuffs = { poison: 0, disabledSlots: [], diceReduction: 0 };
         GS.enemyStatus = { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: false };
         GS.echoStoneDieId = null;
         GS.gamblerCoinBonus = 0;

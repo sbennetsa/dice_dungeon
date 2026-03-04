@@ -82,9 +82,9 @@ export const ENEMY_PROFILES = {
     },
 
     'Fungal Creep': {
-        baseThreat: 20,   // 16 HP, 3d4, spore deals damage + poison — avg 7.5
+        baseThreat: 18,   // 16 HP, 3d2, spore deals damage + poison — avg 4.5 (×2 effective)
         eliteAffinities: {
-            deadly:       10,   // +2 on d4 → d6, avg jumps to 10.5 + more poison
+            deadly:       12,   // +2 on d2 → d4, doubles avg; poison scales hard
             armored:       9,   // 16 HP is low; armor extends poison stacking time
             swift:         8,   // +1d6 boosts both damage and poison
             enraged:      14,   // +4 on d4 → d8, massive poison stacking + real damage

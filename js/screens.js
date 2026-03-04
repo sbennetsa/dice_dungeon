@@ -239,7 +239,8 @@ function showRuneAttachment(rune, onDone) {
 //  GAME CONTROLLER
 // ════════════════════════════════════════════════════════════
 const Game = {
-    start() {
+    /** Initialize a new run with the given difficulty. Called by DifficultySelect.pick(). */
+    start(difficulty) {
         resetDieIdCounter(0);
         Object.assign(GS, {
             floor: 1, act: 1, hp: 50, maxHp: 50, gold: 15,
@@ -285,7 +286,7 @@ const Game = {
             _firstAttacker: null,
             blueprint: null,
             seed: null,
-            runDifficulty: 'standard',
+            runDifficulty: difficulty,
         });
 
         // Generate dungeon blueprint (all 15 floors pre-determined)
@@ -297,7 +298,7 @@ const Game = {
             if (!isNaN(parsed)) seedOption = { seed: parsed };
         }
         if (seedInput) seedInput.value = '';
-        seedOption.difficulty = GS.runDifficulty || 'standard';
+        seedOption.difficulty = difficulty;
         const blueprint = generateDungeonBlueprint(seedOption);
         GS.blueprint = blueprint;
         GS.seed      = blueprint.seed;
@@ -314,7 +315,13 @@ const Game = {
             GS.slots.guard.push({ id: 'grd-2', runes: [] });
         }
 
-        DifficultySelect.show();
+        DungeonPath.show(difficulty);
+    },
+
+    backToStart() {
+        _refreshHomeRank();
+        DifficultySelect.refresh();
+        show('screen-start');
     },
 
     enterFloor() {
@@ -401,7 +408,7 @@ const Game = {
         const tryAgain = document.createElement('button');
         tryAgain.className = 'btn btn-primary';
         tryAgain.textContent = 'Try Again';
-        tryAgain.onclick = () => Game.start();
+        tryAgain.onclick = () => Game.backToStart();
         btns.appendChild(tryAgain);
 
         const challenge = document.createElement('button');
@@ -631,7 +638,7 @@ const Game = {
         const tryAgain = document.createElement('button');
         tryAgain.className = 'btn btn-primary';
         tryAgain.textContent = 'New Run';
-        tryAgain.onclick = () => Game.start();
+        tryAgain.onclick = () => Game.backToStart();
         btns.appendChild(tryAgain);
 
         GS.challengeMode = false;
@@ -3762,7 +3769,8 @@ const SCHEDULE_NAMES = ['Standard', 'Front-loaded', 'Event-heavy', 'Double shop'
 //  DIFFICULTY SELECT SCREEN
 // ════════════════════════════════════════════════════════════
 const DifficultySelect = {
-    show() {
+    /** Refresh the start screen: last-run bar, campaign locks, and reset card animations. */
+    refresh() {
         // Reset any leftover animation classes from a previous pick
         document.querySelectorAll('.diff-card').forEach(c => {
             c.classList.remove('diff-card--door-open', 'diff-card--exit-left', 'diff-card--exit-right');
@@ -3800,7 +3808,6 @@ const DifficultySelect = {
             if (!card) continue;
             const locked = !Campaign.isDifficultyUnlocked(diff);
             card.classList.toggle('diff-card--locked', locked);
-            // Inject or remove the lock overlay
             let overlay = card.querySelector('.diff-card__lock-overlay');
             if (locked) {
                 if (!overlay) {
@@ -3813,12 +3820,9 @@ const DifficultySelect = {
                 overlay.remove();
             }
         }
-
-        show('screen-difficulty-select');
     },
 
     pick(difficulty) {
-        // Block locked difficulties
         if (!Campaign.isDifficultyUnlocked(difficulty)) return;
 
         const cards = Array.from(document.querySelectorAll('.diff-card'));
@@ -3833,8 +3837,7 @@ const DifficultySelect = {
             }
         });
         setTimeout(() => {
-            GS.runDifficulty = difficulty;
-            DungeonPath.show(difficulty);
+            Game.start(difficulty);
         }, 650);
     },
 };
@@ -4450,6 +4453,7 @@ const CampaignScreen = {
 
     back() {
         _refreshHomeRank();
+        if (this._caller === 'screen-start') DifficultySelect.refresh();
         show(this._caller);
     },
 
@@ -4559,6 +4563,7 @@ const Stats = {
 
     back() {
         _refreshHomeRank();
+        if (this._caller === 'screen-start') DifficultySelect.refresh();
         show(this._caller);
     },
 
@@ -4658,6 +4663,7 @@ const Bestiary = {
     },
 
     back() {
+        if (this._caller === 'screen-start') DifficultySelect.refresh();
         show(this._caller);
     },
 };
@@ -4688,6 +4694,7 @@ document.getElementById('screen-combat').addEventListener('contextmenu', e => e.
 
 updateStats();
 _refreshHomeRank();
+DifficultySelect.refresh();
 
 // Expose Campaign on window for tester console access
 window.Campaign = Campaign;

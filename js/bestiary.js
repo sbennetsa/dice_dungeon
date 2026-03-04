@@ -28,7 +28,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'goblin', name: 'Goblin', act: 1,
-        artSrc: 'assets/enemies/goblin.webp', artCaption: 'Field sketch — note the improvised armour and stolen equipment.',
+        artSrc: 'assets/enemies/goblin.webp', sketchSrc: 'assets/enemies/sketch/goblin_sketch.webp',
+        artCaption: 'Field sketch — note the improvised armour and stolen equipment.',
         annotations: [
             { label: 'Height',    value: 'Three to four feet. Poor posture. Eyes that catch torchlight from improbable angles.' },
             { label: 'Tactics',   value: 'Commit everything, hit fast. No patience, no strategy. Effective in the opening floors.' },
@@ -43,7 +44,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'dire_rat', name: 'Dire Rat', act: 1,
-        artSrc: 'assets/enemies/direrat.webp', artCaption: 'Highly adaptable. Specimens observed across all three acts.',
+        artSrc: 'assets/enemies/direrat.webp', sketchSrc: 'assets/enemies/sketch/dire_rat_sketch.webp',
+        artCaption: 'Highly adaptable. Specimens observed across all three acts.',
         annotations: [
             { label: 'Behaviour', value: 'Three strikes in the time a sword swings once. Speed, not strength.' },
             { label: 'Frenzy',    value: 'Each die in its pool lands as a separate hit. Your guard is tested individually, not once.' },
@@ -58,7 +60,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'fungal_creep', name: 'Fungal Creep', act: 1,
-        artSrc: 'assets/enemies/fungal_creep.webp', artCaption: 'Fruiting bodies have been found on adventurers who rested too long.',
+        artSrc: 'assets/enemies/fungal_creep.webp', sketchSrc: 'assets/enemies/sketch/fungal_spore_sketch.webp',
+        artCaption: 'Fruiting bodies have been found on adventurers who rested too long.',
         annotations: [
             { label: 'Origin',   value: 'Believed to grow from adventurers who rested too long in wet chambers.' },
             { label: 'Spores',   value: 'Inhaled spores persist as poison. The pain accumulates with each breath.' },
@@ -74,7 +77,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'slime', name: 'Slime', act: 1,
-        artSrc: 'assets/enemies/slime.webp', artCaption: 'Neither liquid nor solid. Strikes without committing shape.',
+        artSrc: 'assets/enemies/slime.webp', sketchSrc: 'assets/enemies/sketch/slime_sketch.webp',
+        artCaption: 'Neither liquid nor solid. Strikes without committing shape.',
         annotations: [
             { label: 'Consistency', value: 'Neither liquid nor solid. Strikes without committing shape.' },
             { label: 'Behaviour',   value: 'Slow and patient. If it is not dying, it is growing.' },
@@ -456,17 +460,28 @@ export class BestiaryUI {
         const unlocked = this.data.filter(e => e.unlocked);
         const entryNum = unlocked.findIndex(e => e.id === entry.id) + 1;
 
-        const annotationsHTML = entry.annotations.map(a => `
-            <div class="bestiary-annotation">
-                <div class="bestiary-annotation-label">${a.label}</div>
-                <div class="bestiary-annotation-value">${a.value}</div>
-            </div>`).join('');
+        const imgSrc = entry.sketchSrc || entry.artSrc;
+        const hasSketch = !!entry.sketchSrc;
 
-        const artInner = entry.artSrc
-            ? `<img src="${entry.artSrc}" alt="${entry.name}">`
-            : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;
-                    font-family:var(--font-heading);font-size:6rem;font-weight:700;letter-spacing:0.05em;color:rgba(46,31,10,0.1);">
-                   ${entry.name[0]}</div>`;
+        // Split annotations: even indices → left, odd → right
+        const leftNotes  = entry.annotations.filter((_, i) => i % 2 === 0);
+        const rightNotes = entry.annotations.filter((_, i) => i % 2 !== 0);
+
+        const rotations = [-1.2, 0.7, -0.6, 1.0, -0.9, 0.5];
+        const renderNote = (a, idx, side) => {
+            const rot = rotations[(idx * 2 + (side === 'right' ? 1 : 0)) % rotations.length];
+            return `<div class="bestiary-field-note" style="transform:rotate(${rot}deg)">
+                <div class="bestiary-field-note-label">${a.label}</div>
+                <div class="bestiary-field-note-value">${a.value}</div>
+            </div>`;
+        };
+
+        const leftHTML  = leftNotes.map((a, i) => renderNote(a, i, 'left')).join('');
+        const rightHTML = rightNotes.map((a, i) => renderNote(a, i, 'right')).join('');
+
+        const artInner = imgSrc
+            ? `<img src="${imgSrc}" alt="${entry.name}">`
+            : `<div class="bestiary-art-placeholder">${entry.name[0]}</div>`;
 
         const captionHTML = entry.artCaption
             ? `<div class="bestiary-art-caption">${entry.artCaption}</div>` : '';
@@ -493,23 +508,25 @@ export class BestiaryUI {
                 <div class="bestiary-header-rule"><span class="bestiary-species-label">Species Information</span></div>
             </div>
 
-            <div class="bestiary-page-body">
-                <div class="bestiary-art-column">
-                    <div class="bestiary-creature-art">${artInner}</div>
+            <div class="bestiary-field-notes">
+                <div class="bestiary-notes-column left">
+                    ${leftHTML}
+                </div>
+                <div class="bestiary-field-image">
+                    <div class="bestiary-creature-art${hasSketch ? ' has-sketch' : ''}">${artInner}</div>
                     ${captionHTML}
                 </div>
-                <div class="bestiary-annotations-column">
-                    ${annotationsHTML}
-                    <div class="bestiary-classification-block">
-                        <div class="bestiary-classification-row">
-                            <div class="bestiary-classif-item"><strong>Threat</strong>${entry.classification.threat}</div>
-                            <div class="bestiary-classif-item"><strong>Habitat</strong>${entry.classification.habitat}</div>
-                        </div>
-                        <div class="bestiary-classif-item" style="margin-top:8px">
-                            <strong>Encounters</strong>${encounterText}
-                        </div>
-                    </div>
+                <div class="bestiary-notes-column right">
+                    ${rightHTML}
                 </div>
+            </div>
+
+            <div class="bestiary-classification-strip">
+                <span class="bestiary-classif-tag"><strong>Threat</strong> ${entry.classification.threat}</span>
+                <span class="bestiary-classif-divider">·</span>
+                <span class="bestiary-classif-tag"><strong>Habitat</strong> ${entry.classification.habitat}</span>
+                <span class="bestiary-classif-divider">·</span>
+                <span class="bestiary-classif-tag"><strong>Encounters</strong> ${encounterText}</span>
             </div>
 
             <div class="bestiary-creature-name-section">

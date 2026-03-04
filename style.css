@@ -1025,7 +1025,7 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 .card.disabled:hover { border-color: var(--border); transform: none; box-shadow: none; }
 
 /* ── Start Screen ── */
-.start-screen { text-align: center; padding: 60px 20px; }
+.start-screen { text-align: center; padding: 40px 20px; max-width: 860px; margin: 0 auto; }
 
 .start-screen h1 {
     font-size: 2.8em;
@@ -1040,22 +1040,9 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     color: var(--text-dim);
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    margin-bottom: 40px;
+    margin-bottom: 24px;
 }
 
-.start-screen .flavor {
-    max-width: 500px;
-    margin: 0 auto 40px;
-    font-size: 1.15em;
-    line-height: 1.8;
-    color: var(--text);
-    font-style: italic;
-}
-
-.start-screen .start-btn {
-    font-size: 1.1em;
-    padding: 14px 40px;
-}
 
 /* ── Game Over ── */
 .gameover-screen { text-align: center; padding: 40px 20px; }
@@ -2432,46 +2419,15 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 }
 
 /* ════════════════════════════════════════════════════════════
-   DIFFICULTY SELECT SCREEN
+   DIFFICULTY CARDS
 ════════════════════════════════════════════════════════════ */
-.diff-select-wrapper {
-    max-width: 860px;
-    margin: 0 auto;
-    padding: 40px 20px;
-    text-align: center;
-}
-
-.diff-select-title {
-    color: var(--gold);
-    font-family: var(--font-heading);
-    font-size: 1.8em;
-    margin-bottom: 8px;
-    text-shadow: 0 0 30px rgba(212, 165, 52, 0.2);
-}
-
-.diff-select-subtitle {
-    color: var(--text-dim);
-    font-family: var(--font-data);
-    font-size: 0.78em;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: 36px;
-}
-
-.diff-select-footer {
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    margin-top: 28px;
-    flex-wrap: wrap;
-}
-
 .diff-card-row {
     display: flex;
     flex-direction: row;
     gap: 16px;
     justify-content: center;
     align-items: stretch;
+    margin-bottom: 28px;
 }
 
 .diff-card {
@@ -2602,13 +2558,7 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 }
 
 @media (max-width: 768px) {
-    #screen-difficulty-select {
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        padding: 12px;
-    }
-    .diff-select-wrapper { padding: 20px 12px; }
-    .diff-select-title { font-size: 1.4em; }
+    .start-screen { padding: 24px 12px; }
     .diff-card-row { flex-direction: column; align-items: center; gap: 12px; }
     .diff-card { max-width: 100%; width: 100%; }
     .diff-card__img { height: 160px; }
@@ -3437,22 +3387,110 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   color: #5c4530;
 }
 
-.bestiary-page-body { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-bottom: 24px; }
-.bestiary-art-column { display: flex; flex-direction: column; align-items: center; }
+/* ── Field notes layout: 3-column (notes | image | notes) ── */
+.bestiary-field-notes {
+  display: grid;
+  grid-template-columns: 1fr 2.2fr 1fr;
+  gap: 14px;
+  margin-bottom: 12px;
+  align-items: start;
+}
+
+.bestiary-notes-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 16px;
+}
+.bestiary-notes-column.left  { text-align: right; }
+.bestiary-notes-column.right { text-align: left; }
+
+.bestiary-field-note {
+  position: relative;
+  transform-origin: center center;
+}
+.bestiary-field-note-label {
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8b6914;
+  margin-bottom: 3px;
+}
+.bestiary-field-note-value {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: var(--text-xs);
+  color: #3d2e18;
+  line-height: 1.5;
+}
+
+/* Connecting lines from notes toward the image */
+.bestiary-notes-column.left .bestiary-field-note::after {
+  content: '';
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  width: 7px;
+  height: 1px;
+  background: rgba(139,105,20,0.3);
+}
+.bestiary-notes-column.right .bestiary-field-note::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  width: 7px;
+  height: 1px;
+  background: rgba(139,105,20,0.3);
+}
+
+.bestiary-field-image {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 
 .bestiary-creature-art {
-  width: 100%; aspect-ratio: 3/4;
-  border: 1px solid rgba(46,31,10,0.28);
+  width: 100%;
+  max-height: 480px;
   overflow: hidden;
-  background: rgba(90,60,15,0.07);
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: relative;
+  border: 1px solid rgba(46,31,10,0.28);
+  background: rgba(90,60,15,0.07);
 }
 .bestiary-creature-art img {
-  width: 100%; height: 100%;
+  width: 100%;
+  height: auto;
   object-fit: contain;
   filter: sepia(0.2) contrast(0.95) brightness(0.95);
   mix-blend-mode: multiply;
+}
+
+/* Sketch images blend into parchment — no frame */
+.bestiary-creature-art.has-sketch {
+  border: none;
+  background: transparent;
+  max-height: 520px;
+}
+.bestiary-creature-art.has-sketch img {
+  filter: sepia(0.3) contrast(0.88) brightness(0.9);
+}
+
+.bestiary-art-placeholder {
+  width: 100%;
+  height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-size: 6rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: rgba(46,31,10,0.1);
 }
 
 .bestiary-art-caption {
@@ -3465,54 +3503,57 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   line-height: 1.45;
 }
 
-.bestiary-annotation { margin-bottom: 15px; }
-.bestiary-annotation + .bestiary-annotation::before {
-  content: "✦";
-  display: block;
-  font-size: 0.45rem;
-  color: #8a7055;
-  opacity: 0.38;
-  margin-bottom: 15px;
+/* Classification strip — centered row below the illustration */
+.bestiary-classification-strip {
+  text-align: center;
+  padding: 8px 0 6px;
+  margin-bottom: 8px;
+  border-top: 1px solid rgba(46,31,10,0.15);
+  border-bottom: 1px solid rgba(46,31,10,0.15);
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-.bestiary-annotation-label {
-  font-family: var(--font-data);
-  font-size: var(--text-xs);
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: #8b6914;
-  margin-bottom: 3px;
-}
-.bestiary-annotation-value {
+.bestiary-classif-tag {
   font-family: var(--font-body);
   font-style: italic;
-  font-size: var(--text-sm);
-  color: #3d2e18;
-  line-height: 1.5;
-}
-
-.bestiary-classification-block { margin-top: 18px; padding-top: 12px; border-top: 1px solid rgba(46,31,10,0.2); }
-.bestiary-classification-row { display: flex; gap: 16px; flex-wrap: wrap; }
-.bestiary-classif-item { font-family: var(--font-body); font-style: italic; font-size: var(--text-sm); color: #3d2e18; line-height: 1.5; }
-.bestiary-classif-item strong {
-  display: block; font-style: normal;
-  font-family: var(--font-data);
   font-size: var(--text-xs);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: #5c4530;
+}
+.bestiary-classif-tag strong {
+  font-style: normal;
+  font-family: var(--font-data);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #3d2e18;
+  margin-right: 4px;
+}
+.bestiary-classif-divider {
+  color: #8a7055;
+  opacity: 0.4;
+  font-size: var(--text-xs);
 }
 
 .bestiary-creature-name-section { text-align: center; margin-bottom: 18px; }
-.bestiary-name-rule { display: flex; align-items: center; gap: 14px; }
+.bestiary-name-rule { display: flex; align-items: center; gap: 16px; }
 .bestiary-name-rule::before,
-.bestiary-name-rule::after { content: ''; flex: 1; height: 1px; background: rgba(46,31,10,0.28); }
+.bestiary-name-rule::after {
+  content: '';
+  flex: 1;
+  height: 0;
+  border-top: 1px solid rgba(46,31,10,0.32);
+  border-bottom: 1px solid rgba(46,31,10,0.12);
+}
 .bestiary-creature-name {
   font-family: var(--font-heading);
-  font-size: var(--text-xl);
+  font-size: var(--text-2xl);
   font-weight: 700;
   color: #1a1208;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(224,207,160,0.5);
 }
 
 .bestiary-lore-section { margin-bottom: 22px; }
@@ -3573,12 +3614,24 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 .bestiary-ability-desc { font-family: var(--font-body); font-style: italic; font-size: var(--text-sm); color: #3d2e18; line-height: 1.55; }
 
 .bestiary-page-footer {
-  border-top: 1px solid rgba(46,31,10,0.18);
   padding-top: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
+.bestiary-page-footer::before {
+  content: '◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆  ◆';
+  display: block;
+  position: absolute;
+  left: 40px;
+  right: 40px;
+  text-align: center;
+  font-size: 0.28rem;
+  letter-spacing: 0.08em;
+  color: rgba(46,31,10,0.28);
+  transform: translateY(-12px);
+}
+.bestiary-page-footer { position: relative; }
 .bestiary-footer-entry-num { font-family: var(--font-data); font-size: var(--text-xs); color: #8a7055; }
 
 .bestiary-locked-page-content { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 600px; gap: 18px; text-align: center; }
@@ -3618,7 +3671,22 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     background: #0a0703;
   }
   .bestiary-page { overflow-y: visible; }
-  .bestiary-page-body { grid-template-columns: 1fr; }
+  .bestiary-field-notes {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .bestiary-notes-column {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-top: 0;
+  }
+  .bestiary-notes-column.left,
+  .bestiary-notes-column.right { text-align: left; order: 2; }
+  .bestiary-field-image { order: 1; }
+  .bestiary-notes-column .bestiary-field-note { transform: none !important; }
+  .bestiary-notes-column.left .bestiary-field-note::after,
+  .bestiary-notes-column.right .bestiary-field-note::before { display: none; }
   .bestiary-parchment {
     min-height: 0;
     padding: 30px 20px 44px;

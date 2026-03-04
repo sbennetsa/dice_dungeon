@@ -24,27 +24,57 @@
         <h1>Dice Dungeon</h1>
         <div id="home-rank-display" class="home-rank"></div>
         <div class="subtitle">A Tactical Roguelike</div>
-        <div class="flavor">
-            Roll your dice. Choose your battles.<br>
-            Left-click to attack, right-click to defend &mdash;<br>
-            every allocation is a gamble.
-        </div>
-        <div style="margin-bottom: 30px;">
-            <div style="color: var(--text-dim); font-family: var(--font-data); font-size: 0.8em; line-height: 2;">
-                ⚔️ &thinsp;3 Acts &middot; 15 Floors &middot; 3 Bosses<br>
-                🎲 &thinsp;Left-click → Attack &middot; Right-click → Defend<br>
-                📱 &thinsp;Mobile: Tap → Attack &middot; Hold → Defend &middot; Drag to slot &middot; 🔄 Reroll button<br>
-                🏗️ &thinsp;Level up to gain Attack or Defend slots
-            </div>
-        </div>
+        <div id="diff-select-last-run"></div>
         <div class="seed-input-row">
             <label for="seed-input" class="seed-input-label">Seed</label>
             <input type="text" id="seed-input" class="seed-input" placeholder="optional" maxlength="8" autocomplete="off" spellcheck="false">
         </div>
-        <button class="btn btn-primary start-btn" onclick="Game.start()">Enter the Dungeon</button>
+        <div class="diff-card-row">
+
+            <div class="diff-card diff-card--casual" onclick="DifficultySelect.pick('casual')">
+                <img class="diff-card__img" src="assets/difficulty/casual_dungeon_entrance.webp" alt="Casual">
+                <div class="diff-card__body">
+                    <div class="diff-card__name">Casual</div>
+                    <div class="diff-card__tagline">Learn the Dungeon</div>
+                    <div class="diff-card__desc">Standard encounters only. Every combat is a straightforward fight.</div>
+                    <div class="diff-card__traits">
+                        <span class="diff-card__trait">Standard enemies</span>
+                        <span class="diff-card__trait">No elite risk</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="diff-card diff-card--standard" onclick="DifficultySelect.pick('standard')">
+                <img class="diff-card__img" src="assets/difficulty/standard_dungeon_entrance.webp" alt="Standard">
+                <div class="diff-card__body">
+                    <div class="diff-card__name">Standard</div>
+                    <div class="diff-card__tagline">The Intended Experience</div>
+                    <div class="diff-card__desc">Sometimes you encounter elites. You choose whether to gamble for improved rewards.</div>
+                    <div class="diff-card__traits">
+                        <span class="diff-card__trait">Optional elites</span>
+                        <span class="diff-card__trait">Your call each floor</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="diff-card diff-card--heroic" onclick="DifficultySelect.pick('heroic')">
+                <img class="diff-card__img" src="assets/difficulty/heroic_dungeon_entrance.webp" alt="Heroic">
+                <div class="diff-card__body">
+                    <div class="diff-card__name">Heroic</div>
+                    <div class="diff-card__tagline">Pure Gauntlet Mode</div>
+                    <div class="diff-card__desc">All combats are forced elites. The dungeon will not yield.</div>
+                    <div class="diff-card__traits">
+                        <span class="diff-card__trait">Forced elites</span>
+                        <span class="diff-card__trait">Highest rewards</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
         <div class="start-secondary-btns">
             <button class="btn stats-link-btn" onclick="Stats.show()">📊 Statistics</button>
             <button class="btn stats-link-btn" onclick="CampaignScreen.show()">📜 The Order</button>
+            <button class="btn stats-link-btn" onclick="Bestiary.show()">📖 Bestiary</button>
         </div>
     </div>
 </div>
@@ -116,62 +146,6 @@
         <div id="dungeon-path-seed"></div>
         <div id="dungeon-path-content"></div>
         <button class="btn btn-primary dungeon-path-descend" onclick="DungeonPath.proceed()">Descend into the Dungeon</button>
-    </div>
-</div>
-
-<!-- ═══════════ DIFFICULTY SELECT SCREEN ═══════════ -->
-<div id="screen-difficulty-select" class="screen">
-    <div class="diff-select-wrapper">
-        <h2 class="diff-select-title">Choose Your Fate</h2>
-        <p class="diff-select-subtitle">Select a difficulty before descending.</p>
-        <div id="diff-select-last-run"></div>
-        <div class="diff-card-row">
-
-            <div class="diff-card diff-card--casual" onclick="DifficultySelect.pick('casual')">
-                <img class="diff-card__img" src="assets/difficulty/casual_dungeon_entrance.webp" alt="Casual">
-                <div class="diff-card__body">
-                    <div class="diff-card__name">Casual</div>
-                    <div class="diff-card__tagline">Learn the Dungeon</div>
-                    <div class="diff-card__desc">Standard encounters only. Every combat is a straightforward fight.</div>
-                    <div class="diff-card__traits">
-                        <span class="diff-card__trait">Standard enemies</span>
-                        <span class="diff-card__trait">No elite risk</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="diff-card diff-card--standard" onclick="DifficultySelect.pick('standard')">
-                <img class="diff-card__img" src="assets/difficulty/standard_dungeon_entrance.webp" alt="Standard">
-                <div class="diff-card__body">
-                    <div class="diff-card__name">Standard</div>
-                    <div class="diff-card__tagline">The Intended Experience</div>
-                    <div class="diff-card__desc">Sometimes you encounter elites. You choose whether to gamble for improved rewards.</div>
-                    <div class="diff-card__traits">
-                        <span class="diff-card__trait">Optional elites</span>
-                        <span class="diff-card__trait">Your call each floor</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="diff-card diff-card--heroic" onclick="DifficultySelect.pick('heroic')">
-                <img class="diff-card__img" src="assets/difficulty/heroic_dungeon_entrance.webp" alt="Heroic">
-                <div class="diff-card__body">
-                    <div class="diff-card__name">Heroic</div>
-                    <div class="diff-card__tagline">Pure Gauntlet Mode</div>
-                    <div class="diff-card__desc">All combats are forced elites. The dungeon will not yield.</div>
-                    <div class="diff-card__traits">
-                        <span class="diff-card__trait">Forced elites</span>
-                        <span class="diff-card__trait">Highest rewards</span>
-                    </div>
-                </div>
-            </div>
-
-        </div>
-        <div class="diff-select-footer">
-            <button class="btn" onclick="Stats.show('screen-difficulty-select')">📊 Statistics</button>
-            <button class="btn" onclick="CampaignScreen.show('screen-difficulty-select')">📜 The Order</button>
-            <button class="btn" onclick="Bestiary.show('screen-difficulty-select')">📖 Bestiary</button>
-        </div>
     </div>
 </div>
 
@@ -378,7 +352,7 @@
         <div class="final-stats" id="go-stats"></div>
         <div id="go-unlocks"></div>
         <div id="go-buttons" style="margin-top:20px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-            <button class="btn btn-primary" onclick="Game.start()">Try Again</button>
+            <button class="btn btn-primary" onclick="Game.backToStart()">Try Again</button>
         </div>
     </div>
 </div>

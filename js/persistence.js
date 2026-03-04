@@ -5,8 +5,9 @@
 //  across future patches (no serialised artifact/die objects).
 // ════════════════════════════════════════════════════════════
 
-const STORAGE_KEY = 'diceDungeon_v1_runs';
-const MAX_RUNS    = 100;
+const STORAGE_KEY         = 'diceDungeon_v1_runs';
+const MAX_RUNS            = 100;
+const BESTIARY_STORAGE_KEY = 'diceDungeon_v1_bestiary';
 
 export const RunHistory = {
 
@@ -72,6 +73,55 @@ export const RunHistory = {
             return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
         } catch {
             return [];
+        }
+    },
+};
+
+// ════════════════════════════════════════════════════════════
+//  BESTIARY PROGRESS — tracks unlocked entries and encounter
+//  counts across all runs. Stored separately from run history.
+// ════════════════════════════════════════════════════════════
+
+export const BestiaryProgress = {
+
+    /** Load progress from localStorage. Returns { unlocked: Set, encounters: Map }. */
+    load() {
+        try {
+            const raw = JSON.parse(localStorage.getItem(BESTIARY_STORAGE_KEY) || '{}');
+            return {
+                unlocked:   new Set(raw.unlocked   || []),
+                encounters: new Map(Object.entries(raw.encounters || {})),
+            };
+        } catch {
+            return { unlocked: new Set(), encounters: new Map() };
+        }
+    },
+
+    /** Mark an enemy as permanently unlocked. No-op if already unlocked. */
+    unlock(id) {
+        if (!id) return;
+        const progress = this.load();
+        if (progress.unlocked.has(id)) return;
+        progress.unlocked.add(id);
+        this._save(progress);
+    },
+
+    /** Increment encounter count for an enemy id. */
+    increment(id) {
+        if (!id) return;
+        const progress = this.load();
+        progress.encounters.set(id, (progress.encounters.get(id) || 0) + 1);
+        this._save(progress);
+    },
+
+    _save(progress) {
+        try {
+            localStorage.setItem(BESTIARY_STORAGE_KEY, JSON.stringify({
+                unlocked:   [...progress.unlocked],
+                encounters: Object.fromEntries(progress.encounters),
+            }));
+        } catch (e) {
+            console.warn('[Bestiary] Could not save progress:', e);
         }
     },
 };

@@ -66,9 +66,43 @@
     <div class="campaign-screen">
         <h2>The Ancient Order</h2>
         <div id="campaign-content"></div>
-        <div style="margin-top:24px; display:flex; justify-content:center;">
+        <div style="margin-top:24px; display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+            <button class="btn btn-secondary" onclick="Bestiary.show('screen-campaign')">Field Compendium</button>
             <button class="btn btn-primary" onclick="CampaignScreen.back()">Back to Menu</button>
         </div>
+    </div>
+</div>
+
+<!-- ═══════════ BESTIARY SCREEN ═══════════ -->
+<div id="screen-bestiary" class="screen">
+    <div class="bestiary-shell">
+        <aside class="bestiary-index">
+            <div class="bestiary-index-header">
+                <div class="bestiary-back-btn" onclick="Bestiary.back()">← Back</div>
+                <h1>Bestiary</h1>
+                <div class="bestiary-subtitle">Dice Dungeon — Field Compendium</div>
+            </div>
+            <div class="bestiary-index-search">
+                <input type="text" id="bestiary-search-input" placeholder="Search creatures…" autocomplete="off" />
+            </div>
+            <div class="bestiary-index-filter">
+                <button class="bestiary-filter-btn active" data-act="all">All</button>
+                <button class="bestiary-filter-btn" data-act="1">Act I</button>
+                <button class="bestiary-filter-btn" data-act="2">Act II</button>
+                <button class="bestiary-filter-btn" data-act="3">Act III</button>
+                <button class="bestiary-filter-btn" data-act="boss">Bosses</button>
+            </div>
+            <div class="bestiary-index-count" id="bestiary-index-count">— entries</div>
+            <div class="bestiary-index-list" id="bestiary-index-list"></div>
+        </aside>
+        <main class="bestiary-page" id="bestiary-page">
+            <div class="bestiary-parchment" id="bestiary-parchment">
+                <div class="bestiary-empty-state">
+                    <div class="bestiary-empty-glyph">B</div>
+                    <p>Select a creature from the index<br>to read its entry.</p>
+                </div>
+            </div>
+        </main>
     </div>
 </div>
 

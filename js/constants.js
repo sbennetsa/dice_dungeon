@@ -36,6 +36,7 @@ export const ENEMIES = {
     // ── ACT 1 ──
     1: [
         {
+            id: 'goblin',
             name: 'Goblin', hp: 20, dice: [4, 4], gold: [15, 25], xp: [20, 30],
             image: 'assets/enemies/goblin.webp',
             abilities: {
@@ -45,6 +46,7 @@ export const ENEMIES = {
             pattern: ['strike'],
         },
         {
+            id: 'dire_rat',
             name: 'Dire Rat', hp: 14, dice: [3, 3, 3], gold: [12, 20], xp: [15, 25],
             image: 'assets/enemies/direrat.webp',
             abilities: {
@@ -54,6 +56,7 @@ export const ENEMIES = {
             pattern: ['frenzy'],
         },
         {
+            id: 'fungal_creep',
             name: 'Fungal Creep', hp: 22, dice: [4, 4], gold: [15, 22], xp: [20, 35],
             image: 'assets/enemies/fungal_creep.webp',
             abilities: {
@@ -64,6 +67,7 @@ export const ENEMIES = {
             pattern: ['strike', 'spore'],
         },
         {
+            id: 'slime',
             name: 'Slime', hp: 28, dice: [4, 4], gold: [18, 28], xp: [25, 40],
             image: 'assets/enemies/slime.webp',
             abilities: {
@@ -76,6 +80,7 @@ export const ENEMIES = {
             pattern: ['strike'],
         },
         {
+            id: 'skeleton',
             name: 'Skeleton', hp: 18, dice: [6, 6], gold: [14, 22], xp: [20, 30], image: 'assets/enemies/skeleton.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
@@ -89,6 +94,7 @@ export const ENEMIES = {
     // ── ACT 2 ──
     2: [
         {
+            id: 'orc_warrior',
             name: 'Orc Warrior', hp: 45, dice: [6, 6, 6], gold: [20, 30], xp: [35, 50], image: 'assets/enemies/orc_warrior.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
@@ -98,6 +104,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'warCry'],
         },
         {
+            id: 'dark_mage',
             name: 'Dark Mage', hp: 32, dice: [6, 6], gold: [22, 35], xp: [40, 60], image: 'assets/enemies/Dark_Mage.webp',
             abilities: {
                 bolt:  { name: 'Shadow Bolt', icon: '🔮', type: 'attack', desc: 'Deal damage (penetrates 3 block)', penetrate: 3 },
@@ -107,6 +114,7 @@ export const ENEMIES = {
             pattern: ['bolt', 'bolt', 'curse'],
         },
         {
+            id: 'troll',
             name: 'Troll', hp: 55, dice: [8, 8], gold: [20, 30], xp: [35, 55], image: 'assets/enemies/Troll.webp',
             abilities: {
                 strike: { name: 'Smash', icon: '💪', type: 'attack', desc: 'Deal damage' },
@@ -119,6 +127,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'heal'],
         },
         {
+            id: 'vampire',
             name: 'Vampire', hp: 38, dice: [6, 6, 6], gold: [25, 40], xp: [45, 65], image: 'assets/enemies/Vampire.webp',
             abilities: {
                 drain: { name: 'Drain', icon: '🩸', type: 'attack', desc: 'Deal damage and heal 50% of amount dealt' },
@@ -130,6 +139,7 @@ export const ENEMIES = {
             pattern: ['drain'],
         },
         {
+            id: 'mimic',
             name: 'Mimic', hp: 35, dice: [6, 6], gold: [20, 30], xp: [35, 50], image: 'assets/enemies/Mimic.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
@@ -144,6 +154,7 @@ export const ENEMIES = {
     // ── ACT 3 ──
     3: [
         {
+            id: 'demon',
             name: 'Demon', hp: 90, dice: [12, 12, 12], gold: [35, 55], xp: [55, 80], image: 'assets/enemies/Demon.webp',
             abilities: {
                 strike:   { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
@@ -155,6 +166,7 @@ export const ENEMIES = {
             pattern: ['strike', 'hellfire'],
         },
         {
+            id: 'lich',
             name: 'Lich', hp: 80, dice: [12, 12], gold: [40, 60], xp: [60, 85], image: 'assets/enemies/Lich.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
@@ -166,6 +178,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'decay'],
         },
         {
+            id: 'dragon_whelp',
             name: 'Dragon Whelp', hp: 110, dice: [12, 12, 12, 12], gold: [45, 65], xp: [65, 90], image: 'assets/enemies/Dragon_Whelp.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
@@ -178,6 +191,7 @@ export const ENEMIES = {
             pattern: ['strike', 'charge', 'breath'],
         },
         {
+            id: 'shadow_assassin',
             name: 'Shadow Assassin', hp: 70, dice: [12, 12, 12], gold: [35, 55], xp: [55, 85], image: 'assets/enemies/Shadow_Assassin.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '🗡️', type: 'attack', desc: 'Deal damage' },
@@ -189,6 +203,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'vanish'],
         },
         {
+            id: 'iron_golem',
             name: 'Iron Golem', hp: 130, dice: [10, 10, 10], gold: [50, 70], xp: [70, 95], image: 'assets/enemies/Iron_Golem.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
@@ -207,6 +222,7 @@ export const ENEMIES = {
 
 export const BOSSES = {
     5: {
+        id: 'bone_king',
         name: 'The Bone King', hp: 85, dice: [6, 6, 6], gold: 100, xp: 50,
         image: 'assets/enemies/boneking.webp',
         abilities: {
@@ -219,6 +235,7 @@ export const BOSSES = {
         phases: null,
     },
     10: {
+        id: 'crimson_wyrm',
         name: 'Crimson Wyrm', hp: 300, dice: [10, 10, 10, 10], gold: 150, xp: 80, image: 'assets/enemies/Crimson_Dragon.webp',
         abilities: {
             strike:  { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
@@ -239,6 +256,7 @@ export const BOSSES = {
         ],
     },
     15: {
+        id: 'void_lord',
         name: 'The Void Lord', hp: 450, dice: [10, 10, 10, 10], gold: 250, xp: 120, image: 'assets/enemies/The_Void_Lord.webp',
         abilities: {
             strike:    { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },

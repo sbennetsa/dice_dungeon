@@ -10,7 +10,8 @@ import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } fr
 import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
 import { scoreFloorDetailed, scorePlayerAdvantage, SHOP_ADVANTAGES, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
-import { RunHistory } from './persistence.js';
+import { RunHistory, BestiaryProgress } from './persistence.js';
+import { BESTIARY_DATA, BestiaryUI } from './bestiary.js';
 import { Campaign, RANKS, ACHIEVEMENTS } from './campaign.js';
 
 // ════════════════════════════════════════════════════════════
@@ -4632,6 +4633,29 @@ const Stats = {
 };
 
 // ════════════════════════════════════════════════════════════
+//  BESTIARY SCREEN
+// ════════════════════════════════════════════════════════════
+const Bestiary = {
+    _caller: 'screen-campaign',
+
+    show(callerScreen = 'screen-campaign') {
+        this._caller = callerScreen;
+        const progress = BestiaryProgress.load();
+        const data = BESTIARY_DATA.map(entry => ({
+            ...entry,
+            unlocked:   progress.unlocked.has(entry.id),
+            encounters: progress.encounters.get(entry.id) || 0,
+        }));
+        new BestiaryUI(data);
+        show('screen-bestiary');
+    },
+
+    back() {
+        show(this._caller);
+    },
+};
+
+// ════════════════════════════════════════════════════════════
 //  INIT — expose modules on window for inline onclick handlers
 // ════════════════════════════════════════════════════════════
 window.Game = Game;
@@ -4650,6 +4674,7 @@ window.addConsumableToInventory = addConsumableToInventory;
 window.EncounterChoice = EncounterChoice;
 window.Stats = Stats;
 window.CampaignScreen = CampaignScreen;
+window.Bestiary = Bestiary;
 
 // Prevent right-click context menu on combat screen
 document.getElementById('screen-combat').addEventListener('contextmenu', e => e.preventDefault());

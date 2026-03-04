@@ -4437,15 +4437,17 @@ const EncounterChoice = {
 //  CAMPAIGN SCREEN — The Ancient Order progression view
 // ════════════════════════════════════════════════════════════
 const CampaignScreen = {
+    _caller: 'screen-start',
 
-    show() {
+    show(caller = 'screen-start') {
+        this._caller = caller;
         this._render();
         show('screen-campaign');
     },
 
     back() {
         _refreshHomeRank();
-        show('screen-start');
+        show(this._caller);
     },
 
     _render() {
@@ -4543,8 +4545,10 @@ const CampaignScreen = {
 //  STATS — run history screen
 // ════════════════════════════════════════════════════════════
 const Stats = {
+    _caller: 'screen-start',
 
-    show() {
+    show(caller = 'screen-start') {
+        this._caller = caller;
         const stats = RunHistory.getStats();
         $('stats-content').innerHTML = stats ? this._render(stats) : this._empty();
         show('screen-stats');
@@ -4552,7 +4556,7 @@ const Stats = {
 
     back() {
         _refreshHomeRank();
-        show('screen-start');
+        show(this._caller);
     },
 
     clearHistory() {

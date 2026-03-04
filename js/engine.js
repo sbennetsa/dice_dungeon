@@ -573,7 +573,10 @@ export function makeDieElement(die, context) {
     const rangeLabel = isAmpDie ? `×${die.min / 100}-×${die.max / 100}`
         : isPctDie ? `${die.min}%-${die.max}%`
         : `${die.min}-${die.max}`;
-    let valueDisplay = die.rolled ? (face ? `<span title="${face.modifier.name}: ${face.modifier.desc}">${face.modifier.icon}</span>` : (isAmpDie ? `×${die.value / 100}` : isPctDie ? `${die.value}%` : die.value)) : '?';
+    // Always show the numeric face value; face mod icon shown separately as an overlay.
+    let valueDisplay = die.rolled
+        ? (isAmpDie ? `×${die.value / 100}` : isPctDie ? `${die.value}%` : die.value)
+        : '?';
 
     // Per-die bonuses: ascend aura + volley + packTactics + swarmMaster (skip utility dice)
     let ascendBonus = 0, volleyBonus = 0, ptBonus = 0, swBonus = 0;
@@ -590,7 +593,7 @@ export function makeDieElement(die, context) {
     const passiveBonus = ptBonus + swBonus;
     const totalBonus = ascendBonus + volleyBonus + passiveBonus;
     let badges = '';
-    if (totalBonus > 0 && !face) {
+    if (totalBonus > 0 && !die.dieType) {
         valueDisplay = die.value + totalBonus;
     }
     if (ascendBonus > 0) {
@@ -605,8 +608,12 @@ export function makeDieElement(die, context) {
         badges += `<span class="die-passive-badge">+${passiveBonus}</span>`;
     }
 
+    // Face mod icon overlay: shown for active face mod (rolled) OR all mods when unrolled
     let faceIcon = '';
-    if (die.faceMods.length && !face) {
+    if (face) {
+        // Rolled onto a face mod — show its icon as a bright overlay so the value stays readable
+        faceIcon = `<span class="die-face-icon die-face-icon--active" title="${face.modifier.name}: ${face.modifier.desc}">${face.modifier.icon}</span>`;
+    } else if (die.faceMods.length) {
         const icons = die.faceMods.map(m => m.mod.icon).join('');
         const titles = die.faceMods.map(m => `${m.mod.name}: ${m.mod.desc}`).join(' | ');
         faceIcon = `<span class="die-face-icon" style="opacity:${die.rolled ? '0.4' : '1'}" title="${titles}">${icons}</span>`;

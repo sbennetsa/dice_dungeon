@@ -414,8 +414,11 @@ function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
     // 6. Elite offer probability — budget-driven or legacy
     let eliteChance, eliteOffered;
     if (hasBudget && options.eliteRate != null) {
-        // Budget-driven: base rate scaled by act
-        eliteChance  = Math.min(1.0, options.eliteRate * ELITE_ACT_SCALES[act - 1]);
+        // Budget-driven: base rate scaled by act.
+        // When rate is high (heroic), compress act scaling so even Act 1 stays high.
+        // lerp from full act scaling at rate=0 to flat at rate=1.
+        const actScale = 1 - (1 - ELITE_ACT_SCALES[act - 1]) * (1 - options.eliteRate);
+        eliteChance  = Math.min(1.0, options.eliteRate * actScale);
         eliteOffered = rng.random() < eliteChance;
     } else {
         eliteChance  = act >= 3 ? 1.0 : act / 3;
@@ -551,6 +554,10 @@ export function generateDungeonBlueprint(options = {}) {
             (challengeTarget - ELITE_BUDGET_FLOOR) / (ELITE_BUDGET_CEILING - ELITE_BUDGET_FLOOR)
         ));
         eliteRate = 0.05 + fraction * 0.85;
+
+        // Difficulty-based floor/ceiling on elite rate
+        if (difficulty === 'heroic')  eliteRate = Math.max(0.90, eliteRate);
+        if (difficulty === 'casual')  eliteRate = Math.min(0.20, eliteRate);
     }
 
     const acts = [

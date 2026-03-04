@@ -3,7 +3,7 @@
 //  Entry point: exposes all modules on window for onclick handlers
 // ════════════════════════════════════════════════════════════
 import { FACE_MODS, ARTIFACT_POOL, LEGENDARY_ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, UTILITY_DICE, getAct, getFloorType, getArtifactPool, pickConsumablesForMarket, pickWeightedConsumable } from './constants.js';
-import { GS, $, rand, pick, shuffle, log, gainXP, gainGold, heal } from './state.js';
+import { GS, $, rand, pick, shuffle, pickWeighted, log, gainXP, gainGold, heal } from './state.js';
 import { createDie, createDieFromFaces, createUtilityDie, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones } from './engine.js';
 import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } from './encounters/encounterGenerator.js';
@@ -249,7 +249,7 @@ const Game = {
                 guard:  [{ id: 'grd-0', runes: [] }, { id: 'grd-1', runes: [] }],
             },
             pendingRunes: [],
-            enemyStatus: { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: false },
+            enemyStatus: { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: 0 },
             echoStoneDieId: null,
             gamblerCoinBonus: 0,
             hourglassFreeFirstTurn: false,
@@ -1863,52 +1863,52 @@ const Shop = {
         const applyDiscount = p => Math.floor(p * (1 - Math.min(discount, 0.5)));
         const totalSlots = GS.slots.strike.length + GS.slots.guard.length;
 
+        const RARITY_WEIGHTS = { common: 3, uncommon: 2, rare: 1 };
+
         const all = [
-            { title: '🎲 Weighted Die', desc: `Rolls 2-7 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 35, type: 'DICE',
+            { title: '🎲 Weighted Die', desc: `Rolls 2-7 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 35, type: 'DICE', rarity: 'common',
               effect: 'Adds a 2-7 die to your pool',
               action: () => { GS.dice.push(createDie(2, 7)); log('Bought Weighted Die (2-7)!', 'info'); } },
-            { title: '💎 Power Die', desc: `Rolls 4-9 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 80, type: 'DICE',
+            { title: '💎 Power Die', desc: `Rolls 4-9 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 80, type: 'DICE', rarity: 'uncommon',
               effect: 'Adds a 4-9 die to your pool',
               action: () => { GS.dice.push(createDie(4, 9)); log('Bought Power Die (4-9)!', 'info'); } },
-            { title: '⬆️ Die Upgrade', desc: 'Improve one die\'s range', price: 50, type: 'UPGRADE',
+            { title: '⬆️ Die Upgrade', desc: 'Improve one die\'s range', price: 50, type: 'UPGRADE', rarity: 'uncommon',
               effect: '+1/+1 to a die', action: () => { Shop.showUpgrade(); return false; } },
-            { title: '🗡️ Blade Oil', desc: 'Sharpen your blades permanently', price: 25, type: 'BUFF',
+            { title: '🗡️ Blade Oil', desc: 'Sharpen your blades permanently', price: 25, type: 'BUFF', rarity: 'common',
               effect: '+3 attack damage', action: () => { GS.buffs.damageBoost += 3; log('+3 attack damage!', 'info'); } },
-            { title: '🛡️ Iron Plate', desc: 'Fortify your defences permanently', price: 30, type: 'BUFF',
+            { title: '🛡️ Iron Plate', desc: 'Fortify your defences permanently', price: 30, type: 'BUFF', rarity: 'common',
               effect: '+2 armor', action: () => { GS.buffs.armor += 2; log('+2 armor!', 'info'); } },
         ];
 
         const hasTrimmable = GS.dice.some(d => d.faceValues && d.faceValues.length > 3);
         if (hasTrimmable) {
             all.push({
-                title: '✂️ Face Trim', desc: 'Remove a face from a die (d6→d5)', price: 40, type: 'SERVICE',
+                title: '✂️ Face Trim', desc: 'Remove a face from a die (d6→d5)', price: 40, type: 'SERVICE', rarity: 'uncommon',
                 effect: 'Reduce die sides, increase consistency', action: () => { Shop.showFaceRemoval(); return false; }
             });
         }
 
         if (GS.act >= 2) {
             all.push(
-                { title: '⚡ Titan Die', desc: `Rolls 6-11 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 150, type: 'DICE',
+                { title: '⚡ Titan Die', desc: `Rolls 6-11 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 150, type: 'DICE', rarity: 'rare',
                   effect: 'Adds a 6-11 die to your pool',
                   action: () => { GS.dice.push(createDie(6, 11)); log('Bought Titan Die (6-11)!', 'info'); } },
             );
         }
 
-        const mods = shuffle([...FACE_MODS]).slice(0, 2);
-        mods.forEach(mod => {
+        FACE_MODS.forEach(mod => {
             all.push({
                 title: `${mod.icon} ${mod.name} Face`, desc: `Add to any die face`, price: 35,
-                type: 'FACE MOD', effect: mod.desc,
+                type: 'FACE MOD', effect: mod.desc, rarity: mod.rarity,
                 action: () => { Shop.showFaceModPurchase(mod); return false; },
                 modifier: mod
             });
         });
 
-        const runeOffers = shuffle([...RUNES]).slice(0, GS.act >= 2 ? 2 : 1);
-        runeOffers.forEach(rune => {
+        RUNES.forEach(rune => {
             all.push({
                 title: `${rune.icon} ${rune.name}`, desc: `Rune — ${rune.desc}`, price: 80,
-                type: 'RUNE', effect: rune.desc,
+                type: 'RUNE', effect: rune.desc, rarity: rune.rarity,
                 action: () => {
                     showRuneAttachment(rune, () => { Shop.render(); show('screen-shop'); });
                     return false;
@@ -1916,22 +1916,19 @@ const Shop = {
             });
         });
 
-        // Utility dice: 1–2 random picks per shop visit
-        const utilityOfferCount = GS.act >= 2 ? 2 : 1;
-        shuffle([...UTILITY_DICE]).slice(0, utilityOfferCount).forEach(utDef => {
+        UTILITY_DICE.forEach(utDef => {
             all.push({
                 title: `${utDef.icon} ${utDef.name}`,
                 desc: `Utility die (${utDef.zone}) — ${utDef.desc}`,
                 price: utDef.price,
-                type: 'UTILITY DIE',
-                effect: utDef.desc,
+                type: 'UTILITY DIE', effect: utDef.desc, rarity: utDef.rarity,
                 action: () => { GS.dice.push(createUtilityDie(utDef)); log(`Bought ${utDef.icon} ${utDef.name}!`, 'info'); },
             });
         });
 
         const shopSlots = (GS.tempBuffs && GS.tempBuffs.shopReduced) ? 3 : 6;
         if (GS.tempBuffs && GS.tempBuffs.shopReduced) GS.tempBuffs.shopReduced = false;
-        Shop.items = shuffle(all).slice(0, shopSlots).map(item => ({
+        Shop.items = pickWeighted(all, shopSlots, item => RARITY_WEIGHTS[item.rarity] ?? 2).map(item => ({
             ...item,
             price: applyDiscount(item.price)
         }));

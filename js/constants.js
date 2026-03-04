@@ -287,15 +287,15 @@ export function pickEnemy(floor) {
 // ════════════════════════════════════════════════════════════
 export const FACE_MODS = [
     // ── SPIKE TIER (high power, triggers ~1/N times) ──
-    { name: 'Executioner',     icon: '⚔️', desc: 'Permanently ×5 a face\'s value (does not use the mod slot)',          effect: 'executioner',   color: '#d03030', transform: 5 },
-    { name: 'Freeze Strike',   icon: '🧊', desc: 'This face: freeze enemy (they skip their next attack)',                effect: 'freezeStrike',  color: '#60c0e0' },
-    { name: 'Jackpot',         icon: '💰', desc: 'This face: gain 50 gold',                                              effect: 'jackpot',       color: '#d4a534' },
-    { name: 'Chain Lightning', icon: '⚡', desc: 'This face: the rolled face value is applied twice (×2)',                effect: 'chainLightning',color: '#8080e0' },
-    { name: 'Critical',        icon: '💥', desc: 'This face: rolled face value is added to ALL slots simultaneously',     effect: 'critical',      color: '#e0a020' },
-    { name: 'Shield Bash',     icon: '🛡️', desc: 'This face: block value also dealt as damage (guard only)',            effect: 'shieldBash',    color: '#4060c0' },
+    { name: 'Executioner',     icon: '⚔️', desc: 'Permanently ×5 a face\'s value (does not use the mod slot)',          effect: 'executioner',   color: '#d03030', transform: 5, rarity: 'uncommon' },
+    { name: 'Freeze Strike',   icon: '🧊', desc: 'This face: freeze enemy (they skip their next attack)',                effect: 'freezeStrike',  color: '#60c0e0', rarity: 'uncommon' },
+    { name: 'Jackpot',         icon: '💰', desc: 'This face: gain 50 gold',                                              effect: 'jackpot',       color: '#d4a534', rarity: 'common' },
+    { name: 'Chain Lightning', icon: '⚡', desc: 'This face: the rolled face value is applied twice (×2)',                effect: 'chainLightning',color: '#8080e0', rarity: 'rare' },
+    { name: 'Critical',        icon: '💥', desc: 'This face: rolled face value is added to ALL slots simultaneously',     effect: 'critical',      color: '#e0a020', rarity: 'rare' },
+    { name: 'Shield Bash',     icon: '🛡️', desc: 'This face: block value also dealt as damage (guard only)',            effect: 'shieldBash',    color: '#4060c0', rarity: 'uncommon' },
 
     // ── STATUS TIER (apply status effects on trigger) ──
-    { name: 'Volatile',  icon: '🎲', desc: 'This face: replace rolled value with rand(1, max×2)',           effect: 'volatile',  color: '#d07020' },
+    { name: 'Volatile',  icon: '🎲', desc: 'This face: replace rolled value with rand(1, max×2)',           effect: 'volatile',  color: '#d07020', rarity: 'common' },
 ];
 
 // ════════════════════════════════════════════════════════════
@@ -404,16 +404,16 @@ export const LEGENDARY_ARTIFACT_POOL = [
 //  DIE RUNES (attach to individual dice)
 // ════════════════════════════════════════════════════════════
 export const RUNES = [
-    { name: 'Amplifier',    icon: '🔮', color: '#9060d0', slot: 'either', desc: 'Everything this die does is doubled (value ×2, face mod effects ×2)',    effect: 'amplifier' },
-    { name: "Titan's Blow", icon: '💪', color: '#d07030', slot: 'either', desc: 'If the only die in its slot, output is tripled',                          effect: 'titanBlow' },
-    { name: 'Siphon',       icon: '🩸', color: '#c02020', slot: 'strike', desc: "This die's damage also heals you for 100% of its contribution",           effect: 'siphon' },
-    { name: 'Regen Core',   icon: '💚', color: '#30a050', slot: 'guard',  desc: "This die's block also heals you for 50% (round up)",                      effect: 'regenCore' },
-    { name: 'Mirror',       icon: '🪞', color: '#3060c0', slot: 'guard',  desc: "Block from this die is also dealt as damage to the enemy",                effect: 'mirror' },
-    { name: 'Leaden',       icon: '⚓', color: '#606080', slot: 'guard',  desc: "Double block from this die, but it cannot be rerolled",                   effect: 'leaden' },
-    { name: 'Steadfast',    icon: '🛡️', color: '#4080b0', slot: 'guard',  desc: "This die's block ignores all enemy reduction effects",                   effect: 'steadfast' },
-    { name: 'Poison Core',  icon: '☠️', color: '#50a030', slot: 'strike', desc: "Every roll applies poison to the enemy equal to this die's rolled value", effect: 'poisonCore' },
-    { name: 'Lucky',        icon: '🎰', color: '#30a0a0', slot: 'either', desc: 'When a die is placed in this slot, gain +1 reroll this combat',           effect: 'lucky' },
-    { name: 'Splinter',     icon: '🔀', color: '#a06030', slot: 'strike', desc: "This die's value is split equally among all other dice in this slot; the die itself contributes 0", effect: 'splinter' },
+    { name: 'Amplifier',    icon: '🔮', color: '#9060d0', slot: 'either', desc: 'Everything this die does is doubled (value ×2, face mod effects ×2)',    effect: 'amplifier',  rarity: 'rare' },
+    { name: "Titan's Blow", icon: '💪', color: '#d07030', slot: 'either', desc: 'If the only die in its slot, output is tripled',                          effect: 'titanBlow',  rarity: 'rare' },
+    { name: 'Siphon',       icon: '🩸', color: '#c02020', slot: 'strike', desc: "This die's damage also heals you for 100% of its contribution",           effect: 'siphon',     rarity: 'uncommon' },
+    { name: 'Regen Core',   icon: '💚', color: '#30a050', slot: 'guard',  desc: "This die's block also heals you for 50% (round up)",                      effect: 'regenCore',  rarity: 'uncommon' },
+    { name: 'Mirror',       icon: '🪞', color: '#3060c0', slot: 'guard',  desc: "Block from this die is also dealt as damage to the enemy",                effect: 'mirror',     rarity: 'uncommon' },
+    { name: 'Leaden',       icon: '⚓', color: '#606080', slot: 'guard',  desc: "Double block from this die, but it cannot be rerolled",                   effect: 'leaden',     rarity: 'common' },
+    { name: 'Steadfast',    icon: '🛡️', color: '#4080b0', slot: 'guard',  desc: "This die's block ignores all enemy reduction effects",                   effect: 'steadfast',  rarity: 'common' },
+    { name: 'Poison Core',  icon: '☠️', color: '#50a030', slot: 'strike', desc: "Every roll applies poison to the enemy equal to this die's rolled value", effect: 'poisonCore', rarity: 'uncommon' },
+    { name: 'Lucky',        icon: '🎰', color: '#30a0a0', slot: 'either', desc: 'When a die is placed in this slot, gain +1 reroll this combat',           effect: 'lucky',      rarity: 'common' },
+    { name: 'Splinter',     icon: '🔀', color: '#a06030', slot: 'strike', desc: "This die's value is split equally among all other dice in this slot; the die itself contributes 0", effect: 'splinter', rarity: 'uncommon' },
 ];
 
 // ════════════════════════════════════════════════════════════
@@ -440,7 +440,7 @@ export const SKILL_TREE = [
     // ── TALL FACE 🔨 — dice quality ──
     { id: 't_a', name: 'Precision',     icon: '🔨', desc: '+1 Reroll per combat',                        requires: ['root'], effect: (gs) => { gs.rerolls++; } },
     { id: 't_b', name: 'Forge',         icon: '🔨', desc: 'Unlock Dice Merge at rest stops',             requires: ['root'], effect: (gs) => { gs.passives.canMerge = true; } },
-    { id: 't_c', name: 'Threshold',     icon: '🔨', desc: 'Passive: dice ≥8 deal +50% value',            requires: ['root'], effect: (gs) => { gs.passives.threshold = true; } },
+    { id: 't_c', name: 'Threshold',     icon: '🔨', desc: 'Passive: dice ≥12 deal double value',         requires: ['root'], effect: (gs) => { gs.passives.threshold = true; } },
     { id: 't_d', name: 'Amplify',       icon: '🔨', desc: 'Gain a free Amplifier rune to attach to a slot', requires: ['root'], effect: (gs) => { gs.pendingRunes.push({...RUNES.find(r => r.effect === 'amplifier')}); } },
     { id: 't_n', name: 'Runeforger',   icon: '👑', desc: 'Your slots can hold up to 3 runes each',        requires: ['t_a', 't_b', 't_c', 't_d'], effect: (gs) => { gs.passives.runeforger = true; } },
 
@@ -506,28 +506,28 @@ export const CONSUMABLES = [
 //  UTILITY DICE
 // ════════════════════════════════════════════════════════════
 export const UTILITY_DICE = [
-    { id: 'gold',      name: 'Gold Die',       icon: '💰', zone: 'either', price: 90,
+    { id: 'gold',      name: 'Gold Die',       icon: '💰', zone: 'either', price: 90,  rarity: 'uncommon',
       desc: 'Generates gold = other dice in zone × rolled %. Rune on this slot doubles the %. 0 damage/block.',
       faceValues: [5, 9, 13, 17, 21, 25] },
-    { id: 'poison',    name: 'Poison Die',     icon: '☠️', zone: 'strike', price: 60,
+    { id: 'poison',    name: 'Poison Die',     icon: '☠️', zone: 'strike', price: 60,  rarity: 'uncommon',
       desc: 'Applies poison = other dice in zone × rolled %. Rune on this slot doubles the %. 0 damage.',
       faceValues: [5, 9, 13, 17, 21, 25] },
-    { id: 'chill',     name: 'Chill Die',      icon: '❄️', zone: 'either', price: 60,
+    { id: 'chill',     name: 'Chill Die',      icon: '❄️', zone: 'either', price: 60,  rarity: 'common',
       desc: 'Applies chill stacks equal to rolled value. Rune multipliers on this slot apply. 0 dmg/block.',
       faceValues: [1, 2, 2, 3, 3, 4] },
-    { id: 'burn',      name: 'Burn Die',       icon: '🔥', zone: 'strike', price: 65,
+    { id: 'burn',      name: 'Burn Die',       icon: '🔥', zone: 'strike', price: 65,  rarity: 'common',
       desc: 'Applies burn stacks for 3 turns equal to rolled value. Rune multipliers on this slot apply. 0 dmg.',
       faceValues: [1, 1, 2, 2, 3, 3] },
-    { id: 'shield',    name: 'Shield Die',     icon: '🛡️', zone: 'either', price: 80,
+    { id: 'shield',    name: 'Shield Die',     icon: '🛡️', zone: 'either', price: 80,  rarity: 'uncommon',
       desc: 'Contributes its value to BOTH Strike damage AND Guard block simultaneously.',
       faceValues: [2, 3, 4, 5, 6, 7] },
-    { id: 'mark',      name: 'Mark Die',       icon: '🎯', zone: 'strike', price: 65,
+    { id: 'mark',      name: 'Mark Die',       icon: '🎯', zone: 'strike', price: 65,  rarity: 'common',
       desc: 'Applies mark for 2 turns equal to rolled value. Rune multipliers on this slot apply. 0 dmg.',
       faceValues: [1, 2, 2, 3, 3, 4] },
-    { id: 'amplifier', name: 'Amplifier Die',  icon: '📡', zone: 'either', price: 100,
+    { id: 'amplifier', name: 'Amplifier Die',  icon: '📡', zone: 'either', price: 100, rarity: 'rare',
       desc: 'Multiplies total output of all other dice in its zone. Useless alone.',
       faceValues: [150, 175, 200, 225, 250, 300] },  // values are percentages (150 = ×1.5)
-    { id: 'mimic',     name: 'Mimic Die',      icon: '🪞', zone: 'either', price: 70,
+    { id: 'mimic',     name: 'Mimic Die',      icon: '🪞', zone: 'either', price: 70,  rarity: 'uncommon',
       desc: 'At roll time, copies a random die from your pool and rolls as if it were that die. Re-picks each turn.',
       faceValues: [1, 2, 3, 4, 5, 6] },
 ];

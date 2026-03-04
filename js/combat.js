@@ -62,7 +62,7 @@ function applyStatus(type, stacks, turns = 2) {
         log(`🔥 Burn: ${es.burn} stacks!`, 'damage');
     } else if (type === 'stun') {
         if (!es.stunCooldown) {
-            es.stun = 1; es.stunCooldown = true;
+            es.stun = 1; es.stunCooldown = 2;
             log('⚡ Stunned!', 'info');
         }
     }
@@ -205,7 +205,7 @@ export const Combat = {
         GS.playerDebuffs = { poison: 0, poisonTurns: 0, disabledSlots: [], diceReduction: 0 };
 
         // Reset enemy status effects for new combat
-        GS.enemyStatus = { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: false };
+        GS.enemyStatus = { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: 0 };
         GS.echoStoneDieId = null;
         GS.gamblerCoinBonus = 0;
         GS.huntersMarkFired = false;
@@ -749,7 +749,7 @@ export const Combat = {
         // transformBuffs: Fortification defend multiplier
         if (GS.transformBuffs && GS.transformBuffs.fortified > 1) defMult *= GS.transformBuffs.fortified;
         if (GS.passives.threshold) {
-            GS.allocated.guard.forEach(d => { if (d.value >= 8) defBase += Math.floor(d.value * 0.5); });
+            GS.allocated.guard.forEach(d => { if (d.value >= 12) defBase += d.value; });
         }
         // New artifact defend bonuses
         defBonus += GS.artifacts.filter(a => a.effect === 'goldenAegis').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
@@ -1039,7 +1039,7 @@ export const Combat = {
         if (goldScale > 0) atkBonus += goldScale;
         if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
         if (GS.passives.threshold) {
-            GS.allocated.strike.forEach(d => { if (d.value >= 8) atkBase += Math.floor(d.value * 0.5); });
+            GS.allocated.strike.forEach(d => { if (d.value >= 12) atkBase += d.value; });
         }
         const rerollsUsed = GS.rerolls - GS.rerollsLeft;
         if (rerollsUsed > 0) {
@@ -1220,7 +1220,7 @@ export const Combat = {
         // Overcharge: stun if hit for threshold+
         const overchargeP = e.passives.find(p => p.id === 'overcharge');
         if (overchargeP && finalAtk >= overchargeP.params.threshold && !es.stunCooldown) {
-            es.stun = 1; es.stunCooldown = true;
+            es.stun = 1; es.stunCooldown = 2;
             log(`⚡ Overcharge! ${e.name} staggers — skips next attack!`, 'damage');
         }
 
@@ -1791,7 +1791,7 @@ export const Combat = {
             if (esc.chillTurns > 0) { esc.chillTurns--; if (esc.chillTurns <= 0) esc.chill = 0; }
             if (esc.markTurns > 0) { esc.markTurns--; if (esc.markTurns <= 0) esc.mark = 0; }
             if (esc.weaken > 0) esc.weaken--;
-            esc.stunCooldown = false;
+            if (esc.stunCooldown > 0) esc.stunCooldown--;
         }
 
         // Reset Echo Stone tracking for new turn

@@ -182,3 +182,32 @@ Several retired face mods (×2 Strike, Shield, Poison, Gold Rush) represented in
 
 ### Acquisition
 Shop purchase primarily. Price range 60–100g depending on power level (Gold Die and Amplifier Die at the higher end; status utility dice at the lower end).
+
+---
+
+## Font System — Cinzel / Crimson Text / JetBrains Mono
+
+**Date:** 2026-03-04
+**Status:** Decided
+
+### Decision
+Three fonts, each with a strict role, applied via CSS custom properties:
+
+| Role | Font | Variable | Usage |
+|------|------|----------|-------|
+| **Headings** | Cinzel | `--font-heading` | h1–h3, enemy/artifact/boss names, screen titles, floor names |
+| **Body** | Crimson Text | `--font-body` | Descriptions, flavor text, combat log, tooltips, event narrative, card body text |
+| **Data** | JetBrains Mono | `--font-data` | Dice values, HP/ATK/DEF numbers, gold, XP, damage numbers, stat labels |
+
+Root font size is responsive: 15px (mobile) → 16px (600px+) → 17px (1024px+). All font-size values use `rem` via a named scale (`--text-xs` through `--text-2xl`).
+
+### Rationale
+The previous stack (Uncial Antiqua / EB Garamond / JetBrains Mono) mixed a single-weight medieval display font with a serif body font that had readability issues at small sizes on dark backgrounds. Cinzel has wider glyph coverage and multiple weights, supporting bold headings vs. regular subheadings. Crimson Text is optimized for screen readability and supports italic/semi-bold weight for flavor text variation. JetBrains Mono is retained for data because its tabular numerals keep stats and dice values aligned.
+
+### Implementation notes
+- Google Fonts load: `Cinzel:wght@400;600;700`, `Crimson+Text:ital,wght@0,400;0,600;0,700;1,400`, `JetBrains+Mono:wght@400;600;700`
+- Preconnect links added before the stylesheet link in `index.html`
+- Service worker already caches `fonts.googleapis.com` / `fonts.gstatic.com` responses generically — no SW change needed
+- All `font-family` declarations in `style.css` now reference variables; no raw font names remain in CSS or HTML
+- Headings: h1 `letter-spacing: 0.05em`, h2 `0.03em`, h3 none (Cinzel reads well at scale without heavy tracking)
+- Do NOT convert border, box-shadow, icon-size, or fixed layout pixel values to rem

@@ -65,7 +65,7 @@ export const GS = {
         burn: 0,             // stacks (dmg/turn to enemy)
         burnTurns: 0,
         stun: 0,             // turns remaining (skip attack)
-        stunCooldown: false, // can't stun same enemy two turns in a row
+        stunCooldown: 0,     // turns remaining on stun cooldown (can't re-stun while > 0)
     },
     echoStoneDieId: null,        // id of first die allocated this turn (Echo Stone artifact)
     gamblerCoinBonus: 0,         // +2 or -1 for this combat (Gambler's Coin artifact)
@@ -99,6 +99,18 @@ export const $ = id => document.getElementById(id);
 export const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 export const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 export const shuffle = arr => [...arr].sort(() => Math.random() - 0.5);
+
+export function pickWeighted(pool, n, getWeight) {
+    const results = [];
+    const remaining = [...pool];
+    for (let i = 0; i < n && remaining.length > 0; i++) {
+        const total = remaining.reduce((s, x) => s + getWeight(x), 0);
+        let r = Math.random() * total;
+        const idx = remaining.findIndex(x => { r -= getWeight(x); return r <= 0; });
+        results.push(...remaining.splice(idx < 0 ? remaining.length - 1 : idx, 1));
+    }
+    return results;
+}
 
 export function log(msg, type = '') {
     const c = $('combat-log');

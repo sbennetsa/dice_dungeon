@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dice Dungeon — Bestiary</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+
+/* ═══════════════════════════════════════════
+   ROOT & RESET
+═══════════════════════════════════════════ */
+:root {
+  /* ─── Font families (from font-system-spec) ─── */
+  --font-heading: 'Cinzel', Georgia, 'Times New Roman', serif;
+  --font-body:    'Crimson Text', Georgia, 'Times New Roman', serif;
+  --font-data:    'JetBrains Mono', 'Courier New', Consolas, monospace;
+
+  /* ─── Font size scale ─── */
+  --text-xs:   0.7rem;
+  --text-sm:   0.8rem;
+  --text-base: 1rem;
+  --text-md:   1.15rem;
+  --text-lg:   1.4rem;
+  --text-xl:   1.75rem;
+  --text-2xl:  2.2rem;
+
+  /* ─── Spacing scale ─── */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 0.75rem;
+  --space-lg: 1rem;
+  --space-xl: 1.5rem;
+
+  /* ─── Parchment palette ─── */
+  --parchment:      #e8d9b5;
+  --parchment-dark: #d4c49a;
+  --parchment-deep: #c4af82;
+  --ink:            #1a1208;
+  --ink-faded:      #3d2e18;
+  --ink-light:      #5c4530;
+  --ink-muted:      #8a7055;
+  --border-ink:     #2e1f0a;
+  --accent-red:     #7a1a1a;
+  --accent-gold:    #8b6914;
+
+  --act1-color:     #2d5a3d;
+  --act2-color:     #7a2020;
+  --act3-color:     #1a2d5a;
+  --boss-color:     #6b4c0a;
+
+  --shadow: 0 4px 32px rgba(10,6,0,0.55);
+}
+
+/* ─── Responsive root font size ─── */
+html { font-size: 15px; }
+@media (min-width: 600px)  { html { font-size: 16px; } }
+@media (min-width: 1024px) { html { font-size: 17px; } }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #110c06;
+  background-image:
+    radial-gradient(ellipse at 20% 50%, #1c1005 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, #0e0a04 0%, transparent 50%);
+  min-height: 100vh;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+/* ═══════════════════════════════════════════
+   LAYOUT SHELL
+═══════════════════════════════════════════ */
+.bestiary-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════
+   LEFT PANEL — INDEX
+═══════════════════════════════════════════ */
+.bestiary-index {
+  width: 272px;
+  min-width: 272px;
+  background: #0e0904;
+  border-right: 2px solid #2a1e0c;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.index-header {
+  padding: 22px 20px 14px;
+  border-bottom: 1px solid #241908;
+  text-align: center;
+}
+
+.index-header h1 {
+  font-family: var(--font-heading);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #e0cfa0;
+  text-shadow: 0 0 24px rgba(160,110,30,0.45);
+  line-height: 1;
+}
+
+.index-header .subtitle {
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  color: #4a3820;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+
+.index-search {
+  padding: 10px 14px;
+  border-bottom: 1px solid #241908;
+}
+
+.index-search input {
+  width: 100%;
+  background: #16100a;
+  border: 1px solid #2e2010;
+  color: #c8b880;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  padding: 6px 10px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.index-search input::placeholder { color: #3a2810; }
+.index-search input:focus { border-color: var(--accent-gold); }
+
+.index-filter {
+  padding: 8px 14px;
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid #241908;
+}
+
+.filter-btn {
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  padding: 3px 7px;
+  border: 1px solid;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+}
+
+.filter-btn[data-act="all"]  { color: #7a6840; border-color: #3a2c18; }
+.filter-btn[data-act="1"]    { color: var(--act1-color); border-color: var(--act1-color); }
+.filter-btn[data-act="2"]    { color: var(--act2-color); border-color: var(--act2-color); }
+.filter-btn[data-act="3"]    { color: var(--act3-color); border-color: var(--act3-color); }
+.filter-btn[data-act="boss"] { color: var(--boss-color); border-color: var(--boss-color); }
+
+.filter-btn:hover { opacity: 0.8; background: rgba(255,255,255,0.04); }
+.filter-btn[data-act="all"].active  { background: rgba(122,104,64,0.18); }
+.filter-btn[data-act="1"].active    { background: rgba(45,90,61,0.22); }
+.filter-btn[data-act="2"].active    { background: rgba(122,32,32,0.22); }
+.filter-btn[data-act="3"].active    { background: rgba(26,45,90,0.22); }
+.filter-btn[data-act="boss"].active { background: rgba(107,76,10,0.22); }
+
+.index-count {
+  padding: 5px 14px;
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  color: #3a2c18;
+  letter-spacing: 0.1em;
+}
+
+.index-list {
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #2e2010 transparent;
+}
+.index-list::-webkit-scrollbar { width: 3px; }
+.index-list::-webkit-scrollbar-thumb { background: #2e2010; }
+
+.index-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #18120a;
+  transition: background 0.15s;
+  position: relative;
+}
+.index-entry:hover { background: #16100a; }
+.index-entry.active { background: #1e1608; }
+.index-entry.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--accent-gold);
+}
+.index-entry.locked { opacity: 0.42; cursor: default; }
+.index-entry.locked:hover { background: transparent; }
+
+.entry-thumb {
+  width: 34px; height: 34px;
+  border: 1px solid #2e2010;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #0e0904;
+}
+.entry-thumb img { width: 100%; height: 100%; object-fit: cover; filter: sepia(0.5) contrast(0.9); }
+
+.entry-thumb.locked-thumb { background: #080604; }
+
+.entry-info { flex: 1; min-width: 0; }
+
+.entry-name {
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  color: #c8b880;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.entry-name.locked { color: #2e2010; }
+
+.entry-meta { margin-top: 2px; }
+
+.act-tag {
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border: 1px solid;
+}
+.act-tag.act-1  { color: var(--act1-color); border-color: var(--act1-color); }
+.act-tag.act-2  { color: var(--act2-color); border-color: var(--act2-color); }
+.act-tag.act-3  { color: var(--act3-color); border-color: var(--act3-color); }
+.act-tag.boss   { color: var(--boss-color);  border-color: var(--boss-color); }
+
+/* ═══════════════════════════════════════════
+   RIGHT PANEL — PARCHMENT PAGE
+═══════════════════════════════════════════ */
+.bestiary-page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  scrollbar-width: thin;
+  scrollbar-color: #2e2010 transparent;
+}
+.bestiary-page::-webkit-scrollbar { width: 5px; }
+.bestiary-page::-webkit-scrollbar-thumb { background: #2e2010; }
+
+.parchment {
+  width: 100%;
+  max-width: 700px;
+  background: var(--parchment);
+  box-shadow: var(--shadow);
+  position: relative;
+  padding: 48px 52px 56px;
+  min-height: 860px;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.055'/%3E%3C/svg%3E"),
+    linear-gradient(155deg, #eddfc4 0%, #e8d9b5 25%, #e0ce9e 60%, #d8c090 100%);
+  animation: pageIn 0.35s ease both;
+}
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Aged-corner darkening */
+.parchment::after {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 0% 0%,   rgba(70,40,5,0.16) 0%, transparent 45%),
+    radial-gradient(ellipse at 100% 0%,  rgba(60,35,5,0.12) 0%, transparent 40%),
+    radial-gradient(ellipse at 0% 100%,  rgba(60,35,5,0.12) 0%, transparent 40%),
+    radial-gradient(ellipse at 100% 100%,rgba(70,40,5,0.16) 0%, transparent 45%);
+}
+
+/* Decorative border frame */
+.page-border {
+  position: absolute; inset: 14px;
+  border: 1px solid rgba(46,31,10,0.32);
+  pointer-events: none; z-index: 1;
+}
+.page-border::before {
+  content: ''; position: absolute; inset: 5px;
+  border: 1px solid rgba(46,31,10,0.14);
+}
+
+.corner {
+  position: absolute; z-index: 2;
+  font-size: 1.3rem;
+  color: rgba(46,31,10,0.42);
+  line-height: 1;
+  pointer-events: none;
+}
+.corner.tl { top: 10px; left: 10px; }
+.corner.tr { top: 10px; right: 10px; transform: scaleX(-1); }
+.corner.bl { bottom: 10px; left: 10px; transform: scaleY(-1); }
+.corner.br { bottom: 10px; right: 10px; transform: scale(-1); }
+
+/* ── Page header ── */
+.page-header { text-align: center; margin-bottom: 24px; }
+
+.header-rule {
+  display: flex; align-items: center; gap: 10px;
+}
+.header-rule::before,
+.header-rule::after {
+  content: '';
+  flex: 1; height: 1px;
+  background: linear-gradient(to right, transparent, rgba(46,31,10,0.35), transparent);
+}
+.species-label {
+  font-family: var(--font-heading);
+  font-size: var(--text-xs);
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-light);
+}
+
+/* ── Two-column body ── */
+.page-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  margin-bottom: 24px;
+}
+
+.art-column { display: flex; flex-direction: column; align-items: center; }
+
+.creature-art {
+  width: 100%;
+  aspect-ratio: 3/4;
+  border: 1px solid rgba(46,31,10,0.28);
+  overflow: hidden;
+  background: rgba(90,60,15,0.07);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.creature-art img {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  filter: sepia(0.2) contrast(0.95) brightness(0.95);
+  mix-blend-mode: multiply;
+}
+
+.art-caption {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  text-align: center;
+  margin-top: 8px;
+  line-height: 1.45;
+}
+
+/* Annotations — field-note style */
+.annotation { margin-bottom: 15px; }
+.annotation + .annotation::before {
+  content: '✦';
+  display: block;
+  font-size: 0.45rem;
+  color: var(--ink-muted);
+  opacity: 0.38;
+  margin-bottom: 15px;
+}
+.annotation-label {
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent-gold);
+  margin-bottom: 3px;
+}
+.annotation-value {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: var(--text-sm);
+  color: var(--ink-faded);
+  line-height: 1.5;
+}
+
+.classification-block {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(46,31,10,0.2);
+}
+.classification-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.classif-item {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: var(--text-sm);
+  color: var(--ink-faded);
+  line-height: 1.5;
+}
+.classif-item strong {
+  display: block;
+  font-style: normal;
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-light);
+}
+
+/* ── Name heading ── */
+.creature-name-section { text-align: center; margin-bottom: 18px; }
+
+.name-rule {
+  display: flex; align-items: center; gap: 14px;
+}
+.name-rule::before,
+.name-rule::after {
+  content: '';
+  flex: 1; height: 1px;
+  background: rgba(46,31,10,0.28);
+}
+.creature-name {
+  font-family: var(--font-heading);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
+/* ── Lore ── */
+.lore-section { margin-bottom: 22px; }
+.lore-text {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.78;
+  color: var(--ink-faded);
+  text-align: justify;
+  hyphens: auto;
+}
+/* Drop-cap using Cinzel since UnifrakturMaguntia is not in spec */
+.lore-text::first-letter {
+  font-family: var(--font-heading);
+  font-size: 3.2rem;
+  font-weight: 700;
+  float: left;
+  line-height: 0.8;
+  margin-right: 5px;
+  margin-top: 4px;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+/* ── Abilities ── */
+.abilities-section {
+  border-top: 1px solid rgba(46,31,10,0.22);
+  padding-top: 18px;
+  margin-bottom: 18px;
+}
+.abilities-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+}
+.abilities-header::after {
+  content: ''; flex: 1; height: 1px; background: rgba(46,31,10,0.18);
+}
+.abilities-title {
+  font-family: var(--font-heading);
+  font-size: var(--text-xs);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-light);
+}
+.ability-entry {
+  margin-bottom: 13px;
+  padding-left: 15px;
+  position: relative;
+}
+.ability-entry::before {
+  content: '⬡';
+  position: absolute; left: 0; top: 1px;
+  font-size: 0.48rem;
+  color: var(--accent-gold);
+}
+.ability-name {
+  font-family: var(--font-heading);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  margin-bottom: 3px;
+}
+.ability-type {
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-red);
+  margin-left: 5px;
+  opacity: 0.75;
+}
+.ability-desc {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: var(--text-sm);
+  color: var(--ink-faded);
+  line-height: 1.55;
+}
+
+/* ── Page footer ── */
+.page-footer {
+  border-top: 1px solid rgba(46,31,10,0.18);
+  padding-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.footer-entry-num {
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+/* ── Locked page ── */
+.locked-page-content {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 600px; gap: 18px; text-align: center;
+}
+.lock-sigil {
+  font-size: 2.8rem; color: var(--ink-muted); opacity: 0.25;
+}
+.locked-name-hint {
+  font-family: var(--font-heading);
+  font-size: var(--text-md); letter-spacing: 0.35em;
+  color: var(--ink-muted); opacity: 0.4;
+}
+.locked-flavour {
+  font-family: var(--font-body);
+  font-style: italic; font-size: var(--text-sm);
+  color: var(--ink-muted); opacity: 0.55;
+  max-width: 310px; line-height: 1.6;
+}
+
+/* ── Empty state ── */
+.empty-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 600px; gap: 14px; text-align: center; opacity: 0.4;
+}
+.empty-glyph {
+  font-family: var(--font-heading);
+  font-size: 5rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--ink-muted);
+}
+.empty-state p {
+  font-family: var(--font-body);
+  font-style: italic; font-size: var(--text-base); color: var(--ink-muted);
+}
+
+/* ── Responsive ── */
+@media (max-width: 860px) {
+  .bestiary-shell { flex-direction: column; height: auto; }
+  .bestiary-index { width: 100%; min-width: 0; max-height: 44vh; }
+  .bestiary-page  { padding: 14px; }
+  .page-body { grid-template-columns: 1fr; }
+  .parchment { padding: 30px 20px 38px; min-height: 0; }
+}
+
+</style>
+</head>
+<body>
+<div class="bestiary-shell">
+
+  <!-- ══════════════ LEFT: INDEX ══════════════ -->
+  <aside class="bestiary-index">
+    <div class="index-header">
+      <h1>Bestiary</h1>
+      <div class="subtitle">Dice Dungeon — Field Compendium</div>
+    </div>
+    <div class="index-search">
+      <input type="text" id="searchInput" placeholder="Search creatures…" autocomplete="off" />
+    </div>
+    <div class="index-filter">
+      <button class="filter-btn active" data-act="all">All</button>
+      <button class="filter-btn" data-act="1">Act I</button>
+      <button class="filter-btn" data-act="2">Act II</button>
+      <button class="filter-btn" data-act="3">Act III</button>
+      <button class="filter-btn" data-act="boss">Bosses</button>
+    </div>
+    <div class="index-count" id="indexCount">— entries</div>
+    <div class="index-list" id="indexList"></div>
+  </aside>
+
+  <!-- ══════════════ RIGHT: PAGE ══════════════ -->
+  <main class="bestiary-page" id="bestiaryPage">
+    <div class="parchment" id="parchmentDoc">
+      <div class="empty-state">
+        <div class="empty-glyph">B</div>
+        <p>Select a creature from the index<br>to read its entry.</p>
+      </div>
+    </div>
+  </main>
+
+</div>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  BESTIARY DATA
+//  ───────────────────────────────────────────────────────────────
+//  Entry shape — all fields required unless marked optional:
+//  {
+//    id:          string            unique slug, matches enemy id in constants.js
+//    name:        string
+//    act:         1 | 2 | 3 | "boss"
+//    unlocked:    boolean           driven by GS.bestiaryUnlocked in live game
+//    artSrc:      string | null     path to creature PNG/WebP, null = letter placeholder
+//    artCaption:  string | null     italic caption beneath the illustration
+//    annotations: Array<{label, value}>   field-note callouts beside the art
+//    classification: {
+//      threat:     string           e.g. "Common", "Elite", "Boss — Act I"
+//      habitat:    string
+//      encounters: number           times player has fought this enemy
+//    }
+//    lore:        string            body paragraph; first letter gets drop-cap treatment
+//    abilities:   Array<{
+//      name:        string
+//      type:        "Active" | "Passive" | "Reaction"
+//      description: string
+//    }>
+//  }
+// ═══════════════════════════════════════════════════════════════════
+
+const BESTIARY = [
+
+  // ── ACT I ──────────────────────────────────────────────────────
+
+  {
+    id: "goblin_scrapper",
+    name: "Goblin Scrapper",
+    act: 1, unlocked: true,
+    artSrc: null,
+    artCaption: "Sketch from a survivor's journal — note the improvised armour.",
+    annotations: [
+      { label: "Height",      value: "Three to four feet. A hunched posture makes them appear smaller still." },
+      { label: "Disposition", value: "Cowardly alone, reckless in groups. Drawn to the clatter of rolling dice." },
+      { label: "Weakness",    value: "Poor defence — crumbles quickly under sustained pressure." },
+    ],
+    classification: { threat: "Common", habitat: "Dungeon Ruins", encounters: 14 },
+    lore: "Goblin Scrappers haunt the first levels of the dungeon, drawn to adventurers by the sound of dice striking stone. Their tactics are blunt — rush, bite, flee — but their numbers can overwhelm the unprepared. Veterans note they frequently carry stolen faces from older dice, pried from fallen travellers who didn't make it back to the surface.",
+    abilities: [
+      { name: "Frenzied Strike", type: "Active",  description: "Deals 1 damage. If this would reduce the player's lowest die to zero, deals 1 additional damage." },
+      { name: "Scavenge",        type: "Passive", description: "At the start of combat, the Scrapper steals one face from the player's lowest-value die." },
+    ]
+  },
+
+  {
+    id: "dungeon_rat",
+    name: "Dungeon Rat",
+    act: 1, unlocked: true,
+    artSrc: null,
+    artCaption: "Highly adaptable; specimens observed in all three acts.",
+    annotations: [
+      { label: "Size",      value: "Roughly the size of a large dog. Far more dangerous than its appearance suggests." },
+      { label: "Behaviour", value: "Territorial and persistent. Known to follow intruders across multiple floors." },
+      { label: "Note",      value: "Gnaws through walls — rooms are frequently smaller after a rat nest is established." },
+    ],
+    classification: { threat: "Common", habitat: "Sewers & Rubble", encounters: 8 },
+    lore: "Dungeon Rats are among the most frequently encountered threats in the upper floors. Their bite carries a mild venom that dulls the senses, making it harder to read the faces of one's own dice in dim torchlight. Experienced delvers keep salt in their pockets — rats are known to despise it, though no scholar has satisfactorily explained why.",
+    abilities: [
+      { name: "Gnaw",          type: "Active",  description: "Reduces one of the player's attack dice by 1 for the remainder of combat." },
+      { name: "Pack Instinct", type: "Passive", description: "If another Rat is present in the encounter, both Rats gain +1 to all dice rolls." },
+    ]
+  },
+
+  {
+    id: "skeleton_guard",
+    name: "Skeleton Guard",
+    act: 1, unlocked: true,
+    artSrc: null,
+    artCaption: "Armed with weapons from a forgotten war; their cause long since dissolved.",
+    annotations: [
+      { label: "Origin",       value: "Reanimated soldiers of the pre-dungeon garrison. Loyalty persists beyond death." },
+      { label: "Armament",     value: "Rusted blade and a cracked tower shield." },
+      { label: "Vulnerability", value: "Blunt force; high attack dice shatter their bones efficiently." },
+    ],
+    classification: { threat: "Common", habitat: "Barracks & Armories", encounters: 11 },
+    lore: "Skeleton Guards march in silence, following patrol routes set centuries before any living soul walked these halls. They register intruders not by sight or smell but by the vibration of dice striking stone — an unsettling reminder that the dungeon itself appears to watch and report.",
+    abilities: [
+      { name: "Shield Wall",  type: "Passive",  description: "The Skeleton Guard always places at least 2 dice in defence each round, regardless of pool size." },
+      { name: "Bone Rattle",  type: "Reaction", description: "When hit by an attack dealing 3 or more damage, all enemies in the encounter gain 1 temporary defence." },
+    ]
+  },
+
+  {
+    id: "cave_spider",
+    name: "Cave Spider",
+    act: 1, unlocked: false,
+    artSrc: null, artCaption: null, annotations: [],
+    classification: { threat: "Common", habitat: "Webs & Dark Passages", encounters: 0 },
+    lore: "", abilities: []
+  },
+
+  {
+    id: "acidic_slime",
+    name: "Acidic Slime",
+    act: 1, unlocked: false,
+    artSrc: null, artCaption: null, annotations: [],
+    classification: { threat: "Common", habitat: "Flooded Chambers", encounters: 0 },
+    lore: "", abilities: []
+  },
+
+  // ── ACT II ─────────────────────────────────────────────────────
+
+  {
+    id: "stone_golem",
+    name: "Stone Golem",
+    act: 2, unlocked: true,
+    artSrc: null,
+    artCaption: "The mason's runes are still legible — though the mason is long dead.",
+    annotations: [
+      { label: "Construction", value: "Quarried granite, bound by pre-Collapse ward-magic of unknown origin." },
+      { label: "Speed",        value: "Slow to act. Devastating when a blow lands." },
+      { label: "Strategy",     value: "Outlast, don't outbrawl — its pool is small but its faces are catastrophic." },
+    ],
+    classification: { threat: "Elite", habitat: "Stone Halls & Vaults", encounters: 3 },
+    lore: "Stone Golems were created to guard the dungeon's most valuable chambers, and they have not forgotten their charge. Each one bears a maker's rune on its chest — scholars believe the rune is also the golem's only vulnerability, though none have returned to confirm the theory. They do not pursue. They simply wait for you to come back.",
+    abilities: [
+      { name: "Crushing Blow", type: "Active",  description: "Deals damage equal to its highest single die. If this exceeds 4, the player loses one die from their pool for the following round." },
+      { name: "Stone Skin",    type: "Passive", description: "The first 2 damage dealt to the Golem each round is absorbed entirely." },
+      { name: "Rune Ward",     type: "Reaction",description: "Once per combat, when the Golem would be reduced to 0 HP, it survives at 1 HP instead." },
+    ]
+  },
+
+  {
+    id: "shadow_wraith",
+    name: "Shadow Wraith",
+    act: 2, unlocked: false,
+    artSrc: null, artCaption: null, annotations: [],
+    classification: { threat: "Elite", habitat: "Cursed Chambers", encounters: 0 },
+    lore: "", abilities: []
+  },
+
+  {
+    id: "mimic",
+    name: "Mimic",
+    act: 2, unlocked: false,
+    artSrc: null, artCaption: null, annotations: [],
+    classification: { threat: "Common", habitat: "Treasure Rooms", encounters: 0 },
+    lore: "", abilities: []
+  },
+
+  // ── ACT III ────────────────────────────────────────────────────
+
+  {
+    id: "void_spawn",
+    name: "Void Spawn",
+    act: 3, unlocked: false,
+    artSrc: null, artCaption: null, annotations: [],
+    classification: { threat: "Elite", habitat: "The Void Corridors", encounters: 0 },
+    lore: "", abilities: []
+  },
+
+  {
+    id: "crimson_knight",
+    name: "Crimson Knight",
+    act: 3, unlocked: false,
+    artSrc: null, artCaption: null, annotations: [],
+    classification: { threat: "Elite", habitat: "The Crimson Halls", encounters: 0 },
+    lore: "", abilities: []
+  },
+
+  // ── BOSSES ─────────────────────────────────────────────────────
+
+  {
+    id: "bone_king",
+    name: "The Bone King",
+    act: "boss", unlocked: true,
+    artSrc: null,
+    artCaption: "He has been here longer than the dungeon itself. Perhaps he built it.",
+    annotations: [
+      { label: "Title",    value: "Sovereign of the First Ossuary. The Undying Throne." },
+      { label: "Behaviour",value: "Does not rush. Waits. As if he already knows the outcome." },
+      { label: "Warning",  value: "His crown is made from the dice of those who failed. Count the faces." },
+    ],
+    classification: { threat: "Boss — Act I", habitat: "The Throne of Dust", encounters: 1 },
+    lore: "The Bone King predates every map of the dungeon. Cartographers who survived encountering him report that he communicates — not in words, but in the sound of dice rolling across stone, each face a syllable in a language older than language itself. He is not cruel. He is simply inevitable.",
+    abilities: [
+      { name: "Sovereign's Decree", type: "Active",  description: "Forces the player to reroll their highest die and take the lower result. Cannot be blocked." },
+      { name: "Crown of the Fallen", type: "Passive", description: "For every previous encounter lost in the current run, the Bone King gains +1 to his minimum die face." },
+      { name: "Ossified Dominion",   type: "Passive", description: "The Bone King cannot be reduced below 5 HP until the player has dealt at least 15 total damage across the fight." },
+      { name: "Judgement",           type: "Reaction",description: "When the player uses a consumable, the Bone King immediately takes an out-of-turn action." },
+    ]
+  },
+
+  {
+    id: "crimson_wyrm",
+    name: "Crimson Wyrm",
+    act: "boss", unlocked: false,
+    artSrc: null, artCaption: null, annotations: [],
+    classification: { threat: "Boss — Act II", habitat: "The Burning Descent", encounters: 0 },
+    lore: "", abilities: []
+  },
+
+  {
+    id: "void_lord",
+    name: "The Void Lord",
+    act: "boss", unlocked: false,
+    artSrc: null, artCaption: null, annotations: [],
+    classification: { threat: "Boss — Act III", habitat: "The Null Chamber", encounters: 0 },
+    lore: "", abilities: []
+  },
+
+];
+
+// ═══════════════════════════════════════════════════════════════════
+//  BESTIARY UI CONTROLLER
+// ═══════════════════════════════════════════════════════════════════
+class BestiaryUI {
+  constructor(data) {
+    this.data      = data;
+    this.filtered  = [...data];
+    this.activeId  = null;
+    this.activeAct = "all";
+    this.query     = "";
+
+    this.$list   = document.getElementById("indexList");
+    this.$page   = document.getElementById("parchmentDoc");
+    this.$count  = document.getElementById("indexCount");
+    this.$search = document.getElementById("searchInput");
+
+    this._bindEvents();
+    this._applyFilter();
+
+    // Auto-open first unlocked entry
+    const first = data.find(e => e.unlocked);
+    if (first) this._openEntry(first.id);
+  }
+
+  _bindEvents() {
+    document.querySelectorAll(".filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        this.activeAct = btn.dataset.act;
+        this._applyFilter();
+      });
+    });
+    this.$search.addEventListener("input", e => {
+      this.query = e.target.value.toLowerCase().trim();
+      this._applyFilter();
+    });
+  }
+
+  _applyFilter() {
+    this.filtered = this.data.filter(e => {
+      const actMatch = this.activeAct === "all" || String(e.act) === this.activeAct;
+      const qMatch   = !this.query || e.name.toLowerCase().includes(this.query);
+      return actMatch && qMatch;
+    });
+    this._renderIndex();
+    const discovered = this.filtered.filter(e => e.unlocked).length;
+    this.$count.textContent = `${discovered} / ${this.filtered.length} discovered`;
+  }
+
+  _renderIndex() {
+    this.$list.innerHTML = "";
+    this.filtered.forEach(entry => {
+      const isActive = entry.id === this.activeId;
+      const el = document.createElement("div");
+      el.className = `index-entry${entry.unlocked ? "" : " locked"}${isActive ? " active" : ""}`;
+      el.dataset.id = entry.id;
+
+      // Thumb
+      let thumbHTML;
+      if (entry.unlocked && entry.artSrc) {
+        thumbHTML = `<div class="entry-thumb"><img src="${entry.artSrc}" alt="${entry.name}"/></div>`;
+      } else if (entry.unlocked) {
+        thumbHTML = `<div class="entry-thumb" style="font-family:'Cinzel',Georgia,serif;font-size:1.1rem;font-weight:700;color:#4a3820;opacity:0.55">${entry.name[0]}</div>`;
+      } else {
+        thumbHTML = `<div class="entry-thumb locked-thumb">
+          <svg width="22" height="28" viewBox="0 0 22 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="11" cy="8" rx="6" ry="7" fill="rgba(50,30,10,0.28)"/>
+            <path d="M2 28 Q4 17 11 15 Q18 17 20 28Z" fill="rgba(50,30,10,0.28)"/>
+          </svg></div>`;
+      }
+
+      const actClass = entry.act === "boss" ? "boss" : `act-${entry.act}`;
+      const actLabel = entry.act === "boss" ? "Boss" : `Act ${entry.act}`;
+
+      el.innerHTML = `${thumbHTML}
+        <div class="entry-info">
+          <div class="entry-name${entry.unlocked ? "" : " locked"}">${entry.unlocked ? entry.name : "??? Unknown ???"}</div>
+          <div class="entry-meta"><span class="act-tag ${actClass}">${actLabel}</span></div>
+        </div>`;
+
+      if (entry.unlocked) el.addEventListener("click", () => this._openEntry(entry.id));
+      this.$list.appendChild(el);
+    });
+  }
+
+  _openEntry(id) {
+    this.activeId = id;
+    document.querySelectorAll(".index-entry").forEach(el =>
+      el.classList.toggle("active", el.dataset.id === id)
+    );
+    const entry = this.data.find(e => e.id === id);
+    if (!entry) return;
+    entry.unlocked ? this._renderEntry(entry) : this._renderLocked(entry);
+    // Scroll page back to top on entry change
+    document.getElementById("bestiaryPage").scrollTop = 0;
+  }
+
+  _renderLocked(entry) {
+    this.$page.innerHTML = `
+      <div class="page-border"></div>
+      <div class="corner tl">❧</div><div class="corner tr">❧</div>
+      <div class="corner bl">❧</div><div class="corner br">❧</div>
+      <div class="locked-page-content">
+        <div class="lock-sigil">⧖</div>
+        <div class="locked-name-hint">? ? ? ? ? ? ?</div>
+        <div class="locked-flavour">This creature has not yet been encountered. Venture deeper into the dungeon to reveal its secrets.</div>
+      </div>`;
+  }
+
+  _renderEntry(entry) {
+    const actClass = entry.act === "boss" ? "boss" : `act-${entry.act}`;
+    const actLabel = entry.act === "boss" ? "Boss Encounter" : `Act ${entry.act}`;
+    const unlocked = this.data.filter(e => e.unlocked);
+    const entryNum = unlocked.findIndex(e => e.id === entry.id) + 1;
+
+    const annotationsHTML = entry.annotations.map(a => `
+      <div class="annotation">
+        <div class="annotation-label">${a.label}</div>
+        <div class="annotation-value">${a.value}</div>
+      </div>`).join("");
+
+    const artInner = entry.artSrc
+      ? `<img src="${entry.artSrc}" alt="${entry.name}">`
+      : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+              font-family:'Cinzel',Georgia,serif;font-size:6rem;font-weight:700;letter-spacing:0.05em;color:rgba(46,31,10,0.1);">
+           ${entry.name[0]}</div>`;
+
+    const captionHTML = entry.artCaption
+      ? `<div class="art-caption">${entry.artCaption}</div>` : "";
+
+    const abilitiesHTML = entry.abilities.length
+      ? `<div class="abilities-section">
+           <div class="abilities-header"><span class="abilities-title">Observed Abilities</span></div>
+           ${entry.abilities.map(a => `
+             <div class="ability-entry">
+               <div class="ability-name">${a.name}<span class="ability-type">[${a.type}]</span></div>
+               <div class="ability-desc">${a.description}</div>
+             </div>`).join("")}
+         </div>`
+      : "";
+
+    this.$page.innerHTML = `
+      <div class="page-border"></div>
+      <div class="corner tl">❧</div><div class="corner tr">❧</div>
+      <div class="corner bl">❧</div><div class="corner br">❧</div>
+
+      <div class="page-header">
+        <div class="header-rule"><span class="species-label">Species Information</span></div>
+      </div>
+
+      <div class="page-body">
+        <div class="art-column">
+          <div class="creature-art">${artInner}</div>
+          ${captionHTML}
+        </div>
+        <div class="annotations-column">
+          ${annotationsHTML}
+          <div class="classification-block">
+            <div class="classification-row">
+              <div class="classif-item"><strong>Threat</strong>${entry.classification.threat}</div>
+              <div class="classif-item"><strong>Habitat</strong>${entry.classification.habitat}</div>
+            </div>
+            <div class="classif-item" style="margin-top:8px">
+              <strong>Encounters</strong>${entry.classification.encounters} recorded
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="creature-name-section">
+        <div class="name-rule"><span class="creature-name">${entry.name}</span></div>
+      </div>
+
+      <div class="lore-section">
+        <p class="lore-text">${entry.lore}</p>
+      </div>
+
+      ${abilitiesHTML}
+
+      <div class="page-footer">
+        <span class="act-tag ${actClass}" style="padding:2px 8px">${actLabel}</span>
+        <span class="footer-entry-num">Entry ${entryNum} of ${unlocked.length} discovered</span>
+      </div>`;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => new BestiaryUI(BESTIARY));
+
+// ═══════════════════════════════════════════════════════════════════
+//  INTEGRATION GUIDE FOR CODING AGENT
+//  ───────────────────────────────────────────────────────────────
+//
+//  1. UNLOCK ON ENCOUNTER — in combat.js, after enemy defeated:
+//       if (!GS.bestiaryUnlocked.has(enemyId)) {
+//         GS.bestiaryUnlocked.add(enemyId);
+//         saveProgress(); // persist to localStorage
+//       }
+//     In BESTIARY array, read from GS.bestiaryUnlocked to set
+//     unlocked: true dynamically before constructing BestiaryUI.
+//
+//  2. INCREMENT ENCOUNTERS — each time combat starts against an
+//     enemy, increment GS.bestiaryEncounters[enemyId] = (GS.bestiaryEncounters[enemyId] || 0) + 1
+//     Sync to classification.encounters on data load.
+//
+//  3. ART ASSETS — set artSrc to WebP path:
+//       artSrc: "assets/creatures/goblin_scrapper.webp"
+//     Images render via mix-blend-mode: multiply so raw art
+//     integrates naturally with the parchment background.
+//
+//  4. ADD NEW ENEMIES — push a new object into BESTIARY following
+//     the shape above. Set unlocked: false. All UI is automatic.
+//
+//  5. SCREEN INTEGRATION — mount this as a screen in screens.js
+//     following the existing showScreen() pattern. The BestiaryUI
+//     constructor should fire once the DOM is injected.
+//
+//  6. ENEMY ID CONVENTION — id field must match the key used in
+//     constants.js enemy definitions to ensure GS sync works.
+// ═══════════════════════════════════════════════════════════════════
+</script>
+</body>
+</html>

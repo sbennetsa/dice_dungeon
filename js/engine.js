@@ -578,17 +578,21 @@ export function makeDieElement(die, context) {
         ? (isAmpDie ? `×${die.value / 100}` : isPctDie ? `${die.value}%` : die.value)
         : '?';
 
-    // Per-die bonuses: ascend aura + volley + packTactics + swarmMaster (skip utility dice)
+    // Per-die bonuses: only shown when die is allocated to a zone (not pool)
+    // Zone-specific bonuses (volley, packTactics, swarmMaster) must not bleed onto pool dice
+    const inZone = context === 'strike' || context === 'guard';
     let ascendBonus = 0, volleyBonus = 0, ptBonus = 0, swBonus = 0;
     if (die.rolled && !die.dieType) {
         if (GS.ascendedDice && GS.ascendedDice.length > 0)
             ascendBonus = GS.ascendedDice.reduce((s, a) => s + a.bonus, 0);
-        if (GS.passives.volley && die.slotId) {
-            const zone = die.slotId.startsWith('str') ? GS.allocated.strike : GS.allocated.guard;
-            if (zone.length >= 4) volleyBonus = GS.passives.volley;
+        if (inZone) {
+            if (GS.passives.volley && die.slotId) {
+                const zone = die.slotId.startsWith('str') ? GS.allocated.strike : GS.allocated.guard;
+                if (zone.length >= 4) volleyBonus = GS.passives.volley;
+            }
+            ptBonus = GS.passives.packTactics || 0;
+            swBonus = GS.passives.swarmMaster || 0;
         }
-        ptBonus = GS.passives.packTactics || 0;
-        swBonus = GS.passives.swarmMaster || 0;
     }
     const passiveBonus = ptBonus + swBonus;
     const totalBonus = ascendBonus + volleyBonus + passiveBonus;
@@ -877,47 +881,84 @@ export function updateSlotTotals() {
     const echoId = GS.echoStoneDieId;
     const hasEcho = GS.artifacts.some(a => a.effect === 'echoStone');
     const ascendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
-    const nonUtilCount = (allocated) => allocated.filter(d => {
-        const m = getActiveFace(d)?.modifier;
-        return !m || !['freezeStrike','jackpot','shieldBash'].includes(m.effect);
-    }).length;
 
-    // Helper: compute a single die's contribution and tooltip
+    // Helper: compute a single die's contribution
     function dieContribution(d, zoneAllocated, zoneAscend) {
-        if (d.dieType) return { val: 0, tip: '', skip: true }; // utility dice don't contribute to zone total
+        if (d.dieType) return { val: 0, displayVal: 0, perDieMults: [], echoAdd: 0, isStatus: false, skip: true };
         const runes = getSlotRunes(d.slotId);
         const nonUtil = zoneAllocated.filter(x => !x.dieType).length;
         const zoneCount = zoneAllocated.length;
-        let val = d.value;
-        const parts = [`roll: ${d.value}`];
         const pt = GS.passives.packTactics || 0;
         const sw = GS.passives.swarmMaster || 0;
         const vy = (GS.passives.volley && zoneCount >= 4) ? GS.passives.volley : 0;
-        if (pt) { val += pt; parts.push(`packTactics: +${pt}`); }
-        if (sw) { val += sw; parts.push(`swarmMaster: +${sw}`); }
-        if (vy) { val += vy; parts.push(`volley: +${vy}`); }
-        if (zoneAscend) { val += zoneAscend; parts.push(`ascend: +${zoneAscend}`); }
+        const displayVal = d.value + pt + sw + vy + (zoneAscend || 0);
+        let val = displayVal;
+        const perDieMults = [];
         for (const r of runes) {
-            if (r.effect === 'amplifier') { val *= 2; parts.push('amplifier rune: ×2'); }
-            if (r.effect === 'titanBlow' && nonUtil === 1) { val *= 3; parts.push('titan blow: ×3'); }
-            if (r.effect === 'leaden') { val *= 2; parts.push('leaden: ×2'); }
+            if (r.effect === 'amplifier') { val *= 2; perDieMults.push({ mult: 2, label: 'Amp Rune' }); }
+            else if (r.effect === 'titanBlow' && nonUtil === 1) { val *= 3; perDieMults.push({ mult: 3, label: 'Titan Blow' }); }
+            else if (r.effect === 'leaden') { val *= 2; perDieMults.push({ mult: 2, label: 'Leaden' }); }
         }
-        if (hasEcho && echoId !== null && d.id === echoId) { val += d.value; parts.push(`echo: +${d.value}`); }
+        let echoAdd = 0;
+        if (hasEcho && echoId !== null && d.id === echoId) { echoAdd = d.value; val += echoAdd; }
         const m = getActiveFace(d)?.modifier;
-        if (m?.effect === 'executioner') { val *= 5; parts.push('executioner: ×5'); }
-        else if (m?.effect === 'chainLightning') { val *= 2; parts.push('chain: ×2'); }
-        const utilFx = new Set(['freezeStrike','jackpot','shieldBash','critical']);
-        const isUtil = m && utilFx.has(m.effect);
-        if (isUtil) { parts.push(`${m.effect}: status only`); val = 0; }
-        return { val, tip: parts.join(' | '), skip: false };
+        if (m?.effect === 'executioner') { val *= 5; perDieMults.push({ mult: 5, label: 'Executioner' }); }
+        else if (m?.effect === 'chainLightning') { val *= 2; perDieMults.push({ mult: 2, label: 'Chain Lightning' }); }
+        const utilFx = new Set(['freezeStrike', 'jackpot', 'shieldBash', 'critical']);
+        const isStatus = !!(m && utilFx.has(m.effect));
+        if (isStatus) val = 0;
+        return { val, displayVal, perDieMults, echoAdd, isStatus, skip: false };
+    }
+
+    // Helper: build structured zone tooltip
+    function buildZoneTip({ contribs, normalDice, ampMul, preMultBonuses, zoneMults, bonuses, final, sharpeningStone }) {
+        const lines = [];
+        if (normalDice.length > 0) {
+            const anyComplex = contribs.some(c => c.perDieMults.length > 0 || c.echoAdd > 0 || c.isStatus);
+            if (!anyComplex) {
+                lines.push('Dice: ' + contribs.map(c => c.displayVal).join('  '));
+            } else {
+                contribs.forEach((c, i) => {
+                    const d = normalDice[i];
+                    if (c.isStatus) {
+                        const m = getActiveFace(d)?.modifier;
+                        lines.push(`${c.displayVal} [${m?.effect || 'status'}]`);
+                    } else {
+                        let desc = `${c.displayVal}`;
+                        c.perDieMults.forEach(pm => { desc += ` ×${pm.mult} ${pm.label}`; });
+                        if (c.echoAdd > 0) desc += ` +${c.echoAdd} Echo`;
+                        if (c.perDieMults.length > 0 || c.echoAdd > 0) desc += ` → ${c.val}`;
+                        lines.push(desc);
+                    }
+                });
+            }
+        }
+        const preAmpBase = contribs.reduce((s, c) => s + c.val, 0);
+        const hasSteps = ampMul > 0 || preMultBonuses.some(b => b.amount > 0) || zoneMults.length > 0 || bonuses.some(b => b.amount > 0) || sharpeningStone;
+        if (normalDice.length > 1 || hasSteps) lines.push(`base: ${preAmpBase}`);
+        let running = preAmpBase;
+        if (ampMul > 0) {
+            running = Math.floor(running * ampMul);
+            lines.push(`×${ampMul} amp → ${running}`);
+        }
+        for (const { amount, label } of preMultBonuses) {
+            if (amount > 0) { running += amount; lines.push(`+${amount} ${label}`); }
+        }
+        for (const { mul, label } of zoneMults) {
+            running = Math.floor(running * mul);
+            lines.push(`×${mul.toFixed(2).replace(/\.?0+$/, '')} ${label} → ${running}`);
+        }
+        for (const { amount, label } of bonuses) {
+            if (amount > 0) { running += amount; lines.push(`+${amount} ${label}`); }
+        }
+        if (sharpeningStone) lines.push(`×1.5 Sharpening → ${final}`);
+        lines.push(`= ${final}`);
+        return lines.join('\n');
     }
 
     // ── STRIKE TOTAL ──
     let atkTotal = 0, atkMultiplier = 1, atkBonus = 0;
     const atkCount = GS.allocated.strike.length;
-    const atkTipLines = [];
-
-    // Amplifier zone multiplier (preview)
     let atkAmpMul = 0;
     GS.allocated.strike.forEach(d => {
         if (d.dieType === 'amplifier') {
@@ -927,56 +968,81 @@ export function updateSlotTotals() {
         }
     });
 
-    GS.allocated.strike.forEach(d => {
-        if (d.dieType === 'amplifier') {
-            const face = getActiveFace(d);
-            const chainMul = face?.modifier?.effect === 'chainLightning' ? 2 : 1;
-            const dispMul = (d.value / 100) * chainMul;
-            atkTipLines.push(`amplifier: ×${dispMul}` + (chainMul > 1 ? ' (⚡×2)' : '') + ' zone');
-            return;
-        }
-        if (d.dieType) return; // other utility dice: handled by calcUtilityPreviews
-        const c = dieContribution(d, GS.allocated.strike, ascendBonus);
+    const atkNormal = GS.allocated.strike.filter(d => !d.dieType);
+    const atkContribs = atkNormal.map(d => dieContribution(d, GS.allocated.strike, ascendBonus));
+    atkNormal.forEach((d, i) => {
+        const c = atkContribs[i];
         let val = c.val;
-        if (atkAmpMul && val > 0) { val = Math.floor(val * atkAmpMul); }
+        if (atkAmpMul && val > 0) val = Math.floor(val * atkAmpMul);
         atkTotal += val;
-        if (!c.skip) atkTipLines.push(`die[${d.value}] → ${val}` + (atkAmpMul ? ` (×${atkAmpMul} amp)` : ''));
-        // Set tooltip on the die element
         const el = document.querySelector(`.die[data-die-id="${d.id}"]`);
-        if (el && d.rolled) el.title = c.tip + (atkAmpMul ? ` | amp zone: ×${atkAmpMul}` : '') + ` = ${val}`;
+        if (el && d.rolled) {
+            let brief = `${c.displayVal}`;
+            if (c.perDieMults.length > 0) { c.perDieMults.forEach(pm => { brief += ` ×${pm.mult} ${pm.label}`; }); brief += ` → ${c.val}`; }
+            if (atkAmpMul > 0) brief += ` ×${atkAmpMul} amp = ${val}`;
+            el.title = brief;
+        }
     });
 
+    const atkPreMultBonuses = [];
     if (GS.passives.threshold) {
         GS.allocated.strike.forEach(d => {
-            if (!d.dieType && d.value >= 8) {
-                const t = Math.floor(d.value * 0.5);
+            if (!d.dieType && d.value >= 12) {
+                const t = d.value;
                 atkTotal += t;
-                atkTipLines.push(`threshold[${d.value}]: +${t}`);
+                atkPreMultBonuses.push({ amount: t, label: `threshold[${d.value}]` });
             }
         });
     }
 
-    atkBonus += GS.buffs.damageBoost;
-    const goldScalePreview = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
-    if (goldScalePreview > 0) atkBonus += goldScalePreview;
-    if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
-    atkBonus += GS.artifacts.filter(a => a.effect === 'hydrasCrest').reduce((s, a) => s + a.value * GS.dice.length, 0);
-    atkBonus += GS.enemyStatus?.mark || 0;
-    atkBonus += GS.artifacts.filter(a => a.effect === 'festeringWound').reduce((s, a) => s + a.value * (GS.enemy?.poison || 0), 0);
-    if (GS.artifacts.some(a => a.effect === 'berserkersMask')) atkMultiplier *= 1.5;
-    if (GS.artifacts.some(a => a.effect === 'bloodPact')) atkMultiplier *= 1.3;
-    if (atkCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) atkMultiplier *= 1.5;
-    atkMultiplier *= (GS.transformBuffs?.furyChambered || 1);
+    const atkZoneMults = [];
+    if (GS.artifacts.some(a => a.effect === 'berserkersMask')) { atkMultiplier *= 1.5; atkZoneMults.push({ mul: 1.5, label: "Berserker's Mask" }); }
+    if (GS.artifacts.some(a => a.effect === 'bloodPact')) { atkMultiplier *= 1.3; atkZoneMults.push({ mul: 1.3, label: 'Blood Pact' }); }
+    if (atkCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) { atkMultiplier *= 1.5; atkZoneMults.push({ mul: 1.5, label: 'Swarm Banner' }); }
+    const furyMul = GS.transformBuffs?.furyChambered || 1;
+    if (furyMul > 1) { atkMultiplier *= furyMul; atkZoneMults.push({ mul: furyMul, label: 'Fury Chamber' }); }
+
+    const atkBonuses = [];
+    const db = GS.buffs.damageBoost; atkBonus += db; if (db > 0) atkBonuses.push({ amount: db, label: 'damage boost' });
+    const goldScale = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
+    atkBonus += goldScale; if (goldScale > 0) atkBonuses.push({ amount: goldScale, label: 'gold scale' });
+    const goldDmg = GS.passives.goldDmg ? Math.floor(GS.gold / GS.passives.goldDmg) : 0;
+    atkBonus += goldDmg; if (goldDmg > 0) atkBonuses.push({ amount: goldDmg, label: 'gold dmg' });
+    const hydra = GS.artifacts.filter(a => a.effect === 'hydrasCrest').reduce((s, a) => s + a.value * GS.dice.length, 0);
+    atkBonus += hydra; if (hydra > 0) atkBonuses.push({ amount: hydra, label: "Hydra's Crest" });
+    const markB = GS.enemyStatus?.mark || 0; atkBonus += markB; if (markB > 0) atkBonuses.push({ amount: markB, label: 'mark' });
+    const fester = GS.artifacts.filter(a => a.effect === 'festeringWound').reduce((s, a) => s + a.value * (GS.enemy?.poison || 0), 0);
+    atkBonus += fester; if (fester > 0) atkBonuses.push({ amount: fester, label: 'festering wound' });
 
     let finalAtk = Math.floor(atkTotal * atkMultiplier) + atkBonus;
-    if (GS.artifacts.some(a => a.effect === 'sharpeningStone')) finalAtk = Math.ceil(finalAtk * 1.5);
-
-    if (atkMultiplier > 1) atkTipLines.push(`multiplier: ×${atkMultiplier.toFixed(2).replace(/\.?0+$/, '')}`);
-    if (atkBonus > 0) atkTipLines.push(`bonus: +${atkBonus}`);
-    atkTipLines.push(`total: ${finalAtk}`);
+    const sharpeningAtk = GS.artifacts.some(a => a.effect === 'sharpeningStone');
+    if (sharpeningAtk) finalAtk = Math.ceil(finalAtk * 1.5);
 
     $('attack-total').textContent = finalAtk;
-    $('attack-total').title = atkTipLines.join('\n');
+    $('attack-total').title = buildZoneTip({ contribs: atkContribs, normalDice: atkNormal, ampMul: atkAmpMul, preMultBonuses: atkPreMultBonuses, zoneMults: atkZoneMults, bonuses: atkBonuses, final: finalAtk, sharpeningStone: sharpeningAtk });
+
+    // Set utility die titles (strike)
+    GS.allocated.strike.forEach(d => {
+        if (!d.dieType) return;
+        const el = document.querySelector(`.die[data-die-id="${d.id}"]`);
+        if (!el || !d.rolled) return;
+        if (d.dieType === 'amplifier') {
+            const face = getActiveFace(d);
+            const chainMul = face?.modifier?.effect === 'chainLightning' ? 2 : 1;
+            el.title = `amplifier: ×${(d.value / 100) * chainMul} zone${chainMul > 1 ? ' (⚡×2)' : ''}`;
+        } else if (d.dieType === 'gold' || d.dieType === 'poison') {
+            const zoneBase = atkContribs.reduce((s, c) => s + (atkAmpMul > 0 ? Math.floor(c.val * atkAmpMul) : c.val), 0);
+            const runes = getSlotRunes(d.slotId);
+            const isAmplified = runes.some(r => r.effect === 'amplifier');
+            const face = getActiveFace(d);
+            const chainMul = face?.modifier?.effect === 'chainLightning' ? 2 : 1;
+            const pct = (d.value / 100) * (isAmplified ? 2 : 1) * chainMul;
+            el.title = `${d.dieType}: ${zoneBase} × ${d.value}%${isAmplified ? ' ×2 amp' : ''} = ${Math.floor(zoneBase * pct)}`;
+        } else {
+            el.title = `${d.dieType}: ${d.value}`;
+        }
+    });
+
     const { gold: atkGold, poison: atkPoison, chill: atkChill, burn: atkBurn, mark: atkMark } = calcUtilityPreviews(GS.allocated.strike, true);
     $('attack-gold').textContent   = atkGold   > 0 ? `💰${atkGold}g`  : '';
     $('attack-poison').textContent = atkPoison > 0 ? `☠️${atkPoison}p` : '';
@@ -986,16 +1052,13 @@ export function updateSlotTotals() {
 
     let atkSummary = '';
     if (atkAmpMul > 0) atkSummary += `×${atkAmpMul} amp `;
-    if (atkMultiplier > 1) atkSummary += `×${atkMultiplier.toFixed(1).replace('.0','')} `;
+    if (atkMultiplier > 1) atkSummary += `×${atkMultiplier.toFixed(1).replace('.0', '')} `;
     if (atkBonus > 0) atkSummary += `+${atkBonus} bonus `;
     $('attack-summary').textContent = atkSummary;
 
     // ── GUARD TOTAL ──
     let defTotal = 0, defMultiplier = 1, defBonus = 0;
     const defCount = GS.allocated.guard.length;
-    const defTipLines = [];
-
-    // Amplifier zone multiplier (preview)
     let defAmpMul = 0;
     GS.allocated.guard.forEach(d => {
         if (d.dieType === 'amplifier') {
@@ -1005,54 +1068,75 @@ export function updateSlotTotals() {
         }
     });
 
-    GS.allocated.guard.forEach(d => {
-        if (d.dieType === 'amplifier') {
-            const face = getActiveFace(d);
-            const chainMul = face?.modifier?.effect === 'chainLightning' ? 2 : 1;
-            const dispMul = (d.value / 100) * chainMul;
-            defTipLines.push(`amplifier: ×${dispMul}` + (chainMul > 1 ? ' (⚡×2)' : '') + ' zone');
-            return;
-        }
-        if (d.dieType) return;
-        const c = dieContribution(d, GS.allocated.guard, ascendBonus);
+    const defNormal = GS.allocated.guard.filter(d => !d.dieType);
+    const defContribs = defNormal.map(d => dieContribution(d, GS.allocated.guard, ascendBonus));
+    defNormal.forEach((d, i) => {
+        const c = defContribs[i];
         let val = c.val;
-        if (defAmpMul && val > 0) { val = Math.floor(val * defAmpMul); }
+        if (defAmpMul && val > 0) val = Math.floor(val * defAmpMul);
         defTotal += val;
-        if (!c.skip) defTipLines.push(`die[${d.value}] → ${val}` + (defAmpMul ? ` (×${defAmpMul} amp)` : ''));
         const el = document.querySelector(`.die[data-die-id="${d.id}"]`);
-        if (el && d.rolled) el.title = c.tip + (defAmpMul ? ` | amp zone: ×${defAmpMul}` : '') + ` = ${val}`;
+        if (el && d.rolled) {
+            let brief = `${c.displayVal}`;
+            if (c.perDieMults.length > 0) { c.perDieMults.forEach(pm => { brief += ` ×${pm.mult} ${pm.label}`; }); brief += ` → ${c.val}`; }
+            if (defAmpMul > 0) brief += ` ×${defAmpMul} amp = ${val}`;
+            el.title = brief;
+        }
     });
 
+    const defPreMultBonuses = [];
     if (GS.passives.threshold) {
         GS.allocated.guard.forEach(d => {
-            if (!d.dieType && d.value >= 8) {
-                const t = Math.floor(d.value * 0.5);
+            if (!d.dieType && d.value >= 12) {
+                const t = d.value;
                 defTotal += t;
-                defTipLines.push(`threshold[${d.value}]: +${t}`);
+                defPreMultBonuses.push({ amount: t, label: `threshold[${d.value}]` });
             }
         });
     }
 
-    defBonus += GS.buffs.armor;
-    defBonus += GS.artifacts.filter(a => a.effect === 'goldenAegis').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
-    if (defCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) defMultiplier *= 1.5;
-    defMultiplier *= (GS.transformBuffs?.fortified || 1);
+    const defZoneMults = [];
+    if (defCount >= 4 && GS.artifacts.some(a => a.effect === 'swarmBanner')) { defMultiplier *= 1.5; defZoneMults.push({ mul: 1.5, label: 'Swarm Banner' }); }
+    const fortifiedMul = GS.transformBuffs?.fortified || 1;
+    if (fortifiedMul > 1) { defMultiplier *= fortifiedMul; defZoneMults.push({ mul: fortifiedMul, label: 'Fortified' }); }
+
+    const defBonuses = [];
+    const armor = GS.buffs.armor; defBonus += armor; if (armor > 0) defBonuses.push({ amount: armor, label: 'armor' });
+    const aegis = GS.artifacts.filter(a => a.effect === 'goldenAegis').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
+    defBonus += aegis; if (aegis > 0) defBonuses.push({ amount: aegis, label: "Golden Aegis" });
 
     const finalDef = Math.floor(defTotal * defMultiplier) + defBonus;
 
-    if (defMultiplier > 1) defTipLines.push(`multiplier: ×${defMultiplier.toFixed(2).replace(/\.?0+$/, '')}`);
-    if (defBonus > 0) defTipLines.push(`bonus: +${defBonus}`);
-    defTipLines.push(`total: ${finalDef}`);
-
     $('defend-total').textContent = finalDef;
-    $('defend-total').title = defTipLines.join('\n');
+    $('defend-total').title = buildZoneTip({ contribs: defContribs, normalDice: defNormal, ampMul: defAmpMul, preMultBonuses: defPreMultBonuses, zoneMults: defZoneMults, bonuses: defBonuses, final: finalDef, sharpeningStone: false });
+
+    // Set utility die titles (guard)
+    GS.allocated.guard.forEach(d => {
+        if (!d.dieType) return;
+        const el = document.querySelector(`.die[data-die-id="${d.id}"]`);
+        if (!el || !d.rolled) return;
+        if (d.dieType === 'amplifier') {
+            const face = getActiveFace(d);
+            const chainMul = face?.modifier?.effect === 'chainLightning' ? 2 : 1;
+            el.title = `amplifier: ×${(d.value / 100) * chainMul} zone${chainMul > 1 ? ' (⚡×2)' : ''}`;
+        } else if (d.dieType === 'gold') {
+            const zoneBase = defContribs.reduce((s, c) => s + (defAmpMul > 0 ? Math.floor(c.val * defAmpMul) : c.val), 0);
+            const runes = getSlotRunes(d.slotId);
+            const isAmplified = runes.some(r => r.effect === 'amplifier');
+            const pct = (d.value / 100) * (isAmplified ? 2 : 1);
+            el.title = `gold: ${zoneBase} × ${d.value}% = ${Math.floor(zoneBase * pct)}`;
+        } else {
+            el.title = `${d.dieType}: ${d.value}`;
+        }
+    });
+
     const { gold: defGold, chill: defChill } = calcUtilityPreviews(GS.allocated.guard);
     $('defend-gold').textContent  = defGold  > 0 ? `💰${defGold}g` : '';
     $('defend-chill').textContent = defChill > 0 ? `❄️${defChill}` : '';
 
     let defSummary = '';
     if (defAmpMul > 0) defSummary += `×${defAmpMul} amp `;
-    if (defMultiplier > 1) defSummary += `×${defMultiplier.toFixed(1).replace('.0','')} `;
+    if (defMultiplier > 1) defSummary += `×${defMultiplier.toFixed(1).replace('.0', '')} `;
     if (defBonus > 0) defSummary += `+${defBonus} armor `;
     $('defend-summary').textContent = defSummary;
 }

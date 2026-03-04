@@ -10,7 +10,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
     <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&family=Uncial+Antiqua&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -28,7 +30,7 @@
             every allocation is a gamble.
         </div>
         <div style="margin-bottom: 30px;">
-            <div style="color: var(--text-dim); font-family: 'JetBrains Mono', monospace; font-size: 0.8em; line-height: 2;">
+            <div style="color: var(--text-dim); font-family: var(--font-data); font-size: 0.8em; line-height: 2;">
                 ⚔️ &thinsp;3 Acts &middot; 15 Floors &middot; 3 Bosses<br>
                 🎲 &thinsp;Left-click → Attack &middot; Right-click → Defend<br>
                 📱 &thinsp;Mobile: Tap → Attack &middot; Hold → Defend &middot; Drag to slot &middot; 🔄 Reroll button<br>
@@ -345,7 +347,7 @@
 <div id="inventory-overlay" style="display:none; position:fixed; inset:0; z-index:100; background:rgba(0,0,0,0.8); overflow-y:auto; padding:20px;">
     <div style="max-width:500px; margin:0 auto;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <h2 style="color:var(--gold); font-family:Uncial Antiqua,cursive; margin:0;">📋 Build Overview</h2>
+            <h2 style="color:var(--gold); font-family:var(--font-heading); margin:0;">📋 Build Overview</h2>
             <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em;">✕ Close</button>
         </div>
         <div id="inventory-content"></div>

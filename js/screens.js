@@ -9,7 +9,7 @@ import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } from './encounters/encounterGenerator.js';
 import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
-import { scoreFloorDetailed, scorePlayerAdvantage, SHOP_ADVANTAGES, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
+import { scoreDungeon, scoreFloorDetailed, scorePlayerAdvantage, SHOP_ADVANTAGES, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
 import { RunHistory } from './persistence.js';
 import { Campaign, RANKS, ACHIEVEMENTS } from './campaign.js';
 
@@ -3613,7 +3613,7 @@ const DungeonMap = {
 
         const showAll    = options.showAll || false;
         const difficulty = options.difficulty || GS.runDifficulty || 'standard';
-        const s = bp.scoring;
+        const s = scoreDungeon(bp, difficulty);
         const seedHex = DungeonMap.formatSeed(bp.seed);
         const copyId = `map-seed-copyable-${seedContainerId}`;
 

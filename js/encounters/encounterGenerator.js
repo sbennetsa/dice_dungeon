@@ -7,8 +7,71 @@ import { selectEnvironment } from './environmentSystem.js';
 import { selectEliteModifiers, selectBossEliteModifiers, applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './eliteModifierSystem.js';
 import { rollForAnomaly, applyAnomaly, ANOMALIES } from './anomalySystem.js';
 import { getFloorBlueprint, encounterFromBlueprint } from './dungeonBlueprint.js';
+import { pickNonCombatEncounter, applyEncounterResult, markEncounterSeen } from './nonCombatEncounters.js';
 
 const BOSS_FLOORS = [5, 10, 15];
+
+// ────────────────────────────────────────────────────────────
+//  Non-Combat Encounter (NCE) corridor events
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Roll for a random NCE corridor encounter based on what type of floor
+ * just resolved. Returns true if an NCE should fire before the next floor.
+ *
+ * Probabilities are intentionally asymmetric:
+ *  - after_boss:   0.50  — the dungeon exhales; corridor feels alive
+ *  - after_combat: 0.30  — standard
+ *  - after_event:  0.25  — set-piece just fired; normal cadence resumes
+ *  - after_shop:   0.10  — player just had a resource beat; cool down
+ *  - null / other: 0.00  — no previous floor (run start), never fire
+ *
+ * @returns {boolean}
+ */
+function _shouldGenerateNCE() {
+    const chances = {
+        boss:   0.50,
+        combat: 0.30,
+        event:  0.25,
+        shop:   0.10,
+    };
+    const chance = chances[GS.lastFloorType] ?? 0.00;
+    return Math.random() < chance;
+}
+
+/**
+ * Generate a random NCE corridor encounter.
+ * Returns null if the pool is empty (caller must handle gracefully).
+ * @param {number} floor — current floor number, for context only
+ * @returns {object|null}
+ */
+function _generateNCE(floor) {
+    const event = pickNonCombatEncounter();
+    if (!event) return null;
+
+    return {
+        type:  'nce',       // distinct from blueprint 'event' slots
+        floor,              // floor the player is currently on (does not advance)
+        event,
+    };
+}
+
+/**
+ * After a floor resolves, check whether a random NCE fires.
+ * Call this from screens.js immediately after combat/shop/event completion,
+ * before advancing GS.floor.
+ *
+ * Updates GS.lastFloorType as a side effect so subsequent calls reflect
+ * the current floor's type.
+ *
+ * @param {string} resolvedFloorType — the type of floor that just finished
+ * @returns {object|null} NCE encounter object, or null if nothing fires
+ */
+export function checkForNCE(resolvedFloorType) {
+    GS.lastFloorType = resolvedFloorType;
+    if (!_shouldGenerateNCE()) return null;
+    return _generateNCE(GS.floor);
+}
 
 // ────────────────────────────────────────────────────────────
 //  Main entry point
@@ -25,6 +88,12 @@ export function generateEncounter(floor) {
     // ── Blueprint path: use pre-generated encounter ──
     if (GS.blueprint) {
         const floorBP = getFloorBlueprint(GS.blueprint, floor);
+
+        // Set-piece event floors — pass through eventId for screens.js routing
+        if (floorBP && floorBP.type === 'event') {
+            return { type: 'event', floor, eventId: floorBP.eventId };
+        }
+
         if (floorBP && (floorBP.type === 'combat' || floorBP.type === 'boss')) {
             const encounter = encounterFromBlueprint(floorBP);
 
@@ -165,3 +234,6 @@ export function deepClone(obj) {
 }
 
 export { calculateRewardMultipliers };
+
+// Re-exported from nonCombatEncounters for screens.js convenience
+export { applyEncounterResult, markEncounterSeen };

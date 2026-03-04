@@ -644,6 +644,8 @@ export function getFloorTypeFromBlueprint(blueprint, floor) {
  * @param {object} floorBP - Floor blueprint from getFloorBlueprint
  * @returns {object} Encounter object matching generateEncounter() output
  */
+export { EVENT_POOLS };
+
 export function encounterFromBlueprint(floorBP) {
     // Resolve environment: blueprint stores {id, name, ...} snapshot,
     // but combat needs the full object with onTurnStart/onDiceRoll/etc callbacks

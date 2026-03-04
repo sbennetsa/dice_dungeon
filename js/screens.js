@@ -10,7 +10,8 @@ import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } fr
 import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
 import { scoreDungeon, scoreFloorDetailed, scorePlayerAdvantage, SHOP_ADVANTAGES, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
-import { RunHistory } from './persistence.js';
+import { RunHistory, BestiaryProgress } from './persistence.js';
+import { BESTIARY_DATA, BestiaryUI } from './bestiary.js';
 import { Campaign, RANKS, ACHIEVEMENTS } from './campaign.js';
 
 // ════════════════════════════════════════════════════════════
@@ -4439,15 +4440,17 @@ const EncounterChoice = {
 //  CAMPAIGN SCREEN — The Ancient Order progression view
 // ════════════════════════════════════════════════════════════
 const CampaignScreen = {
+    _caller: 'screen-start',
 
-    show() {
+    show(caller = 'screen-start') {
+        this._caller = caller;
         this._render();
         show('screen-campaign');
     },
 
     back() {
         _refreshHomeRank();
-        show('screen-start');
+        show(this._caller);
     },
 
     _render() {
@@ -4545,8 +4548,10 @@ const CampaignScreen = {
 //  STATS — run history screen
 // ════════════════════════════════════════════════════════════
 const Stats = {
+    _caller: 'screen-start',
 
-    show() {
+    show(caller = 'screen-start') {
+        this._caller = caller;
         const stats = RunHistory.getStats();
         $('stats-content').innerHTML = stats ? this._render(stats) : this._empty();
         show('screen-stats');
@@ -4554,7 +4559,7 @@ const Stats = {
 
     back() {
         _refreshHomeRank();
-        show('screen-start');
+        show(this._caller);
     },
 
     clearHistory() {
@@ -4635,6 +4640,29 @@ const Stats = {
 };
 
 // ════════════════════════════════════════════════════════════
+//  BESTIARY SCREEN
+// ════════════════════════════════════════════════════════════
+const Bestiary = {
+    _caller: 'screen-campaign',
+
+    show(callerScreen = 'screen-campaign') {
+        this._caller = callerScreen;
+        const progress = BestiaryProgress.load();
+        const data = BESTIARY_DATA.map(entry => ({
+            ...entry,
+            unlocked:   progress.unlocked.has(entry.id),
+            encounters: progress.encounters.get(entry.id) || 0,
+        }));
+        new BestiaryUI(data);
+        show('screen-bestiary');
+    },
+
+    back() {
+        show(this._caller);
+    },
+};
+
+// ════════════════════════════════════════════════════════════
 //  INIT — expose modules on window for inline onclick handlers
 // ════════════════════════════════════════════════════════════
 window.Game = Game;
@@ -4653,6 +4681,7 @@ window.addConsumableToInventory = addConsumableToInventory;
 window.EncounterChoice = EncounterChoice;
 window.Stats = Stats;
 window.CampaignScreen = CampaignScreen;
+window.Bestiary = Bestiary;
 
 // Prevent right-click context menu on combat screen
 document.getElementById('screen-combat').addEventListener('contextmenu', e => e.preventDefault());

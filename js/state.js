@@ -89,6 +89,10 @@ export const GS = {
     // ── DUNGEON BLUEPRINT ──
     blueprint: null,          // complete dungeon blueprint for current run
     seed: null,               // RNG seed for reproducible runs
+    // ── NCE (Non-Combat Encounter) STATE ──
+    lastFloorType:  null,     // 'combat' | 'boss' | 'shop' | 'event' | null
+    encounterFlags: {},       // cross-encounter continuity flags
+    seenEncounters: [],       // rolling window of last 8 NCE IDs
 };
 
 // ════════════════════════════════════════════════════════════

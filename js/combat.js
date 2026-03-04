@@ -4,6 +4,7 @@
 import { pickWeightedConsumable } from './constants.js';
 import { calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { GS, $, log, gainXP, gainGold, heal, pick, rand } from './state.js';
+import { BestiaryProgress } from './persistence.js';
 import { rollSingleDie, getActiveFace, renderCombatDice, renderConsumables, updateStats, setupDropZones, show, createDie, getSlotById, getSlotRunes, enterRerollMode, exitRerollMode, sortPoolDice, resetSortMode } from './engine.js';
 
 // window.Game and window.Rewards are set by screens.js at load time
@@ -153,6 +154,7 @@ export const Combat = {
         }
 
         GS.enemy = {
+            id:          template.id,
             name:        template.name,
             hp:          template.hp,
             maxHp:       template.hp,
@@ -185,6 +187,9 @@ export const Combat = {
             isElite, isBoss,
             poison: 0,
         };
+
+        // Track encounter in bestiary
+        BestiaryProgress.increment(template.id);
 
         // Set active environment for hook calls during combat
         GS.environment        = enc.environment || null;
@@ -1955,6 +1960,9 @@ export const Combat = {
     enemyDefeated() {
         GS.enemiesKilled++;
         const e = GS.enemy;
+
+        // Permanently unlock this enemy's bestiary entry
+        BestiaryProgress.unlock(e.id);
 
         // Restore player dice max values reduced by Decay / Entropy
         GS.dice.forEach(d => {

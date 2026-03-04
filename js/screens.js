@@ -9,7 +9,7 @@ import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } from './encounters/encounterGenerator.js';
 import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
-import { scoreFloorDetailed, scorePlayerAdvantage, SHOP_ADVANTAGES, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
+import { scoreDungeon, scoreFloorDetailed, scorePlayerAdvantage, SHOP_ADVANTAGES, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
 import { RunHistory, BestiaryProgress } from './persistence.js';
 import { BESTIARY_DATA, BestiaryUI } from './bestiary.js';
 import { Campaign, RANKS, ACHIEVEMENTS } from './campaign.js';
@@ -297,11 +297,13 @@ const Game = {
             if (!isNaN(parsed)) seedOption = { seed: parsed };
         }
         if (seedInput) seedInput.value = '';
+        seedOption.difficulty = GS.runDifficulty || 'standard';
         const blueprint = generateDungeonBlueprint(seedOption);
         GS.blueprint = blueprint;
         GS.seed      = blueprint.seed;
-        console.log(`[Dungeon] Seed: ${blueprint.seed} | Challenge Rating: ${blueprint.scoring.challengeRating}/10`);
+        console.log(`[Dungeon] Seed: ${blueprint.seed} | Challenge Target: ${blueprint.challengeTarget || 'N/A'} | Challenge Rating: ${blueprint.scoring.challengeRating}/10`);
         console.log(`[Dungeon] Net Challenge: ${blueprint.scoring.netChallenge} (Combat: ${blueprint.scoring.totalCombatThreat}, Player Advantage: ${blueprint.scoring.totalPlayerAdvantage})`);
+        if (blueprint.actBudgets) console.log(`[Dungeon] Act Budgets: ${blueprint.actBudgets.join(' / ')} (target: ${blueprint.challengeTarget})`);
         console.log(`[Dungeon] Schedules: ${blueprint.acts.map(a => a.schedule.join('-')).join(' | ')}`);
 
         // If the player has previously revealed the skill die, pre-apply the root node benefit.
@@ -574,7 +576,7 @@ const Game = {
         };
 
         // Reset combat state (mirrors Combat.start)
-        GS.playerDebuffs = { poison: 0, poisonTurns: 0, disabledSlots: [], diceReduction: 0 };
+        GS.playerDebuffs = { poison: 0, disabledSlots: [], diceReduction: 0 };
         GS.enemyStatus = { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: false };
         GS.echoStoneDieId = null;
         GS.gamblerCoinBonus = 0;
@@ -3614,7 +3616,7 @@ const DungeonMap = {
 
         const showAll    = options.showAll || false;
         const difficulty = options.difficulty || GS.runDifficulty || 'standard';
-        const s = bp.scoring;
+        const s = scoreDungeon(bp, difficulty);
         const seedHex = DungeonMap.formatSeed(bp.seed);
         const copyId = `map-seed-copyable-${seedContainerId}`;
 
@@ -3863,6 +3865,7 @@ const DungeonPath = {
             seed:        GS.seed,
             schedules:   s.schedules,
             anomalyRate: s.anomalyRate,
+            difficulty:  s.difficulty,
         });
         GS.blueprint = bp;
         GS.seed = bp.seed;

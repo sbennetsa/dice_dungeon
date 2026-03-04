@@ -32,7 +32,6 @@ export const GS = {
     challengeTurns: 0,
     playerDebuffs: {
         poison: 0,
-        poisonTurns: 0,
         disabledSlots: [],
         diceReduction: 0,
     },

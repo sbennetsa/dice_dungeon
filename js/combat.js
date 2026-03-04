@@ -207,7 +207,7 @@ export const Combat = {
         }
 
         // Reset player debuffs for new combat
-        GS.playerDebuffs = { poison: 0, poisonTurns: 0, disabledSlots: [], diceReduction: 0 };
+        GS.playerDebuffs = { poison: 0, disabledSlots: [], diceReduction: 0 };
 
         // Reset enemy status effects for new combat
         GS.enemyStatus = { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: 0 };
@@ -360,7 +360,7 @@ export const Combat = {
         // Player debuff indicators
         let debuffHtml = '';
         if (GS.playerDebuffs.poison > 0)
-            debuffHtml += `<span class="passive-tag" style="color:#f07070;border-color:rgba(200,60,60,0.3)">☠️ You: Poison ×${GS.playerDebuffs.poison} (${GS.playerDebuffs.poisonTurns}t)</span>`;
+            debuffHtml += `<span class="passive-tag" style="color:#f07070;border-color:rgba(200,60,60,0.3)">☠️ You: Poison ×${GS.playerDebuffs.poison}</span>`;
         if (GS.playerDebuffs.disabledSlots && GS.playerDebuffs.disabledSlots.length > 0)
             GS.playerDebuffs.disabledSlots.forEach(ds => {
                 const slotType = ds.slotId.startsWith('str') ? 'strike' : 'guard';
@@ -398,6 +398,23 @@ export const Combat = {
                 <div class="enemy-intent">${intentDisplay}</div>
             `;
         }
+        Combat.renderPlayerStatus();
+    },
+
+    renderPlayerStatus() {
+        const bar = $('player-status-bar');
+        if (!bar) return;
+        let html = '';
+        if (GS.playerDebuffs.poison > 0) {
+            html += `<span class="player-status-tag player-status-tag--poison">☠️ Poison ×${GS.playerDebuffs.poison}</span>`;
+        }
+        if (GS.playerDebuffs.disabledSlots && GS.playerDebuffs.disabledSlots.length > 0) {
+            GS.playerDebuffs.disabledSlots.forEach(ds => {
+                const slotType = ds.slotId.startsWith('str') ? 'strike' : 'guard';
+                html += `<span class="player-status-tag player-status-tag--sealed">🔒 ${slotType} sealed (${ds.turnsLeft}t)</span>`;
+            });
+        }
+        bar.innerHTML = html;
     },
 
     // Ability types that don't scale with dice — skip rolling entirely for these.
@@ -490,8 +507,8 @@ export const Combat = {
         const iv = e.intentValue;
 
         let mods = [];
-        if (es && es.chill > 0 && (ab.type === 'attack' || ab.type === 'unblockable')) mods.push(`❄️−${es.chill}`);
-        if (es && es.weaken > 0 && (ab.type === 'attack' || ab.type === 'unblockable')) mods.push('💔×0.75');
+        if (es && es.chill > 0 && (ab.type === 'attack' || ab.type === 'unblockable' || ab.type === 'poison')) mods.push(`❄️−${es.chill}`);
+        if (es && es.weaken > 0 && (ab.type === 'attack' || ab.type === 'unblockable' || ab.type === 'poison')) mods.push('💔×0.75');
         // Phase passive: show resist indicator on protected turns
         const phasePassive = e.passives.find(p => p.id === 'phase');
         if (phasePassive && e.turnsAlive % 2 === 0) mods.push('🌀 RESIST TURN');
@@ -511,7 +528,7 @@ export const Combat = {
             case 'shield':
                 return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → gains ${sum} shield`;
             case 'poison':
-                return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → apply ${sum} poison stacks`;
+                return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → ${iv} damage + ${sum} poison${modStr}`;
             case 'curse': {
                 const sealCount = ab.slotsToSeal || 1;
                 const sealDur = ab.fixedDuration || 1;
@@ -875,6 +892,7 @@ export const Combat = {
             atkUtilZoneBase += val;
         });
 
+        const slotDamage = {}; // per-slot raw damage for brittle threshold check
         GS.allocated.strike.forEach(d => {
             const face = getActiveFace(d);
             const m = face ? face.modifier : null;
@@ -1027,6 +1045,8 @@ export const Combat = {
                 if (r.effect === 'poisonCore') applyEnemyPoison(dieVal);
             }
             atkBase += dieVal;
+            // Track per-slot damage for brittle
+            if (d.slotId) { slotDamage[d.slotId] = (slotDamage[d.slotId] || 0) + dieVal; }
         });
 
         // Apply cross-slot bonuses from critical face mods
@@ -1082,11 +1102,19 @@ export const Combat = {
         // ── ENEMY PASSIVE MODIFIERS ON PLAYER ATTACK ──
         let finalAtk = totalAtk;
 
-        // Brittle: +bonus damage
+        // Brittle: per-slot damage above threshold is doubled
         const brittleP = e.passives.find(p => p.id === 'brittle');
         if (brittleP && finalAtk > 0) {
-            finalAtk += brittleP.params.bonus;
-            log(`💀 ${e.name} is Brittle: +${brittleP.params.bonus} bonus damage!`, 'info');
+            const brittleThreshold = brittleP.params.threshold || [0, 4, 6, 8][GS.act] || 4;
+            let brittleBonus = 0;
+            for (const slotId in slotDamage) {
+                const excess = slotDamage[slotId] - brittleThreshold;
+                if (excess > 0) brittleBonus += excess;
+            }
+            if (brittleBonus > 0) {
+                finalAtk += brittleBonus;
+                log(`💀 ${e.name} is Brittle: +${brittleBonus} bonus damage! (slots above ${brittleThreshold})`, 'info');
+            }
         }
 
         // Thick Hide: ignore attack if below threshold
@@ -1347,10 +1375,13 @@ export const Combat = {
                 break;
 
             case 'poison': {
+                // Poison deals blockable damage AND applies poison stacks
                 const stacks = e.intentValue;
+                const ended = Combat._resolveEnemyAttack(ab, e, es, totalDef, steadfastContrib);
+                if (ended) return true;
                 GS.playerDebuffs.poison += stacks;
-                GS.playerDebuffs.poisonTurns = Math.max(GS.playerDebuffs.poisonTurns, 3);
-                log(`${ab.icon} ${ab.name}! ${stacks} poison applied!`, 'damage');
+                log(`${ab.icon} ${stacks} poison applied! (${GS.playerDebuffs.poison} stacks)`, 'damage');
+                Combat.renderPlayerStatus();
                 break;
             }
 
@@ -1660,10 +1691,10 @@ export const Combat = {
                 break;
             case 'cleanse':
                 GS.playerDebuffs.poison = 0;
-                GS.playerDebuffs.poisonTurns = 0;
                 GS.playerDebuffs.disabledSlots = [];
                 GS.playerDebuffs.diceReduction = 0;
                 log(`✨ Cleansed all debuffs!`, 'heal');
+                Combat.renderPlayerStatus();
                 break;
             case 'rage':
                 GS.ragePotionActive = true;
@@ -1752,18 +1783,15 @@ export const Combat = {
         }
 
         // ── PLAYER POISON TICK ──
-        if (GS.playerDebuffs.poison > 0 && GS.playerDebuffs.poisonTurns > 0) {
+        if (GS.playerDebuffs.poison > 0) {
             let dmg = GS.playerDebuffs.poison;
             if (GS.artifacts.some(a => a.effect === 'burnproofCloak')) dmg = Math.floor(dmg * 0.5);
             GS.hp = Math.max(0, GS.hp - dmg);
-            GS.playerDebuffs.poisonTurns--;
-            if (GS.playerDebuffs.poisonTurns <= 0) {
-                GS.playerDebuffs.poison = 0;
-                GS.playerDebuffs.poisonTurns = 0;
-            }
-            log(`☠️ Poison deals ${dmg} damage! (${GS.playerDebuffs.poisonTurns} turns remain)`, 'damage');
+            GS.playerDebuffs.poison = Math.max(0, GS.playerDebuffs.poison - 1);
+            log(`☠️ Poison deals ${dmg} damage! (${GS.playerDebuffs.poison} stacks remain)`, 'damage');
             spawnFloatText(`-${dmg}`, $('player-hp-bar'), 'poison');
             updateStats();
+            Combat.renderPlayerStatus();
             if (GS.hp <= 0) {
                 GS.hp = 0;
                 updateStats();
@@ -2034,7 +2062,7 @@ export const Combat = {
         }
 
         // Clear player debuffs at end of combat
-        GS.playerDebuffs = { poison: 0, poisonTurns: 0, disabledSlots: [], diceReduction: 0 };
+        GS.playerDebuffs = { poison: 0, disabledSlots: [], diceReduction: 0 };
 
         // Decrement tempBuff combat counters
         if (GS.tempBuffs) {

@@ -358,6 +358,33 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     color: #fff;
     text-shadow: 0 0 3px rgba(0,0,0,0.8);
 }
+.player-status-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 3px;
+}
+.player-status-bar:empty { display: none; }
+.player-status-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: var(--font-data);
+    font-size: 0.7em;
+    font-weight: 600;
+}
+.player-status-tag--poison {
+    color: #50a030;
+    background: rgba(80,160,48,0.12);
+    border: 1px solid rgba(80,160,48,0.35);
+}
+.player-status-tag--sealed {
+    color: #f07070;
+    background: rgba(200,60,60,0.1);
+    border: 1px solid rgba(200,60,60,0.3);
+}
 
 .enemy-intent {
     margin-top: 12px;

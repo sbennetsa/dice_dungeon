@@ -3131,17 +3131,18 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
    BESTIARY — Field Compendium screen
    ════════════════════════════════════════════════════════════ */
 
-/* Desktop: open book sitting on a dark desk */
+/* Desktop: open book sitting on a dark desk.
+   position:fixed escapes the #game max-width:800px constraint. */
 #screen-bestiary.active {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 32px;
   overflow: hidden;
   background: #0e0a04;
-  width: 100vw;
-  height: 100vh;
-  box-sizing: border-box;
 }
 
 .bestiary-shell {
@@ -3557,13 +3558,12 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 @media (max-width: 860px) {
   /* Single-page: full-screen vertical scroll */
   #screen-bestiary.active {
+    position: fixed;
+    inset: 0;
     display: block;
     padding: 0;
     overflow: auto;
     background: #0a0703;
-    width: 100%;
-    height: auto;
-    min-height: 100vh;
   }
   .bestiary-shell {
     flex-direction: column;

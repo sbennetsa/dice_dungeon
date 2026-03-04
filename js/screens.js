@@ -296,11 +296,13 @@ const Game = {
             if (!isNaN(parsed)) seedOption = { seed: parsed };
         }
         if (seedInput) seedInput.value = '';
+        seedOption.difficulty = GS.runDifficulty || 'standard';
         const blueprint = generateDungeonBlueprint(seedOption);
         GS.blueprint = blueprint;
         GS.seed      = blueprint.seed;
-        console.log(`[Dungeon] Seed: ${blueprint.seed} | Challenge Rating: ${blueprint.scoring.challengeRating}/10`);
+        console.log(`[Dungeon] Seed: ${blueprint.seed} | Challenge Target: ${blueprint.challengeTarget || 'N/A'} | Challenge Rating: ${blueprint.scoring.challengeRating}/10`);
         console.log(`[Dungeon] Net Challenge: ${blueprint.scoring.netChallenge} (Combat: ${blueprint.scoring.totalCombatThreat}, Player Advantage: ${blueprint.scoring.totalPlayerAdvantage})`);
+        if (blueprint.actBudgets) console.log(`[Dungeon] Act Budgets: ${blueprint.actBudgets.join(' / ')} (target: ${blueprint.challengeTarget})`);
         console.log(`[Dungeon] Schedules: ${blueprint.acts.map(a => a.schedule.join('-')).join(' | ')}`);
 
         // If the player has previously revealed the skill die, pre-apply the root node benefit.
@@ -3862,6 +3864,7 @@ const DungeonPath = {
             seed:        GS.seed,
             schedules:   s.schedules,
             anomalyRate: s.anomalyRate,
+            difficulty:  s.difficulty,
         });
         GS.blueprint = bp;
         GS.seed = bp.seed;

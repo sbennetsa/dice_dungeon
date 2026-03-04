@@ -1,82 +1,11 @@
 // ════════════════════════════════════════════════════════════
 //  DUNGEON SCORING SYSTEM
 //  Threat/reward budget values for all game elements.
-//  Used by the blueprint generator to score and balance dungeons.
+//  Uses per-enemy profiles from bestiaryThreatData for granular
+//  environment, elite, and difficulty scoring.
 // ════════════════════════════════════════════════════════════
 
-// ────────────────────────────────────────────────────────────
-//  Enemy Threat Values
-//  Computed from: HP + avg damage/turn + passive difficulty
-// ────────────────────────────────────────────────────────────
-
-export const ENEMY_THREATS = {
-    // Act 1  (HP / dice / passives)
-    'Goblin':       10,   // 20 HP, 2d4, simple strike
-    'Dire Rat':     12,   // 14 HP, 3d3, multi-hit frenzy
-    'Fungal Creep': 15,   // 22 HP, 2d4, poison pattern
-    'Slime':        18,   // 28 HP, 2d4, mitosis at turn 3
-    'Skeleton':     11,   // 18 HP, 2d6, but brittle -3
-    // Act 2
-    'Orc Warrior':  30,   // 45 HP, 3d6, war cry buff
-    'Dark Mage':    32,   // 32 HP, 2d6, penetrate + slot seal
-    'Troll':        38,   // 55 HP, 2d8, thick hide (10) + regen 3
-    'Vampire':      35,   // 38 HP, 3d6, lifesteal 50% + blood frenzy
-    'Mimic':        28,   // 35 HP, 2d6, gold scaling
-    // Act 3  (recalibrated for actual stats)
-    'Demon':           65,   // 90 HP, 3d12, unblockable hellfire + soul pact
-    'Lich':            68,   // 80 HP, 2d12, decay + phylactery revive at 40%
-    'Dragon Whelp':    78,   // 110 HP, 4d12, charge/breath + dragon scales (8)
-    'Shadow Assassin': 62,   // 70 HP, 3d12, evasion + vanish (immune turn)
-    'Iron Golem':      72,   // 130 HP, 3d10, armor (5) + escalate + overcharge
-};
-
-export const BOSS_THREATS = {
-    5:  80,   // Bone King
-    10: 150,  // Crimson Wyrm
-    15: 250,  // Void Lord
-};
-
-// ────────────────────────────────────────────────────────────
-//  Elite Modifier Threat Values
-// ────────────────────────────────────────────────────────────
-
-export const ELITE_THREATS = {
-    deadly:       15,   // dice +2, HP ×1.3
-    armored:      15,   // armor reduction 2, HP ×1.5 (was 18 when reduction was 3)
-    swift:        12,   // +1d6, HP ×1.0
-    enraged:      20,   // dice +4, HP ×1.0
-    regenerating: 10,   // regen 3 HP/turn, HP ×1.2
-    vampiric:     10,   // 35% lifesteal, HP ×1.1 (was 12 when lifesteal was 50%)
-    brittle:      -3,   // takes +3 bonus dmg, HP ×0.8 (was -5 when bonus was 5)
-    cursed:       14,   // player dice -1, HP ×1.2
-    berserker:    16,   // +2d6 at <50% HP, HP ×1.3
-};
-
-export const BOSS_ELITE_THREATS = {
-    deadly:     25,   // dice +4, HP ×1.4
-    enraged:    35,   // dice +6, HP ×1.2
-    phasing:    28,   // 50% resist alternating, HP ×1.5
-    timewarped: 22,   // double phases, HP ×1.3
-    armored:    26,   // armor reduction 4, HP ×1.6 (was 30 when reduction was 5)
-};
-
-// ────────────────────────────────────────────────────────────
-//  Environment Base Threat Values (before synergy)
-// ────────────────────────────────────────────────────────────
-
-export const ENV_BASE_THREATS = {
-    burningGround:     3,
-    healingAura:       0,
-    slipperyFloor:     2,
-    arcaneNexus:       1,
-    narrowCorridor:    4,
-    thornsAura:        1,
-    unstableGround:    2,
-    consecratedGround: 0,
-    voidZone:          3,
-    bloodMoon:         0,
-    chaosStorm:        2,
-};
+import { getEnemyProfile, getEnvThreatForEnemy, getEliteThreatForEnemy } from './bestiaryThreatData.js';
 
 // ────────────────────────────────────────────────────────────
 //  Anomaly Threat Values
@@ -125,96 +54,15 @@ export const REWARD_ADVANTAGES = {
 
 /**
  * Compute environment threat based on the enemy–environment pairing.
- * Blood Moon + Troll is far more dangerous than Blood Moon + Goblin.
+ * Delegates to per-enemy bestiary profiles for granular synergy data.
  * @param {object|null} environment
- * @param {object} enemy - Enemy template with passives, abilities, dice, hp
+ * @param {object} enemy - Enemy template
+ * @param {number|null} [bossFloor] - Boss floor (5/10/15) or null
  * @returns {number} Threat contribution (can be negative if environment helps player)
  */
-export function scoreEnvironmentThreat(environment, enemy) {
+export function scoreEnvironmentThreat(environment, enemy, bossFloor = null) {
     if (!environment) return 0;
-
-    const base = ENV_BASE_THREATS[environment.id] || 0;
-    let synergy = 0;
-
-    const passiveIds   = (enemy.passives || []).map(p => p.id);
-    const abilityTypes = Object.values(enemy.abilities || {}).map(a => a.type);
-    const hasHeal      = abilityTypes.includes('heal')
-                         || passiveIds.includes('regen')
-                         || passiveIds.includes('lifesteal');
-    const isUndead     = ['Skeleton', 'Lich', 'The Bone King'].includes(enemy.name);
-    const hasHighHP    = enemy.hp >= 50;
-    const hasManyDice  = (enemy.dice || []).length >= 4;
-    const hasBigDice   = (enemy.dice || []).some(d => d >= 8);
-
-    switch (environment.id) {
-        case 'bloodMoon':
-            // Doubles ALL healing — devastating with heal/regen/lifesteal enemies
-            if (hasHeal) synergy += 12;
-            else synergy += -2;
-            break;
-
-        case 'healingAura':
-            // +4 HP/turn — benefits whoever has more HP (enemies usually)
-            if (hasHighHP) synergy += 5;
-            if (hasHeal) synergy += 3;
-            else synergy += 1;
-            break;
-
-        case 'burningGround':
-            // 3 damage/turn to both — hurts low-HP enemies, helps vs high-HP
-            if (hasHighHP) synergy += 3;
-            else synergy += -3;
-            break;
-
-        case 'arcaneNexus':
-            // First die = max — benefits whoever has bigger dice
-            if (hasBigDice) synergy += 5;
-            else synergy += -1;
-            break;
-
-        case 'voidZone':
-            // Dice < 3 become 0 — hurts small-dice enemies
-            if (hasBigDice) synergy += 3;
-            else synergy += -4;
-            break;
-
-        case 'consecratedGround':
-            // Undead: -30% stats, Others: +15% stats
-            if (isUndead) synergy += -8;
-            else synergy += 5;
-            break;
-
-        case 'thornsAura':
-            // 20% recoil — hurts whoever deals more damage
-            if (passiveIds.includes('lifesteal')) synergy += -2;
-            if (hasManyDice) synergy += 3;
-            else synergy += 1;
-            break;
-
-        case 'narrowCorridor':
-            // +5 to first attacker (enemy always first)
-            synergy += 2;
-            break;
-
-        case 'chaosStorm':
-            // Rerolls one random die
-            if (hasManyDice) synergy += -1;
-            else synergy += 2;
-            break;
-
-        case 'slipperyFloor':
-            // -1 to all dice
-            if (hasBigDice) synergy += 1;
-            else synergy += -1;
-            break;
-
-        case 'unstableGround':
-            // Random 10 damage — more threatening in long fights
-            if (hasHighHP || hasHeal) synergy += 2;
-            break;
-    }
-
-    return base + synergy;
+    return getEnvThreatForEnemy(environment.id, enemy.name, bossFloor);
 }
 
 // ────────────────────────────────────────────────────────────
@@ -223,7 +71,9 @@ export function scoreEnvironmentThreat(environment, enemy) {
 
 /**
  * Score a single combat floor from its blueprint components.
- * @param {object} floor - Floor blueprint with enemy, environment, anomaly, eliteModifiers, eliteOffered
+ * Uses per-enemy bestiary profiles for base threat, elite affinities,
+ * and environment synergies.
+ * @param {object} floor - Floor blueprint
  * @returns {{ baseThreat, eliteThreat, totalThreat, baseReward, eliteReward }}
  */
 export function scoreFloor(floor) {
@@ -232,14 +82,15 @@ export function scoreFloor(floor) {
     }
 
     const enemy = floor.enemy;
+    const isBoss = floor.type === 'boss';
+    const bossFloor = isBoss ? floor.floor : null;
 
-    // Base enemy threat
-    const enemyThreat = floor.type === 'boss'
-        ? (BOSS_THREATS[floor.floor] || 0)
-        : (ENEMY_THREATS[enemy.name] || 0);
+    // Base enemy threat from bestiary profile
+    const profile = getEnemyProfile(enemy.name, bossFloor);
+    const enemyThreat = profile ? profile.baseThreat : 0;
 
-    // Contextual environment threat
-    const envThreat = scoreEnvironmentThreat(floor.environment, enemy);
+    // Contextual environment threat (per-enemy)
+    const envThreat = scoreEnvironmentThreat(floor.environment, enemy, bossFloor);
 
     // Anomaly threat
     const anomalyThreat = floor.anomaly
@@ -248,14 +99,16 @@ export function scoreFloor(floor) {
 
     const baseThreat = enemyThreat + envThreat + anomalyThreat;
 
-    // Elite threat (only if elite is offered on this floor)
+    // Elite threat: per-enemy affinity for each modifier
     // scaleElitePassives scales passives by act: 1.0×/1.25×/1.5×
-    // Factor this into elite threat so later-act elites score higher
     let eliteThreat = 0;
     if (floor.eliteOffered && floor.eliteModifiers) {
-        const threats = floor.type === 'boss' ? BOSS_ELITE_THREATS : ELITE_THREATS;
-        const visibleThreat = threats[floor.eliteModifiers.visible.id] || 0;
-        const hiddenThreat  = threats[floor.eliteModifiers.hidden.id]  || 0;
+        const visibleThreat = getEliteThreatForEnemy(
+            floor.eliteModifiers.visible.id, enemy.name, bossFloor
+        );
+        const hiddenThreat = getEliteThreatForEnemy(
+            floor.eliteModifiers.hidden.id, enemy.name, bossFloor
+        );
         const act = Math.ceil(floor.floor / 5);
         const passiveScale = 1.0 + 0.25 * (act - 1); // 1.0 / 1.25 / 1.5
         eliteThreat = Math.round((visibleThreat + hiddenThreat) * passiveScale);
@@ -274,7 +127,7 @@ export function scoreFloor(floor) {
 
 /**
  * Score a single combat floor with full component breakdown.
- * @param {object} floor - Floor blueprint with enemy, environment, anomaly, eliteModifiers, eliteOffered
+ * @param {object} floor - Floor blueprint
  * @returns {{ enemyThreat, envThreat, anomalyThreat, baseThreat, eliteThreat, totalThreat, baseReward, eliteReward }}
  */
 export function scoreFloorDetailed(floor) {
@@ -283,10 +136,12 @@ export function scoreFloorDetailed(floor) {
     }
 
     const enemy = floor.enemy;
-    const enemyThreat = floor.type === 'boss'
-        ? (BOSS_THREATS[floor.floor] || 0)
-        : (ENEMY_THREATS[enemy.name] || 0);
-    const envThreat = scoreEnvironmentThreat(floor.environment, enemy);
+    const isBoss = floor.type === 'boss';
+    const bossFloor = isBoss ? floor.floor : null;
+
+    const profile = getEnemyProfile(enemy.name, bossFloor);
+    const enemyThreat = profile ? profile.baseThreat : 0;
+    const envThreat = scoreEnvironmentThreat(floor.environment, enemy, bossFloor);
     const anomalyThreat = floor.anomaly ? (ANOMALY_THREATS[floor.anomaly.id] || 0) : 0;
 
     const result = scoreFloor(floor);

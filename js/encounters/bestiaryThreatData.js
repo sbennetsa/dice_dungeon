@@ -398,7 +398,7 @@ export const ENEMY_PROFILES = {
     // ── ACT 2 ──────────────────────────────────────────────
 
     'Orc Warrior': {
-        baseThreat: 29,   // formula: dur=48 × off=9.7 (war cry +0.15 pattern)
+        baseThreat: 61,   // formula: dur=125 × off=14.0 (war cry +0.15 pattern)
         eliteAffinities: {
             deadly:       16,   // war cry + bigger dice = huge buffed strikes
             armored:      14,
@@ -427,7 +427,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Dark Mage': {
-        baseThreat: 29,   // formula: dur=28 × off=11, disruption=5.3 (penetrate + curse seal)
+        baseThreat: 59,   // formula: dur=110 × off=13.0, disruption=5.3 (penetrate + curse seal)
         eliteAffinities: {
             deadly:       14,
             armored:      12,   // 28 HP is low; armor helps survive
@@ -456,7 +456,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Troll': {
-        baseThreat: 35,   // formula: dur=106 (thickHide +0.5, regen +0.15, heal +0.13) × off=6
+        baseThreat: 67,   // formula: dur=289 (thickHide +0.5, regen +0.15, heal +0.13) × off=7.3
         eliteAffinities: {
             deadly:       14,
             armored:      18,   // armor + thick hide + high HP = near-unkillable wall
@@ -485,7 +485,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Vampire': {
-        baseThreat: 38,   // formula: dur=54 (lifesteal +0.25, bloodFrenzy +0.1) × off=13.5
+        baseThreat: 72,   // formula: dur=122 (lifesteal +0.25, bloodFrenzy +0.1) × off=19.5
         eliteAffinities: {
             deadly:       16,   // bigger dice = more lifesteal healing
             armored:      12,
@@ -514,7 +514,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Mimic': {
-        baseThreat: 27,   // formula: dur=39 (greedTax +0.1) × off=9.6, disruption=1
+        baseThreat: 56,   // formula: dur=99 (greedTax +0.1) × off=14.6, disruption=1
         eliteAffinities: {
             deadly:       11,
             armored:       9,
@@ -545,7 +545,7 @@ export const ENEMY_PROFILES = {
     // ── ACT 3 ──────────────────────────────────────────────
 
     'Demon': {
-        baseThreat: 76,   // formula: dur=90 × off=25.4 (unblockable ×0.6), disruption=6
+        baseThreat: 202,  // formula: dur=380 × off=38.5 (unblockable ×0.6), disruption=6
         eliteAffinities: {
             deadly:       18,
             armored:      16,   // 90 HP + armor on d12 attacks = extreme
@@ -574,7 +574,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Lich': {
-        baseThreat: 52,   // formula: dur=112 (phylactery +0.4) × off=8.7, disruption=8.3 (decay)
+        baseThreat: 194,  // formula: dur=770 (phylactery +0.4) × off=17.3, disruption=8.3 (decay)
         eliteAffinities: {
             deadly:       18,
             armored:      16,   // 80 HP × revive + armor = enormous effective HP
@@ -603,7 +603,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Dragon Whelp': {
-        baseThreat: 77,   // formula: dur=145 (scales +0.32) × off=17.8, disruption=2 (burn)
+        baseThreat: 241,  // formula: dur=792 (scales +0.32) × off=26.7, disruption=2 (burn)
         eliteAffinities: {
             deadly:       20,   // 4d12+2 = 4d14 with scales; monstrous
             armored:      18,   // scales (8) + armor (2) = 10 reduction per slot
@@ -632,7 +632,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Shadow Assassin': {
-        baseThreat: 51,   // formula: dur=99 (evasion +0.25, vanish immune +0.17) × off=13
+        baseThreat: 194,  // formula: dur=666 (evasion +0.25, vanish immune +0.17) × off=21.7
         eliteAffinities: {
             deadly:       16,
             armored:      12,   // evasion already reduces incoming; armor stacks
@@ -661,7 +661,7 @@ export const ENEMY_PROFILES = {
     },
 
     'Iron Golem': {
-        baseThreat: 81,   // formula: dur=163 (armor +0.25) × off=18.3 (escalate +1.8)
+        baseThreat: 228,  // formula: dur=563 (armor +0.25) × off=34.3 (escalate +1.8)
         eliteAffinities: {
             deadly:       18,
             armored:      20,   // armor 5 + armor 2 = 7 flat reduction; brutal
@@ -722,7 +722,7 @@ export const BOSS_PROFILES = {
     },
 
     10: {   // Crimson Wyrm
-        baseThreat: 200,  // formula (boss C=1.35): dur=360 (phase +0.2) × off=22, disruption=12.3
+        baseThreat: 183,  // formula (boss C=1.35): dur=300 (phase +0.2) × off=22, disruption=12.3
         eliteAffinities: {
             deadly:     30,   // 4d10+4 = 4d14; fire breath with burn
             enraged:    40,   // d10→d16; inferno phase adds burn on all attacks
@@ -747,7 +747,7 @@ export const BOSS_PROFILES = {
     },
 
     15: {   // The Void Lord
-        baseThreat: 259,  // formula (boss C=1.35): dur=608 (phases) × off=19.1, disruption=27.3
+        baseThreat: 379,  // formula (boss C=1.35): dur=810 (phases) × off=30.4, disruption=27.3
         eliteAffinities: {
             deadly:     35,
             enraged:    45,   // d10→d16 with double action at 20% = potential wipe

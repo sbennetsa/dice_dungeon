@@ -89,7 +89,7 @@ export const ENEMIES = {
     // ── ACT 2 ──
     2: [
         {
-            name: 'Orc Warrior', hp: 48, dice: [8, 8, 8], gold: [20, 30], xp: [35, 50], image: 'assets/enemies/orc_warrior.webp',
+            name: 'Orc Warrior', hp: 125, dice: [12, 12, 12], gold: [20, 30], xp: [35, 50], image: 'assets/enemies/orc_warrior.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 warCry: { name: 'War Cry', icon: '📯', type: 'buff', desc: 'Store dice sum, add to next Strike', buffTarget: 'strike' },
@@ -98,7 +98,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'warCry'],
         },
         {
-            name: 'Dark Mage', hp: 28, dice: [8, 8, 8], gold: [22, 35], xp: [40, 60], image: 'assets/enemies/Dark_Mage.webp',
+            name: 'Dark Mage', hp: 110, dice: [10, 10, 10], gold: [22, 35], xp: [40, 60], image: 'assets/enemies/Dark_Mage.webp',
             abilities: {
                 bolt:  { name: 'Shadow Bolt', icon: '🔮', type: 'attack', desc: 'Deal damage (penetrates 3 block)', penetrate: 3 },
                 curse: { name: 'Curse', icon: '💀', type: 'curse', desc: 'Seal 1 strike slot for 2 turns', slotsToSeal: 1, slotTarget: 'strike', fixedDuration: 2 },
@@ -107,7 +107,7 @@ export const ENEMIES = {
             pattern: ['bolt', 'bolt', 'curse'],
         },
         {
-            name: 'Troll', hp: 55, dice: [8, 8], gold: [20, 30], xp: [35, 55], image: 'assets/enemies/Troll.webp',
+            name: 'Troll', hp: 150, dice: [10, 10], gold: [20, 30], xp: [35, 55], image: 'assets/enemies/Troll.webp',
             abilities: {
                 strike: { name: 'Smash', icon: '💪', type: 'attack', desc: 'Deal damage' },
                 heal:   { name: 'Regenerate', icon: '💚', type: 'heal', desc: 'Heal HP equal to dice sum' },
@@ -119,7 +119,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'heal'],
         },
         {
-            name: 'Vampire', hp: 40, dice: [8, 8, 8], gold: [25, 40], xp: [45, 65], image: 'assets/enemies/Vampire.webp',
+            name: 'Vampire', hp: 90, dice: [12, 12, 12], gold: [25, 40], xp: [45, 65], image: 'assets/enemies/Vampire.webp',
             abilities: {
                 drain: { name: 'Drain', icon: '🩸', type: 'attack', desc: 'Deal damage and heal 50% of amount dealt' },
             },
@@ -130,7 +130,7 @@ export const ENEMIES = {
             pattern: ['drain'],
         },
         {
-            name: 'Mimic', hp: 35, dice: [8, 8], gold: [20, 30], xp: [35, 50], image: 'assets/enemies/Mimic.webp',
+            name: 'Mimic', hp: 90, dice: [10, 10, 10], gold: [20, 30], xp: [35, 50], image: 'assets/enemies/Mimic.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 steal:  { name: 'Gold Snatch', icon: '💰', type: 'steal', desc: 'Steal gold equal to dice sum' },
@@ -144,7 +144,7 @@ export const ENEMIES = {
     // ── ACT 3 ──
     3: [
         {
-            name: 'Demon', hp: 90, dice: [12, 12, 12], gold: [35, 55], xp: [55, 80], image: 'assets/enemies/Demon.webp',
+            name: 'Demon', hp: 380, dice: [12, 12, 12, 12, 12], gold: [35, 55], xp: [55, 80], image: 'assets/enemies/Demon.webp',
             abilities: {
                 strike:   { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 hellfire: { name: 'Hellfire', icon: '🔥', type: 'unblockable', desc: 'Deal unblockable damage (max 20)', maxDamage: 20 },
@@ -155,7 +155,7 @@ export const ENEMIES = {
             pattern: ['strike', 'hellfire'],
         },
         {
-            name: 'Lich', hp: 80, dice: [12, 12], gold: [40, 60], xp: [60, 85], image: 'assets/enemies/Lich.webp',
+            name: 'Lich', hp: 550, dice: [12, 12, 12, 12], gold: [40, 60], xp: [60, 85], image: 'assets/enemies/Lich.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 decay:  { name: 'Decay', icon: '💀', type: 'decay', desc: 'All your dice permanently lose 1 max value this fight' },
@@ -166,7 +166,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'decay'],
         },
         {
-            name: 'Dragon Whelp', hp: 110, dice: [12, 12, 12, 12], gold: [45, 65], xp: [65, 90], image: 'assets/enemies/Dragon_Whelp.webp',
+            name: 'Dragon Whelp', hp: 600, dice: [12, 12, 12, 12, 12, 12], gold: [45, 65], xp: [65, 90], image: 'assets/enemies/Dragon_Whelp.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 charge: { name: 'Breath Charge', icon: '🔥', type: 'charge', desc: 'Charging... next attack is doubled!' },
@@ -178,7 +178,7 @@ export const ENEMIES = {
             pattern: ['strike', 'charge', 'breath'],
         },
         {
-            name: 'Shadow Assassin', hp: 70, dice: [12, 12, 12], gold: [35, 55], xp: [55, 85], image: 'assets/enemies/Shadow_Assassin.webp',
+            name: 'Shadow Assassin', hp: 470, dice: [12, 12, 12, 12, 12], gold: [35, 55], xp: [55, 85], image: 'assets/enemies/Shadow_Assassin.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '🗡️', type: 'attack', desc: 'Deal damage' },
                 vanish: { name: 'Vanish', icon: '💨', type: 'charge', desc: 'Disappears — immune to damage this turn. Next strike is doubled.', immune: true },
@@ -189,7 +189,7 @@ export const ENEMIES = {
             pattern: ['strike', 'strike', 'vanish'],
         },
         {
-            name: 'Iron Golem', hp: 130, dice: [10, 10, 10], gold: [50, 70], xp: [70, 95], image: 'assets/enemies/Iron_Golem.webp',
+            name: 'Iron Golem', hp: 450, dice: [12, 12, 12, 12, 12], gold: [50, 70], xp: [70, 95], image: 'assets/enemies/Iron_Golem.webp',
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
@@ -219,7 +219,7 @@ export const BOSSES = {
         phases: null,
     },
     10: {
-        name: 'Crimson Wyrm', hp: 300, dice: [10, 10, 10, 10], gold: 150, xp: 80, image: 'assets/enemies/Crimson_Dragon.webp',
+        name: 'Crimson Wyrm', hp: 250, dice: [10, 10, 10, 10], gold: 150, xp: 80, image: 'assets/enemies/Crimson_Dragon.webp',
         abilities: {
             strike:  { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             breath:  { name: 'Fire Breath', icon: '🔥', type: 'attack', desc: 'Deal damage + apply burn', applyBurn: 3 },
@@ -239,7 +239,7 @@ export const BOSSES = {
         ],
     },
     15: {
-        name: 'The Void Lord', hp: 450, dice: [10, 10, 10, 10], gold: 250, xp: 120, image: 'assets/enemies/The_Void_Lord.webp',
+        name: 'The Void Lord', hp: 600, dice: [12, 12, 12, 12, 12, 12], gold: 250, xp: 120, image: 'assets/enemies/The_Void_Lord.webp',
         abilities: {
             strike:    { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             voidRift:  { name: 'Void Rift', icon: '🌀', type: 'curse', desc: 'Seal 2 random slots for 1 turn', slotsToSeal: 2, fixedDuration: 1 },
@@ -251,7 +251,7 @@ export const BOSSES = {
             {
                 trigger: { hpPercent: 0.5 },
                 changes: {
-                    addDice: [10, 10],
+                    addDice: [12, 12],
                     addPassives: [{ id: 'entropy', name: 'Entropy', desc: 'Each turn, all player dice lose 1 max value', params: {} }],
                     log: 'Reality fractures around the Void Lord! Your dice begin to decay...',
                 },

@@ -28,7 +28,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'goblin', name: 'Goblin', act: 1,
-        artSrc: 'assets/enemies/goblin.webp', sketchSrc: 'assets/enemies/sketch/goblin_sketch.webp',
+        artSrc: 'assets/enemies/goblin.webp', sketchSrc: 'assets/enemies/sketch/goblin_sketch_v2.webp',
         artCaption: 'Field sketch — note the improvised armour and stolen equipment.',
         annotations: [
             { label: 'Height',    value: 'Three to four feet. Poor posture. Eyes that catch torchlight from improbable angles.' },
@@ -462,29 +462,100 @@ export class BestiaryUI {
 
         const imgSrc = entry.sketchSrc || entry.artSrc;
         const hasSketch = !!entry.sketchSrc;
-
-        // Split annotations: even indices → left, odd → right
-        const leftNotes  = entry.annotations.filter((_, i) => i % 2 === 0);
-        const rightNotes = entry.annotations.filter((_, i) => i % 2 !== 0);
-
         const rotations = [-1.2, 0.7, -0.6, 1.0, -0.9, 0.5];
-        const renderNote = (a, idx, side) => {
-            const rot = rotations[(idx * 2 + (side === 'right' ? 1 : 0)) % rotations.length];
-            return `<div class="bestiary-field-note" style="transform:rotate(${rot}deg)">
-                <div class="bestiary-field-note-label">${a.label}</div>
-                <div class="bestiary-field-note-value">${a.value}</div>
-            </div>`;
-        };
 
-        const leftHTML  = leftNotes.map((a, i) => renderNote(a, i, 'left')).join('');
-        const rightHTML = rightNotes.map((a, i) => renderNote(a, i, 'right')).join('');
+        let fieldNotesHTML;
 
-        const artInner = imgSrc
-            ? `<img src="${imgSrc}" alt="${entry.name}">`
-            : `<div class="bestiary-art-placeholder">${entry.name[0]}</div>`;
+        if (hasSketch) {
+            // ── Overlay layout: notes positioned over the full-width sketch ──
+            // Transparent margins of the image blend into parchment via multiply,
+            // so absolutely-positioned notes appear written on the page.
+            const OVERLAY_POS = {
+                1: [{ top:'4%', right:'3%', mw:'35%', a:'right' }],
+                2: [
+                    { top:'3%', left:'3%', mw:'36%', a:'left' },
+                    { top:'5%', right:'3%', mw:'34%', a:'right' },
+                ],
+                3: [
+                    { top:'2%', left:'2%', mw:'36%', a:'left' },
+                    { top:'4%', right:'2%', mw:'34%', a:'right' },
+                    { top:'55%', left:'2%', mw:'32%', a:'left' },
+                ],
+                4: [
+                    { top:'2%', left:'2%', mw:'34%', a:'left' },
+                    { top:'4%', right:'2%', mw:'32%', a:'right' },
+                    { top:'52%', left:'2%', mw:'30%', a:'left' },
+                    { top:'50%', right:'2%', mw:'30%', a:'right' },
+                ],
+            };
+            const count = Math.min(entry.annotations.length, 4);
+            const positions = OVERLAY_POS[count] || OVERLAY_POS[3];
 
-        const captionHTML = entry.artCaption
-            ? `<div class="bestiary-art-caption">${entry.artCaption}</div>` : '';
+            const notesHTML = entry.annotations.slice(0, 4).map((a, i) => {
+                const p = positions[i];
+                const rot = rotations[i % rotations.length];
+                const style = [
+                    p.top    ? `top:${p.top}`       : '',
+                    p.bottom ? `bottom:${p.bottom}` : '',
+                    p.left   ? `left:${p.left}`     : '',
+                    p.right  ? `right:${p.right}`   : '',
+                    `max-width:${p.mw}`,
+                    `text-align:${p.a}`,
+                    `transform:rotate(${rot}deg)`,
+                ].filter(Boolean).join(';');
+
+                return `<div class="bestiary-overlay-note" style="${style}">
+                    <div class="bestiary-field-note-label">${a.label}</div>
+                    <div class="bestiary-field-note-value">${a.value}</div>
+                </div>`;
+            }).join('');
+
+            const captionHTML = entry.artCaption
+                ? `<div class="bestiary-art-caption">${entry.artCaption}</div>` : '';
+
+            fieldNotesHTML = `
+                <div class="bestiary-field-notes overlay">
+                    <div class="bestiary-creature-art has-sketch">
+                        <img src="${imgSrc}" alt="${entry.name}">
+                    </div>
+                    ${notesHTML}
+                </div>
+                ${captionHTML}`;
+
+        } else {
+            // ── Grid layout: 3-column for non-sketch entries ──
+            const leftNotes  = entry.annotations.filter((_, i) => i % 2 === 0);
+            const rightNotes = entry.annotations.filter((_, i) => i % 2 !== 0);
+
+            const renderNote = (a, idx, side) => {
+                const rot = rotations[(idx * 2 + (side === 'right' ? 1 : 0)) % rotations.length];
+                return `<div class="bestiary-field-note" style="transform:rotate(${rot}deg)">
+                    <div class="bestiary-field-note-label">${a.label}</div>
+                    <div class="bestiary-field-note-value">${a.value}</div>
+                </div>`;
+            };
+
+            const artInner = imgSrc
+                ? `<img src="${imgSrc}" alt="${entry.name}">`
+                : `<div class="bestiary-art-placeholder">${entry.name[0]}</div>`;
+
+            const captionHTML = entry.artCaption
+                ? `<div class="bestiary-art-caption">${entry.artCaption}</div>` : '';
+
+            fieldNotesHTML = `
+                <div class="bestiary-field-notes">
+                    <div class="bestiary-notes-column left">
+                        ${leftNotes.map((a, i) => renderNote(a, i, 'left')).join('')}
+                    </div>
+                    <div class="bestiary-field-image">
+                        <div class="bestiary-creature-art">${artInner}</div>
+                        ${captionHTML}
+                    </div>
+                    <div class="bestiary-notes-column right">
+                        ${rightNotes.map((a, i) => renderNote(a, i, 'right')).join('')}
+                    </div>
+                </div>`;
+        }
 
         const abilitiesHTML = entry.abilities.length
             ? `<div class="bestiary-abilities-section">
@@ -508,18 +579,7 @@ export class BestiaryUI {
                 <div class="bestiary-header-rule"><span class="bestiary-species-label">Species Information</span></div>
             </div>
 
-            <div class="bestiary-field-notes">
-                <div class="bestiary-notes-column left">
-                    ${leftHTML}
-                </div>
-                <div class="bestiary-field-image">
-                    <div class="bestiary-creature-art${hasSketch ? ' has-sketch' : ''}">${artInner}</div>
-                    ${captionHTML}
-                </div>
-                <div class="bestiary-notes-column right">
-                    ${rightHTML}
-                </div>
-            </div>
+            ${fieldNotesHTML}
 
             <div class="bestiary-classification-strip">
                 <span class="bestiary-classif-tag"><strong>Threat</strong> ${entry.classification.threat}</span>

@@ -3480,6 +3480,45 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   filter: sepia(0.3) contrast(0.88) brightness(0.9);
 }
 
+/* ── Overlay layout: sketch fills container, notes float over margins ── */
+.bestiary-field-notes.overlay {
+  position: relative;
+  width: 100%;
+  margin-bottom: 12px;
+}
+.bestiary-field-notes.overlay .bestiary-creature-art {
+  width: 100%;
+  max-height: none;
+}
+.bestiary-field-notes.overlay .bestiary-creature-art img {
+  max-height: 600px;
+  width: auto;
+  max-width: 100%;
+  margin: 0 auto;
+  display: block;
+}
+.bestiary-overlay-note {
+  position: absolute;
+  z-index: 3;
+  transform-origin: center center;
+  padding: 4px 6px;
+}
+.bestiary-overlay-note .bestiary-field-note-label {
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8b6914;
+  margin-bottom: 3px;
+}
+.bestiary-overlay-note .bestiary-field-note-value {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: var(--text-xs);
+  color: #3d2e18;
+  line-height: 1.5;
+}
+
 .bestiary-art-placeholder {
   width: 100%;
   height: 280px;
@@ -3687,6 +3726,14 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   .bestiary-notes-column .bestiary-field-note { transform: none !important; }
   .bestiary-notes-column.left .bestiary-field-note::after,
   .bestiary-notes-column.right .bestiary-field-note::before { display: none; }
+  .bestiary-field-notes.overlay { position: static; }
+  .bestiary-overlay-note {
+    position: static !important;
+    max-width: 100% !important;
+    transform: none !important;
+    text-align: left !important;
+    margin-bottom: 10px;
+  }
   .bestiary-parchment {
     min-height: 0;
     padding: 30px 20px 44px;

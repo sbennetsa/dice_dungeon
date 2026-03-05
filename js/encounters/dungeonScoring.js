@@ -21,37 +21,57 @@ export const ANOMALY_THREATS = {
 
 // ────────────────────────────────────────────────────────────
 //  Non-Combat Floor Player Advantage Values
-//  Higher = more beneficial to the player
+//  All values expressed in threat-equivalent units — same scale
+//  as baseThreat so net challenge (threat − advantage) is meaningful.
+//
+//  Anchor: die upgrade (+1/+1)
+//    +1 avg damage/turn ≈ 5% DPS boost (player pool ~20 avg DPS).
+//    Value = boost fraction × remaining combat threat.
+//    Post-Act 1: 0.05 × 720  ≈ 36
+//    Post-Act 2: 0.04 × 1220 ≈ 48
+//
+//  Heal (30% max HP) has the same face value as the upgrade —
+//  they are meant to be equivalent maintenance choices. The heal
+//  won't always be fully utilized (~60-70% uptime when damaged),
+//  making both approximately equal in expected value.
+//
+//  Rest transformation tier (+1 slot / sacrifice / transform):
+//    +1 slot adds a whole die, ≈ 3× the value of +1/+1 upgrade.
+//    Best-of-three choices ≈ 2.5× upgrade.
+//
+//  Rest total = transform(2.5×) + maintenance(1×) + consumable(0.25×)
+//             ≈ 3.75× upgrade value.
 // ────────────────────────────────────────────────────────────
 
 export const EVENT_ADVANTAGES = {
-    wanderingMerchant: 5,
-    cursedShrine:      6,
-    trappedChest:      4,
-    trainingGrounds:   5,    // 20-50 XP options, moderate skill point acceleration
-    alchemistsLab:     7,
-    gamblingDen:       3,
-    forgottenForge:    8,
-    bloodAltar:        10,
-    oracle:            12,
-    merchantPrince:    15,
+    wanderingMerchant: 15,   // small shop, limited selection
+    cursedShrine:      18,   // gamble: buff or debuff
+    trappedChest:      15,   // artifact or trap damage
+    trainingGrounds:   12,   // 20-50 XP options, moderate skill point acceleration
+    alchemistsLab:     20,   // consumable crafting, reliable value
+    gamblingDen:       10,   // high variance, low expected value
+    forgottenForge:    25,   // die upgrade (permanent)
+    bloodAltar:        30,   // high risk / high reward
+    oracle:            35,   // foresight + artifact choice
+    merchantPrince:    40,   // premium shop, high spending power
 };
 
-export const SHOP_ADVANTAGES        = [4, 8, 12];   // per act (0-based): Act1=4, Act2=8, Act3=12
-export const DOUBLE_SHOP_ADVANTAGES = [6, 12, 18];
-export const REST_ADVANTAGES       = [15, 18]; // post-act-1, post-act-2
+export const SHOP_ADVANTAGES        = [20, 40, 55];   // per act (0-based): spending power × item efficiency
+export const DOUBLE_SHOP_ADVANTAGES = [30, 60, 82];
+export const REST_ADVANTAGES        = [135, 180];      // post-act-1, post-act-2
 
 export const REWARD_ADVANTAGES = {
-    bossArtifact:      10,
-    eliteArtifact:      8,
-    legendaryChance:   15,
-    sacrificeOption:    5,
+    bossArtifact:      35,   // permanent major upgrade, multiple acts of benefit
+    eliteArtifact:     25,   // permanent moderate upgrade
+    legendaryChance:   40,   // rare, very powerful
+    sacrificeOption:   12,   // situational trade-off
 };
 
 // Net player advantage per elite fight, by act (0-indexed).
 // Positive = elite rewards outweigh attrition cost.
-// Act 1: cheap upgrades make rewards efficient; Act 3: attrition dominates.
-export const ELITE_NET_ADVANTAGE = [2, 1, -1];
+// Act 1: cheap fights + valuable artifact = big net positive.
+// Act 3: attrition from harder elites dominates reward value.
+export const ELITE_NET_ADVANTAGE = [8, 3, -5];
 
 // ────────────────────────────────────────────────────────────
 //  Contextual Environment Scoring
@@ -163,7 +183,7 @@ export function scoreFloorDetailed(floor) {
 export function scorePlayerAdvantage(floor) {
     switch (floor.type) {
         case 'event':
-            return EVENT_ADVANTAGES[floor.eventId] || 5;
+            return EVENT_ADVANTAGES[floor.eventId] || 15;
         case 'shop': {
             const actIndex = Math.min(Math.ceil(floor.floor / 5) - 1, 2);
             return SHOP_ADVANTAGES[actIndex];
@@ -245,9 +265,11 @@ export function scoreDungeon(blueprint, difficulty) {
     }
 
     // Normalize to 1–10 scale
-    // Expected range: effectiveChallenge ~100 (easy) to ~500 (extreme)
+    // With threat-equivalent advantages, expected range is:
+    //   ~700 (casual/low-budget) to ~1900 (heroic/high-budget)
+    // Step size 120 gives a clean 1–10 distribution.
     const challengeRating = Math.max(1, Math.min(10,
-        Math.round((effectiveChallenge / 50) + 1)
+        Math.round((effectiveChallenge - 700) / 120)
     ));
 
     return {

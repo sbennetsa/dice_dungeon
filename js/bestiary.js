@@ -94,7 +94,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'skeleton', name: 'Skeleton', act: 1,
-        artSrc: 'assets/enemies/skeleton.webp', artCaption: 'Armed with weapons from a forgotten war; their cause long since dissolved.',
+        artSrc: 'assets/enemies/skeleton.webp', sketchSrc: 'assets/enemies/sketch/skeleton.webp',
+        artCaption: 'Armed with weapons from a forgotten war; their cause long since dissolved.',
         annotations: [
             { label: 'Origin',        value: 'Reanimated soldiers of the pre-dungeon garrison. Loyalty persists beyond death.' },
             { label: 'Brittleness',   value: 'Takes 3 additional damage from every strike. They crack easily under sustained pressure.' },
@@ -128,7 +129,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'dark_mage', name: 'Dark Mage', act: 2,
-        artSrc: 'assets/enemies/Dark_Mage.webp', artCaption: 'The dice it rolls are the colour of smoke.',
+        artSrc: 'assets/enemies/Dark_Mage.webp', sketchSrc: 'assets/enemies/sketch/dark_mage.webp',
+        artCaption: 'The dice it rolls are the colour of smoke.',
         annotations: [
             { label: 'Appearance',   value: 'Hunched, robed. The dice it rolls are the colour of smoke.' },
             { label: 'Shadow Bolt',  value: 'Penetrates 3 points of block. Your guard dice are partially irrelevant against this.' },
@@ -144,7 +146,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'troll', name: 'Troll', act: 2,
-        artSrc: 'assets/enemies/Troll.webp', artCaption: 'The dungeon floor shows stress marks in rooms where they patrol.',
+        artSrc: 'assets/enemies/Troll.webp', sketchSrc: 'assets/enemies/sketch/troll.webp',
+        artCaption: 'The dungeon floor shows stress marks in rooms where they patrol.',
         annotations: [
             { label: 'Mass',              value: 'Considerable. The dungeon floor bears stress marks in rooms where they patrol.' },
             { label: 'Thick Hide',        value: 'Slot damage below 10 is ignored entirely. Small hits are not hits.' },
@@ -162,7 +165,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'vampire', name: 'Vampire', act: 2,
-        artSrc: 'assets/enemies/Vampire.webp', artCaption: 'Feeds on vitality exchanged in combat. The old name is imprecise but has stuck.',
+        artSrc: 'assets/enemies/Vampire.webp', sketchSrc: 'assets/enemies/sketch/vampire.webp',
+        artCaption: 'Feeds on vitality exchanged in combat. The old name is imprecise but has stuck.',
         annotations: [
             { label: 'Nature',       value: 'Feeds on vitality exchanged in combat. The old name is imprecise but has stuck.' },
             { label: 'Drain',        value: 'Each point of damage it deals returns to it, halved. Trading evenly is a net loss.' },
@@ -179,7 +183,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'mimic', name: 'Mimic', act: 2,
-        artSrc: 'assets/enemies/Mimic.webp', artCaption: 'Indistinguishable from a chest until it moves.',
+        artSrc: 'assets/enemies/Mimic.webp', sketchSrc: 'assets/enemies/sketch/mimic.webp',
+        artCaption: 'Indistinguishable from a chest until it moves.',
         annotations: [
             { label: 'Detection',  value: 'Indistinguishable from a chest until it moves. By then, it has already acted.' },
             { label: 'Gold Snatch', value: 'Opens combat by stealing gold equal to its dice sum. The strikes that follow are well-funded.' },
@@ -198,7 +203,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'demon', name: 'Demon', act: 3,
-        artSrc: 'assets/enemies/Demon.webp', artCaption: 'The dungeon generates them as reliably as it generates rats, further down.',
+        artSrc: 'assets/enemies/Demon.webp', sketchSrc: 'assets/enemies/sketch/demon.webp',
+        artCaption: 'The dungeon generates them as reliably as it generates rats, further down.',
         annotations: [
             { label: 'Origin',    value: 'Unknown. The dungeon generates them as reliably as it generates rats, further down.' },
             { label: 'Hellfire',  value: 'Maximum 20 damage, bypasses all block. Guard dice are irrelevant against this action.' },
@@ -215,7 +221,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'lich', name: 'Lich', act: 3,
-        artSrc: 'assets/enemies/Lich.webp', artCaption: 'Has refused death long enough that death no longer applies directly.',
+        artSrc: 'assets/enemies/Lich.webp', sketchSrc: 'assets/enemies/sketch/lich.webp',
+        artCaption: 'Has refused death long enough that death no longer applies directly.',
         annotations: [
             { label: 'Classification', value: 'Undead spellcaster. Has refused death long enough that death no longer applies directly.' },
             { label: 'Decay',          value: 'Permanently reduces your dice ceiling this combat. It compounds with each cast.' },
@@ -232,7 +239,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'dragon_whelp', name: 'Dragon Whelp', act: 3,
-        artSrc: 'assets/enemies/Dragon_Whelp.webp', artCaption: 'Not young by any measure that matters.',
+        artSrc: 'assets/enemies/Dragon_Whelp.webp', sketchSrc: 'assets/enemies/sketch/dragon_whelp.webp',
+        artCaption: 'Not young by any measure that matters.',
         annotations: [
             { label: 'Scale density', value: 'The first 8 damage from each zone is absorbed entirely. You must push past this threshold.' },
             { label: 'Tell',          value: 'A charge action precedes fire breath. The next action is twice as damaging.' },
@@ -250,7 +258,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'shadow_assassin', name: 'Shadow Assassin', act: 3,
-        artSrc: 'assets/enemies/Shadow_Assassin.webp', artCaption: 'The dice pool is larger than the silhouette suggests.',
+        artSrc: 'assets/enemies/Shadow_Assassin.webp', sketchSrc: 'assets/enemies/sketch/shadow_assassin.webp',
+        artCaption: 'The dice pool is larger than the silhouette suggests.',
         annotations: [
             { label: 'Profile', value: 'Difficult to track in dungeon lighting. The dice pool is larger than the silhouette suggests.' },
             { label: 'Vanish',  value: 'Immune this turn. Whatever follows will be doubled. Plan your guard before it re-emerges.' },
@@ -267,7 +276,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'iron_golem', name: 'Iron Golem', act: 3,
-        artSrc: 'assets/enemies/Iron_Golem.webp', artCaption: 'The runes on its chest predate the dungeon itself.',
+        artSrc: 'assets/enemies/Iron_Golem.webp', sketchSrc: 'assets/enemies/sketch/iron_golem.webp',
+        artCaption: 'The runes on its chest predate the dungeon itself.',
         annotations: [
             { label: 'Construction', value: 'Pre-Collapse war-forging. The runes on its chest predate the dungeon itself.' },
             { label: 'Armour',       value: '5 damage absorbed from every source, every turn. Small, accumulating hits accomplish nothing.' },
@@ -287,7 +297,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'bone_king', name: 'The Bone King', act: 'boss',
-        artSrc: 'assets/enemies/boneking.webp', artCaption: 'He has been here longer than the dungeon itself. Perhaps he built it.',
+        artSrc: 'assets/enemies/boneking.webp', sketchSrc: 'assets/enemies/sketch/bone_king.webp',
+        artCaption: 'He has been here longer than the dungeon itself. Perhaps he built it.',
         annotations: [
             { label: 'Title',     value: 'Sovereign of the First Ossuary. The Undying Throne.' },
             { label: 'Behaviour', value: 'Does not rush. Waits. As if he already knows the outcome.' },
@@ -304,7 +315,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'crimson_wyrm', name: 'Crimson Wyrm', act: 'boss',
-        artSrc: 'assets/enemies/Crimson_Dragon.webp', artCaption: 'The dungeon widened the passage to fit it. This is not a young creature.',
+        artSrc: 'assets/enemies/Crimson_Dragon.webp', sketchSrc: 'assets/enemies/sketch/crimson_dragon.webp',
+        artCaption: 'The dungeon widened the passage to fit it. This is not a young creature.',
         annotations: [
             { label: 'Scale',      value: 'The dungeon widened the passage to fit it. This is not a young creature.' },
             { label: 'Pattern',    value: 'Strike, breathe, buffet. Know what comes next and position accordingly.' },
@@ -322,7 +334,8 @@ export const BESTIARY_DATA = [
 
     {
         id: 'void_lord', name: 'The Void Lord', act: 'boss',
-        artSrc: 'assets/enemies/The_Void_Lord.webp', artCaption: 'Not a creature. A convergence. The dungeon\'s accumulated pressure given form.',
+        artSrc: 'assets/enemies/The_Void_Lord.webp', sketchSrc: 'assets/enemies/sketch/void_lord.webp',
+        artCaption: 'Not a creature. A convergence. The dungeon\'s accumulated pressure given form.',
         annotations: [
             { label: 'Nature',       value: 'Not a creature. A convergence. The dungeon\'s accumulated pressure given form.' },
             { label: 'Void Rift',    value: 'Seals two of your zones simultaneously. Dice allocated there become dead weight.' },

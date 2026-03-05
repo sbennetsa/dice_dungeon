@@ -3477,7 +3477,6 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 }
 .bestiary-creature-art.has-sketch img {
   filter: sepia(0.3) contrast(0.88) brightness(0.9);
-  mix-blend-mode: multiply;
 }
 
 /* Sketch entries: widen centre column for the larger portrait art */

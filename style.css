@@ -2581,6 +2581,8 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     .diff-card { max-width: 100%; width: 100%; }
     .diff-card__img { height: 160px; }
     .diff-card__body { padding: 16px; }
+    .start-secondary-btns { gap: 10px; }
+    .start-nav-btn { min-width: 0; padding: 8px 16px; flex: 1 1 auto; }
 }
 
 /* ── Campaign: Locked difficulty card ── */
@@ -2842,9 +2844,57 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 /* ── Start screen secondary buttons ── */
 .start-secondary-btns {
     display: flex;
-    gap: 12px;
+    gap: 16px;
     justify-content: center;
     flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.start-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 24px;
+    background: linear-gradient(180deg, rgba(26,26,42,0.9), rgba(18,18,30,0.95));
+    border: 1px solid var(--gold-dim);
+    border-radius: 6px;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.25s ease;
+    position: relative;
+    min-width: 160px;
+    justify-content: center;
+}
+.start-nav-btn::before {
+    content: '';
+    position: absolute;
+    inset: 1px;
+    border-radius: 5px;
+    border: 1px solid rgba(212,165,52,0.06);
+    pointer-events: none;
+}
+.start-nav-icon {
+    font-size: 1.1em;
+    line-height: 1;
+}
+.start-nav-label {
+    font-family: var(--font-heading);
+    font-size: 0.95em;
+    letter-spacing: 0.03em;
+    color: var(--text);
+}
+.start-nav-btn:hover {
+    border-color: var(--gold);
+    box-shadow: 0 4px 20px rgba(212,165,52,0.15);
+    transform: translateY(-2px);
+    background: linear-gradient(180deg, rgba(30,28,42,0.95), rgba(22,20,34,0.98));
+}
+.start-nav-btn:hover .start-nav-label {
+    color: var(--gold);
+}
+.start-nav-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(212,165,52,0.1);
 }
 
 /* ── Run Settings Panel ── */
@@ -3055,16 +3105,6 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 /* ════════════════════════════════════════
    STATS SCREEN
    ════════════════════════════════════════ */
-.stats-link-btn {
-    display: block;
-    margin: 10px auto 0;
-    font-size: 0.9em;
-    color: var(--text);
-    border-color: var(--border);
-    background: var(--bg-surface);
-    padding: 8px 28px;
-}
-.stats-link-btn:hover { border-color: var(--gold-dim); color: var(--gold); background: var(--bg-raised); }
 
 .stats-screen {
     max-width: 680px;

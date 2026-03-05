@@ -2873,10 +2873,6 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     border: 1px solid rgba(212,165,52,0.06);
     pointer-events: none;
 }
-.start-nav-icon {
-    font-size: 1.1em;
-    line-height: 1;
-}
 .start-nav-label {
     font-family: var(--font-heading);
     font-size: 0.95em;
@@ -3637,6 +3633,94 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   margin-top: 4px;
   color: #1a1208;
   letter-spacing: -0.02em;
+}
+
+/* ── Bestiary: Combat Data ── */
+.bestiary-combat-data {
+  border-top: 1px solid rgba(46,31,10,0.22);
+  padding-top: 16px;
+  margin-bottom: 20px;
+}
+.bestiary-cd-header {
+  font-family: var(--font-heading);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #5a4428;
+  margin-bottom: 10px;
+}
+.bestiary-cd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.bestiary-cd-table th {
+  font-family: var(--font-heading);
+  font-size: 0.7em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7a6848;
+  border-bottom: 1px solid rgba(46,31,10,0.2);
+  padding: 4px 8px 6px;
+  text-align: left;
+}
+.bestiary-cd-table th:first-child { text-align: center; width: 40px; }
+.bestiary-cd-table td { padding: 5px 8px; border-bottom: 1px dashed rgba(46,31,10,0.1); }
+.bestiary-cd-table tr:last-child td { border-bottom: none; }
+.bestiary-cd-act {
+  font-family: var(--font-heading);
+  text-align: center;
+  color: #5a4428;
+  font-size: 0.9em;
+}
+.bestiary-cd-num {
+  font-family: var(--font-data);
+  color: #2e1f0a;
+  font-size: 0.85em;
+}
+.bestiary-cd-traits {
+  font-family: var(--font-body);
+  font-style: italic;
+  color: #4a3820;
+  font-size: 0.88em;
+}
+
+/* ── Bestiary: Boss Combat Data ── */
+.bestiary-cd-boss-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: var(--text-sm);
+  color: #2e1f0a;
+}
+.bestiary-cd-divider { color: #7a6848; }
+.bestiary-cd-passives {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: var(--text-sm);
+  color: #5a4428;
+  margin-bottom: 6px;
+}
+.bestiary-cd-abilities {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  color: #2e1f0a;
+  margin-bottom: 10px;
+}
+.bestiary-cd-phases { border-top: 1px dashed rgba(46,31,10,0.15); padding-top: 8px; }
+.bestiary-cd-phase { margin-bottom: 6px; font-size: var(--text-sm); }
+.bestiary-cd-phase-trigger {
+  font-family: var(--font-heading);
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8b4513;
+  margin-right: 6px;
+}
+.bestiary-cd-phase-detail {
+  font-family: var(--font-body);
+  color: #4a3820;
 }
 
 .bestiary-abilities-section { border-top: 1px solid rgba(46,31,10,0.22); padding-top: 18px; margin-bottom: 18px; }

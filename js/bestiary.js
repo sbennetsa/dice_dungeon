@@ -4,6 +4,8 @@
 //  mechanical values come from constants.js / combat.js.
 // ════════════════════════════════════════════════════════════
 
+import { ENEMIES, BOSSES } from './constants.js';
+
 // ════════════════════════════════════════════════════════════
 //  BESTIARY DATA
 //  Entry shape:
@@ -355,6 +357,132 @@ export const BESTIARY_DATA = [
 ];
 
 // ════════════════════════════════════════════════════════════
+//  COMBAT DATA HELPERS — pull live stats from constants.js
+// ════════════════════════════════════════════════════════════
+
+const ACT_NUMERALS = ['I', 'II', 'III'];
+
+/** Format a dice array like [6,6,6] → "3d6", [6,6,8] → "2d6 + 1d8" */
+function formatDice(arr) {
+    const counts = {};
+    for (const d of arr) counts[d] = (counts[d] || 0) + 1;
+    return Object.entries(counts)
+        .sort((a, b) => +b[0] - +a[0])
+        .map(([sides, n]) => `${n}d${sides}`)
+        .join(' + ');
+}
+
+/** Build the Combat Data HTML for a bestiary entry */
+function buildCombatDataHTML(entry) {
+    if (entry.act === 'boss') return _buildBossDataHTML(entry);
+    const enemy = ENEMIES[entry.id];
+    if (!enemy) return '';
+
+    const acts = [1, 2, 3].filter(a => enemy[`act${a}`]);
+    if (!acts.length) return '';
+
+    let prevAbilityKeys = new Set();
+    let prevPassiveIds  = new Set();
+
+    const rows = acts.map(a => {
+        const block = enemy[`act${a}`];
+        const abilityKeys = new Set(Object.keys(block.abilities || {}));
+        const passiveIds  = new Set((block.passives || []).map(p => p.id));
+
+        // Find new traits this act
+        const newAbilities = [...abilityKeys].filter(k => !prevAbilityKeys.has(k));
+        const newPassives  = [...passiveIds].filter(id => !prevPassiveIds.has(id));
+
+        const traits = [];
+        if (a === acts[0]) {
+            // First act: show base abilities
+            for (const k of abilityKeys) {
+                const ab = block.abilities[k];
+                traits.push(ab.name);
+            }
+            for (const p of block.passives || []) traits.push(p.name);
+        } else {
+            for (const k of newAbilities) traits.push(`+ ${block.abilities[k].name}`);
+            for (const p of (block.passives || []).filter(p => newPassives.includes(p.id))) {
+                traits.push(`+ ${p.name}`);
+            }
+        }
+
+        prevAbilityKeys = abilityKeys;
+        prevPassiveIds  = passiveIds;
+
+        const traitStr = traits.length ? traits.join(', ') : '\u2014';
+        return `<tr>
+            <td class="bestiary-cd-act">${ACT_NUMERALS[a - 1]}</td>
+            <td class="bestiary-cd-num">${block.hp}</td>
+            <td class="bestiary-cd-num">${formatDice(block.dice)}</td>
+            <td class="bestiary-cd-traits">${traitStr}</td>
+        </tr>`;
+    }).join('');
+
+    return `
+        <div class="bestiary-combat-data">
+            <div class="bestiary-cd-header">Combat Data</div>
+            <table class="bestiary-cd-table">
+                <thead><tr>
+                    <th>Act</th><th>HP</th><th>Dice</th><th>Traits</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>`;
+}
+
+function _buildBossDataHTML(entry) {
+    const boss = Object.values(BOSSES).find(b => b.id === entry.id);
+    if (!boss) return '';
+
+    const floor = Object.keys(BOSSES).find(f => BOSSES[f].id === entry.id);
+
+    const abilities = Object.values(boss.abilities || {}).map(a => `${a.icon || ''} ${a.name}`).join(' · ');
+    const passives = (boss.passives || []).map(p => p.name).join(', ');
+
+    let phasesHTML = '';
+    if (boss.phases && boss.phases.length) {
+        phasesHTML = `<div class="bestiary-cd-phases">` +
+            boss.phases.map((ph, i) => {
+                const parts = [];
+                const hpPct = Math.round(ph.trigger.hpPercent * 100);
+                if (ph.changes.healToPercent !== undefined)
+                    parts.push(`Heals to ${Math.round(ph.changes.healToPercent * 100)}%`);
+                if (ph.changes.addDice)
+                    parts.push(`+${formatDice(ph.changes.addDice)}`);
+                if (ph.changes.addPassives)
+                    parts.push(ph.changes.addPassives.map(p => `+${p.name}`).join(', '));
+                if (ph.changes.removePassives)
+                    parts.push(ph.changes.removePassives.map(p => `\u2013${p}`).join(', '));
+                if (ph.changes.doubleAction)
+                    parts.push('Double action');
+                if (ph.changes.damageTakenMultiplier)
+                    parts.push(`Takes \u00d7${ph.changes.damageTakenMultiplier} damage`);
+                return `<div class="bestiary-cd-phase">
+                    <span class="bestiary-cd-phase-trigger">Phase ${i + 2} (${hpPct}% HP)</span>
+                    <span class="bestiary-cd-phase-detail">${parts.join(' · ')}</span>
+                </div>`;
+            }).join('') + `</div>`;
+    }
+
+    return `
+        <div class="bestiary-combat-data">
+            <div class="bestiary-cd-header">Combat Data</div>
+            <div class="bestiary-cd-boss-stats">
+                <span class="bestiary-cd-num">HP ${boss.hp}</span>
+                <span class="bestiary-cd-divider">\u00b7</span>
+                <span class="bestiary-cd-num">${formatDice(boss.dice)}</span>
+                <span class="bestiary-cd-divider">\u00b7</span>
+                <span>Floor ${floor}</span>
+            </div>
+            ${passives ? `<div class="bestiary-cd-passives">Passive: ${passives}</div>` : ''}
+            <div class="bestiary-cd-abilities">${abilities}</div>
+            ${phasesHTML}
+        </div>`;
+}
+
+// ════════════════════════════════════════════════════════════
 //  BESTIARY UI CONTROLLER
 //  Receives a merged data array where each entry has the static
 //  fields above plus runtime fields:
@@ -550,6 +678,8 @@ export class BestiaryUI {
             <div class="bestiary-lore-section">
                 <p class="bestiary-lore-text">${entry.lore}</p>
             </div>
+
+            ${buildCombatDataHTML(entry)}
 
             ${abilitiesHTML}
 

@@ -99,9 +99,9 @@ function deepClone(obj) {
  * Higher budget → stronger enemies, more environments, more elite offers.
  */
 export const CHALLENGE_BUDGETS = {
-    casual:   [550, 660],
-    standard: [660, 790],
-    heroic:   [790, 960],
+    casual:   [1000, 1150],
+    standard: [1150, 1350],
+    heroic:   [1350, 1550],
 };
 
 /** Act distribution weights (Act 1 lightest, Act 3 heaviest) */
@@ -111,8 +111,8 @@ const ACT_BUDGET_WEIGHTS = [0.15, 0.30, 0.55];
 const ACT_BUDGET_JITTER = 0.04;
 
 /** Elite offer scaling: budget fraction → base elite rate */
-const ELITE_BUDGET_FLOOR   = 530;
-const ELITE_BUDGET_CEILING = 980;
+const ELITE_BUDGET_FLOOR   = 960;
+const ELITE_BUDGET_CEILING = 1580;
 const ELITE_ACT_SCALES     = [0.5, 0.8, 1.0];
 
 /**

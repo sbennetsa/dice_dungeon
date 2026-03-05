@@ -125,6 +125,16 @@ const CHALLENGE_RATING_RANGE = {
 };
 const MAX_RESEED_ATTEMPTS = 5;
 
+/** Allowed schedule indices per difficulty.
+ *  Casual excludes gauntlet (4) — too many combats, not enough advantage.
+ *  Heroic excludes event-heavy (2) — too much advantage, not enough pressure.
+ *  Standard allows all schedules. */
+const DIFFICULTY_SCHEDULES = {
+    casual:   [0, 1, 2, 3],       // standard, front-loaded, event-heavy, double-shop
+    standard: [0, 1, 2, 3, 4],    // all
+    heroic:   [0, 1, 3, 4],       // standard, front-loaded, double-shop, gauntlet
+};
+
 /**
  * Pick a challenge target from the difficulty's budget range.
  * @param {string} difficulty - 'casual' | 'standard' | 'heroic'
@@ -445,16 +455,22 @@ function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
  * @param {object} rng
  * @param {object} [options]
  * @param {number|null} [options.forcedScheduleIndex] - Override random schedule selection
+ * @param {number[]}   [options.allowedSchedules]    - Indices to pick from (difficulty filtering)
  * @param {string} [options.anomalyRate]
  * @param {number} [options.actBudget]  - Target total combat threat for this act
  * @param {number} [options.eliteRate]  - Base elite offer rate (budget mode)
  * @returns {object} Act blueprint
  */
 function generateAct(actNum, baseFloor, rng, options = {}) {
-    // Pick floor schedule — use forced index if provided, else random
-    const schedule = options.forcedScheduleIndex != null
-        ? FLOOR_SCHEDULES[options.forcedScheduleIndex]
-        : rng.pick(FLOOR_SCHEDULES);
+    // Pick floor schedule — forced > allowed pool > all
+    let schedule;
+    if (options.forcedScheduleIndex != null) {
+        schedule = FLOOR_SCHEDULES[options.forcedScheduleIndex];
+    } else if (options.allowedSchedules) {
+        schedule = FLOOR_SCHEDULES[rng.pick(options.allowedSchedules)];
+    } else {
+        schedule = rng.pick(FLOOR_SCHEDULES);
+    }
     const floors = [];
 
     const hasBudget = options.actBudget != null;
@@ -572,21 +588,28 @@ function _generateBlueprint(seed, schedules, difficulty, options) {
         if (difficulty === 'casual')  eliteRate = Math.min(0.20, eliteRate);
     }
 
+    // Difficulty-aware schedule pool (prevents mismatched schedules like
+    // casual gauntlets or heroic event-heavy floors)
+    const allowedSchedules = difficulty ? DIFFICULTY_SCHEDULES[difficulty] : undefined;
+
     const acts = [
         generateAct(1, 1,  rng, {
             forcedScheduleIndex: schedules[0],
+            allowedSchedules,
             anomalyRate:         options.anomalyRate,
             actBudget:           actBudgets ? actBudgets[0] : undefined,
             eliteRate,
         }),
         generateAct(2, 6,  rng, {
             forcedScheduleIndex: schedules[1],
+            allowedSchedules,
             anomalyRate:         options.anomalyRate,
             actBudget:           actBudgets ? actBudgets[1] : undefined,
             eliteRate,
         }),
         generateAct(3, 11, rng, {
             forcedScheduleIndex: schedules[2],
+            allowedSchedules,
             anomalyRate:         options.anomalyRate,
             actBudget:           actBudgets ? actBudgets[2] : undefined,
             eliteRate,

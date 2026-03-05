@@ -99,9 +99,9 @@ function deepClone(obj) {
  * Higher budget → stronger enemies, more environments, more elite offers.
  */
 export const CHALLENGE_BUDGETS = {
-    casual:   [550, 660],
-    standard: [660, 790],
-    heroic:   [790, 960],
+    casual:   [1000, 1150],
+    standard: [1150, 1350],
+    heroic:   [1350, 1550],
 };
 
 /** Act distribution weights (Act 1 lightest, Act 3 heaviest) */
@@ -111,9 +111,29 @@ const ACT_BUDGET_WEIGHTS = [0.15, 0.30, 0.55];
 const ACT_BUDGET_JITTER = 0.04;
 
 /** Elite offer scaling: budget fraction → base elite rate */
-const ELITE_BUDGET_FLOOR   = 530;
-const ELITE_BUDGET_CEILING = 980;
+const ELITE_BUDGET_FLOOR   = 960;
+const ELITE_BUDGET_CEILING = 1580;
 const ELITE_ACT_SCALES     = [0.5, 0.8, 1.0];
+
+/** Acceptable challenge rating range per difficulty [min, max].
+ *  If a generated dungeon scores outside the range, the seed is
+ *  nudged and the dungeon is regenerated (up to MAX_RESEED_ATTEMPTS). */
+const CHALLENGE_RATING_RANGE = {
+    casual:   [1, 3],
+    standard: [4, 7],
+    heroic:   [8, 10],
+};
+const MAX_RESEED_ATTEMPTS = 5;
+
+/** Allowed schedule indices per difficulty.
+ *  Casual excludes gauntlet (4) — too many combats, not enough advantage.
+ *  Heroic excludes event-heavy (2) — too much advantage, not enough pressure.
+ *  Standard allows all schedules. */
+const DIFFICULTY_SCHEDULES = {
+    casual:   [0, 1, 2, 3],       // standard, front-loaded, event-heavy, double-shop
+    standard: [0, 1, 2, 3, 4],    // all
+    heroic:   [0, 1, 3, 4],       // standard, front-loaded, double-shop, gauntlet
+};
 
 /**
  * Pick a challenge target from the difficulty's budget range.
@@ -435,16 +455,22 @@ function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
  * @param {object} rng
  * @param {object} [options]
  * @param {number|null} [options.forcedScheduleIndex] - Override random schedule selection
+ * @param {number[]}   [options.allowedSchedules]    - Indices to pick from (difficulty filtering)
  * @param {string} [options.anomalyRate]
  * @param {number} [options.actBudget]  - Target total combat threat for this act
  * @param {number} [options.eliteRate]  - Base elite offer rate (budget mode)
  * @returns {object} Act blueprint
  */
 function generateAct(actNum, baseFloor, rng, options = {}) {
-    // Pick floor schedule — use forced index if provided, else random
-    const schedule = options.forcedScheduleIndex != null
-        ? FLOOR_SCHEDULES[options.forcedScheduleIndex]
-        : rng.pick(FLOOR_SCHEDULES);
+    // Pick floor schedule — forced > allowed pool > all
+    let schedule;
+    if (options.forcedScheduleIndex != null) {
+        schedule = FLOOR_SCHEDULES[options.forcedScheduleIndex];
+    } else if (options.allowedSchedules) {
+        schedule = FLOOR_SCHEDULES[rng.pick(options.allowedSchedules)];
+    } else {
+        schedule = rng.pick(FLOOR_SCHEDULES);
+    }
     const floors = [];
 
     const hasBudget = options.actBudget != null;
@@ -518,13 +544,30 @@ function generateAct(actNum, baseFloor, rng, options = {}) {
  * @returns {object} Complete dungeon blueprint
  */
 export function generateDungeonBlueprint(options = {}) {
-    const seed      = options.seed ?? (Date.now() ^ (Math.random() * 0xFFFFFFFF));
+    const baseSeed  = options.seed ?? (Date.now() ^ (Math.random() * 0xFFFFFFFF));
     const schedules = options.schedules || [null, null, null];
-    const rng       = createRNG(seed);
+    const difficulty = options.difficulty || null;
+    const [minRating, maxRating] = (difficulty && CHALLENGE_RATING_RANGE[difficulty]) || [0, 10];
+
+    // Rejection loop: regenerate with nudged seed if rating is outside range
+    for (let attempt = 0; attempt <= MAX_RESEED_ATTEMPTS; attempt++) {
+        const seed = baseSeed + attempt;
+        const blueprint = _generateBlueprint(seed, schedules, difficulty, options);
+        const rating = blueprint.scoring.challengeRating;
+
+        if ((rating >= minRating && rating <= maxRating) || attempt === MAX_RESEED_ATTEMPTS) {
+            if (attempt > 0) blueprint.reseedAttempts = attempt;
+            return blueprint;
+        }
+    }
+}
+
+/** Internal: generate and score a single blueprint for a given seed. */
+function _generateBlueprint(seed, schedules, difficulty, options) {
+    const rng = createRNG(seed);
 
     // Budget-driven generation when difficulty or challengeTarget is provided
-    const difficulty = options.difficulty || null;
-    const hasBudget  = difficulty != null || options.challengeTarget != null;
+    const hasBudget = difficulty != null || options.challengeTarget != null;
 
     let challengeTarget = null;
     let actBudgets      = null;
@@ -545,21 +588,28 @@ export function generateDungeonBlueprint(options = {}) {
         if (difficulty === 'casual')  eliteRate = Math.min(0.20, eliteRate);
     }
 
+    // Difficulty-aware schedule pool (prevents mismatched schedules like
+    // casual gauntlets or heroic event-heavy floors)
+    const allowedSchedules = difficulty ? DIFFICULTY_SCHEDULES[difficulty] : undefined;
+
     const acts = [
         generateAct(1, 1,  rng, {
             forcedScheduleIndex: schedules[0],
+            allowedSchedules,
             anomalyRate:         options.anomalyRate,
             actBudget:           actBudgets ? actBudgets[0] : undefined,
             eliteRate,
         }),
         generateAct(2, 6,  rng, {
             forcedScheduleIndex: schedules[1],
+            allowedSchedules,
             anomalyRate:         options.anomalyRate,
             actBudget:           actBudgets ? actBudgets[1] : undefined,
             eliteRate,
         }),
         generateAct(3, 11, rng, {
             forcedScheduleIndex: schedules[2],
+            allowedSchedules,
             anomalyRate:         options.anomalyRate,
             actBudget:           actBudgets ? actBudgets[2] : undefined,
             eliteRate,

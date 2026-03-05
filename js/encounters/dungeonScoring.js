@@ -8,15 +8,25 @@
 import { getEnemyProfile, getEnvThreatForEnemy, getEliteThreatForEnemy } from './bestiaryThreatData.js';
 
 // ────────────────────────────────────────────────────────────
-//  Anomaly Threat Values
+//  Anomaly Threat Multipliers
+//  Derived from the baseThreat formula (D×O)^0.55.
+//  anomalyThreat = Math.round(enemyThreat × (mult − 1))
+//
+//  wounded:       0.70^0.55 — HP reduced to 70% → −17.8% durability
+//  enraged:       1.25^0.55 — dice +~25% avg → +13.1% offense
+//  doubleTrouble: 2.00^0.55 — acts twice → +46.4% offense
+//  glitched:      ~1.06 empirical — 1 utility→random, small positive bias
+//  perfectStorm:  1.000 — env system handles it via envThreat; no enemy-side delta
+//
+//  See docs/anomaly-threat-design.md for full derivation.
 // ────────────────────────────────────────────────────────────
 
-export const ANOMALY_THREATS = {
-    perfectStorm:  10,
-    wounded:       -8,
-    enraged:        8,
-    doubleTrouble: 20,
-    glitched:       5,
+export const ANOMALY_THREAT_MULTS = {
+    perfectStorm:  1.000,
+    wounded:       0.822,
+    enraged:       1.131,
+    doubleTrouble: 1.464,
+    glitched:      1.060,
 };
 
 // ────────────────────────────────────────────────────────────
@@ -141,10 +151,11 @@ export function scoreFloor(floor) {
     // Contextual environment threat (per-enemy)
     const envThreat = scoreEnvironmentThreat(floor.environment, enemy, bossFloor);
 
-    // Anomaly threat
-    const anomalyThreat = floor.anomaly
-        ? (ANOMALY_THREATS[floor.anomaly.id] || 0)
-        : 0;
+    // Anomaly threat: proportional to enemyThreat via derived multiplier
+    const anomalyMult = floor.anomaly
+        ? (ANOMALY_THREAT_MULTS[floor.anomaly.id] ?? 1.0)
+        : 1.0;
+    const anomalyThreat = Math.round(enemyThreat * (anomalyMult - 1));
 
     const baseThreat = enemyThreat + envThreat + anomalyThreat;
 
@@ -192,7 +203,8 @@ export function scoreFloorDetailed(floor) {
     const profile = getEnemyProfile(enemy.name, bossFloor, act);
     const enemyThreat = profile ? profile.baseThreat : 0;
     const envThreat = scoreEnvironmentThreat(floor.environment, enemy, bossFloor);
-    const anomalyThreat = floor.anomaly ? (ANOMALY_THREATS[floor.anomaly.id] || 0) : 0;
+    const anomalyMult2 = floor.anomaly ? (ANOMALY_THREAT_MULTS[floor.anomaly.id] ?? 1.0) : 1.0;
+    const anomalyThreat = Math.round(enemyThreat * (anomalyMult2 - 1));
 
     const result = scoreFloor(floor);
     return { enemyThreat, envThreat, anomalyThreat, ...result };

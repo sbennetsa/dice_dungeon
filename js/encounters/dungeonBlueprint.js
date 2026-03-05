@@ -9,7 +9,7 @@ import { BOSSES, resolveEnemy, getEnemyPool } from '../constants.js';
 import { ENVIRONMENTS } from './environmentSystem.js';
 import { ELITE_MODIFIERS, BOSS_ELITE_MODIFIERS } from './eliteModifierSystem.js';
 import { ANOMALIES } from './anomalySystem.js';
-import { scoreDungeon, ANOMALY_THREATS, threatToXPRange } from './dungeonScoring.js';
+import { scoreDungeon, ANOMALY_THREAT_MULTS, threatToXPRange } from './dungeonScoring.js';
 import { getEnemyProfile, getEnvThreatForEnemy } from './bestiaryThreatData.js';
 
 // ────────────────────────────────────────────────────────────
@@ -423,7 +423,8 @@ function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
         // Budget-aware: compute current threat so far, steer env choice
         const profile = getEnemyProfile(enemy.name, bossFloor, act);
         const baseThreat = profile ? profile.baseThreat : 15;
-        const anomalyThreat = anomaly ? (ANOMALY_THREATS[anomaly.id] || 0) : 0;
+        const anomalyMult = anomaly ? (ANOMALY_THREAT_MULTS[anomaly.id] ?? 1.0) : 1.0;
+        const anomalyThreat = Math.round(baseThreat * (anomalyMult - 1));
         const currentThreat = baseThreat + anomalyThreat;
         environment = selectEnvironmentForBudget(floor, act, enemy, currentThreat, options.floorTarget, rng);
     } else {

@@ -113,7 +113,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'orc_warrior', name: 'Orc Warrior', act: 2,
-        artSrc: 'assets/enemies/orc_warrior.webp', artCaption: 'The cry is not for show. Brace for what follows.',
+        artSrc: 'assets/enemies/orc_warrior.webp', sketchSrc: 'assets/enemies/sketch/orc_warrior.webp', artCaption: 'The cry is not for show. Brace for what follows.',
         annotations: [
             { label: 'Build',    value: 'Dense muscle over a frame that has absorbed considerable damage in a previous career.' },
             { label: 'War Cry',  value: 'Stores its entire dice pool. The next strike lands with that surplus added.' },

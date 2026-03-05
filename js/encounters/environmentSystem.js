@@ -89,10 +89,10 @@ export const ENVIRONMENTS = {
         id: 'thornsAura',
         name: 'Thorns Aura',
         icon: '🌿',
-        desc: '20% of all damage rebounds on the attacker — hurts both you and the enemy',
+        desc: '5% of all damage rebounds on the attacker — hurts both you and the enemy',
         act: 2,
         onDamageDealt(damage, attacker, defender, combat) {
-            const recoil = Math.floor(damage * 0.2);
+            const recoil = Math.floor(damage * 0.05);
             if (recoil > 0) {
                 // Enemy has currentHp; player uses hp via the combatCtx getter
                 if (attacker.currentHp !== undefined) {

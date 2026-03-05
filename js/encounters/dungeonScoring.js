@@ -48,6 +48,11 @@ export const REWARD_ADVANTAGES = {
     sacrificeOption:    5,
 };
 
+// Net player advantage per elite fight, by act (0-indexed).
+// Positive = elite rewards outweigh attrition cost.
+// Act 1: cheap upgrades make rewards efficient; Act 3: attrition dominates.
+export const ELITE_NET_ADVANTAGE = [2, 1, -1];
+
 // ────────────────────────────────────────────────────────────
 //  Contextual Environment Scoring
 // ────────────────────────────────────────────────────────────
@@ -187,18 +192,22 @@ export function scoreDungeon(blueprint, difficulty) {
     let totalEliteThreat    = 0;
     let totalPlayerAdvantage = 0;
     const threatByAct       = [0, 0, 0];
+    const elitesPerAct      = [0, 0, 0]; // count elite offers per act
 
     for (const act of blueprint.acts) {
         let actThreat = 0;
+        const actIdx  = act.actNumber - 1;
         for (const floor of act.floors) {
             const floorScore = scoreFloor(floor);
             totalCombatThreat += floorScore.baseThreat;
             totalEliteThreat  += floorScore.eliteThreat;
             actThreat         += floorScore.baseThreat;
 
+            if (floor.eliteOffered) elitesPerAct[actIdx]++;
+
             totalPlayerAdvantage += scorePlayerAdvantage(floor);
         }
-        threatByAct[act.actNumber - 1] = actThreat;
+        threatByAct[actIdx] = actThreat;
     }
 
     // Rest stop advantages
@@ -211,18 +220,28 @@ export function scoreDungeon(blueprint, difficulty) {
     const netChallenge      = totalCombatThreat - totalPlayerAdvantage;
     const netEliteChallenge = netChallenge + totalEliteThreat;
 
+    // Elite reward advantage: elites raise both threat AND player power.
+    // ELITE_NET_ADVANTAGE captures the net effect per elite fight per act.
+    // Positive values mean rewards outweigh attrition (player gets stronger).
+    let totalEliteAdvantage = 0;
+    for (let i = 0; i < 3; i++) {
+        totalEliteAdvantage += elitesPerAct[i] * ELITE_NET_ADVANTAGE[i];
+    }
+
     // Difficulty-aware effective challenge:
     // Casual: no elites ever → base combat threat only
-    // Standard: elites where offered → base + partial elite threat
-    // Heroic: all encounters forced elite → base + full elite threat
+    // Standard: elites where offered → base + partial elite threat, offset by partial reward advantage
+    // Heroic: all encounters forced elite → base + full elite threat, offset by full reward advantage
     let effectiveChallenge;
     if (difficulty === 'casual') {
         effectiveChallenge = netChallenge;
     } else if (difficulty === 'heroic') {
-        effectiveChallenge = netEliteChallenge;
+        effectiveChallenge = netEliteChallenge - totalEliteAdvantage;
     } else {
         // Standard: elites are optional where offered, assume ~50% uptake
-        effectiveChallenge = netChallenge + Math.round(totalEliteThreat * 0.5);
+        effectiveChallenge = netChallenge
+            + Math.round(totalEliteThreat * 0.5)
+            - Math.round(totalEliteAdvantage * 0.5);
     }
 
     // Normalize to 1–10 scale
@@ -237,6 +256,8 @@ export function scoreDungeon(blueprint, difficulty) {
         netChallenge,
         totalEliteThreat,
         netEliteChallenge,
+        totalEliteAdvantage,
+        elitesPerAct,
         effectiveChallenge,
         threatByAct,
         challengeRating,

@@ -471,21 +471,21 @@ export class BestiaryUI {
             // Transparent margins of the image blend into parchment via multiply,
             // so absolutely-positioned notes appear written on the page.
             const OVERLAY_POS = {
-                1: [{ top:'4%', right:'3%', mw:'35%', a:'right' }],
+                1: [{ top:'5%', right:'3%', mw:'22%', a:'right' }],
                 2: [
-                    { top:'3%', left:'3%', mw:'36%', a:'left' },
-                    { top:'5%', right:'3%', mw:'34%', a:'right' },
+                    { top:'5%', left:'3%', mw:'22%', a:'left' },
+                    { top:'3%', right:'3%', mw:'22%', a:'right' },
                 ],
                 3: [
-                    { top:'2%', left:'2%', mw:'36%', a:'left' },
-                    { top:'4%', right:'2%', mw:'34%', a:'right' },
-                    { top:'55%', left:'2%', mw:'32%', a:'left' },
+                    { top:'5%', left:'3%', mw:'22%', a:'left' },
+                    { top:'3%', right:'3%', mw:'22%', a:'right' },
+                    { top:'58%', left:'3%', mw:'22%', a:'left' },
                 ],
                 4: [
-                    { top:'2%', left:'2%', mw:'34%', a:'left' },
-                    { top:'4%', right:'2%', mw:'32%', a:'right' },
-                    { top:'52%', left:'2%', mw:'30%', a:'left' },
-                    { top:'50%', right:'2%', mw:'30%', a:'right' },
+                    { top:'5%', left:'3%', mw:'22%', a:'left' },
+                    { top:'3%', right:'3%', mw:'22%', a:'right' },
+                    { top:'55%', left:'3%', mw:'22%', a:'left' },
+                    { top:'52%', right:'3%', mw:'22%', a:'right' },
                 ],
             };
             const count = Math.min(entry.annotations.length, 4);
@@ -515,9 +515,7 @@ export class BestiaryUI {
 
             fieldNotesHTML = `
                 <div class="bestiary-field-notes overlay">
-                    <div class="bestiary-creature-art has-sketch">
-                        <img src="${imgSrc}" alt="${entry.name}">
-                    </div>
+                    <img class="bestiary-sketch-img" src="${imgSrc}" alt="${entry.name}">
                     ${notesHTML}
                 </div>
                 ${captionHTML}`;

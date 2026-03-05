@@ -3480,22 +3480,21 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   filter: sepia(0.3) contrast(0.88) brightness(0.9);
 }
 
-/* ── Overlay layout: sketch fills container, notes float over margins ── */
+/* ── Overlay layout: sketch centred, notes float in the transparent margins ── */
 .bestiary-field-notes.overlay {
   position: relative;
   width: 100%;
   margin-bottom: 12px;
 }
-.bestiary-field-notes.overlay .bestiary-creature-art {
-  width: 100%;
-  max-height: none;
-}
-.bestiary-field-notes.overlay .bestiary-creature-art img {
-  max-height: 600px;
-  width: auto;
-  max-width: 100%;
-  margin: 0 auto;
+.bestiary-sketch-img {
   display: block;
+  margin: 0 auto;
+  max-width: 50%;
+  max-height: 580px;
+  width: auto;
+  height: auto;
+  filter: sepia(0.3) contrast(0.88) brightness(0.9);
+  mix-blend-mode: multiply;
 }
 .bestiary-overlay-note {
   position: absolute;

@@ -5,6 +5,7 @@
 // ════════════════════════════════════════════════════════════
 
 import { ENEMIES, BOSSES } from './constants.js';
+import { ELITE_MODIFIERS, BOSS_ELITE_MODIFIERS } from './encounters/eliteModifierSystem.js';
 
 // ════════════════════════════════════════════════════════════
 //  BESTIARY DATA
@@ -372,6 +373,44 @@ function formatDice(arr) {
         .join(' + ');
 }
 
+function _modifierDesc(m) {
+    const parts = [];
+    if (m.diceUpgrade)        parts.push(`All dice upgraded by ${m.diceUpgrade} faces`);
+    if (m.extraDice?.length)  parts.push(`Gains extra ${m.extraDice.map(d => 'd' + d).join(', ')}`);
+    if (m.addPassive?.desc)   parts.push(m.addPassive.desc);
+    if (m.applyStartingCurse) parts.push('Opens with a curse — Strike zone sealed for 2 turns');
+    if (m.doublePhases)       parts.push('Boss phase triggers fire twice each');
+    return parts.join('. ');
+}
+
+function _threatMarks(xpMult) {
+    const n = Math.min(10, Math.max(1, Math.round((xpMult - 1.0) * 8)));
+    const groups = [];
+    let rem = n;
+    while (rem >= 5) { groups.push('|||||'); rem -= 5; }
+    if (rem > 0) groups.push('|'.repeat(rem));
+    return `<span class="bestiary-mod-tally">${groups.join(' ')}</span>`;
+}
+
+/** Build the Elite Modifiers section for a bestiary entry */
+function buildModifiersHTML(entry) {
+    const mods = entry.act === 'boss' ? BOSS_ELITE_MODIFIERS : ELITE_MODIFIERS;
+    const rows = mods.map(m => `
+        <tr>
+            <td class="bestiary-mod-name">${m.prefix}</td>
+            <td class="bestiary-mod-desc">${_modifierDesc(m)}</td>
+            <td class="bestiary-mod-threat">${_threatMarks(m.xpMult)}</td>
+        </tr>`).join('');
+    return `
+        <div class="bestiary-combat-data">
+            <div class="bestiary-cd-header">Elite Modifiers</div>
+            <table class="bestiary-cd-table">
+                <thead><tr><th>Modifier</th><th>Effect</th><th>Threat</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>`;
+}
+
 /** Build the Combat Data HTML for a bestiary entry */
 function buildCombatDataHTML(entry) {
     if (entry.act === 'boss') return _buildBossDataHTML(entry);
@@ -554,23 +593,7 @@ export class BestiaryUI {
             el.className = `bestiary-index-entry${entry.unlocked ? '' : ' locked'}${isActive ? ' active' : ''}`;
             el.dataset.id = entry.id;
 
-            let thumbHTML;
-            if (entry.unlocked && entry.artSrc) {
-                thumbHTML = `<div class="bestiary-entry-thumb"><img src="${entry.artSrc}" alt="${entry.name}"/></div>`;
-            } else if (entry.unlocked) {
-                thumbHTML = `<div class="bestiary-entry-thumb" style="font-family:var(--font-heading);font-size:1.1rem;font-weight:700;color:#4a3820;opacity:0.55">${entry.name[0]}</div>`;
-            } else {
-                thumbHTML = `<div class="bestiary-entry-thumb bestiary-locked-thumb">
-                    <svg width="22" height="28" viewBox="0 0 22 28" fill="none">
-                        <ellipse cx="11" cy="8" rx="6" ry="7" fill="rgba(50,30,10,0.28)"/>
-                        <path d="M2 28 Q4 17 11 15 Q18 17 20 28Z" fill="rgba(50,30,10,0.28)"/>
-                    </svg></div>`;
-            }
-
-            el.innerHTML = `${thumbHTML}
-                <div class="bestiary-entry-info">
-                    <div class="bestiary-entry-name${entry.unlocked ? '' : ' locked'}">${entry.unlocked ? entry.name : '??? Unknown ???'}</div>
-                </div>`;
+            el.innerHTML = `<div class="bestiary-entry-name${entry.unlocked ? '' : ' locked'}">${entry.unlocked ? entry.name : '??? Unknown ???'}</div>`;
 
             if (entry.unlocked) el.addEventListener('click', () => this._openEntry(entry.id));
             this.$list.appendChild(el);
@@ -611,13 +634,11 @@ export class BestiaryUI {
         const hasSketch = !!entry.sketchSrc;
         const rotations = [-1.2, 0.7, -0.6, 1.0, -0.9, 0.5];
 
-        const renderNote = (a, idx) => {
-            const rot = rotations[(idx * 2) % rotations.length];
-            return `<div class="bestiary-field-note" style="transform:rotate(${rot}deg)">
+        const renderNote = (a, idx, rot = rotations[(idx * 2) % rotations.length]) =>
+            `<div class="bestiary-field-note" style="transform:rotate(${rot}deg)">
                 <div class="bestiary-field-note-label">${a.label}</div>
                 <div class="bestiary-field-note-value">${a.value}</div>
             </div>`;
-        };
 
         const artClass = hasSketch ? 'bestiary-creature-art has-sketch' : 'bestiary-creature-art';
         const artInner = imgSrc
@@ -627,14 +648,38 @@ export class BestiaryUI {
         const captionHTML = entry.artCaption
             ? `<div class="bestiary-art-caption">${entry.artCaption}</div>` : '';
 
-        const abilitiesColHTML = entry.abilities.length
-            ? `<div class="bestiary-abilities-title" style="margin-bottom:10px">Observed Abilities</div>
-               ${entry.abilities.map(a => `
-                 <div class="bestiary-ability-entry">
-                   <div class="bestiary-ability-name">${a.name}<span class="bestiary-ability-type">[${a.type}]</span></div>
-                   <div class="bestiary-ability-desc">${a.description}</div>
-                 </div>`).join('')}`
-            : '';
+        // Build abilities list from ENEMIES data (same source as combat table) so they always match.
+        // Falls back to entry.abilities for bosses whose data lives in BOSSES, not ENEMIES.
+        let abilitiesList = entry.abilities;
+        if (entry.act !== 'boss') {
+            const enemyDef = ENEMIES[entry.id];
+            const seenAbilKeys = new Set();
+            const seenPassIds  = new Set();
+            abilitiesList = [];
+            const actsToShow = entry.unlockedActs && entry.unlockedActs.size
+                ? [1, 2, 3].filter(a => entry.unlockedActs.has(a))
+                : [];
+            for (const a of actsToShow) {
+                const block = enemyDef?.[`act${a}`];
+                if (!block) continue;
+                for (const [k, ab] of Object.entries(block.abilities || {})) {
+                    if (!seenAbilKeys.has(k)) {
+                        seenAbilKeys.add(k);
+                        abilitiesList.push({ name: ab.name, type: 'Active', description: ab.desc || '' });
+                    }
+                }
+                for (const p of block.passives || []) {
+                    if (!seenPassIds.has(p.id)) {
+                        seenPassIds.add(p.id);
+                        abilitiesList.push({ name: p.name, type: 'Passive', description: p.desc || '' });
+                    }
+                }
+            }
+        }
+        const abilitiesColHTML = abilitiesList.map((a, i) => {
+            const rot = rotations[(i * 2 + 1) % rotations.length];
+            return renderNote({ label: `${a.name} [${a.type}]`, value: a.description }, i, rot);
+        }).join('');
 
         const fieldNotesHTML = `
             <div class="bestiary-field-notes${hasSketch ? ' has-sketch' : ''}">
@@ -650,7 +695,7 @@ export class BestiaryUI {
                 </div>
             </div>`;
 
-        const encounterText = entry.encounters === 1 ? '1 recorded' : `${entry.encounters} recorded`;
+        const encounterText = entry.encounters === 1 ? '1 encounter recorded' : `${entry.encounters} encounters recorded`;
 
         this.$page.innerHTML = `
             <div class="bestiary-page-border"></div>
@@ -663,13 +708,6 @@ export class BestiaryUI {
 
             ${fieldNotesHTML}
 
-            <div class="bestiary-classification-strip">
-                <span class="bestiary-classif-tag"><strong>Threat</strong> ${entry.classification.threat}</span>
-                <span class="bestiary-classif-divider">·</span>
-                <span class="bestiary-classif-tag"><strong>Habitat</strong> ${entry.classification.habitat}</span>
-                <span class="bestiary-classif-divider">·</span>
-                <span class="bestiary-classif-tag"><strong>Encounters</strong> ${encounterText}</span>
-            </div>
 
             <div class="bestiary-lore-section">
                 <p class="bestiary-lore-text">${entry.lore}</p>
@@ -677,9 +715,11 @@ export class BestiaryUI {
 
             ${buildCombatDataHTML(entry)}
 
+            ${buildModifiersHTML(entry)}
+
             <div class="bestiary-page-footer">
                 ${showTierTag ? `<span class="bestiary-act-tag ${tierClass}" style="padding:2px 8px">${tierLabel}</span>` : ''}
-                <span class="bestiary-footer-entry-num">Entry ${entryNum} of ${unlocked.length} discovered</span>
+                <span class="bestiary-footer-entry-num">Entry ${entryNum} of ${unlocked.length} discovered · ${encounterText}</span>
             </div>`;
     }
 }

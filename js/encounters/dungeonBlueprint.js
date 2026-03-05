@@ -115,6 +115,12 @@ const ELITE_BUDGET_FLOOR   = 960;
 const ELITE_BUDGET_CEILING = 1580;
 const ELITE_ACT_SCALES     = [0.5, 0.8, 1.0];
 
+/** Minimum acceptable challenge rating per difficulty.
+ *  If a generated dungeon scores below the floor, the seed is
+ *  nudged and the dungeon is regenerated (up to MAX_RESEED_ATTEMPTS). */
+const MIN_CHALLENGE_RATING = { casual: 1, standard: 2, heroic: 5 };
+const MAX_RESEED_ATTEMPTS  = 5;
+
 /**
  * Pick a challenge target from the difficulty's budget range.
  * @param {string} difficulty - 'casual' | 'standard' | 'heroic'
@@ -518,13 +524,29 @@ function generateAct(actNum, baseFloor, rng, options = {}) {
  * @returns {object} Complete dungeon blueprint
  */
 export function generateDungeonBlueprint(options = {}) {
-    const seed      = options.seed ?? (Date.now() ^ (Math.random() * 0xFFFFFFFF));
+    const baseSeed  = options.seed ?? (Date.now() ^ (Math.random() * 0xFFFFFFFF));
     const schedules = options.schedules || [null, null, null];
-    const rng       = createRNG(seed);
+    const difficulty = options.difficulty || null;
+    const minRating  = (difficulty && MIN_CHALLENGE_RATING[difficulty]) || 0;
+
+    // Rejection loop: regenerate with nudged seed if rating is below floor
+    for (let attempt = 0; attempt <= MAX_RESEED_ATTEMPTS; attempt++) {
+        const seed = baseSeed + attempt;
+        const blueprint = _generateBlueprint(seed, schedules, difficulty, options);
+
+        if (blueprint.scoring.challengeRating >= minRating || attempt === MAX_RESEED_ATTEMPTS) {
+            if (attempt > 0) blueprint.reseedAttempts = attempt;
+            return blueprint;
+        }
+    }
+}
+
+/** Internal: generate and score a single blueprint for a given seed. */
+function _generateBlueprint(seed, schedules, difficulty, options) {
+    const rng = createRNG(seed);
 
     // Budget-driven generation when difficulty or challengeTarget is provided
-    const difficulty = options.difficulty || null;
-    const hasBudget  = difficulty != null || options.challengeTarget != null;
+    const hasBudget = difficulty != null || options.challengeTarget != null;
 
     let challengeTarget = null;
     let actBudgets      = null;

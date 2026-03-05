@@ -272,8 +272,8 @@ export const Combat = {
             _tookDamageThisTurn: false,
         };
 
-        // Track encounter in bestiary
-        BestiaryProgress.increment(template.id);
+        // Track encounter in bestiary (null act = boss floor)
+        BestiaryProgress.increment(template.id, GS.floor % 5 === 0 ? null : GS.act);
 
         // Set active environment for hook calls during combat
         GS.environment        = enc.environment || null;
@@ -2373,8 +2373,8 @@ export const Combat = {
         GS.enemiesKilled++;
         const e = GS.enemy;
 
-        // Permanently unlock this enemy's bestiary entry
-        BestiaryProgress.unlock(e.id);
+        // Permanently unlock this enemy's bestiary entry (null act = boss floor)
+        BestiaryProgress.unlock(e.id, GS.floor % 5 === 0 ? null : GS.act);
 
         // Restore player dice max values reduced by Decay / Entropy
         GS.dice.forEach(d => {

@@ -2,7 +2,7 @@
 //  SCREENS — Game, Rewards, Shop, Events, Rest, Inventory
 //  Entry point: exposes all modules on window for onclick handlers
 // ════════════════════════════════════════════════════════════
-import { FACE_MODS, ARTIFACT_POOL, LEGENDARY_ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, UTILITY_DICE, getAct, getFloorType, getArtifactPool, pickConsumablesForMarket, pickWeightedConsumable } from './constants.js';
+import { ENEMIES, FACE_MODS, ARTIFACT_POOL, LEGENDARY_ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, UTILITY_DICE, getAct, getFloorType, getArtifactPool, pickConsumablesForMarket, pickWeightedConsumable } from './constants.js';
 import { GS, $, rand, pick, shuffle, pickWeighted, log, gainXP, gainGold, heal } from './state.js';
 import { createDie, createDieFromFaces, createUtilityDie, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones } from './engine.js';
 import { Combat } from './combat.js';
@@ -4756,11 +4756,28 @@ const Bestiary = {
     show(callerScreen = 'screen-start') {
         this._caller = callerScreen;
         const progress = BestiaryProgress.load();
-        const data = BESTIARY_DATA.map(entry => ({
-            ...entry,
-            unlocked:   progress.unlocked.has(entry.id),
-            encounters: progress.encounters.get(entry.id) || 0,
-        }));
+        const data = BESTIARY_DATA.map(entry => {
+            if (entry.act === 'boss') {
+                return {
+                    ...entry,
+                    unlocked:        progress.unlocked.has(entry.id),
+                    encounters:      progress.encounters.get(entry.id) || 0,
+                    unlockedActs:    new Set(progress.unlocked.has(entry.id) ? ['boss'] : []),
+                    encountersByAct: new Map([['boss', progress.encounters.get(entry.id) || 0]]),
+                };
+            }
+            const enemy = ENEMIES[entry.id];
+            const validActs = [1, 2, 3].filter(a => enemy?.[`act${a}`]);
+            const unlockedActs = new Set(validActs.filter(a => progress.unlocked.has(`${entry.id}:${a}`)));
+            const encountersByAct = new Map(validActs.map(a => [a, progress.encounters.get(`${entry.id}:${a}`) || 0]));
+            return {
+                ...entry,
+                unlocked:        unlockedActs.size > 0,
+                encounters:      [...encountersByAct.values()].reduce((s, c) => s + c, 0),
+                unlockedActs,
+                encountersByAct,
+            };
+        });
         new BestiaryUI(data);
         show('screen-bestiary');
     },

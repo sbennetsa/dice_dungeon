@@ -30,7 +30,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'goblin', name: 'Goblin', act: 1,
-        artSrc: 'assets/enemies/goblin.webp', sketchSrc: 'assets/enemies/sketch/goblin_sketch.webp',
+        artSrc: 'assets/enemies/card/goblin.webp', sketchSrc: 'assets/enemies/sketch/goblin_sketch.webp',
         artCaption: 'Field sketch — note the improvised armour and stolen equipment.',
         annotations: [
             { label: 'Height',    value: 'Three to four feet. Poor posture. Eyes that catch torchlight from improbable angles.' },
@@ -46,7 +46,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'dire_rat', name: 'Dire Rat', act: 1,
-        artSrc: 'assets/enemies/direrat.webp', sketchSrc: 'assets/enemies/sketch/dire_rat.webp',
+        artSrc: 'assets/enemies/card/direrat.webp', sketchSrc: 'assets/enemies/sketch/dire_rat.webp',
         artCaption: 'Highly adaptable. Specimens observed across all three acts.',
         annotations: [
             { label: 'Behaviour', value: 'Three strikes in the time a sword swings once. Speed, not strength.' },
@@ -62,7 +62,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'fungal_creep', name: 'Fungal Creep', act: 1,
-        artSrc: 'assets/enemies/fungal_creep.webp', sketchSrc: 'assets/enemies/sketch/fungal_spore.webp',
+        artSrc: 'assets/enemies/card/fungal_creep.webp', sketchSrc: 'assets/enemies/sketch/fungal_spore.webp',
         artCaption: 'Fruiting bodies have been found on adventurers who rested too long.',
         annotations: [
             { label: 'Origin',   value: 'Believed to grow from adventurers who rested too long in wet chambers.' },
@@ -79,7 +79,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'slime', name: 'Slime', act: 1,
-        artSrc: 'assets/enemies/slime.webp', sketchSrc: 'assets/enemies/sketch/slime.webp',
+        artSrc: 'assets/enemies/card/slime.webp', sketchSrc: 'assets/enemies/sketch/slime.webp',
         artCaption: 'Neither liquid nor solid. Strikes without committing shape.',
         annotations: [
             { label: 'Consistency', value: 'Neither liquid nor solid. Strikes without committing shape.' },
@@ -96,7 +96,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'skeleton', name: 'Skeleton', act: 1,
-        artSrc: 'assets/enemies/skeleton.webp', sketchSrc: 'assets/enemies/sketch/skeleton.webp',
+        artSrc: 'assets/enemies/card/skeleton.webp', sketchSrc: 'assets/enemies/sketch/skeleton.webp',
         artCaption: 'Armed with weapons from a forgotten war; their cause long since dissolved.',
         annotations: [
             { label: 'Origin',        value: 'Reanimated soldiers of the pre-dungeon garrison. Loyalty persists beyond death.' },
@@ -115,7 +115,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'orc_warrior', name: 'Orc Warrior', act: 2,
-        artSrc: 'assets/enemies/orc_warrior.webp', sketchSrc: 'assets/enemies/sketch/orc_warrior.webp', artCaption: 'The cry is not for show. Brace for what follows.',
+        artSrc: 'assets/enemies/card/orc_warrior.webp', sketchSrc: 'assets/enemies/sketch/orc_warrior.webp', artCaption: 'The cry is not for show. Brace for what follows.',
         annotations: [
             { label: 'Build',    value: 'Dense muscle over a frame that has absorbed considerable damage in a previous career.' },
             { label: 'War Cry',  value: 'Stores its entire dice pool. The next strike lands with that surplus added.' },
@@ -131,7 +131,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'dark_mage', name: 'Dark Mage', act: 2,
-        artSrc: 'assets/enemies/Dark_Mage.webp', sketchSrc: 'assets/enemies/sketch/dark_mage.webp',
+        artSrc: 'assets/enemies/card/Dark_Mage.webp', sketchSrc: 'assets/enemies/sketch/dark_mage.webp',
         artCaption: 'The dice it rolls are the colour of smoke.',
         annotations: [
             { label: 'Appearance',   value: 'Hunched, robed. The dice it rolls are the colour of smoke.' },
@@ -148,7 +148,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'troll', name: 'Troll', act: 2,
-        artSrc: 'assets/enemies/Troll.webp', sketchSrc: 'assets/enemies/sketch/troll.webp',
+        artSrc: 'assets/enemies/card/Troll.webp', sketchSrc: 'assets/enemies/sketch/troll.webp',
         artCaption: 'The dungeon floor shows stress marks in rooms where they patrol.',
         annotations: [
             { label: 'Mass',              value: 'Considerable. The dungeon floor bears stress marks in rooms where they patrol.' },
@@ -167,7 +167,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'vampire', name: 'Vampire', act: 2,
-        artSrc: 'assets/enemies/Vampire.webp', sketchSrc: 'assets/enemies/sketch/vampire.webp',
+        artSrc: 'assets/enemies/card/Vampire.webp', sketchSrc: 'assets/enemies/sketch/vampire.webp',
         artCaption: 'Feeds on vitality exchanged in combat. The old name is imprecise but has stuck.',
         annotations: [
             { label: 'Nature',       value: 'Feeds on vitality exchanged in combat. The old name is imprecise but has stuck.' },
@@ -185,7 +185,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'mimic', name: 'Mimic', act: 2,
-        artSrc: 'assets/enemies/Mimic.webp', sketchSrc: 'assets/enemies/sketch/mimic.webp',
+        artSrc: 'assets/enemies/card/Mimic.webp', sketchSrc: 'assets/enemies/sketch/mimic.webp',
         artCaption: 'Indistinguishable from a chest until it moves.',
         annotations: [
             { label: 'Detection',  value: 'Indistinguishable from a chest until it moves. By then, it has already acted.' },
@@ -205,7 +205,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'demon', name: 'Demon', act: 3,
-        artSrc: 'assets/enemies/Demon.webp', sketchSrc: 'assets/enemies/sketch/demon.webp',
+        artSrc: 'assets/enemies/card/Demon.webp', sketchSrc: 'assets/enemies/sketch/demon.webp',
         artCaption: 'The dungeon generates them as reliably as it generates rats, further down.',
         annotations: [
             { label: 'Origin',    value: 'Unknown. The dungeon generates them as reliably as it generates rats, further down.' },
@@ -223,7 +223,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'lich', name: 'Lich', act: 3,
-        artSrc: 'assets/enemies/Lich.webp', sketchSrc: 'assets/enemies/sketch/lich.webp',
+        artSrc: 'assets/enemies/card/Lich.webp', sketchSrc: 'assets/enemies/sketch/lich.webp',
         artCaption: 'Has refused death long enough that death no longer applies directly.',
         annotations: [
             { label: 'Classification', value: 'Undead spellcaster. Has refused death long enough that death no longer applies directly.' },
@@ -241,7 +241,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'dragon_whelp', name: 'Dragon Whelp', act: 3,
-        artSrc: 'assets/enemies/Dragon_Whelp.webp', sketchSrc: 'assets/enemies/sketch/dragon_whelp.webp',
+        artSrc: 'assets/enemies/card/Dragon_Whelp.webp', sketchSrc: 'assets/enemies/sketch/dragon_whelp.webp',
         artCaption: 'Not young by any measure that matters.',
         annotations: [
             { label: 'Scale density', value: 'The first 8 damage from each zone is absorbed entirely. You must push past this threshold.' },
@@ -260,7 +260,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'shadow_assassin', name: 'Shadow Assassin', act: 3,
-        artSrc: 'assets/enemies/Shadow_Assassin.webp', sketchSrc: 'assets/enemies/sketch/shadow_assassin.webp',
+        artSrc: 'assets/enemies/card/Shadow_Assassin.webp', sketchSrc: 'assets/enemies/sketch/shadow_assassin.webp',
         artCaption: 'The dice pool is larger than the silhouette suggests.',
         annotations: [
             { label: 'Profile', value: 'Difficult to track in dungeon lighting. The dice pool is larger than the silhouette suggests.' },
@@ -278,7 +278,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'iron_golem', name: 'Iron Golem', act: 3,
-        artSrc: 'assets/enemies/Iron_Golem.webp', sketchSrc: 'assets/enemies/sketch/iron_golem.webp',
+        artSrc: 'assets/enemies/card/Iron_Golem.webp', sketchSrc: 'assets/enemies/sketch/iron_golem.webp',
         artCaption: 'The runes on its chest predate the dungeon itself.',
         annotations: [
             { label: 'Construction', value: 'Pre-Collapse war-forging. The runes on its chest predate the dungeon itself.' },
@@ -299,7 +299,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'bone_king', name: 'The Bone King', act: 'boss',
-        artSrc: 'assets/enemies/boneking.webp', sketchSrc: 'assets/enemies/sketch/bone_king.webp',
+        artSrc: 'assets/enemies/card/boneking.webp', sketchSrc: 'assets/enemies/sketch/bone_king.webp',
         artCaption: 'He has been here longer than the dungeon itself. Perhaps he built it.',
         annotations: [
             { label: 'Title',     value: 'Sovereign of the First Ossuary. The Undying Throne.' },
@@ -317,7 +317,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'crimson_wyrm', name: 'Crimson Wyrm', act: 'boss',
-        artSrc: 'assets/enemies/Crimson_Dragon.webp', sketchSrc: 'assets/enemies/sketch/crimson_dragon.webp',
+        artSrc: 'assets/enemies/card/Crimson_Dragon.webp', sketchSrc: 'assets/enemies/sketch/crimson_dragon.webp',
         artCaption: 'The dungeon widened the passage to fit it. This is not a young creature.',
         annotations: [
             { label: 'Scale',      value: 'The dungeon widened the passage to fit it. This is not a young creature.' },
@@ -336,7 +336,7 @@ export const BESTIARY_DATA = [
 
     {
         id: 'void_lord', name: 'The Void Lord', act: 'boss',
-        artSrc: 'assets/enemies/The_Void_Lord.webp', sketchSrc: 'assets/enemies/sketch/void_lord.webp',
+        artSrc: 'assets/enemies/card/The_Void_Lord.webp', sketchSrc: 'assets/enemies/sketch/void_lord.webp',
         artCaption: 'Not a creature. A convergence. The dungeon\'s accumulated pressure given form.',
         annotations: [
             { label: 'Nature',       value: 'Not a creature. A convergence. The dungeon\'s accumulated pressure given form.' },
@@ -378,7 +378,8 @@ function buildCombatDataHTML(entry) {
     const enemy = ENEMIES[entry.id];
     if (!enemy) return '';
 
-    const acts = [1, 2, 3].filter(a => enemy[`act${a}`]);
+    const allActs = [1, 2, 3].filter(a => enemy[`act${a}`]);
+    const acts = allActs.filter(a => !entry.unlockedActs || entry.unlockedActs.has(a));
     if (!acts.length) return '';
 
     let prevAbilityKeys = new Set();
@@ -398,20 +399,27 @@ function buildCombatDataHTML(entry) {
             // First act: show base abilities
             for (const k of abilityKeys) {
                 const ab = block.abilities[k];
-                traits.push(ab.name);
+                traits.push(`${ab.name}${ab.desc ? ` \u2014 ${ab.desc}` : ''}`);
             }
-            for (const p of block.passives || []) traits.push(p.name);
+            for (const p of block.passives || []) {
+                traits.push(`${p.name}${p.desc ? ` \u2014 ${p.desc}` : ''}`);
+            }
         } else {
-            for (const k of newAbilities) traits.push(`+ ${block.abilities[k].name}`);
+            for (const k of newAbilities) {
+                const ab = block.abilities[k];
+                traits.push(`+ ${ab.name}${ab.desc ? ` \u2014 ${ab.desc}` : ''}`);
+            }
             for (const p of (block.passives || []).filter(p => newPassives.includes(p.id))) {
-                traits.push(`+ ${p.name}`);
+                traits.push(`+ ${p.name}${p.desc ? ` \u2014 ${p.desc}` : ''}`);
             }
         }
 
         prevAbilityKeys = abilityKeys;
         prevPassiveIds  = passiveIds;
 
-        const traitStr = traits.length ? traits.join(', ') : '\u2014';
+        const traitStr = traits.length
+            ? traits.map(t => `<div class="bestiary-cd-trait-item">${t}</div>`).join('')
+            : '\u2014';
         return `<tr>
             <td class="bestiary-cd-act">${ACT_NUMERALS[a - 1]}</td>
             <td class="bestiary-cd-num">${block.hp}</td>
@@ -558,13 +566,15 @@ export class BestiaryUI {
                     </svg></div>`;
             }
 
-            const actClass = entry.act === 'boss' ? 'boss' : `act-${entry.act}`;
-            const actLabel = entry.act === 'boss' ? 'Boss' : `Act ${entry.act}`;
+            const tierClass = entry.act === 'boss' ? 'boss'
+                : entry.classification.threat === 'Elite' ? 'elite' : 'common';
+            const tierLabel = entry.act === 'boss' ? 'Boss'
+                : entry.classification.threat === 'Elite' ? 'Elite' : 'Common';
 
             el.innerHTML = `${thumbHTML}
                 <div class="bestiary-entry-info">
                     <div class="bestiary-entry-name${entry.unlocked ? '' : ' locked'}">${entry.unlocked ? entry.name : '??? Unknown ???'}</div>
-                    <div class="bestiary-entry-meta"><span class="bestiary-act-tag ${actClass}">${actLabel}</span></div>
+                    <div class="bestiary-entry-meta"><span class="bestiary-act-tag ${tierClass}">${tierLabel}</span></div>
                 </div>`;
 
             if (entry.unlocked) el.addEventListener('click', () => this._openEntry(entry.id));
@@ -596,8 +606,10 @@ export class BestiaryUI {
     }
 
     _renderEntry(entry) {
-        const actClass = entry.act === 'boss' ? 'boss' : `act-${entry.act}`;
-        const actLabel = entry.act === 'boss' ? 'Boss Encounter' : `Act ${entry.act}`;
+        const tierClass = entry.act === 'boss' ? 'boss'
+            : entry.classification.threat === 'Elite' ? 'elite' : 'common';
+        const tierLabel = entry.act === 'boss' ? 'Boss Encounter'
+            : entry.classification.threat === 'Elite' ? 'Elite' : 'Common';
         const unlocked = this.data.filter(e => e.unlocked);
         const entryNum = unlocked.findIndex(e => e.id === entry.id) + 1;
 
@@ -605,12 +617,8 @@ export class BestiaryUI {
         const hasSketch = !!entry.sketchSrc;
         const rotations = [-1.2, 0.7, -0.6, 1.0, -0.9, 0.5];
 
-        // ── Three-column grid: notes | image | notes ──
-        const leftNotes  = entry.annotations.filter((_, i) => i % 2 === 0);
-        const rightNotes = entry.annotations.filter((_, i) => i % 2 !== 0);
-
-        const renderNote = (a, idx, side) => {
-            const rot = rotations[(idx * 2 + (side === 'right' ? 1 : 0)) % rotations.length];
+        const renderNote = (a, idx) => {
+            const rot = rotations[(idx * 2) % rotations.length];
             return `<div class="bestiary-field-note" style="transform:rotate(${rot}deg)">
                 <div class="bestiary-field-note-label">${a.label}</div>
                 <div class="bestiary-field-note-value">${a.value}</div>
@@ -625,30 +633,28 @@ export class BestiaryUI {
         const captionHTML = entry.artCaption
             ? `<div class="bestiary-art-caption">${entry.artCaption}</div>` : '';
 
+        const abilitiesColHTML = entry.abilities.length
+            ? `<div class="bestiary-abilities-title" style="margin-bottom:10px">Observed Abilities</div>
+               ${entry.abilities.map(a => `
+                 <div class="bestiary-ability-entry">
+                   <div class="bestiary-ability-name">${a.name}<span class="bestiary-ability-type">[${a.type}]</span></div>
+                   <div class="bestiary-ability-desc">${a.description}</div>
+                 </div>`).join('')}`
+            : '';
+
         const fieldNotesHTML = `
             <div class="bestiary-field-notes${hasSketch ? ' has-sketch' : ''}">
                 <div class="bestiary-notes-column left">
-                    ${leftNotes.map((a, i) => renderNote(a, i, 'left')).join('')}
+                    ${entry.annotations.map((a, i) => renderNote(a, i)).join('')}
                 </div>
                 <div class="bestiary-field-image">
                     <div class="${artClass}">${artInner}</div>
                     ${captionHTML}
                 </div>
                 <div class="bestiary-notes-column right">
-                    ${rightNotes.map((a, i) => renderNote(a, i, 'right')).join('')}
+                    ${abilitiesColHTML}
                 </div>
             </div>`;
-
-        const abilitiesHTML = entry.abilities.length
-            ? `<div class="bestiary-abilities-section">
-                   <div class="bestiary-abilities-header"><span class="bestiary-abilities-title">Observed Abilities</span></div>
-                   ${entry.abilities.map(a => `
-                     <div class="bestiary-ability-entry">
-                       <div class="bestiary-ability-name">${a.name}<span class="bestiary-ability-type">[${a.type}]</span></div>
-                       <div class="bestiary-ability-desc">${a.description}</div>
-                     </div>`).join('')}
-               </div>`
-            : '';
 
         const encounterText = entry.encounters === 1 ? '1 recorded' : `${entry.encounters} recorded`;
 
@@ -658,7 +664,7 @@ export class BestiaryUI {
             <div class="bestiary-corner bl">❧</div><div class="bestiary-corner br">❧</div>
 
             <div class="bestiary-page-header">
-                <div class="bestiary-header-rule"><span class="bestiary-species-label">Species Information</span></div>
+                <div class="bestiary-header-rule"><span class="bestiary-creature-name">${entry.name}</span></div>
             </div>
 
             ${fieldNotesHTML}
@@ -671,20 +677,14 @@ export class BestiaryUI {
                 <span class="bestiary-classif-tag"><strong>Encounters</strong> ${encounterText}</span>
             </div>
 
-            <div class="bestiary-creature-name-section">
-                <div class="bestiary-name-rule"><span class="bestiary-creature-name">${entry.name}</span></div>
-            </div>
-
             <div class="bestiary-lore-section">
                 <p class="bestiary-lore-text">${entry.lore}</p>
             </div>
 
             ${buildCombatDataHTML(entry)}
 
-            ${abilitiesHTML}
-
             <div class="bestiary-page-footer">
-                <span class="bestiary-act-tag ${actClass}" style="padding:2px 8px">${actLabel}</span>
+                <span class="bestiary-act-tag ${tierClass}" style="padding:2px 8px">${tierLabel}</span>
                 <span class="bestiary-footer-entry-num">Entry ${entryNum} of ${unlocked.length} discovered</span>
             </div>`;
     }

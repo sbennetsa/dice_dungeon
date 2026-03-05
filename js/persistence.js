@@ -97,20 +97,27 @@ export const BestiaryProgress = {
         }
     },
 
-    /** Mark an enemy as permanently unlocked. No-op if already unlocked. */
-    unlock(id) {
+    /** Build the storage key — 'id:act' for regular enemies, 'id' for bosses (act = null). */
+    _key(id, act) {
+        return act != null ? `${id}:${act}` : id;
+    },
+
+    /** Mark an enemy as permanently unlocked. act = null for bosses. */
+    unlock(id, act = null) {
         if (!id) return;
+        const key = this._key(id, act);
         const progress = this.load();
-        if (progress.unlocked.has(id)) return;
-        progress.unlocked.add(id);
+        if (progress.unlocked.has(key)) return;
+        progress.unlocked.add(key);
         this._save(progress);
     },
 
-    /** Increment encounter count for an enemy id. */
-    increment(id) {
+    /** Increment encounter count for an enemy id. act = null for bosses. */
+    increment(id, act = null) {
         if (!id) return;
+        const key = this._key(id, act);
         const progress = this.load();
-        progress.encounters.set(id, (progress.encounters.get(id) || 0) + 1);
+        progress.encounters.set(key, (progress.encounters.get(key) || 0) + 1);
         this._save(progress);
     },
 

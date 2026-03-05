@@ -3283,15 +3283,9 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   text-transform: uppercase;
   color: #7a6840;
 }
-.bestiary-filter-btn[data-act="1"]    { color: #2d5a3d; border-color: #2d5a3d; }
-.bestiary-filter-btn[data-act="2"]    { color: #7a2020; border-color: #7a2020; }
-.bestiary-filter-btn[data-act="3"]    { color: #1a2d5a; border-color: #1a2d5a; }
 .bestiary-filter-btn[data-act="boss"] { color: #6b4c0a; border-color: #6b4c0a; }
 .bestiary-filter-btn:hover { opacity: 0.8; background: rgba(255,255,255,0.04); }
 .bestiary-filter-btn.active                  { background: rgba(122,104,64,0.18); }
-.bestiary-filter-btn[data-act="1"].active    { background: rgba(45,90,61,0.22); }
-.bestiary-filter-btn[data-act="2"].active    { background: rgba(122,32,32,0.22); }
-.bestiary-filter-btn[data-act="3"].active    { background: rgba(26,45,90,0.22); }
 .bestiary-filter-btn[data-act="boss"].active { background: rgba(107,76,10,0.22); }
 
 .bestiary-index-count {
@@ -3364,9 +3358,8 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   padding: 1px 4px;
   border: 1px solid;
 }
-.bestiary-act-tag.act-1  { color: #2d5a3d; border-color: #2d5a3d; }
-.bestiary-act-tag.act-2  { color: #7a2020; border-color: #7a2020; }
-.bestiary-act-tag.act-3  { color: #1a2d5a; border-color: #1a2d5a; }
+.bestiary-act-tag.common { color: #2d5a3d; border-color: #2d5a3d; }
+.bestiary-act-tag.elite  { color: #7a2020; border-color: #7a2020; }
 .bestiary-act-tag.boss   { color: #6b4c0a; border-color: #6b4c0a; }
 
 /* ── Right page: parchment ── */
@@ -3665,7 +3658,7 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   text-align: left;
 }
 .bestiary-cd-table th:first-child { text-align: center; width: 40px; }
-.bestiary-cd-table td { padding: 5px 8px; border-bottom: 1px dashed rgba(46,31,10,0.1); }
+.bestiary-cd-table td { padding: 5px 8px; border-bottom: 1px dashed rgba(46,31,10,0.1); vertical-align: top; }
 .bestiary-cd-table tr:last-child td { border-bottom: none; }
 .bestiary-cd-act {
   font-family: var(--font-heading);
@@ -3684,6 +3677,8 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   color: #4a3820;
   font-size: 0.88em;
 }
+.bestiary-cd-trait-item { margin-bottom: 4px; line-height: 1.4; }
+.bestiary-cd-trait-item:last-child { margin-bottom: 0; }
 
 /* ── Bestiary: Boss Combat Data ── */
 .bestiary-cd-boss-stats {

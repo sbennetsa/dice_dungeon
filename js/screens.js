@@ -1151,27 +1151,41 @@ const Rewards = {
         c.innerHTML = '';
         const selected = [];
 
-        const previewDiv = document.createElement('div');
-        previewDiv.style.cssText = 'text-align:center; margin-bottom:16px; min-height:40px; font-family:JetBrains Mono, monospace; color:var(--gold);';
-        previewDiv.id = 'merge-preview';
-        c.appendChild(previewDiv);
+        const infoDiv = document.createElement('div');
+        infoDiv.style.cssText = 'text-align:center; margin-bottom:16px; color:var(--text-dim); font-family:var(--font-body),serif;';
+        infoDiv.textContent = 'Select 2 dice to merge into one. The new die combines both ranges.';
+        c.appendChild(infoDiv);
 
         const grid = document.createElement('div');
         grid.style.cssText = 'display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-bottom:16px;';
+        const cardEls = new Map();
         GS.dice.forEach(die => {
-            const el = document.createElement('div');
-            el.className = 'die'; el.style.cursor = 'pointer'; el.style.width = '70px'; el.style.height = '70px'; el.style.fontSize = '1.1em';
-            const facesStr = die.faceMods.length ? ` ${die.faceMods.map(m => m.mod.icon).join('')}` : '';
-            el.innerHTML = `<span class="die-label">${die.min}-${die.max}</span>d${die.sides}${facesStr}`;
-            el.onclick = () => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.style.cssText = 'cursor:pointer; min-width:110px; max-width:160px; flex:0 0 auto; transition:border-color 0.15s, box-shadow 0.15s;';
+            card.innerHTML = renderDieCard(die);
+            card.onclick = () => {
                 const idx = selected.indexOf(die);
-                if (idx >= 0) { selected.splice(idx, 1); el.style.borderColor = ''; el.style.boxShadow = ''; }
-                else if (selected.length < 2) { selected.push(die); el.style.borderColor = 'var(--gold)'; el.style.boxShadow = '0 0 12px var(--gold)'; }
+                if (idx >= 0) {
+                    selected.splice(idx, 1);
+                    card.style.borderColor = '';
+                    card.style.boxShadow = '';
+                } else if (selected.length < 2) {
+                    selected.push(die);
+                    card.style.borderColor = 'var(--gold)';
+                    card.style.boxShadow = '0 0 12px var(--gold)';
+                }
                 updatePreview();
             };
-            grid.appendChild(el);
+            cardEls.set(die, card);
+            grid.appendChild(card);
         });
         c.appendChild(grid);
+
+        const previewDiv = document.createElement('div');
+        previewDiv.id = 'merge-preview';
+        previewDiv.style.cssText = 'min-height:60px; margin-bottom:16px; padding:12px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; text-align:center;';
+        c.appendChild(previewDiv);
 
         const confirmBtn = document.createElement('button');
         confirmBtn.className = 'btn'; confirmBtn.textContent = 'Forge These Dice';
@@ -1186,13 +1200,20 @@ const Rewards = {
                 const nMin = d1.min + d2.min, nMax = d1.max + d2.max, st = (nMax - nMin) / 5;
                 const vals = Array.from({length: 6}, (_, i) => Math.round(nMin + st * i));
                 const tf = d1.faceMods.length + d2.faceMods.length;
-                preview.innerHTML = `[${d1.min}-${d1.max}] + [${d2.min}-${d2.max}] → <strong>[${nMin}-${nMax}]</strong> d6<br><span style="font-size:0.85em; opacity:0.7;">Values: ${vals.join(', ')} | ${tf} source face mod(s)</span>`;
+                const faceHtml = vals.map(v => `<div style="display:inline-flex; align-items:center; justify-content:center;
+                    width:38px; height:44px; border-radius:6px; border:1.5px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.05);
+                    font-family:var(--font-data),monospace; font-weight:700; font-size:0.95em; margin:2px;">${v}</div>`).join('');
+                preview.innerHTML = `
+                    <div style="color:var(--gold); font-family:var(--font-data),monospace; margin-bottom:8px;">[${d1.min}–${d1.max}] + [${d2.min}–${d2.max}] → <strong>[${nMin}–${nMax}] d6</strong></div>
+                    <div style="display:flex; flex-wrap:wrap; justify-content:center;">${faceHtml}</div>
+                    ${tf > 0 ? `<div style="font-size:0.75em; color:var(--text-dim); margin-top:6px;">${tf} face mod(s) to place on the new die</div>` : ''}`;
                 confirmBtn.disabled = false; confirmBtn.style.opacity = '1';
             } else if (selected.length === 1) {
-                preview.textContent = `Selected: [${selected[0].min}-${selected[0].max}] — pick one more`;
+                preview.innerHTML = `<div style="color:var(--text-dim); font-family:var(--font-data),monospace;">[${selected[0].min}–${selected[0].max}] selected — pick one more die</div>`;
                 confirmBtn.disabled = true; confirmBtn.style.opacity = '0.5';
             } else {
-                preview.textContent = 'Click 2 dice to forge'; confirmBtn.disabled = true; confirmBtn.style.opacity = '0.5';
+                preview.innerHTML = `<div style="color:var(--text-dim);">Select 2 dice to preview the result</div>`;
+                confirmBtn.disabled = true; confirmBtn.style.opacity = '0.5';
             }
         }
         updatePreview();
@@ -1200,7 +1221,7 @@ const Rewards = {
     },
 
     showForgeScreen(d1, d2, callback) {
-        $('reward-title').textContent = '🔥 Forge — Map Faces to New Die';
+        $('reward-title').textContent = '🔥 Forge — Assign Face Mods';
         const c = $('reward-cards');
         c.innerHTML = '';
 
@@ -1215,26 +1236,38 @@ const Rewards = {
 
         let selectedSrc = null;
 
-        const info = document.createElement('div');
-        info.style.cssText = 'text-align:center; margin-bottom:8px; font-family:EB Garamond, serif; color:var(--text-dim); font-size:0.85em;';
-        info.innerHTML = `Forging: <strong style="color:var(--gold)">[${newMin}-${newMax}]</strong> d6<br>Click a source face mod, then a die face to place it on. One mod per face.`;
-        c.appendChild(info);
+        // New die preview strip
+        const preview = document.createElement('div');
+        preview.style.cssText = 'text-align:center; margin-bottom:12px; padding:10px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px;';
+        preview.innerHTML = `<div style="font-family:var(--font-heading),cursive; color:var(--gold); margin-bottom:6px;">Forging: [${newMin}–${newMax}] d6</div>
+            <div id="forge-preview-strip" style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center;"></div>`;
+        c.appendChild(preview);
 
-        const poolLabel = document.createElement('div');
-        poolLabel.style.cssText = 'font-family:JetBrains Mono, monospace; font-size:0.7em; color:var(--text-dim); margin:8px 0 4px; text-align:center;';
-        poolLabel.textContent = 'SOURCE FACES — click to select';
-        c.appendChild(poolLabel);
-        const poolDiv = document.createElement('div');
-        poolDiv.style.cssText = 'display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:12px; min-height:50px;';
-        c.appendChild(poolDiv);
+        // Source mods pool (only if there are mods to place)
+        let poolDiv = null;
+        if (sourcePool.length > 0) {
+            const srcLabel = document.createElement('div');
+            srcLabel.className = 'section-title';
+            srcLabel.style.marginBottom = '6px';
+            srcLabel.textContent = 'Source Face Mods — select one, then click a face below';
+            c.appendChild(srcLabel);
 
-        const slotLabel = document.createElement('div');
-        slotLabel.style.cssText = 'font-family:JetBrains Mono, monospace; font-size:0.7em; color:var(--text-dim); margin:4px 0; text-align:center;';
-        slotLabel.textContent = 'NEW DIE FACES — click to assign or remove';
-        c.appendChild(slotLabel);
-        const slotsDiv = document.createElement('div');
-        slotsDiv.style.cssText = 'display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:16px;';
-        c.appendChild(slotsDiv);
+            poolDiv = document.createElement('div');
+            poolDiv.id = 'forge-pool';
+            poolDiv.style.cssText = 'display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:16px;';
+            c.appendChild(poolDiv);
+        }
+
+        const faceLabel = document.createElement('div');
+        faceLabel.className = 'section-title';
+        faceLabel.style.marginBottom = '6px';
+        faceLabel.textContent = sourcePool.length > 0 ? 'New Die Faces — click to assign or remove' : 'New Die Faces';
+        c.appendChild(faceLabel);
+
+        const facesDiv = document.createElement('div');
+        facesDiv.id = 'forge-faces';
+        facesDiv.style.cssText = 'display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:16px;';
+        c.appendChild(facesDiv);
 
         const forgeBtn = document.createElement('button');
         forgeBtn.className = 'btn';
@@ -1254,47 +1287,83 @@ const Rewards = {
         };
         c.appendChild(forgeBtn);
 
-        function render() {
+        function renderPreviewStrip() {
+            const strip = document.getElementById('forge-preview-strip');
+            if (!strip) return;
+            strip.innerHTML = slots.map(slot => {
+                const border = slot.mod ? slot.mod.color + '99' : 'rgba(255,255,255,0.1)';
+                const modIcon = slot.mod ? `<div style="font-size:0.65em; margin-top:1px;">${slot.mod.icon}</div>` : '';
+                return `<div style="display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
+                    width:38px; height:44px; border-radius:6px; border:1.5px solid ${border}; background:rgba(255,255,255,0.05);
+                    font-family:var(--font-data),monospace; font-weight:700; font-size:0.95em; margin:2px;">${slot.value}${modIcon}</div>`;
+            }).join('');
+        }
+
+        function renderPool() {
+            if (!poolDiv) return;
             poolDiv.innerHTML = '';
             const unassigned = sourcePool.filter(s => s.assigned < 0);
             if (unassigned.length === 0) {
-                poolDiv.innerHTML = `<div style="color:var(--text-dim); font-size:0.8em; padding:12px;">${sourcePool.length > 0 ? 'All faces assigned!' : 'No source faces — plain die'}</div>`;
+                poolDiv.innerHTML = '<div style="color:var(--text-dim); font-size:0.8em; padding:8px;">All face mods assigned!</div>';
+                return;
             }
             unassigned.forEach(src => {
-                const el = document.createElement('div');
                 const isSel = selectedSrc === src.id;
-                el.style.cssText = `width:58px; height:58px; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; border:2px solid ${isSel ? 'var(--gold)' : src.mod.color}; background:${isSel ? 'rgba(212,165,52,0.2)' : 'rgba(0,0,0,0.3)'}; box-shadow:${isSel ? '0 0 10px var(--gold)' : 'none'}; transition:all 0.15s;`;
-                el.innerHTML = `<span style="font-size:1.2em;">${src.mod.icon}</span><span style="font-size:0.5em; opacity:0.6; text-align:center;">${src.mod.name}</span>`;
-                el.title = `${src.mod.name}: ${src.mod.desc} (from [${src.fromDie.min}-${src.fromDie.max}])`;
-                el.onclick = () => { selectedSrc = selectedSrc === src.id ? null : src.id; render(); };
-                poolDiv.appendChild(el);
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.cssText = `cursor:pointer; min-width:100px; max-width:140px; flex:0 0 auto; text-align:center;
+                    border-color:${isSel ? 'var(--gold)' : src.mod.color + '88'};
+                    box-shadow:${isSel ? '0 0 10px var(--gold)' : 'none'};
+                    background:${isSel ? 'rgba(212,165,52,0.12)' : ''};`;
+                card.innerHTML = `
+                    <div class="card-title" style="color:${src.mod.color};">${src.mod.icon} ${src.mod.name}</div>
+                    <div class="card-desc" style="font-size:0.75em;">${src.mod.desc}</div>
+                    <div style="font-size:0.7em; color:var(--text-dim); margin-top:4px; font-family:var(--font-data),monospace;">from [${src.fromDie.min}–${src.fromDie.max}]</div>`;
+                card.title = `${src.mod.name}: ${src.mod.desc}`;
+                card.onclick = () => { selectedSrc = selectedSrc === src.id ? null : src.id; render(); };
+                poolDiv.appendChild(card);
             });
+        }
 
-            slotsDiv.innerHTML = '';
+        function renderFaces() {
+            facesDiv.innerHTML = '';
             slots.forEach((slot, si) => {
-                const el = document.createElement('div');
                 const has = slot.mod !== null;
-                let content = `<div style="font-size:0.65em; opacity:0.4;">val ${slot.value}</div>`;
-                if (!slot.mod) {
-                    content += `<div style="font-size:1.1em; opacity:0.25;">—</div>`;
-                } else {
-                    content += `<div style="font-size:1.2em;">${slot.mod.icon}</div><div style="font-size:0.45em; color:${slot.mod.color};">${slot.mod.name}</div>`;
-                }
-                el.style.cssText = `width:68px; height:72px; border-radius:8px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; border:2px solid ${has ? 'var(--gold)' : 'rgba(255,255,255,0.12)'}; background:${has ? 'rgba(212,165,52,0.08)' : 'rgba(0,0,0,0.3)'}; transition:all 0.15s;`;
-                el.innerHTML = content;
-                el.onclick = () => {
-                    if (selectedSrc !== null && slot.mod === null) {
+                const canAssign = selectedSrc !== null && !has;
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.cssText = `cursor:pointer; min-width:80px; text-align:center;
+                    border-color:${has ? 'var(--gold)' : canAssign ? 'var(--green-bright)' : 'var(--border)'};
+                    background:${has ? 'rgba(212,165,52,0.08)' : ''};`;
+                card.innerHTML = `
+                    <div class="card-title" style="font-family:var(--font-data),monospace; font-size:1.4em;">${slot.value}</div>
+                    ${has
+                        ? `<div style="font-size:1.2em; margin-top:2px;">${slot.mod.icon}</div>
+                           <div style="font-size:0.75em; color:${slot.mod.color};">${slot.mod.name}</div>
+                           <div style="font-size:0.65em; color:var(--text-dim); margin-top:4px;">click to remove</div>`
+                        : canAssign
+                            ? `<div style="font-size:0.75em; color:var(--green-bright); margin-top:6px;">← place here</div>`
+                            : `<div style="font-size:0.75em; color:var(--text-dim); opacity:0.35; margin-top:6px;">empty</div>`
+                    }`;
+                card.onclick = () => {
+                    if (canAssign) {
                         const src = sourcePool.find(s => s.id === selectedSrc);
                         if (src) { slot.mod = { ...src.mod }; src.assigned = si; selectedSrc = null; }
-                    } else if (slot.mod !== null && selectedSrc === null) {
+                    } else if (has && selectedSrc === null) {
                         const src = sourcePool.find(s => s.assigned === si);
                         if (src) src.assigned = -1;
                         slot.mod = null;
                     }
                     render();
                 };
-                slotsDiv.appendChild(el);
+                facesDiv.appendChild(card);
             });
+        }
+
+        function render() {
+            renderPreviewStrip();
+            renderPool();
+            renderFaces();
         }
         render();
         show('screen-reward');

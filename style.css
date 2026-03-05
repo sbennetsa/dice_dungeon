@@ -3668,8 +3668,10 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 
 /* ── Bestiary: Elite Modifier table ── */
 .bestiary-mod-name {
-  font-family: var(--font-data);
+  font-family: var(--font-body);
   font-size: var(--text-xs);
+  font-weight: 600;
+  color: #2e1f0e;
   white-space: nowrap;
 }
 .bestiary-mod-desc {

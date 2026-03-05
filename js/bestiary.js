@@ -397,7 +397,7 @@ function buildModifiersHTML(entry) {
     const mods = entry.act === 'boss' ? BOSS_ELITE_MODIFIERS : ELITE_MODIFIERS;
     const rows = mods.map(m => `
         <tr>
-            <td class="bestiary-mod-name">${m.prefix}</td>
+            <td class="bestiary-mod-name">${m.prefix.replace(/^[^\w]+\s*/, '')}</td>
             <td class="bestiary-mod-desc">${_modifierDesc(m)}</td>
             <td class="bestiary-mod-threat">${_threatMarks(m.xpMult)}</td>
         </tr>`).join('');

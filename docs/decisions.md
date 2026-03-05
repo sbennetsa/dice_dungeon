@@ -172,14 +172,32 @@ The 30% heal has the **same face value** as the die upgrade — they are meant t
 Rest = transformation(2.5× upgrade) + maintenance(1× upgrade) + consumable(0.25× upgrade) ≈ 3.75× upgrade.
 - `REST_ADVANTAGES = [135, 180]` (post-Act 1, post-Act 2)
 
+### Gold advantage (per combat, optimal spend)
+Gold earned from combat is scored as player advantage at the die upgrade optimal-spend rate, discounted for structural constraints (limited shop visits, timing, unspendable late-run gold):
+- `GOLD_ADVANTAGE_RATE = [0.25, 0.20, 0.10]` — Act 1/2/3
+- Act 1 gold benefits the entire run (high utilization); Act 3 gold has few remaining fights
+- Replaces the old `SHOP_ADVANTAGES` — the shop is the conversion venue, not the advantage source
+
+### XP advantage (per combat)
+XP earned from combat is scored as player advantage. Level-up ≈ +5 HP (permanent durability) + skill point ≈ 80 threat-equiv. Avg 82 XP/level → ~1.0/XP naive, discounted for diminishing level value and end-of-run XP waste:
+- `XP_ADVANTAGE_RATE = 0.15`
+- A player fighting the Act 1 boss at level 2 is meaningfully stronger than one at level 1; XP advantage captures this
+
+### Per-combat net check
+Each combat must contribute positive net threat (advantage ratio < 1):
+- Act 1: 1.5×0.25 + 2.0×0.15 = 0.675 → net 32.5% of threat
+- Act 2: 1.5×0.20 + 2.0×0.15 = 0.60 → net 40%
+- Act 3: 1.5×0.10 + 2.0×0.15 = 0.45 → net 55%
+
+Act 3 combats have highest net threat — correct since late-run rewards have fewer fights to benefit from.
+
 ### Other values
-- `SHOP_ADVANTAGES = [20, 40, 55]` — spending power × item efficiency per act
 - `EVENT_ADVANTAGES` — 10 to 40, scaled by event impact and permanence
 - `REWARD_ADVANTAGES` — bossArtifact: 35, eliteArtifact: 25
 - `ELITE_NET_ADVANTAGE = [8, 3, -5]` — rewards dominate early, attrition dominates late
 
 ### Rationale
-Previous advantage values (e.g. rests at 15/18 vs Act 2 enemies at ~60 threat) were not on the same scale as threat, making the net challenge metric meaningless. Using the die upgrade as an anchor and deriving all other values relative to it ensures balanced scoring where each reward type speaks to a comparable benefit.
+Previous advantage values (e.g. rests at 15/18 vs Act 2 enemies at ~60 threat) were not on the same scale as threat, making the net challenge metric meaningless. Using the die upgrade as an anchor and deriving all other values relative to it ensures balanced scoring where each reward type speaks to a comparable benefit. Gold and XP are scored per combat rather than as flat shop values because they scale with combat threat — harder fights give more gold and XP, and more combat floors produce more total rewards.
 
 ---
 
@@ -208,20 +226,7 @@ This is implemented via `DIFFICULTY_SCHEDULES` in `dungeonBlueprint.js`, passed 
 Without band enforcement, seed RNG could produce wildly inappropriate ratings (e.g. 4/10 on Heroic, 1/10 on Standard). Non-overlapping bands ensure each difficulty feels distinct. Schedule filtering addresses the root cause: the schedule determines how many combat vs. non-combat floors exist, which directly determines the advantage/threat balance. Filtering prevents the mismatch rather than trying to compensate after the fact.
 
 ### Normalization formula
-`challengeRating = round((effectiveChallenge − 350) / 80)` clamped to 1–10. Effective challenge range is ~400 (casual) to ~1250 (heroic).
-
----
-
-## Shop Advantage — Scaled by Act, Not Flat
-
-**Date:** 2026-03-02
-**Status:** Decided
-
-### Decision
-Shop player-advantage in dungeon scoring uses `SHOP_ADVANTAGES = [20, 40, 55]` (Act 1 / Act 2 / Act 3) instead of a flat value. Double-shop schedules use `DOUBLE_SHOP_ADVANTAGES = [30, 60, 82]`.
-
-### Rationale
-An Act 1 shop is objectively worth less than an Act 3 shop: the player has fewer dice, less gold accumulated, and fewer upgrade paths explored. Scaled values reflect actual purchasing power and decision quality at each act. Values are expressed in threat-equivalent units (same scale as enemy baseThreat).
+`challengeRating = round((effectiveChallenge + 65) / 45)` clamped to 1–10. Effective challenge range is ~-50 (casual/event-heavy) to ~400 (heroic/gauntlet). Gold+XP advantages shift effective challenge lower than the old shop model, so the offset is negative.
 
 ---
 

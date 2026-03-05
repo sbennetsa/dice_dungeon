@@ -9,7 +9,7 @@ import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone, checkForNCE, applyEncounterResult, markEncounterSeen } from './encounters/encounterGenerator.js';
 import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
-import { scoreDungeon, scoreFloorDetailed, scorePlayerAdvantage, SHOP_ADVANTAGES, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
+import { scoreDungeon, scoreFloorDetailed, scorePlayerAdvantage, rewardToAdvantage, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
 import { RunHistory, BestiaryProgress } from './persistence.js';
 import { BESTIARY_DATA, BestiaryUI } from './bestiary.js';
 import { Campaign, RANKS, ACHIEVEMENTS } from './campaign.js';
@@ -3778,7 +3778,7 @@ const DungeonMap = {
                         infoHtml = `<div class="map-node-detail map-node-hidden">???</div>`;
                     }
 
-                    // Threat breakdown
+                    // Threat breakdown + gold/XP advantage
                     const det = scoreFloorDetailed(floor);
                     const showElite = difficulty === 'heroic' || (difficulty === 'standard' && floor.eliteOffered);
                     const totalForDisplay = showElite ? det.totalThreat : det.baseThreat;
@@ -3786,10 +3786,13 @@ const DungeonMap = {
                     if (det.envThreat !== 0) parts.push(`Env ${det.envThreat > 0 ? '+' : ''}${det.envThreat}`);
                     if (det.anomalyThreat !== 0) parts.push(`Anomaly ${det.anomalyThreat > 0 ? '+' : ''}${det.anomalyThreat}`);
                     if (showElite && det.eliteThreat > 0) parts.push(`Elite +${det.eliteThreat}`);
+                    const floorAct = Math.ceil(floor.floor / 5);
+                    const rewardAdv = rewardToAdvantage(showElite ? det.eliteReward : det.baseReward, floorAct);
                     scoreHtml = `<div class="map-node-threat">
                         <span class="map-threat-total">\u26A0 ${totalForDisplay}</span>
                         <div class="map-threat-breakdown">${parts.join(' \u00B7 ')}</div>
                     </div>`;
+                    if (rewardAdv > 0) scoreHtml += `<div class="map-node-advantage"><span class="map-advantage-value">\u2726 +${rewardAdv}</span></div>`;
 
                 } else if (floor.type === 'event') {
                     infoHtml = `<div class="map-node-detail">${reveal ? 'Event' : '???'}</div>`;
@@ -3798,8 +3801,6 @@ const DungeonMap = {
 
                 } else if (floor.type === 'shop') {
                     infoHtml = `<div class="map-node-detail">Shop</div>`;
-                    const shopAdv = SHOP_ADVANTAGES[Math.min(Math.ceil(floor.floor / 5) - 1, 2)];
-                    scoreHtml = `<div class="map-node-advantage"><span class="map-advantage-value">\u2726 +${shopAdv}</span></div>`;
                 }
 
                 html += `<div class="map-node map-node--${state} map-node--${floor.type}">

@@ -169,7 +169,7 @@ function quickThreat(enemy, environment, anomaly, bossFloor, act) {
     const profile = getEnemyProfile(enemy.name, bossFloor, act);
     let threat = profile ? profile.baseThreat : 15;
     if (environment) threat += getEnvThreatForEnemy(environment.id, enemy.name, bossFloor);
-    if (anomaly) threat += (ANOMALY_THREATS[anomaly.id] || 0);
+    if (anomaly) threat = Math.round(threat * (ANOMALY_THREAT_MULTS[anomaly.id] ?? 1.0));
     return threat;
 }
 

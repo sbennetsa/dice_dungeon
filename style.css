@@ -3467,55 +3467,22 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   height: auto;
   object-fit: contain;
   filter: sepia(0.2) contrast(0.95) brightness(0.95);
-  mix-blend-mode: multiply;
 }
 
-/* Sketch images blend into parchment — no frame */
+/* Sketch images blend into parchment — transparent bg, no frame */
 .bestiary-creature-art.has-sketch {
   border: none;
   background: transparent;
-  max-height: 520px;
+  max-height: 580px;
 }
 .bestiary-creature-art.has-sketch img {
   filter: sepia(0.3) contrast(0.88) brightness(0.9);
-}
-
-/* ── Overlay layout: sketch centred, notes float in the transparent margins ── */
-.bestiary-field-notes.overlay {
-  position: relative;
-  width: 100%;
-  margin-bottom: 12px;
-}
-.bestiary-sketch-img {
-  display: block;
-  margin: 0 auto;
-  max-width: 50%;
-  max-height: 580px;
-  width: auto;
-  height: auto;
-  filter: sepia(0.3) contrast(0.88) brightness(0.9);
   mix-blend-mode: multiply;
 }
-.bestiary-overlay-note {
-  position: absolute;
-  z-index: 3;
-  transform-origin: center center;
-  padding: 4px 6px;
-}
-.bestiary-overlay-note .bestiary-field-note-label {
-  font-family: var(--font-data);
-  font-size: var(--text-xs);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #8b6914;
-  margin-bottom: 3px;
-}
-.bestiary-overlay-note .bestiary-field-note-value {
-  font-family: var(--font-body);
-  font-style: italic;
-  font-size: var(--text-xs);
-  color: #3d2e18;
-  line-height: 1.5;
+
+/* Sketch entries: widen centre column for the larger portrait art */
+.bestiary-field-notes.has-sketch {
+  grid-template-columns: 1fr 1.8fr 1fr;
 }
 
 .bestiary-art-placeholder {
@@ -3725,14 +3692,7 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   .bestiary-notes-column .bestiary-field-note { transform: none !important; }
   .bestiary-notes-column.left .bestiary-field-note::after,
   .bestiary-notes-column.right .bestiary-field-note::before { display: none; }
-  .bestiary-field-notes.overlay { position: static; }
-  .bestiary-overlay-note {
-    position: static !important;
-    max-width: 100% !important;
-    transform: none !important;
-    text-align: left !important;
-    margin-bottom: 10px;
-  }
+  .bestiary-field-notes.has-sketch { grid-template-columns: 1fr; }
   .bestiary-parchment {
     min-height: 0;
     padding: 30px 20px 44px;

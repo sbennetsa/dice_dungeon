@@ -4789,6 +4789,25 @@ const Bestiary = {
         show('screen-bestiary');
     },
 
+    /** [DEV] Unlock every entry across all acts — remove before release. */
+    revealAll() {
+        for (const entry of BESTIARY_DATA) {
+            if (entry.act === 'boss') {
+                BestiaryProgress.unlock(entry.id, null);
+                BestiaryProgress.increment(entry.id, null);
+            } else {
+                const enemy = ENEMIES[entry.id];
+                for (const a of [1, 2, 3]) {
+                    if (enemy?.[`act${a}`]) {
+                        BestiaryProgress.unlock(entry.id, a);
+                        BestiaryProgress.increment(entry.id, a);
+                    }
+                }
+            }
+        }
+        this.show(this._caller);
+    },
+
     back() {
         if (this._caller === 'screen-start') DifficultySelect.refresh();
         show(this._caller);

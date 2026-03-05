@@ -536,6 +536,7 @@ export class BestiaryUI {
 
     _applyFilter() {
         this.filtered = this.data.filter(e => {
+            if (e.act === 'boss' && !e.unlocked) return false;
             const actMatch = this.activeAct === 'all' || String(e.act) === this.activeAct;
             const qMatch   = !this.query || e.name.toLowerCase().includes(this.query);
             return actMatch && qMatch;
@@ -566,15 +567,9 @@ export class BestiaryUI {
                     </svg></div>`;
             }
 
-            const tierClass = entry.act === 'boss' ? 'boss'
-                : entry.classification.threat === 'Elite' ? 'elite' : 'common';
-            const tierLabel = entry.act === 'boss' ? 'Boss'
-                : entry.classification.threat === 'Elite' ? 'Elite' : 'Common';
-
             el.innerHTML = `${thumbHTML}
                 <div class="bestiary-entry-info">
                     <div class="bestiary-entry-name${entry.unlocked ? '' : ' locked'}">${entry.unlocked ? entry.name : '??? Unknown ???'}</div>
-                    <div class="bestiary-entry-meta"><span class="bestiary-act-tag ${tierClass}">${tierLabel}</span></div>
                 </div>`;
 
             if (entry.unlocked) el.addEventListener('click', () => this._openEntry(entry.id));
@@ -606,10 +601,9 @@ export class BestiaryUI {
     }
 
     _renderEntry(entry) {
-        const tierClass = entry.act === 'boss' ? 'boss'
-            : entry.classification.threat === 'Elite' ? 'elite' : 'common';
-        const tierLabel = entry.act === 'boss' ? 'Boss Encounter'
-            : entry.classification.threat === 'Elite' ? 'Elite' : 'Common';
+        const tierClass = entry.act === 'boss' ? 'boss' : 'elite';
+        const tierLabel = entry.act === 'boss' ? 'Boss Encounter' : 'Elite';
+        const showTierTag = entry.act === 'boss' || entry.classification.threat === 'Elite';
         const unlocked = this.data.filter(e => e.unlocked);
         const entryNum = unlocked.findIndex(e => e.id === entry.id) + 1;
 
@@ -684,7 +678,7 @@ export class BestiaryUI {
             ${buildCombatDataHTML(entry)}
 
             <div class="bestiary-page-footer">
-                <span class="bestiary-act-tag ${tierClass}" style="padding:2px 8px">${tierLabel}</span>
+                ${showTierTag ? `<span class="bestiary-act-tag ${tierClass}" style="padding:2px 8px">${tierLabel}</span>` : ''}
                 <span class="bestiary-footer-entry-num">Entry ${entryNum} of ${unlocked.length} discovered</span>
             </div>`;
     }

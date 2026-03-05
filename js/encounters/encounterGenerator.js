@@ -103,7 +103,8 @@ export function generateEncounter(floor) {
             if (encounter.anomaly) {
                 const anomalyDef = _getAnomalyDef(encounter.anomaly.id);
                 if (anomalyDef) {
-                    const result = applyAnomaly(encounter.enemy, anomalyDef, encounter.environment);
+                    // Pass the blueprint snapshot so glitched can use its pre-computed seeded values
+                    const result = applyAnomaly(encounter.enemy, anomalyDef, encounter.environment, encounter.anomaly);
                     if (result.environment !== undefined) encounter.environment = result.environment;
                     encounter.enemy._anomalyLog = result.logMessage;
                 }

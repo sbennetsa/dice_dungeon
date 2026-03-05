@@ -3945,7 +3945,8 @@ const DungeonPath = {
 
     show(difficulty) {
         const chosenDifficulty = difficulty || 'standard';
-        DungeonPath._settings = { schedules: [null, null, null], difficulty: chosenDifficulty, anomalyRate: 'normal' };
+        const defaultAnomalyRate = chosenDifficulty === 'casual' ? 'none' : chosenDifficulty === 'heroic' ? 'high' : 'normal';
+        DungeonPath._settings = { schedules: [null, null, null], difficulty: chosenDifficulty, anomalyRate: defaultAnomalyRate };
         DungeonPath._open = false;
         GS.runDifficulty = chosenDifficulty;
 
@@ -3995,6 +3996,10 @@ const DungeonPath = {
 
     setModifier(key, value) {
         DungeonPath._settings[key] = value;
+        if (key === 'difficulty') {
+            DungeonPath._settings.anomalyRate =
+                value === 'casual' ? 'none' : value === 'heroic' ? 'high' : 'normal';
+        }
         DungeonPath.regenerate();
     },
 
@@ -4017,9 +4022,10 @@ const DungeonPath = {
                 onclick="DungeonPath.setModifier('difficulty','${d}')">${d.charAt(0).toUpperCase() + d.slice(1)}</button>`
         ).join('');
 
+        const isCasual = s.difficulty === 'casual';
         const anomalyBtns = ['none', 'normal', 'high'].map(a =>
             `<button class="run-modifier-btn ${s.anomalyRate === a ? 'active' : ''}"
-                onclick="DungeonPath.setModifier('anomalyRate','${a}')">${a.charAt(0).toUpperCase() + a.slice(1)}</button>`
+                onclick="DungeonPath.setModifier('anomalyRate','${a}')" ${isCasual ? 'disabled' : ''}>${a.charAt(0).toUpperCase() + a.slice(1)}</button>`
         ).join('');
 
         el.innerHTML = `

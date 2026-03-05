@@ -45,11 +45,12 @@ export const ANOMALIES = {
     enraged: {
         id: 'enraged',
         name: 'Enraged Beast',
-        desc: 'All enemy dice upgraded by +2. +40% rewards.',
+        desc: 'All enemy dice upgraded by ~+25%. +40% rewards.',
         chance: 0.06,
         rewardMult: 1.4,
         apply(enemy) {
-            enemy.dice = enemy.dice.map(d => d + 2);
+            // Proportional boost (~+25%) rather than flat +2 so Act 3 d12s scale as hard as Act 1 d4s
+            enemy.dice = enemy.dice.map(d => d + Math.max(1, Math.round(d / 4)));
             return { logMessage: `The ${enemy.name} is consumed by fury!` };
         },
     },
@@ -72,7 +73,7 @@ export const ANOMALIES = {
         desc: 'One enemy ability randomly changes type. +60% rewards.',
         chance: 0.04,
         rewardMult: 1.6,
-        apply(enemy) {
+        apply(enemy, _env, snapshot) {
             const keys = Object.keys(enemy.abilities || {});
             if (keys.length === 0) return { logMessage: `Reality flickers around the ${enemy.name}...` };
 
@@ -80,10 +81,13 @@ export const ANOMALIES = {
             const eligible = keys.filter(k => enemy.abilities[k].type !== 'attack');
             if (eligible.length === 0) return { logMessage: `Reality flickers around the ${enemy.name}...` };
 
-            const randomKey = eligible[Math.floor(Math.random() * eligible.length)];
-            const oldType   = enemy.abilities[randomKey].type;
-            const types     = ['attack', 'heal', 'buff', 'poison', 'shield'].filter(t => t !== oldType);
-            const newType   = types[Math.floor(Math.random() * types.length)];
+            // Use pre-computed seeded values from blueprint snapshot if available;
+            // fall back to Math.random() for the legacy (non-blueprint) path
+            const randomKey = snapshot?.glitchedKey ?? eligible[Math.floor(Math.random() * eligible.length)];
+            if (!enemy.abilities[randomKey]) return { logMessage: `Reality flickers around the ${enemy.name}...` };
+            const oldType = enemy.abilities[randomKey].type;
+            const types   = ['attack', 'heal', 'buff', 'poison', 'shield'].filter(t => t !== oldType);
+            const newType = snapshot?.glitchedToType ?? types[Math.floor(Math.random() * types.length)];
             enemy.abilities[randomKey] = { ...enemy.abilities[randomKey], type: newType };
 
             return { logMessage: `Reality fractures — the ${enemy.name}'s abilities shift unpredictably!` };
@@ -118,6 +122,6 @@ export function rollForAnomaly(floor) {
  * @param {object|null} currentEnvironment
  * @returns {{ environment?: object, logMessage: string }}
  */
-export function applyAnomaly(enemy, anomaly, currentEnvironment = null) {
-    return anomaly.apply(enemy, currentEnvironment);
+export function applyAnomaly(enemy, anomaly, currentEnvironment = null, snapshot = null) {
+    return anomaly.apply(enemy, currentEnvironment, snapshot);
 }

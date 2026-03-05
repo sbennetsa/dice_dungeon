@@ -404,6 +404,18 @@ function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
 
     // 3. Roll for anomaly
     const anomaly = rollForAnomalySeeded(floor, rng, options.anomalyRate);
+    // Pre-compute glitched ability swap using seeded RNG so replaying same seed yields same result
+    if (anomaly && anomaly.id === 'glitched') {
+        const eligible = Object.keys(enemy.abilities || {})
+            .filter(k => enemy.abilities[k].type !== 'attack');
+        if (eligible.length > 0) {
+            const randomKey = eligible[Math.floor(rng.random() * eligible.length)];
+            const oldType   = enemy.abilities[randomKey].type;
+            const types     = ['attack', 'heal', 'buff', 'poison', 'shield'].filter(t => t !== oldType);
+            anomaly.glitchedKey    = randomKey;
+            anomaly.glitchedToType = types[Math.floor(rng.random() * types.length)];
+        }
+    }
 
     // 4. Select environment
     let environment;

@@ -2408,6 +2408,14 @@ export const Combat = {
             earnedXP   = e.isElite ? Math.floor(baseXP   * (e.eliteXpMult   || 1)) : baseXP;
         }
 
+        // Apply anomaly reward multiplier (e.g. doubleTrouble ×2, wounded ×0.8)
+        const anomalyMult = GS.encounter?.anomaly?.rewardMult ?? 1;
+        if (anomalyMult !== 1) {
+            earnedGold = Math.round(earnedGold * anomalyMult);
+            earnedXP   = Math.round(earnedXP   * anomalyMult);
+            summary.bonuses.push({ icon: '⚠️', text: `Anomaly: ×${anomalyMult} rewards` });
+        }
+
         const g = gainGold(earnedGold);
         summary.loot.push({ icon: '💰', text: `+${g} Gold` });
         summary.loot.push({ icon: '✨', text: `+${earnedXP} XP` });

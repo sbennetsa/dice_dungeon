@@ -325,12 +325,11 @@ export function scoreDungeon(blueprint, difficulty) {
     }
 
     // Normalize to 1–10 scale
-    // With gold+XP scored per combat, effective challenge range is:
-    //   ~-50 (casual/event-heavy) to ~400 (heroic/gauntlet)
-    // Step size 45, offset +65 gives clean 1–10 distribution:
-    //   Casual ≈ 1–3, Standard ≈ 4–7, Heroic ≈ 8–10
+    // Calibrated to current per-act bestiary threat values.
+    // Effective challenge range: ~300 (casual/event-heavy) to ~780 (heroic/gauntlet).
+    // Step 53, offset −247: Casual ≈ 1–3 (ec ~300–460), Standard ≈ 4–7 (ec ~460–620), Heroic ≈ 8–10 (ec ~620–780)
     const challengeRating = Math.max(1, Math.min(10,
-        Math.round((effectiveChallenge + 65) / 45)
+        Math.round((effectiveChallenge - 247) / 53)
     ));
 
     return {

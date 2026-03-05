@@ -119,9 +119,9 @@ const ELITE_ACT_SCALES     = [0.5, 0.8, 1.0];
  *  If a generated dungeon scores outside the range, the seed is
  *  nudged and the dungeon is regenerated (up to MAX_RESEED_ATTEMPTS). */
 const CHALLENGE_RATING_RANGE = {
-    casual:   [1, 4],
-    standard: [2, 7],
-    heroic:   [5, 10],
+    casual:   [1, 3],
+    standard: [4, 7],
+    heroic:   [8, 10],
 };
 const MAX_RESEED_ATTEMPTS = 5;
 

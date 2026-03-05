@@ -226,7 +226,7 @@ This is implemented via `DIFFICULTY_SCHEDULES` in `dungeonBlueprint.js`, passed 
 Without band enforcement, seed RNG could produce wildly inappropriate ratings (e.g. 4/10 on Heroic, 1/10 on Standard). Non-overlapping bands ensure each difficulty feels distinct. Schedule filtering addresses the root cause: the schedule determines how many combat vs. non-combat floors exist, which directly determines the advantage/threat balance. Filtering prevents the mismatch rather than trying to compensate after the fact.
 
 ### Normalization formula
-`challengeRating = round((effectiveChallenge + 65) / 45)` clamped to 1–10. Effective challenge range is ~-50 (casual/event-heavy) to ~400 (heroic/gauntlet). Gold+XP advantages shift effective challenge lower than the old shop model, so the offset is negative.
+`challengeRating = round((effectiveChallenge − 247) / 53)` clamped to 1–10. Effective challenge range is ~300 (casual/event-heavy) to ~780 (heroic/gauntlet) with current per-act bestiary threat values. Constants were recalibrated after the per-act bestiary overhaul raised baseThreat values significantly above the original scale.
 
 ---
 

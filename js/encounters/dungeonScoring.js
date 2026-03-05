@@ -265,11 +265,12 @@ export function scoreDungeon(blueprint, difficulty) {
     }
 
     // Normalize to 1–10 scale
-    // With threat-equivalent advantages, expected range is:
-    //   ~700 (casual/low-budget) to ~1900 (heroic/high-budget)
-    // Step size 120 gives a clean 1–10 distribution.
+    // With threat-equivalent advantages, effective challenge range is:
+    //   ~400 (casual/event-heavy) to ~1150 (heroic/gauntlet)
+    // Step size 80 starting at 350 gives a clean 1–10 distribution:
+    //   Casual ≈ 1–3, Standard ≈ 3–6, Heroic ≈ 6–10
     const challengeRating = Math.max(1, Math.min(10,
-        Math.round((effectiveChallenge - 700) / 120)
+        Math.round((effectiveChallenge - 350) / 80)
     ));
 
     return {

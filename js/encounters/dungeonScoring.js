@@ -101,10 +101,13 @@ export const REWARD_ADVANTAGES = {
 };
 
 // Net player advantage per elite fight, by act (0-indexed).
-// Positive = elite rewards outweigh attrition cost.
-// Act 1: cheap fights + valuable artifact = big net positive.
-// Act 3: attrition from harder elites dominates reward value.
-export const ELITE_NET_ADVANTAGE = [8, 3, -5];
+// Modifier-agnostic: averaged over all possible modifier draws per act.
+// Formula: eliteArtifact advantage − mean(eliteThreatAdded[act]) × attritionFactor
+//   Act 1: artifact(25) − median_elite_threat(~10) × 0.4 ≈ +21 → conservative +15
+//   Act 2: artifact(25) − median_elite_threat(~35) × 0.4 ≈ +11 → conservative +8
+//   Act 3: artifact(25) − median_elite_threat(~85) × 0.4 ≈ −9 → conservative −15
+// See docs/elite-modifier-threat-analysis.md for full derivation.
+export const ELITE_NET_ADVANTAGE = [15, 8, -15];
 
 // ────────────────────────────────────────────────────────────
 //  Contextual Environment Scoring
@@ -159,19 +162,18 @@ export function scoreFloor(floor) {
 
     const baseThreat = enemyThreat + envThreat + anomalyThreat;
 
-    // Elite threat: per-enemy affinity for each modifier
-    // scaleElitePassives scales passives by act: 1.0×/1.25×/1.5×
+    // Elite threat: per-enemy per-act affinity for each modifier.
+    // Affinities are per-act dicts for regular enemies, flat for bosses.
+    // Casual mode may have only a visible modifier (no hidden).
     let eliteThreat = 0;
     if (floor.eliteOffered && floor.eliteModifiers) {
         const visibleThreat = getEliteThreatForEnemy(
-            floor.eliteModifiers.visible.id, enemy.name, bossFloor
+            floor.eliteModifiers.visible.id, enemy.name, bossFloor, act
         );
-        const hiddenThreat = getEliteThreatForEnemy(
-            floor.eliteModifiers.hidden.id, enemy.name, bossFloor
-        );
-        const act = Math.ceil(floor.floor / 5);
-        const passiveScale = 1.0 + 0.25 * (act - 1); // 1.0 / 1.25 / 1.5
-        eliteThreat = Math.round((visibleThreat + hiddenThreat) * passiveScale);
+        const hiddenThreat = floor.eliteModifiers.hidden
+            ? getEliteThreatForEnemy(floor.eliteModifiers.hidden.id, enemy.name, bossFloor, act)
+            : 0;
+        eliteThreat = visibleThreat + hiddenThreat;
     }
 
     const totalThreat = baseThreat + eliteThreat;

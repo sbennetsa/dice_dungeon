@@ -318,12 +318,16 @@ function selectEnvironmentForBudget(floor, act, enemy, currentThreat, floorTarge
 
 
 /**
- * Select two non-conflicting elite modifiers using seeded RNG.
+ * Select elite modifiers using seeded RNG.
+ * In singleModifier mode (Casual difficulty), only the visible modifier is
+ * picked — no hidden modifier. The RNG still consumes the same number of
+ * calls for seed stability across difficulty changes on the same seed.
  * @param {boolean} isBoss
  * @param {object} rng
- * @returns {{ visible: object, hidden: object }}
+ * @param {boolean} [singleModifier] - When true, return only visible (no hidden)
+ * @returns {{ visible: object, hidden: object|null }}
  */
-function selectEliteModifiersSeeded(isBoss, rng) {
+function selectEliteModifiersSeeded(isBoss, rng, singleModifier = false) {
     const pool = isBoss ? BOSS_ELITE_MODIFIERS : ELITE_MODIFIERS;
 
     const visible = rng.pick(pool);
@@ -332,9 +336,10 @@ function selectEliteModifiersSeeded(isBoss, rng) {
         !visible.conflictsWith.includes(m.id) &&
         !m.conflictsWith.includes(visible.id)
     );
-    const hidden = rng.pick(validSecond);
+    // Always consume RNG call for seed stability regardless of singleModifier
+    const hiddenPick = rng.pick(validSecond);
 
-    return { visible, hidden };
+    return { visible, hidden: singleModifier ? null : hiddenPick };
 }
 
 // ────────────────────────────────────────────────────────────
@@ -375,9 +380,10 @@ function rollForAnomalySeeded(floor, rng, anomalyRate = 'normal') {
  * @param {boolean} isBoss
  * @param {object} rng
  * @param {object} [options]
- * @param {string} [options.anomalyRate] - 'normal' | 'high' | 'none'
- * @param {number} [options.floorTarget] - Target threat for this floor (budget mode)
- * @param {number} [options.eliteRate]   - Base elite offer rate (budget mode)
+ * @param {string}  [options.anomalyRate]    - 'normal' | 'high' | 'none'
+ * @param {number}  [options.floorTarget]   - Target threat for this floor (budget mode)
+ * @param {number}  [options.eliteRate]     - Base elite offer rate (budget mode)
+ * @param {boolean} [options.singleModifier] - When true, elite has visible modifier only
  * @returns {object} Floor blueprint
  */
 function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
@@ -431,8 +437,9 @@ function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
         environment = selectEnvironmentSeeded(floor, act, enemy, rng);
     }
 
-    // 5. Pre-select elite modifiers
-    const eliteModifiers = selectEliteModifiersSeeded(isBoss, rng);
+    // 5. Pre-select elite modifiers.
+    // Casual (singleModifier) shows only the visible modifier — no hidden.
+    const eliteModifiers = selectEliteModifiersSeeded(isBoss, rng, options.singleModifier);
 
     // 6. Elite offer probability — budget-driven or legacy
     let eliteChance, eliteOffered;
@@ -475,8 +482,9 @@ function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
  * @param {number|null} [options.forcedScheduleIndex] - Override random schedule selection
  * @param {number[]}   [options.allowedSchedules]    - Indices to pick from (difficulty filtering)
  * @param {string} [options.anomalyRate]
- * @param {number} [options.actBudget]  - Target total combat threat for this act
- * @param {number} [options.eliteRate]  - Base elite offer rate (budget mode)
+ * @param {number}  [options.actBudget]     - Target total combat threat for this act
+ * @param {number}  [options.eliteRate]     - Base elite offer rate (budget mode)
+ * @param {boolean} [options.singleModifier] - When true, elites have only 1 (visible) modifier
  * @returns {object} Act blueprint
  */
 function generateAct(actNum, baseFloor, rng, options = {}) {
@@ -513,9 +521,10 @@ function generateAct(actNum, baseFloor, rng, options = {}) {
             }
 
             const floorBP = generateCombatFloor(absoluteFloor, actNum, isBoss, rng, {
-                anomalyRate: options.anomalyRate,
+                anomalyRate:    options.anomalyRate,
                 floorTarget,
-                eliteRate:   options.eliteRate,
+                eliteRate:      options.eliteRate,
+                singleModifier: options.singleModifier,
             });
 
             // Track actual threat consumed
@@ -603,12 +612,15 @@ function _generateBlueprint(seed, schedules, difficulty, options) {
 
         // Difficulty-based floor/ceiling on elite rate
         if (difficulty === 'heroic')  eliteRate = Math.max(0.90, eliteRate);
-        if (difficulty === 'casual')  eliteRate = Math.min(0.20, eliteRate);
+        if (difficulty === 'casual')  eliteRate = Math.min(0.10, eliteRate);
     }
 
     // Difficulty-aware schedule pool (prevents mismatched schedules like
     // casual gauntlets or heroic event-heavy floors)
     const allowedSchedules = difficulty ? DIFFICULTY_SCHEDULES[difficulty] : undefined;
+
+    // Casual elites show only one (visible) modifier — no hidden modifier.
+    const singleModifier = difficulty === 'casual';
 
     const acts = [
         generateAct(1, 1,  rng, {
@@ -617,6 +629,7 @@ function _generateBlueprint(seed, schedules, difficulty, options) {
             anomalyRate:         options.anomalyRate,
             actBudget:           actBudgets ? actBudgets[0] : undefined,
             eliteRate,
+            singleModifier,
         }),
         generateAct(2, 6,  rng, {
             forcedScheduleIndex: schedules[1],
@@ -624,6 +637,7 @@ function _generateBlueprint(seed, schedules, difficulty, options) {
             anomalyRate:         options.anomalyRate,
             actBudget:           actBudgets ? actBudgets[1] : undefined,
             eliteRate,
+            singleModifier,
         }),
         generateAct(3, 11, rng, {
             forcedScheduleIndex: schedules[2],
@@ -631,6 +645,7 @@ function _generateBlueprint(seed, schedules, difficulty, options) {
             anomalyRate:         options.anomalyRate,
             actBudget:           actBudgets ? actBudgets[2] : undefined,
             eliteRate,
+            singleModifier,
         }),
     ];
 

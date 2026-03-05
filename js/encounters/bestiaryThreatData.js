@@ -286,8 +286,15 @@ export const ENEMY_PROFILES = {
     'Goblin': {
         baseThreat: { 1: 17, 2: 59, 3: 200 },
         eliteAffinities: {
-            deadly: 10, armored: 8, swift: 7, enraged: 10,
-            regenerating: 5, vampiric: 6, brittle: -3, cursed: 6, berserker: 6,
+            deadly:      { 1:  5, 2: 18, 3:  60 },
+            armored:     { 1:  5, 2: 18, 3:  60 },
+            swift:       { 1:  3, 2: 10, 3:  35 },
+            enraged:     { 1:  5, 2: 19, 3:  64 },
+            regenerating:{ 1:  4, 2: 14, 3:  48 },
+            vampiric:    { 1:  3, 2: 10, 3:  36 },
+            brittle:     { 1: -3, 2: -9, 3: -30 },
+            cursed:      { 1:  4, 2: 13, 3:  44 },
+            berserker:   { 1:  5, 2: 18, 3:  60 },
         },
         envAffinities: {
             burningGround: -2, healingAura: 2, slipperyFloor: 0, arcaneNexus: 1,
@@ -300,8 +307,15 @@ export const ENEMY_PROFILES = {
     'Dire Rat': {
         baseThreat: { 1: 16, 2: 60, 3: 202 },
         eliteAffinities: {
-            deadly: 8, armored: 9, swift: 8, enraged: 10,
-            regenerating: 4, vampiric: 7, brittle: -3, cursed: 5, berserker: 5,
+            deadly:      { 1:  5, 2: 18, 3:  61 },
+            armored:     { 1:  5, 2: 18, 3:  60 },
+            swift:       { 1:  4, 2: 13, 3:  44 },
+            enraged:     { 1:  5, 2: 19, 3:  65 },
+            regenerating:{ 1:  4, 2: 14, 3:  48 },
+            vampiric:    { 1:  3, 2: 11, 3:  38 },
+            brittle:     { 1: -3, 2: -9, 3: -30 },
+            cursed:      { 1:  4, 2: 13, 3:  44 },
+            berserker:   { 1:  5, 2: 18, 3:  61 },
         },
         envAffinities: {
             burningGround: -3, healingAura: 2, slipperyFloor: -1, arcaneNexus: 0,
@@ -314,8 +328,15 @@ export const ENEMY_PROFILES = {
     'Fungal Creep': {
         baseThreat: { 1: 18, 2: 57, 3: 195 },
         eliteAffinities: {
-            deadly: 12, armored: 9, swift: 8, enraged: 14,
-            regenerating: 10, vampiric: 6, brittle: -2, cursed: 10, berserker: 6,
+            deadly:      { 1:  5, 2: 16, 3:  55 },
+            armored:     { 1:  5, 2: 17, 3:  58 },
+            swift:       { 1:  4, 2: 11, 3:  39 },
+            enraged:     { 1:  6, 2: 18, 3:  63 },
+            regenerating:{ 1:  6, 2: 20, 3:  68 },
+            vampiric:    { 1:  3, 2: 10, 3:  35 },
+            brittle:     { 1: -2, 2: -8, 3: -29 },
+            cursed:      { 1:  4, 2: 14, 3:  49 },
+            berserker:   { 1:  5, 2: 16, 3:  55 },
         },
         envAffinities: {
             burningGround: -2, healingAura: 5, slipperyFloor: -1, arcaneNexus: 1,
@@ -328,8 +349,15 @@ export const ENEMY_PROFILES = {
     'Slime': {
         baseThreat: { 1: 16, 2: 59, 3: 194 },
         eliteAffinities: {
-            deadly: 11, armored: 10, swift: 8, enraged: 14,
-            regenerating: 10, vampiric: 6, brittle: -2, cursed: 8, berserker: 7,
+            deadly:      { 1:  5, 2: 17, 3:  54 },
+            armored:     { 1:  6, 2: 21, 3:  68 },
+            swift:       { 1:  3, 2: 10, 3:  35 },
+            enraged:     { 1:  5, 2: 18, 3:  62 },
+            regenerating:{ 1:  5, 2: 19, 3:  62 },
+            vampiric:    { 1:  3, 2: 10, 3:  35 },
+            brittle:     { 1: -2, 2: -9, 3: -29 },
+            cursed:      { 1:  4, 2: 17, 3:  54 },
+            berserker:   { 1:  5, 2: 18, 3:  58 },
         },
         envAffinities: {
             burningGround: -1, healingAura: 5, slipperyFloor: -1, arcaneNexus: 1,
@@ -342,8 +370,15 @@ export const ENEMY_PROFILES = {
     'Skeleton': {
         baseThreat: { 1: 15, 2: 58, 3: 210 },
         eliteAffinities: {
-            deadly: 8, armored: 14, swift: 7, enraged: 10,
-            regenerating: 8, vampiric: 7, brittle: -5, cursed: 7, berserker: 6,
+            deadly:      { 1:  4, 2: 16, 3:  59 },
+            armored:     { 1:  4, 2: 17, 3:  63 },
+            swift:       { 1:  3, 2: 10, 3:  38 },
+            enraged:     { 1:  5, 2: 17, 3:  60 },
+            regenerating:{ 1:  5, 2: 19, 3:  67 },
+            vampiric:    { 1:  3, 2: 10, 3:  38 },
+            brittle:     { 1: -2, 2: -9, 3: -32 },
+            cursed:      { 1:  4, 2: 14, 3:  48 },
+            berserker:   { 1:  5, 2: 17, 3:  59 },
         },
         envAffinities: {
             burningGround: -2, healingAura: 1, slipperyFloor: 0, arcaneNexus: 2,
@@ -356,8 +391,15 @@ export const ENEMY_PROFILES = {
     'Dark Mage': {
         baseThreat: { 1: 16, 2: 57, 3: 201 },
         eliteAffinities: {
-            deadly: 14, armored: 12, swift: 10, enraged: 18,
-            regenerating: 8, vampiric: 10, brittle: -3, cursed: 18, berserker: 12,
+            deadly:      { 1:  3, 2: 11, 3:  40 },
+            armored:     { 1:  4, 2: 14, 3:  50 },
+            swift:       { 1:  3, 2:  9, 3:  32 },
+            enraged:     { 1:  4, 2: 14, 3:  50 },
+            regenerating:{ 1:  3, 2: 11, 3:  40 },
+            vampiric:    { 1:  3, 2: 11, 3:  40 },
+            brittle:     { 1: -2, 2: -8, 3: -30 },
+            cursed:      { 1:  6, 2: 20, 3:  70 },
+            berserker:   { 1:  4, 2: 14, 3:  50 },
         },
         envAffinities: {
             burningGround: -2, healingAura: 2, slipperyFloor: 0, arcaneNexus: 4,
@@ -370,8 +412,15 @@ export const ENEMY_PROFILES = {
     'Orc Warrior': {
         baseThreat: { 1: 17, 2: 62, 3: 219 },
         eliteAffinities: {
-            deadly: 16, armored: 14, swift: 11, enraged: 20,
-            regenerating: 9, vampiric: 12, brittle: -2, cursed: 14, berserker: 15,
+            deadly:      { 1:  6, 2: 21, 3:  74 },
+            armored:     { 1:  5, 2: 19, 3:  66 },
+            swift:       { 1:  4, 2: 12, 3:  44 },
+            enraged:     { 1:  6, 2: 24, 3:  83 },
+            regenerating:{ 1:  4, 2: 15, 3:  53 },
+            vampiric:    { 1:  5, 2: 17, 3:  61 },
+            brittle:     { 1: -2, 2: -9, 3: -33 },
+            cursed:      { 1:  5, 2: 20, 3:  70 },
+            berserker:   { 1:  6, 2: 24, 3:  83 },
         },
         envAffinities: {
             burningGround: 1, healingAura: 3, slipperyFloor: 0, arcaneNexus: 5,
@@ -384,8 +433,15 @@ export const ENEMY_PROFILES = {
     'Troll': {
         baseThreat: { 1: 17, 2: 58, 3: 205 },
         eliteAffinities: {
-            deadly: 14, armored: 18, swift: 10, enraged: 16,
-            regenerating: 16, vampiric: 14, brittle: 0, cursed: 12, berserker: 12,
+            deadly:      { 1:  5, 2: 16, 3:  57 },
+            armored:     { 1:  7, 2: 23, 3:  82 },
+            swift:       { 1:  4, 2: 12, 3:  41 },
+            enraged:     { 1:  5, 2: 17, 3:  62 },
+            regenerating:{ 1:  8, 2: 26, 3:  92 },
+            vampiric:    { 1:  5, 2: 19, 3:  66 },
+            brittle:     { 1: -1, 2: -3, 3: -10 },
+            cursed:      { 1:  4, 2: 16, 3:  56 },
+            berserker:   { 1:  6, 2: 20, 3:  72 },
         },
         envAffinities: {
             burningGround: 3, healingAura: 6, slipperyFloor: 1, arcaneNexus: 5,
@@ -398,8 +454,15 @@ export const ENEMY_PROFILES = {
     'Vampire': {
         baseThreat: { 1: 15, 2: 60, 3: 215 },
         eliteAffinities: {
-            deadly: 16, armored: 12, swift: 11, enraged: 18,
-            regenerating: 14, vampiric: 2, brittle: -3, cursed: 14, berserker: 16,
+            deadly:      { 1:  4, 2: 15, 3:  54 },
+            armored:     { 1:  5, 2: 18, 3:  65 },
+            swift:       { 1:  3, 2: 10, 3:  37 },
+            enraged:     { 1:  5, 2: 19, 3:  69 },
+            regenerating:{ 1:  5, 2: 18, 3:  65 },
+            vampiric:    { 1:  1, 2:  3, 3:  11 },
+            brittle:     { 1: -2, 2: -9, 3: -32 },
+            cursed:      { 1:  5, 2: 18, 3:  65 },
+            berserker:   { 1:  5, 2: 21, 3:  75 },
         },
         envAffinities: {
             burningGround: -1, healingAura: 4, slipperyFloor: 0, arcaneNexus: 5,
@@ -412,8 +475,15 @@ export const ENEMY_PROFILES = {
     'Mimic': {
         baseThreat: { 1: 15, 2: 59, 3: 200 },
         eliteAffinities: {
-            deadly: 11, armored: 9, swift: 9, enraged: 14,
-            regenerating: 7, vampiric: 8, brittle: -3, cursed: 9, berserker: 9,
+            deadly:      { 1:  4, 2: 15, 3:  50 },
+            armored:     { 1:  5, 2: 18, 3:  60 },
+            swift:       { 1:  3, 2: 10, 3:  35 },
+            enraged:     { 1:  5, 2: 17, 3:  60 },
+            regenerating:{ 1:  4, 2: 14, 3:  48 },
+            vampiric:    { 1:  3, 2: 10, 3:  36 },
+            brittle:     { 1: -2, 2: -9, 3: -30 },
+            cursed:      { 1:  4, 2: 14, 3:  50 },
+            berserker:   { 1:  5, 2: 18, 3:  60 },
         },
         envAffinities: {
             burningGround: -1, healingAura: 2, slipperyFloor: 0, arcaneNexus: 3,
@@ -428,8 +498,15 @@ export const ENEMY_PROFILES = {
     'Demon': {
         baseThreat: { 2: 64, 3: 225 },
         eliteAffinities: {
-            deadly: 18, armored: 16, swift: 14, enraged: 22,
-            regenerating: 12, vampiric: 15, brittle: -2, cursed: 16, berserker: 16,
+            deadly:      { 2: 14, 3:  50 },
+            armored:     { 2: 19, 3:  68 },
+            swift:       { 2: 11, 3:  38 },
+            enraged:     { 2: 16, 3:  58 },
+            regenerating:{ 2: 16, 3:  56 },
+            vampiric:    { 2: 19, 3:  68 },
+            brittle:     { 2:-10, 3: -34 },
+            cursed:      { 2: 19, 3:  68 },
+            berserker:   { 2: 19, 3:  68 },
         },
         envAffinities: {
             burningGround: 3, healingAura: 5, slipperyFloor: 1, arcaneNexus: 6,
@@ -442,8 +519,15 @@ export const ENEMY_PROFILES = {
     'Lich': {
         baseThreat: { 2: 64, 3: 220 },
         eliteAffinities: {
-            deadly: 18, armored: 16, swift: 12, enraged: 20,
-            regenerating: 14, vampiric: 14, brittle: -1, cursed: 18, berserker: 14,
+            deadly:      { 2: 13, 3:  44 },
+            armored:     { 2: 19, 3:  66 },
+            swift:       { 2: 10, 3:  35 },
+            enraged:     { 2: 12, 3:  40 },
+            regenerating:{ 2: 16, 3:  55 },
+            vampiric:    { 2: 13, 3:  44 },
+            brittle:     { 2:-10, 3: -33 },
+            cursed:      { 2: 20, 3:  70 },
+            berserker:   { 2: 16, 3:  55 },
         },
         envAffinities: {
             burningGround: 2, healingAura: 4, slipperyFloor: 1, arcaneNexus: 5,
@@ -456,8 +540,15 @@ export const ENEMY_PROFILES = {
     'Dragon Whelp': {
         baseThreat: { 2: 68, 3: 236 },
         eliteAffinities: {
-            deadly: 20, armored: 18, swift: 14, enraged: 24,
-            regenerating: 14, vampiric: 16, brittle: -1, cursed: 16, berserker: 16,
+            deadly:      { 2: 22, 3:  76 },
+            armored:     { 2: 24, 3:  83 },
+            swift:       { 2: 12, 3:  42 },
+            enraged:     { 2: 29, 3:  99 },
+            regenerating:{ 2: 20, 3:  71 },
+            vampiric:    { 2: 20, 3:  71 },
+            brittle:     { 2: -8, 3: -28 },
+            cursed:      { 2: 17, 3:  59 },
+            berserker:   { 2: 27, 3:  94 },
         },
         envAffinities: {
             burningGround: 3, healingAura: 5, slipperyFloor: 1, arcaneNexus: 6,
@@ -470,8 +561,15 @@ export const ENEMY_PROFILES = {
     'Shadow Assassin': {
         baseThreat: { 2: 61, 3: 216 },
         eliteAffinities: {
-            deadly: 16, armored: 12, swift: 12, enraged: 20,
-            regenerating: 10, vampiric: 12, brittle: -2, cursed: 14, berserker: 14,
+            deadly:      { 2: 17, 3:  61 },
+            armored:     { 2: 21, 3:  76 },
+            swift:       { 2: 11, 3:  39 },
+            enraged:     { 2: 18, 3:  65 },
+            regenerating:{ 2: 15, 3:  54 },
+            vampiric:    { 2: 12, 3:  43 },
+            brittle:     { 2: -9, 3: -32 },
+            cursed:      { 2: 18, 3:  65 },
+            berserker:   { 2: 19, 3:  65 },
         },
         envAffinities: {
             burningGround: 2, healingAura: 3, slipperyFloor: 1, arcaneNexus: 5,
@@ -484,8 +582,15 @@ export const ENEMY_PROFILES = {
     'Iron Golem': {
         baseThreat: { 2: 60, 3: 212 },
         eliteAffinities: {
-            deadly: 18, armored: 20, swift: 12, enraged: 18,
-            regenerating: 16, vampiric: 14, brittle: 2, cursed: 16, berserker: 14,
+            deadly:      { 2: 17, 3:  59 },
+            armored:     { 2: 27, 3:  95 },
+            swift:       { 2: 10, 3:  36 },
+            enraged:     { 2: 18, 3:  64 },
+            regenerating:{ 2: 18, 3:  62 },
+            vampiric:    { 2: 16, 3:  57 },
+            brittle:     { 2:  1, 3:   4 },
+            cursed:      { 2: 18, 3:  64 },
+            berserker:   { 2: 18, 3:  64 },
         },
         envAffinities: {
             burningGround: 3, healingAura: 6, slipperyFloor: 1, arcaneNexus: 5,
@@ -505,11 +610,11 @@ export const BOSS_PROFILES = {
     5: {   // The Bone King
         baseThreat: 59,   // formula (boss C=1.35): dur=108 (summon +0.2, shield +0.08) × off=8.8
         eliteAffinities: {
-            deadly:     20,
-            enraged:    28,   // raiseDead + bigger dice = snowball
-            phasing:    22,   // 50% resist alternating + bone wall = tanky
-            timewarped: 18,   // earlier phases = faster raiseDead cycle
-            armored:    20,   // bone wall + armor = stacking reduction
+            deadly:     24,   // +4d upgrade + HP×1.4; raiseDead snowballs with bigger dice
+            enraged:    30,   // +6d upgrade; fastest-growing dice pool in Act 1
+            phasing:    27,   // 50% resist alternating + bone wall = tanky; HP×1.5
+            timewarped: 21,   // earlier phases = faster raiseDead cycle
+            armored:    25,   // bone wall + armor = stacking reduction; HP×1.6
         },
         envAffinities: {
             burningGround:     1,
@@ -530,11 +635,11 @@ export const BOSS_PROFILES = {
     10: {   // Crimson Wyrm
         baseThreat: 183,  // formula (boss C=1.35): dur=300 (phase +0.2) × off=22, disruption=12.3
         eliteAffinities: {
-            deadly:     30,   // 4d10+4 = 4d14; fire breath with burn
-            enraged:    40,   // d10→d16; inferno phase adds burn on all attacks
-            phasing:    32,   // 300 HP + 50% resist = 600 effective HP
-            timewarped: 28,   // inferno phase at 75% instead of 50% = much earlier
-            armored:    30,   // 300 HP + armor = enormous wall
+            deadly:     70,   // +4d upgrade + HP×1.4; fire breath dice jump dramatically
+            enraged:    82,   // +6d upgrade; Inferno Phase burn scales with bigger dice
+            phasing:    77,   // 300 HP + 50% resist = 600 effective HP; HP×1.5
+            timewarped: 70,   // Inferno Phase at 75% HP instead of 50% = extended burn window
+            armored:    73,   // 300 HP + armor(4) = enormous wall
         },
         envAffinities: {
             burningGround:     3,
@@ -555,11 +660,11 @@ export const BOSS_PROFILES = {
     15: {   // The Void Lord
         baseThreat: 420,  // HP 700, Void Aura from turn 1, Void Drain lifesteal sustain, Entropy at 50%
         eliteAffinities: {
-            deadly:     38,
-            enraged:    48,   // d10→d16 with double action at 20% = potential wipe
-            phasing:    40,   // 450 HP + 50% resist + entropy
-            timewarped: 35,   // entropy phase at 75%, double action at 45%
-            armored:    36,   // 450 HP + armor; entropy erodes player dice
+            deadly:    147,   // +4d upgrade + HP×1.4; Void Drain heals more per hit
+            enraged:   176,   // +6d upgrade; double action at 20% with d16 pool = potential wipe
+            phasing:   168,   // 700→1050 HP + 50% resist + Entropy = near-unkillable
+            timewarped:168,   // Entropy at 75%, double action at 45%; extended endgame pressure
+            armored:   160,   // 700→1120 HP + armor(4); Entropy still erodes player dice
         },
         envAffinities: {
             burningGround:     3,
@@ -617,14 +722,21 @@ export function getEnvThreatForEnemy(envId, enemyName, bossFloor = null) {
 
 /**
  * Score elite modifier threat for a specific enemy using bestiary data.
- * Replaces the flat ELITE_THREATS lookup with per-enemy values.
+ * Regular enemies use per-act affinity dicts ({ 1: N, 2: N, 3: N });
+ * bosses use flat numbers (one appearance each, no act ambiguity).
  * @param {string} modifierId - Elite modifier ID (e.g. 'armored')
  * @param {string} enemyName - Enemy name
- * @param {number|null} bossFloor
+ * @param {number|null} bossFloor - Boss floor (5/10/15) or null
+ * @param {number|null} [act] - Act number (1/2/3) for per-act resolution
  * @returns {number} Threat delta
  */
-export function getEliteThreatForEnemy(modifierId, enemyName, bossFloor = null) {
+export function getEliteThreatForEnemy(modifierId, enemyName, bossFloor = null, act = null) {
     const profile = getEnemyProfile(enemyName, bossFloor);
     if (!profile || !profile.eliteAffinities) return 0;
-    return profile.eliteAffinities[modifierId] || 0;
+    const affinity = profile.eliteAffinities[modifierId];
+    if (affinity == null) return 0;
+    // Boss affinities are flat numbers; regular enemy affinities are per-act dicts
+    if (typeof affinity === 'object' && act) return affinity[act] ?? 0;
+    if (typeof affinity === 'number') return affinity;
+    return 0;
 }

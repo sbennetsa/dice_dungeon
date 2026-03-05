@@ -40,7 +40,7 @@ export const ENEMIES = {
     // ── UNIVERSAL ENEMIES (Acts 1–3) ────────────────────────
 
     goblin: {
-        id: 'goblin', name: 'Goblin', image: 'assets/enemies/goblin.webp',
+        id: 'goblin', name: 'Goblin', image: 'assets/enemies/card/goblin.webp',
         act1: {
             hp: 16, dice: [6, 6, 6], gold: [15, 25],
             abilities: {
@@ -73,7 +73,7 @@ export const ENEMIES = {
     },
 
     dire_rat: {
-        id: 'dire_rat', name: 'Dire Rat', image: 'assets/enemies/direrat.webp',
+        id: 'dire_rat', name: 'Dire Rat', image: 'assets/enemies/card/direrat.webp',
         act1: {
             hp: 14, dice: [4, 4, 4, 4], gold: [12, 20],
             abilities: {
@@ -106,7 +106,7 @@ export const ENEMIES = {
     },
 
     fungal_creep: {
-        id: 'fungal_creep', name: 'Fungal Creep', image: 'assets/enemies/fungal_creep.webp',
+        id: 'fungal_creep', name: 'Fungal Creep', image: 'assets/enemies/card/fungal_creep.webp',
         act1: {
             hp: 18, dice: [6, 6], gold: [15, 22],
             abilities: {
@@ -139,7 +139,7 @@ export const ENEMIES = {
     },
 
     slime: {
-        id: 'slime', name: 'Slime', image: 'assets/enemies/slime.webp',
+        id: 'slime', name: 'Slime', image: 'assets/enemies/card/slime.webp',
         act1: {
             hp: 22, dice: [6, 6], gold: [14, 24],
             abilities: {
@@ -172,7 +172,7 @@ export const ENEMIES = {
     },
 
     skeleton: {
-        id: 'skeleton', name: 'Skeleton', image: 'assets/enemies/skeleton.webp',
+        id: 'skeleton', name: 'Skeleton', image: 'assets/enemies/card/skeleton.webp',
         act1: {
             hp: 20, dice: [8, 8], gold: [14, 22],
             abilities: {
@@ -207,7 +207,7 @@ export const ENEMIES = {
     },
 
     dark_mage: {
-        id: 'dark_mage', name: 'Dark Mage', image: 'assets/enemies/Dark_Mage.webp',
+        id: 'dark_mage', name: 'Dark Mage', image: 'assets/enemies/card/Dark_Mage.webp',
         act1: {
             hp: 14, dice: [10, 10], gold: [15, 25],
             abilities: {
@@ -239,7 +239,7 @@ export const ENEMIES = {
     },
 
     orc_warrior: {
-        id: 'orc_warrior', name: 'Orc Warrior', image: 'assets/enemies/orc_warrior.webp',
+        id: 'orc_warrior', name: 'Orc Warrior', image: 'assets/enemies/card/orc_warrior.webp',
         act1: {
             hp: 20, dice: [8, 8], gold: [15, 25],
             abilities: {
@@ -271,7 +271,7 @@ export const ENEMIES = {
     },
 
     troll: {
-        id: 'troll', name: 'Troll', image: 'assets/enemies/Troll.webp',
+        id: 'troll', name: 'Troll', image: 'assets/enemies/card/Troll.webp',
         act1: {
             hp: 26, dice: [6, 6], gold: [16, 26],
             abilities: {
@@ -306,7 +306,7 @@ export const ENEMIES = {
     },
 
     vampire: {
-        id: 'vampire', name: 'Vampire', image: 'assets/enemies/Vampire.webp',
+        id: 'vampire', name: 'Vampire', image: 'assets/enemies/card/Vampire.webp',
         act1: {
             hp: 20, dice: [6, 6], gold: [14, 22],
             abilities: {
@@ -339,7 +339,7 @@ export const ENEMIES = {
     },
 
     mimic: {
-        id: 'mimic', name: 'Mimic', image: 'assets/enemies/Mimic.webp',
+        id: 'mimic', name: 'Mimic', image: 'assets/enemies/card/Mimic.webp',
         act1: {
             hp: 18, dice: [6, 6], gold: [14, 22],
             abilities: {
@@ -374,7 +374,7 @@ export const ENEMIES = {
     // ── SPECIALIST ENEMIES (Acts 2–3) ───────────────────────
 
     demon: {
-        id: 'demon', name: 'Demon', image: 'assets/enemies/Demon.webp',
+        id: 'demon', name: 'Demon', image: 'assets/enemies/card/Demon.webp',
         act2: {
             hp: 110, dice: [10, 10], gold: [28, 42],
             abilities: {
@@ -401,7 +401,7 @@ export const ENEMIES = {
     },
 
     lich: {
-        id: 'lich', name: 'Lich', image: 'assets/enemies/Lich.webp',
+        id: 'lich', name: 'Lich', image: 'assets/enemies/card/Lich.webp',
         act2: {
             hp: 65, dice: [12, 12, 12], gold: [28, 42],
             abilities: {
@@ -426,7 +426,7 @@ export const ENEMIES = {
     },
 
     dragon_whelp: {
-        id: 'dragon_whelp', name: 'Dragon Whelp', image: 'assets/enemies/Dragon_Whelp.webp',
+        id: 'dragon_whelp', name: 'Dragon Whelp', image: 'assets/enemies/card/Dragon_Whelp.webp',
         act2: {
             hp: 105, dice: [10, 10, 10], gold: [30, 45],
             abilities: {
@@ -450,7 +450,7 @@ export const ENEMIES = {
     },
 
     shadow_assassin: {
-        id: 'shadow_assassin', name: 'Shadow Assassin', image: 'assets/enemies/Shadow_Assassin.webp',
+        id: 'shadow_assassin', name: 'Shadow Assassin', image: 'assets/enemies/card/Shadow_Assassin.webp',
         act2: {
             hp: 75, dice: [12, 12, 12], gold: [24, 38],
             abilities: {
@@ -474,7 +474,7 @@ export const ENEMIES = {
     },
 
     iron_golem: {
-        id: 'iron_golem', name: 'Iron Golem', image: 'assets/enemies/Iron_Golem.webp',
+        id: 'iron_golem', name: 'Iron Golem', image: 'assets/enemies/card/Iron_Golem.webp',
         act2: {
             hp: 170, dice: [8, 8], gold: [25, 38],
             abilities: {
@@ -539,7 +539,7 @@ export const BOSSES = {
     5: {
         id: 'bone_king',
         name: 'The Bone King', hp: 85, dice: [6, 6, 6], gold: 100,
-        image: 'assets/enemies/boneking.webp',
+        image: 'assets/enemies/card/boneking.webp',
         abilities: {
             strike:    { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             boneWall:  { name: 'Bone Wall', icon: '🛡️', type: 'shield', desc: 'Gain shield equal to dice sum' },
@@ -550,7 +550,7 @@ export const BOSSES = {
         phases: null,
     },
     10: {
-        name: 'Crimson Wyrm', hp: 250, dice: [10, 10, 10, 10], gold: 150, image: 'assets/enemies/Crimson_Dragon.webp',
+        name: 'Crimson Wyrm', hp: 250, dice: [10, 10, 10, 10], gold: 150, image: 'assets/enemies/card/Crimson_Dragon.webp',
         id: 'crimson_wyrm',
         abilities: {
             strike:  { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
@@ -571,7 +571,7 @@ export const BOSSES = {
         ],
     },
     15: {
-        name: 'The Void Lord', hp: 700, dice: [12, 12, 12, 12, 12, 12], gold: 250, image: 'assets/enemies/The_Void_Lord.webp',
+        name: 'The Void Lord', hp: 700, dice: [12, 12, 12, 12, 12, 12], gold: 250, image: 'assets/enemies/card/The_Void_Lord.webp',
         id: 'void_lord',
         abilities: {
             strike:    { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },

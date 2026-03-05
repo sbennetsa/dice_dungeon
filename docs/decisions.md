@@ -278,3 +278,67 @@ The previous stack (Uncial Antiqua / EB Garamond / JetBrains Mono) mixed a singl
 - All `font-family` declarations in `style.css` now reference variables; no raw font names remain in CSS or HTML
 - Headings: h1 `letter-spacing: 0.05em`, h2 `0.03em`, h3 none (Cinzel reads well at scale without heavy tracking)
 - Do NOT convert border, box-shadow, icon-size, or fixed layout pixel values to rem
+
+---
+
+## Elite Modifier Threat Methodology
+
+**Date:** 2026-03-05
+**Status:** Decided
+
+### Decision
+Elite modifier threat impact uses **per-act affinity dicts** (`{ 1: N, 2: N, 3: N }`) derived from the threat formula `baseThreat = (durability × offense)^0.55 + disruption`. Boss affinities remain flat numbers (each boss appears once). The prior system used flat integers scaled by `passiveScale = 1.0 + 0.25 × (act−1)`, which covered only a 1.5× range against a ~12× baseThreat gap from Act 1 to Act 3.
+
+### Threat factor framework
+Each modifier has a factor per enemy type representing the proportional baseThreat increase:
+- `threatDelta[act] = round(baseThreat[act] × factor)`
+- Enemy-specific adjustments for synergies (e.g. Armored + Iron Golem = 0.45 factor vs. typical 0.30) and anti-synergies (e.g. Vampiric + Vampire = 0.05 due to existing lifesteal redundancy)
+- Disruption-heavy enemies (Dark Mage, Lich, Demon) use lower factors (~0.18–0.22) because disruption is additive and unaffected by HP/dice modifiers
+
+### Files
+- `js/encounters/bestiaryThreatData.js`: `eliteAffinities` per enemy — per-act dicts for regular enemies, flat for bosses
+- `js/encounters/dungeonScoring.js`: `scoreFloor()` — passes `act` to `getEliteThreatForEnemy`, no `passiveScale`
+- `docs/elite-modifier-threat-analysis.md`: full derivation, factor table, master affinity table
+
+---
+
+## ELITE_NET_ADVANTAGE — Modifier-Agnostic Design
+
+**Date:** 2026-03-05
+**Status:** Decided
+
+### Decision
+`ELITE_NET_ADVANTAGE = [15, 8, -15]` in `dungeonScoring.js` is a fixed per-act average regardless of which specific modifiers appear on a given elite. Values derived from: `eliteArtifact advantage (25) − median_elite_threat[act] × attritionFactor (0.4)`.
+
+### Rationale
+- Blueprint scoring computes the challenge rating before the player knows which modifiers will appear. A modifier-dependent value would require coupling blueprint generation to encounter selection.
+- The per-modifier threat affinities capture how hard individual encounters are. `ELITE_NET_ADVANTAGE` captures the expected value of the *elite strategy* averaged over all possible modifier draws.
+- Natural variation (sometimes Enraged + Berserker Orc, sometimes Brittle Goblin) is a feature, not a problem.
+
+---
+
+## Dual-Reward System — Affinity Scoring vs. goldMult/xpMult
+
+**Date:** 2026-03-05
+**Status:** Decided
+
+### Decision
+Two reward systems coexist without alignment. **Threat affinities** drive blueprint scoring and challenge rating. **goldMult/xpMult** on modifiers drive actual combat reward grants. They are intentionally not aligned.
+
+### Rationale
+Aligning them would require either rewriting runtime rewards to be threat-derived (breaking legible multiplier UX) or computing goldMult from affinity factors (added complexity). The systems serve different purposes: affinities are the balance truth; multipliers are the player communication layer.
+
+---
+
+## Casual Elite Constraints
+
+**Date:** 2026-03-05
+**Status:** Decided
+
+### Decision
+Casual difficulty: max 10% elite offer rate; elites have exactly 1 modifier (the visible modifier only, `hidden: null`). The player always sees the full modifier scope with no information asymmetry.
+
+### Rationale
+- Casual players should not face hidden surprises in an already optional encounter type.
+- Brittle as sole modifier on Casual is player-favourable (enemy weaker + gold/XP multiplier). Acceptable because: (a) elites are rare and optional, (b) the player has complete information upfront, (c) it's a small upside in an easy mode.
+- `selectEliteModifiersSeeded` always consumes the same RNG calls regardless of `singleModifier` to preserve seed stability (same seed + same difficulty = same dungeon).

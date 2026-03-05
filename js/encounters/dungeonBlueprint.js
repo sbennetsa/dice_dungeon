@@ -115,11 +115,15 @@ const ELITE_BUDGET_FLOOR   = 960;
 const ELITE_BUDGET_CEILING = 1580;
 const ELITE_ACT_SCALES     = [0.5, 0.8, 1.0];
 
-/** Minimum acceptable challenge rating per difficulty.
- *  If a generated dungeon scores below the floor, the seed is
+/** Acceptable challenge rating range per difficulty [min, max].
+ *  If a generated dungeon scores outside the range, the seed is
  *  nudged and the dungeon is regenerated (up to MAX_RESEED_ATTEMPTS). */
-const MIN_CHALLENGE_RATING = { casual: 1, standard: 2, heroic: 5 };
-const MAX_RESEED_ATTEMPTS  = 5;
+const CHALLENGE_RATING_RANGE = {
+    casual:   [1, 4],
+    standard: [2, 7],
+    heroic:   [5, 10],
+};
+const MAX_RESEED_ATTEMPTS = 5;
 
 /**
  * Pick a challenge target from the difficulty's budget range.
@@ -527,14 +531,15 @@ export function generateDungeonBlueprint(options = {}) {
     const baseSeed  = options.seed ?? (Date.now() ^ (Math.random() * 0xFFFFFFFF));
     const schedules = options.schedules || [null, null, null];
     const difficulty = options.difficulty || null;
-    const minRating  = (difficulty && MIN_CHALLENGE_RATING[difficulty]) || 0;
+    const [minRating, maxRating] = (difficulty && CHALLENGE_RATING_RANGE[difficulty]) || [0, 10];
 
-    // Rejection loop: regenerate with nudged seed if rating is below floor
+    // Rejection loop: regenerate with nudged seed if rating is outside range
     for (let attempt = 0; attempt <= MAX_RESEED_ATTEMPTS; attempt++) {
         const seed = baseSeed + attempt;
         const blueprint = _generateBlueprint(seed, schedules, difficulty, options);
+        const rating = blueprint.scoring.challengeRating;
 
-        if (blueprint.scoring.challengeRating >= minRating || attempt === MAX_RESEED_ATTEMPTS) {
+        if ((rating >= minRating && rating <= maxRating) || attempt === MAX_RESEED_ATTEMPTS) {
             if (attempt > 0) blueprint.reseedAttempts = attempt;
             return blueprint;
         }

@@ -1810,6 +1810,7 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     object-fit: cover;
     -webkit-mask-image: linear-gradient(to bottom, black 45%, transparent 100%);
     mask-image: linear-gradient(to bottom, black 45%, transparent 100%);
+    pointer-events: none;
 }
 
 /* Type bar — small stat line between art and body */
@@ -3498,6 +3499,7 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   height: auto;
   object-fit: contain;
   filter: sepia(0.2) contrast(0.95) brightness(0.95);
+  pointer-events: none;
 }
 
 /* Sketch images blend into parchment — transparent bg, no frame */

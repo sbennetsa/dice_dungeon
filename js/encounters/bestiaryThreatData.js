@@ -553,28 +553,28 @@ export const BOSS_PROFILES = {
     },
 
     15: {   // The Void Lord
-        baseThreat: 379,  // formula (boss C=1.35): dur=810 (phases) × off=30.4, disruption=27.3
+        baseThreat: 420,  // HP 700, Void Aura from turn 1, Void Drain lifesteal sustain, Entropy at 50%
         eliteAffinities: {
-            deadly:     35,
-            enraged:    45,   // d10→d16 with double action at 20% = potential wipe
-            phasing:    38,   // 450 HP + 50% resist + entropy
-            timewarped: 32,   // entropy phase at 75%, double action at 45%
-            armored:    34,   // 450 HP + armor; entropy erodes player dice
+            deadly:     38,
+            enraged:    48,   // d10→d16 with double action at 20% = potential wipe
+            phasing:    40,   // 450 HP + 50% resist + entropy
+            timewarped: 35,   // entropy phase at 75%, double action at 45%
+            armored:    36,   // 450 HP + armor; entropy erodes player dice
         },
         envAffinities: {
             burningGround:     3,
-            healingAura:       5,
+            healingAura:       7,   // Void Drain + healing aura = high sustain
             slipperyFloor:     1,
             arcaneNexus:       6,
             narrowCorridor:    4,
             thornsAura:        3,
             unstableGround:    2,
             consecratedGround: 6,
-            voidZone:          4,   // player dice lose low values; Void Lord's d10 unaffected
+            voidZone:          5,   // player dice lose low values; Void Aura compounds
             bloodMoon:        -2,
             chaosStorm:        2,
         },
-        notes: 'Entropy permanently shrinks player dice each turn. Double-action at 20% HP is lethal.',
+        notes: 'Void Aura drains 1 die/turn from start; upgrades to full Entropy at 50%. Void Drain heals from damage dealt. Double-action at 20% HP is lethal.',
     },
 };
 

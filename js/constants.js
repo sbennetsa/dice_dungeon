@@ -571,27 +571,31 @@ export const BOSSES = {
         ],
     },
     15: {
-        name: 'The Void Lord', hp: 600, dice: [12, 12, 12, 12, 12, 12], gold: 250, xp: 120, image: 'assets/enemies/The_Void_Lord.webp',
+        name: 'The Void Lord', hp: 700, dice: [12, 12, 12, 12, 12, 12], gold: 250, xp: 120, image: 'assets/enemies/The_Void_Lord.webp',
         id: 'void_lord',
         abilities: {
             strike:    { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
-            voidRift:  { name: 'Void Rift', icon: '🌀', type: 'curse', desc: 'Seal 2 random slots for 1 turn', slotsToSeal: 2, fixedDuration: 1 },
+            voidDrain: { name: 'Void Drain', icon: '🩸', type: 'attack', desc: 'Deal damage and heal equal to damage dealt', lifestealOnHit: true },
             darkPulse: { name: 'Dark Pulse', icon: '💜', type: 'unblockable', desc: 'Deal unblockable damage (max 22)', maxDamage: 22 },
+            voidRift:  { name: 'Void Rift', icon: '🌀', type: 'curse', desc: 'Seal 2 random slots for 1 turn', slotsToSeal: 2, fixedDuration: 1 },
         },
-        passives: [],
-        pattern: ['strike', 'voidRift', 'darkPulse'],
+        passives: [{ id: 'voidAura', name: 'Void Aura', desc: 'Each turn, 1 random player die loses 1 max value', params: {} }],
+        pattern: ['strike', 'voidDrain', 'darkPulse', 'voidRift'],
         phases: [
             {
                 trigger: { hpPercent: 0.5 },
                 changes: {
+                    healToPercent: 1.0,
                     addDice: [12, 12],
+                    removePassives: ['voidAura'],
                     addPassives: [{ id: 'entropy', name: 'Entropy', desc: 'Each turn, all player dice lose 1 max value', params: {} }],
-                    log: 'Reality fractures around the Void Lord! Your dice begin to decay...',
+                    log: 'The Void Lord reconstitutes! Its aura intensifies — all your dice begin to decay!',
                 },
             },
             {
                 trigger: { hpPercent: 0.2 },
                 changes: {
+                    healToPercent: 0.5,
                     doubleAction: true,
                     damageTakenMultiplier: 1.5,
                     log: 'The Void Lord tears apart at the seams! It attacks wildly but exposes its core!',

@@ -616,6 +616,7 @@ export const Combat = {
             case 'attack':
                 if (ab.multiHit) return `${ab.icon} ${ab.name}: ${diceStr} → each die hits separately${modStr}`;
                 if (ab.penetrate) return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → ${iv} damage (${ab.penetrate} pierce)${modStr}`;
+                if (ab.lifestealOnHit) return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → ${iv} damage + drain${modStr}`;
                 return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → ${iv} damage incoming${modStr}`;
             case 'unblockable':
                 return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → ${iv} unblockable!`;
@@ -1473,6 +1474,8 @@ export const Combat = {
             spawnFloatText(`-${poisonDmg}`, $('enemy-panel'), 'poison');
             Combat.renderEnemy();
 
+            // Phase transitions can heal the enemy (healToPercent) before death
+            Combat._checkPhaseTransitions();
             if (e.currentHp <= 0) {
                 const phylP2 = e.passives.find(p => p.id === 'phylactery');
                 const reassP2 = e.passives.find(p => p.id === 'reassemble');
@@ -1790,6 +1793,14 @@ export const Combat = {
                 log(`🩸 ${e.name} lifesteals ${ls} HP!`, 'info');
                 Combat.renderEnemy();
             }
+            // Lifesteal on hit (ability flag, e.g. Void Drain)
+            if (ab.lifestealOnHit && mitigated > 0) {
+                const ls = mitigated;
+                e.currentHp = Math.min(e.maxHp, e.currentHp + ls);
+                log(`🩸 ${ab.name}: ${e.name} drains ${ls} HP!`, 'info');
+                if (ls > 0) spawnFloatText(`+${ls}`, $('enemy-panel'), 'enemy-heal');
+                Combat.renderEnemy();
+            }
 
             // Death Ward / Eternal Pact
             if (GS.hp <= 0) {
@@ -1904,9 +1915,15 @@ export const Combat = {
             e.phaseTriggered.push(idx);
             const ch = phase.changes;
             if (ch.addDice)               e.extraDice.push(...ch.addDice.map(enemyDie));
+            if (ch.removePassives)        e.passives = e.passives.filter(p => !ch.removePassives.includes(p.id));
             if (ch.addPassives)           e.passives.push(...ch.addPassives);
             if (ch.doubleAction)          e._doubleAction = true;
             if (ch.damageTakenMultiplier) e._damageTakenMult = ch.damageTakenMultiplier;
+            if (ch.healToPercent != null) {
+                const newHp = Math.floor(e.maxHp * ch.healToPercent);
+                e.currentHp = Math.min(e.maxHp, newHp);
+                e.shield = 0;
+            }
             if (ch.log)                   log(ch.log, 'damage');
             Combat.renderEnemy();
         });
@@ -2296,6 +2313,28 @@ export const Combat = {
             e.bloodFrenzyTriggered = true;
             e.extraDice.push(...frenzyP.params.extraDice.map(enemyDie));
             log(`🩸 ${e.name} enters a Blood Frenzy!`, 'damage');
+        }
+
+        // Void Aura: shrink 1 random player die each turn (Void Lord pre-phase)
+        const voidAuraP = e.passives.find(p => p.id === 'voidAura');
+        if (voidAuraP) {
+            if (GS.artifacts.some(a => a.effect === 'ironWill')) {
+                log('🧠 Iron Will: Void Aura resisted!', 'info');
+            } else {
+                const eligible = GS.dice.filter(d => d.max > 1);
+                if (eligible.length > 0) {
+                    const target = eligible[Math.floor(Math.random() * eligible.length)];
+                    if (target._savedMax === undefined) target._savedMax = target.max;
+                    if (target._savedMin === undefined) target._savedMin = target.min;
+                    target.max = Math.max(1, target.max - 1);
+                    if (target.faceValues) {
+                        target.faceValues = target.faceValues.filter(v => v <= target.max);
+                        if (target.faceValues.length === 0) target.faceValues = [0];
+                    }
+                    target.min = target.faceValues ? target.faceValues[0] : 0;
+                    log(`🌀 Void Aura! ${target.name || 'd' + (target.max + 1)} shrinks (now d${target.max}).`, 'damage');
+                }
+            }
         }
 
         // Entropy: shrink player dice each turn (Void Lord Phase 2+)

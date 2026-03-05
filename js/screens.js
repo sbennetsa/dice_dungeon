@@ -58,6 +58,20 @@ function _renderUnlockNotification() {
     _pendingUnlocks = [];
 }
 
+/** Snapshot the combat log and render a toggle on the game-over screen. */
+function _renderCombatLogReplay() {
+    const existing = document.getElementById('go-combat-log');
+    if (existing) existing.remove();
+    const src = $('combat-log');
+    if (!src || !src.children.length) return;
+    const wrapper = document.createElement('div');
+    wrapper.id = 'go-combat-log';
+    wrapper.innerHTML = `<button class="btn go-log-toggle" onclick="this.parentElement.querySelector('.go-log-entries').classList.toggle('open'); this.textContent = this.textContent.includes('▸') ? '▾ Hide Combat Log' : '▸ View Combat Log'">▸ View Combat Log</button>
+        <div class="go-log-entries combat-log">${src.innerHTML}</div>`;
+    const stats = $('go-stats');
+    stats.parentElement.insertBefore(wrapper, stats.nextSibling);
+}
+
 // Applies a die upgrade, doubling the effect if mastersHammer is active
 function applyUpgrade(die) {
     upgradeDie(die);
@@ -376,6 +390,7 @@ const Game = {
             ['Seed', DungeonMap.formatSeed(GS.seed)],
         ].map(([k,v]) => `<div class="final-stat-row"><span>${k}</span><span>${v}</span></div>`).join('');
         _renderUnlockNotification();
+        _renderCombatLogReplay();
         show('screen-gameover');
     },
 
@@ -421,6 +436,7 @@ const Game = {
         btns.appendChild(challenge);
 
         _renderUnlockNotification();
+        _renderCombatLogReplay();
         show('screen-gameover');
     },
 
@@ -642,6 +658,7 @@ const Game = {
         btns.appendChild(tryAgain);
 
         GS.challengeMode = false;
+        _renderCombatLogReplay();
         show('screen-gameover');
     }
 };

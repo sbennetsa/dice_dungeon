@@ -1303,18 +1303,15 @@ export const Combat = {
             }
         }
 
-        // Soul Pact: overkill reflects back to player
+        // Soul Pact: overkill reflects back to player (death check deferred until after healing)
+        let soulPactLethal = false;
         const soulPactP = e.passives.find(p => p.id === 'soulPact');
         if (soulPactP && finalAtk > e.currentHp && finalAtk > 0) {
             const reflected = finalAtk - e.currentHp;
             GS.hp = Math.max(0, GS.hp - reflected);
             log(`👹 Soul Pact! ${reflected} overkill reflected to you!`, 'damage');
             updateStats();
-            if (GS.hp <= 0) {
-                GS.hp = 0; updateStats();
-                setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000);
-                return;
-            }
+            soulPactLethal = GS.hp <= 0;
         }
 
         // ── PLAYER ATTACKS ENEMY ──
@@ -1384,6 +1381,13 @@ export const Combat = {
         if (regenCoreHeal > 0) {
             const h = heal(regenCoreHeal);
             if (h > 0) { log(`💚 Regen Core: +${h} HP`, 'heal'); updateStats(); spawnFloatText(`+${h}`, $('player-hp-bar'), 'heal'); }
+        }
+
+        // Soul Pact: deferred death check (after siphon/bloodstone/lifesteal/regen healing)
+        if (soulPactLethal && GS.hp <= 0) {
+            GS.hp = 0; updateStats();
+            setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000);
+            return;
         }
 
         // ── POST-ATTACK PASSIVE CHECKS ──

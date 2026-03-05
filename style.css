@@ -1074,6 +1074,24 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 .final-stat-row:last-child { border: none; }
 .final-stat-row span:last-child { color: var(--gold); font-weight: 700; }
 
+/* ── Game Over Combat Log Replay ── */
+#go-combat-log { margin-top: 16px; text-align: left; }
+.go-log-toggle {
+    width: 100%;
+    text-align: left;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    background: transparent;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 6px;
+}
+.go-log-toggle:hover { color: var(--text); border-color: var(--text-muted); }
+.go-log-entries { display: none; margin-top: 8px; max-height: 300px; }
+.go-log-entries.open { display: block; }
+
 /* ── Section title ── */
 .section-title {
     text-align: center;

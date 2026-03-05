@@ -20,7 +20,7 @@ export const ANOMALY_THREATS = {
 };
 
 // ────────────────────────────────────────────────────────────
-//  Non-Combat Floor Player Advantage Values
+//  Player Advantage Values
 //  All values expressed in threat-equivalent units — same scale
 //  as baseThreat so net challenge (threat − advantage) is meaningful.
 //
@@ -30,10 +30,21 @@ export const ANOMALY_THREATS = {
 //    Post-Act 1: 0.05 × 720  ≈ 36
 //    Post-Act 2: 0.04 × 1220 ≈ 48
 //
+//  Gold advantage (per combat, optimal spend):
+//    Die upgrade: 50g → 36 (Act 1) / 48 (Act 2/3) threat-equiv.
+//    Naive rate: 0.72 / 0.96 per gold.
+//    Structural discount: shop capacity, timing, unspendable late gold.
+//    Act 1 gold benefits the whole run (high utilization) → 0.25.
+//    Act 2 moderate utilization → 0.20.
+//    Act 3 few remaining fights → 0.10.
+//
+//  XP advantage (per combat):
+//    Level-up ≈ +5 HP (permanent durability) + skill point ≈ 80 threat-equiv.
+//    Avg 82 XP/level → ~1.0/XP naive.
+//    Structural discount: diminishing level value, end-of-run waste → 0.15.
+//
 //  Heal (30% max HP) has the same face value as the upgrade —
-//  they are meant to be equivalent maintenance choices. The heal
-//  won't always be fully utilized (~60-70% uptime when damaged),
-//  making both approximately equal in expected value.
+//  they are meant to be equivalent maintenance choices.
 //
 //  Rest transformation tier (+1 slot / sacrifice / transform):
 //    +1 slot adds a whole die, ≈ 3× the value of +1/+1 upgrade.
@@ -56,8 +67,20 @@ export const EVENT_ADVANTAGES = {
     merchantPrince:    40,   // premium shop, high spending power
 };
 
-export const SHOP_ADVANTAGES        = [20, 40, 55];   // per act (0-based): spending power × item efficiency
-export const DOUBLE_SHOP_ADVANTAGES = [30, 60, 82];
+// Gold → threat-equiv per unit, by act (0-indexed).
+// Anchored to die upgrade at optimal spend, discounted for structural constraints
+// (limited shop visits, timing, unspendable late-run gold).
+// Per-combat advantage/threat ratio check (must stay < 1):
+//   Act 1 (threat 17): goldAdv 6.5 + xpAdv 2.6 = 9.1 → 53% ✓
+//   Act 2 (threat 60): goldAdv 18   + xpAdv 5.4 = 23.4 → 39% ✓
+//   Act 3 (threat 210): goldAdv 32  + xpAdv 11.7 = 43.7 → 21% ✓
+export const GOLD_ADVANTAGE_RATE = [0.25, 0.20, 0.10];
+
+// XP → threat-equiv per unit (flat).
+// Level-up ≈ 80 threat-equiv, avg ~81 XP/level (30/×1.4 curve) → ~1.0 naive.
+// Discounted for diminishing level value and end-of-run XP waste.
+export const XP_ADVANTAGE_RATE = 0.15;
+
 export const REST_ADVANTAGES        = [135, 180];      // post-act-1, post-act-2
 
 export const REWARD_ADVANTAGES = {
@@ -176,6 +199,19 @@ export function scoreFloorDetailed(floor) {
 }
 
 /**
+ * Compute gold + XP advantage from a combat reward object.
+ * @param {{ gold: [number, number], xp: [number, number] }} reward
+ * @param {number} act - Act number (1, 2, or 3)
+ * @returns {number} Threat-equivalent advantage
+ */
+export function rewardToAdvantage(reward, act) {
+    if (!reward || !reward.gold) return 0;
+    const goldMid = (reward.gold[0] + reward.gold[1]) / 2;
+    const xpMid   = (reward.xp[0] + reward.xp[1]) / 2;
+    return Math.round(goldMid * GOLD_ADVANTAGE_RATE[act - 1] + xpMid * XP_ADVANTAGE_RATE);
+}
+
+/**
  * Score a non-combat floor's player advantage.
  * @param {object} floor - Floor blueprint
  * @returns {number} Player advantage (positive = helps player)
@@ -184,10 +220,6 @@ export function scorePlayerAdvantage(floor) {
     switch (floor.type) {
         case 'event':
             return EVENT_ADVANTAGES[floor.eventId] || 15;
-        case 'shop': {
-            const actIndex = Math.min(Math.ceil(floor.floor / 5) - 1, 2);
-            return SHOP_ADVANTAGES[actIndex];
-        }
         case 'rest':
             return REST_ADVANTAGES[floor.restIndex] || 15;
         default:
@@ -208,11 +240,13 @@ export function scorePlayerAdvantage(floor) {
  * @returns {object} Full scoring breakdown
  */
 export function scoreDungeon(blueprint, difficulty) {
-    let totalCombatThreat   = 0;
-    let totalEliteThreat    = 0;
+    let totalCombatThreat    = 0;
+    let totalEliteThreat     = 0;
     let totalPlayerAdvantage = 0;
-    const threatByAct       = [0, 0, 0];
-    const elitesPerAct      = [0, 0, 0]; // count elite offers per act
+    let totalGoldXpAdvantage = 0;     // gold + XP from base combat rewards
+    let totalEliteRewardBonus = 0;    // extra gold + XP from taking elite
+    const threatByAct        = [0, 0, 0];
+    const elitesPerAct       = [0, 0, 0];
 
     for (const act of blueprint.acts) {
         let actThreat = 0;
@@ -225,10 +259,23 @@ export function scoreDungeon(blueprint, difficulty) {
 
             if (floor.eliteOffered) elitesPerAct[actIdx]++;
 
+            // Gold + XP advantage from combat rewards
+            if (floor.type === 'combat' || floor.type === 'boss') {
+                const baseAdv = rewardToAdvantage(floorScore.baseReward, act.actNumber);
+                totalGoldXpAdvantage += baseAdv;
+                if (floor.eliteOffered) {
+                    totalEliteRewardBonus += rewardToAdvantage(floorScore.eliteReward, act.actNumber) - baseAdv;
+                }
+            }
+
+            // Non-combat floor advantages (events, rests — no shops)
             totalPlayerAdvantage += scorePlayerAdvantage(floor);
         }
         threatByAct[actIdx] = actThreat;
     }
+
+    // Gold + XP from combat is player advantage
+    totalPlayerAdvantage += totalGoldXpAdvantage;
 
     // Rest stop advantages
     totalPlayerAdvantage += REST_ADVANTAGES[0]; // post-act-1
@@ -241,8 +288,8 @@ export function scoreDungeon(blueprint, difficulty) {
     const netEliteChallenge = netChallenge + totalEliteThreat;
 
     // Elite reward advantage: elites raise both threat AND player power.
-    // ELITE_NET_ADVANTAGE captures the net effect per elite fight per act.
-    // Positive values mean rewards outweigh attrition (player gets stronger).
+    // ELITE_NET_ADVANTAGE captures the net effect of elite loot per act.
+    // totalEliteRewardBonus captures the extra gold/XP from elite combat.
     let totalEliteAdvantage = 0;
     for (let i = 0; i < 3; i++) {
         totalEliteAdvantage += elitesPerAct[i] * ELITE_NET_ADVANTAGE[i];
@@ -256,30 +303,31 @@ export function scoreDungeon(blueprint, difficulty) {
     if (difficulty === 'casual') {
         effectiveChallenge = netChallenge;
     } else if (difficulty === 'heroic') {
-        effectiveChallenge = netEliteChallenge - totalEliteAdvantage;
+        effectiveChallenge = netEliteChallenge - totalEliteAdvantage - totalEliteRewardBonus;
     } else {
         // Standard: elites are optional where offered, assume ~50% uptake
         effectiveChallenge = netChallenge
-            + Math.round(totalEliteThreat * 0.5)
-            - Math.round(totalEliteAdvantage * 0.5);
+            + Math.round((totalEliteThreat - totalEliteAdvantage - totalEliteRewardBonus) * 0.5);
     }
 
     // Normalize to 1–10 scale
-    // With threat-equivalent advantages, effective challenge range is:
-    //   ~400 (casual/event-heavy) to ~1150 (heroic/gauntlet)
-    // Step size 80 starting at 350 gives a clean 1–10 distribution:
-    //   Casual ≈ 1–3, Standard ≈ 3–6, Heroic ≈ 6–10
+    // With gold+XP scored per combat, effective challenge range is:
+    //   ~-50 (casual/event-heavy) to ~400 (heroic/gauntlet)
+    // Step size 45, offset +65 gives clean 1–10 distribution:
+    //   Casual ≈ 1–3, Standard ≈ 4–7, Heroic ≈ 8–10
     const challengeRating = Math.max(1, Math.min(10,
-        Math.round((effectiveChallenge - 350) / 80)
+        Math.round((effectiveChallenge + 65) / 45)
     ));
 
     return {
         totalCombatThreat,
         totalPlayerAdvantage,
+        totalGoldXpAdvantage,
         netChallenge,
         totalEliteThreat,
         netEliteChallenge,
         totalEliteAdvantage,
+        totalEliteRewardBonus,
         elitesPerAct,
         effectiveChallenge,
         threatByAct,
@@ -292,25 +340,49 @@ export function scoreDungeon(blueprint, difficulty) {
 // ────────────────────────────────────────────────────────────
 
 /**
+ * Convert a threat value to an XP reward.
+ * Uses a sublinear power curve: XP = k × threat^p
+ * This compresses the ~12× threat range (Act 1→3) into ~5× XP range,
+ * so higher-act enemies reward more XP but don't completely dwarf Act 1.
+ *
+ * Calibrated for 6–7 levels per standard run (2 combats + boss per act).
+ * @param {number} threat - baseThreat value
+ * @returns {number} Base XP value (before ±15% spread)
+ */
+const XP_K = 2.5;
+const XP_P = 0.65;
+export function threatToXP(threat) {
+    return Math.max(5, Math.round(XP_K * Math.pow(Math.max(1, threat), XP_P)));
+}
+
+/**
+ * Convert a threat value to an XP reward range (±15%).
+ * @param {number} threat - baseThreat value
+ * @returns {[number, number]} [min, max] XP range
+ */
+export function threatToXPRange(threat) {
+    const base = threatToXP(threat);
+    return [Math.round(base * 0.85), Math.round(base * 1.15)];
+}
+
+/**
  * Convert a threat score to gold/XP rewards.
- * Higher threat = proportionally higher rewards.
+ * Gold uses a linear conversion; XP uses the sublinear threatToXP curve.
  * @param {number} threat
  * @param {number} floor
  * @returns {{ gold: [number, number], xp: [number, number] }}
  */
 export function threatToReward(threat, floor) {
-    // Base conversion: ~1.5 gold per threat, ~2 XP per threat
-    // Floor adds a small bonus to keep later floors rewarding
+    // Gold: ~1.5 per threat + small floor bonus
     const floorBonus = Math.floor(floor * 0.5);
-
     const goldBase = Math.max(5, Math.round(threat * 1.5) + floorBonus);
-    const xpBase   = Math.max(5, Math.round(threat * 2.0) + floorBonus);
 
-    // ±20% spread
+    // ±20% gold spread
     const goldMin = Math.round(goldBase * 0.8);
     const goldMax = Math.round(goldBase * 1.2);
-    const xpMin   = Math.round(xpBase * 0.8);
-    const xpMax   = Math.round(xpBase * 1.2);
 
-    return { gold: [goldMin, goldMax], xp: [xpMin, xpMax] };
+    // XP: sublinear power curve (shared with actual combat rewards)
+    const xpRange = threatToXPRange(threat);
+
+    return { gold: [goldMin, goldMax], xp: xpRange };
 }

@@ -9,7 +9,7 @@ import { BOSSES, resolveEnemy, getEnemyPool } from '../constants.js';
 import { ENVIRONMENTS } from './environmentSystem.js';
 import { ELITE_MODIFIERS, BOSS_ELITE_MODIFIERS } from './eliteModifierSystem.js';
 import { ANOMALIES } from './anomalySystem.js';
-import { scoreDungeon, ANOMALY_THREATS } from './dungeonScoring.js';
+import { scoreDungeon, ANOMALY_THREATS, threatToXPRange } from './dungeonScoring.js';
 import { getEnemyProfile, getEnvThreatForEnemy } from './bestiaryThreatData.js';
 
 // ────────────────────────────────────────────────────────────
@@ -396,6 +396,11 @@ function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
 
     // 2. Set maxHp from baked HP (no scaling — stats are per-act)
     enemy.maxHp = enemy.hp;
+
+    // 2b. Compute XP from baseThreat (links reward to challenge)
+    const xpProfile = getEnemyProfile(enemy.name, isBoss ? floor : null, act);
+    const xpThreat  = xpProfile ? xpProfile.baseThreat : 15;
+    enemy.xp = threatToXPRange(xpThreat);
 
     // 3. Roll for anomaly
     const anomaly = rollForAnomalySeeded(floor, rng, options.anomalyRate);

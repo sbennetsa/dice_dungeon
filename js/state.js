@@ -9,7 +9,7 @@ export const GS = {
     gold: 0,
     level: 1,
     xp: 0,
-    xpNext: 50,
+    xpNext: 30,
     dice: [],
     slots: {
         strike: [{ id: 'str-0', rune: null }, { id: 'str-1', rune: null }],
@@ -130,7 +130,7 @@ export function gainXP(amount) {
     while (GS.xp >= GS.xpNext) {
         GS.xp -= GS.xpNext;
         GS.level++;
-        GS.xpNext = Math.floor(GS.xpNext * 1.25);
+        GS.xpNext = Math.floor(GS.xpNext * 1.4);
         GS.maxHp += 5;
         GS.hp = Math.min(GS.hp + 5, GS.maxHp);
         GS.pendingSkillPoints = (GS.pendingSkillPoints || 0) + 1;

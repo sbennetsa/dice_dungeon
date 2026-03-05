@@ -1405,6 +1405,7 @@ const Rewards = {
         $('reward-title').textContent = 'Victory — Choose Your Reward';
         const c = $('reward-cards');
         c.innerHTML = '';
+        c.style.display = '';
 
         const rewards = [];
 
@@ -3177,13 +3178,14 @@ const Events = {
 const Rest = {
     _transformDone: false,
     _maintenanceDone: false,
-
     _consumablePicked: false,
+    _consumableOffers: [],
 
     enter() {
         Rest._transformDone = false;
         Rest._maintenanceDone = false;
         Rest._consumablePicked = false;
+        Rest._consumableOffers = [pickWeightedConsumable(), pickWeightedConsumable(), pickWeightedConsumable()];
         Rest._render();
     },
 
@@ -3306,55 +3308,60 @@ const Rest = {
 
         content.appendChild(maintGrid);
 
-        if (Rest._transformDone && Rest._maintenanceDone) {
-            // ── CONSUMABLE PICK ──
-            if (!Rest._consumablePicked) {
-                const sep2 = document.createElement('hr');
-                sep2.style.cssText = 'border:none; border-top:1px solid var(--border); margin:12px 0;';
-                content.appendChild(sep2);
+        // ── SEPARATOR ──
+        const sep2 = document.createElement('hr');
+        sep2.style.cssText = 'border:none; border-top:1px solid var(--border); margin:8px 0 16px;';
+        content.appendChild(sep2);
 
-                const supHeader = document.createElement('div');
-                supHeader.className = 'section-title';
-                supHeader.textContent = '🧴 TAKE A SUPPLY — Choose one (or skip)';
-                content.appendChild(supHeader);
+        // ── SUPPLY TIER ──
+        const supHeader = document.createElement('div');
+        supHeader.className = 'section-title';
+        supHeader.textContent = '🧴 TAKE A SUPPLY';
+        if (!Rest._maintenanceDone) supHeader.style.opacity = '0.4';
+        content.appendChild(supHeader);
 
-                const supGrid = document.createElement('div');
-                supGrid.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:8px;';
-                const offers = [pickWeightedConsumable(), pickWeightedConsumable(), pickWeightedConsumable()];
-                offers.forEach(item => {
-                    const rarityColor = item.rarity === 'rare' ? '#e8c97a' : item.rarity === 'uncommon' ? '#7ab4e8' : '#aaa';
-                    const card = document.createElement('div');
-                    card.className = 'card';
-                    card.style.cssText = 'width:140px; cursor:pointer;';
-                    card.innerHTML = `<div style="font-size:1.4em; text-align:center;">${item.icon}</div><div class="card-title" style="font-size:0.85em;">${item.name}</div><div class="card-desc" style="color:${rarityColor}; font-size:0.7em;">[${item.rarity}]</div><div class="card-effect" style="font-size:0.78em;">${item.description}</div>`;
-                    card.onclick = () => {
-                        addConsumableToInventory({ ...item });
-                        Rest._consumablePicked = true;
-                        Rest._render();
-                    };
-                    supGrid.appendChild(card);
-                });
-                content.appendChild(supGrid);
+        if (Rest._consumablePicked) {
+            const done = document.createElement('div');
+            done.style.cssText = 'text-align:center; color:var(--text-dim); font-size:0.85em; margin-bottom:16px;';
+            done.textContent = '✓ Supply chosen';
+            content.appendChild(done);
+        } else {
+            const supGrid = document.createElement('div');
+            supGrid.style.cssText = 'display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:8px;';
+            Rest._consumableOffers.forEach(item => {
+                const rarityColor = item.rarity === 'rare' ? '#e8c97a' : item.rarity === 'uncommon' ? '#7ab4e8' : '#aaa';
+                const card = document.createElement('div');
+                card.className = 'card' + (!Rest._maintenanceDone ? ' disabled' : '');
+                card.style.cssText = 'width:140px; cursor:pointer;';
+                card.innerHTML = `<div style="font-size:1.4em; text-align:center;">${item.icon}</div><div class="card-title" style="font-size:0.85em;">${item.name}</div><div class="card-desc" style="color:${rarityColor}; font-size:0.7em;">[${item.rarity}]</div><div class="card-effect" style="font-size:0.78em;">${item.description}</div>`;
+                if (Rest._maintenanceDone) card.onclick = () => {
+                    addConsumableToInventory({ ...item });
+                    Rest._consumablePicked = true;
+                    Rest._render();
+                };
+                supGrid.appendChild(card);
+            });
+            content.appendChild(supGrid);
 
-                const skipSupBtn = document.createElement('button');
-                skipSupBtn.className = 'btn';
-                skipSupBtn.textContent = 'Skip supply';
-                skipSupBtn.style.cssText = 'display:block; margin:0 auto 12px;';
-                skipSupBtn.onclick = () => { Rest._consumablePicked = true; Rest._render(); };
-                content.appendChild(skipSupBtn);
-            }
+            const skipSupBtn = document.createElement('button');
+            skipSupBtn.className = 'btn';
+            skipSupBtn.textContent = 'Skip supply';
+            skipSupBtn.style.cssText = 'display:block; margin:0 auto 12px;';
+            skipSupBtn.disabled = !Rest._maintenanceDone;
+            skipSupBtn.onclick = () => { Rest._consumablePicked = true; Rest._render(); };
+            content.appendChild(skipSupBtn);
+        }
 
-            // Only show Continue after supply pick (or skip)
-            if (Rest._consumablePicked) {
-                const contDiv = document.createElement('div');
-                contDiv.style.cssText = 'text-align:center; margin-top:16px;';
-                const contBtn = document.createElement('button');
-                contBtn.className = 'btn btn-primary';
-                contBtn.textContent = 'Continue →';
-                contBtn.onclick = () => Game.enterFloor();
-                contDiv.appendChild(contBtn);
-                content.appendChild(contDiv);
-            }
+        // ── CONTINUE ──
+        if (Rest._transformDone && Rest._maintenanceDone && Rest._consumablePicked) {
+            const contDiv = document.createElement('div');
+            contDiv.style.cssText = 'text-align:center; margin-top:16px;';
+            const contBtn = document.createElement('button');
+            contBtn.className = 'btn btn-primary';
+            contBtn.textContent = 'Continue →';
+            contBtn.onclick = () => Game.enterFloor();
+            contDiv.appendChild(contBtn);
+            content.appendChild(contDiv);
         }
 
         show('screen-rest');

@@ -2396,7 +2396,7 @@ export const Combat = {
         // Collect battle summary data
         const summary = { loot: [], bonuses: [] };
 
-        // Roll gold & XP — bosses use fixed values, others roll from range
+        // Roll gold & XP — both bosses and regulars use [min, max] ranges (from threatToXPRange)
         let earnedGold, earnedXP;
         if (e.isBoss) {
             earnedGold = typeof e.gold === 'number' ? e.gold : rand(e.gold[0], e.gold[1]);

@@ -8,6 +8,8 @@ import { selectEliteModifiers, selectBossEliteModifiers, applyEliteModifier, sca
 import { rollForAnomaly, applyAnomaly, ANOMALIES } from './anomalySystem.js';
 import { getFloorBlueprint, encounterFromBlueprint } from './dungeonBlueprint.js';
 import { pickNonCombatEncounter, applyEncounterResult, markEncounterSeen } from './nonCombatEncounters.js';
+import { threatToXPRange } from './dungeonScoring.js';
+import { getEnemyProfile } from './bestiaryThreatData.js';
 
 const BOSS_FLOORS = [5, 10, 15];
 
@@ -127,6 +129,12 @@ function _generateEncounterLegacy(floor) {
 
     enemy.maxHp = enemy.hp; // no scaling — stats are per-act
 
+    // Compute XP from baseThreat (links reward to challenge)
+    const act          = Math.ceil(floor / 5);
+    const profile = getEnemyProfile(enemy.name, isBossFloor ? floor : null, act);
+    const xpThreat = profile ? profile.baseThreat : 15;
+    enemy.xp = threatToXPRange(xpThreat);
+
     const anomaly = rollForAnomaly(floor);
     let environment = selectEnvironment(floor);
 
@@ -139,8 +147,6 @@ function _generateEncounterLegacy(floor) {
     const eliteModifiers = isBossFloor
         ? selectBossEliteModifiers()
         : selectEliteModifiers();
-
-    const act          = Math.ceil(floor / 5);
     const eliteChance  = act >= 3 ? 1.0 : act / 3;
     const eliteOffered = Math.random() < eliteChance;
 

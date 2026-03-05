@@ -70,14 +70,14 @@ export const EVENT_ADVANTAGES = {
 // Gold → threat-equiv per unit, by act (0-indexed).
 // Anchored to die upgrade at optimal spend, discounted for structural constraints
 // (limited shop visits, timing, unspendable late-run gold).
-// Per-combat ratio check: 1.5×goldRate + 2.0×xpRate must be < 1.
-//   Act 1: 0.675 → net 32.5% of threat ✓
-//   Act 2: 0.60  → net 40% ✓
-//   Act 3: 0.45  → net 55% ✓
+// Per-combat advantage/threat ratio check (must stay < 1):
+//   Act 1 (threat 17): goldAdv 6.5 + xpAdv 2.6 = 9.1 → 53% ✓
+//   Act 2 (threat 60): goldAdv 18   + xpAdv 5.4 = 23.4 → 39% ✓
+//   Act 3 (threat 210): goldAdv 32  + xpAdv 11.7 = 43.7 → 21% ✓
 export const GOLD_ADVANTAGE_RATE = [0.25, 0.20, 0.10];
 
 // XP → threat-equiv per unit (flat).
-// Level-up ≈ 80 threat-equiv, avg 82 XP/level → ~1.0 naive.
+// Level-up ≈ 80 threat-equiv, avg ~81 XP/level (30/×1.4 curve) → ~1.0 naive.
 // Discounted for diminishing level value and end-of-run XP waste.
 export const XP_ADVANTAGE_RATE = 0.15;
 
@@ -340,25 +340,49 @@ export function scoreDungeon(blueprint, difficulty) {
 // ────────────────────────────────────────────────────────────
 
 /**
+ * Convert a threat value to an XP reward.
+ * Uses a sublinear power curve: XP = k × threat^p
+ * This compresses the ~12× threat range (Act 1→3) into ~5× XP range,
+ * so higher-act enemies reward more XP but don't completely dwarf Act 1.
+ *
+ * Calibrated for 6–7 levels per standard run (2 combats + boss per act).
+ * @param {number} threat - baseThreat value
+ * @returns {number} Base XP value (before ±15% spread)
+ */
+const XP_K = 2.5;
+const XP_P = 0.65;
+export function threatToXP(threat) {
+    return Math.max(5, Math.round(XP_K * Math.pow(Math.max(1, threat), XP_P)));
+}
+
+/**
+ * Convert a threat value to an XP reward range (±15%).
+ * @param {number} threat - baseThreat value
+ * @returns {[number, number]} [min, max] XP range
+ */
+export function threatToXPRange(threat) {
+    const base = threatToXP(threat);
+    return [Math.round(base * 0.85), Math.round(base * 1.15)];
+}
+
+/**
  * Convert a threat score to gold/XP rewards.
- * Higher threat = proportionally higher rewards.
+ * Gold uses a linear conversion; XP uses the sublinear threatToXP curve.
  * @param {number} threat
  * @param {number} floor
  * @returns {{ gold: [number, number], xp: [number, number] }}
  */
 export function threatToReward(threat, floor) {
-    // Base conversion: ~1.5 gold per threat, ~2 XP per threat
-    // Floor adds a small bonus to keep later floors rewarding
+    // Gold: ~1.5 per threat + small floor bonus
     const floorBonus = Math.floor(floor * 0.5);
-
     const goldBase = Math.max(5, Math.round(threat * 1.5) + floorBonus);
-    const xpBase   = Math.max(5, Math.round(threat * 2.0) + floorBonus);
 
-    // ±20% spread
+    // ±20% gold spread
     const goldMin = Math.round(goldBase * 0.8);
     const goldMax = Math.round(goldBase * 1.2);
-    const xpMin   = Math.round(xpBase * 0.8);
-    const xpMax   = Math.round(xpBase * 1.2);
 
-    return { gold: [goldMin, goldMax], xp: [xpMin, xpMax] };
+    // XP: sublinear power curve (shared with actual combat rewards)
+    const xpRange = threatToXPRange(threat);
+
+    return { gold: [goldMin, goldMax], xp: xpRange };
 }

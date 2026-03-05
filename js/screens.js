@@ -258,7 +258,7 @@ const Game = {
         resetDieIdCounter(0);
         Object.assign(GS, {
             floor: 1, act: 1, hp: 50, maxHp: 50, gold: 15,
-            level: 1, xp: 0, xpNext: 50,
+            level: 1, xp: 0, xpNext: 30,
             dice: [createDie(1,6), createDie(1,6), createDie(1,6)],
             slots: {
                 strike: [{ id: 'str-0', runes: [] }, { id: 'str-1', runes: [] }],

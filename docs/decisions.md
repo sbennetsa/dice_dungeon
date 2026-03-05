@@ -150,16 +150,78 @@ Heroic removes the Standard option from EncounterChoice entirely (not just pre-s
 
 ---
 
+## Player Advantage Values — Threat-Equivalent Scale
+
+**Date:** 2026-03-05
+**Status:** Decided
+
+### Decision
+All player advantage values (rests, shops, events, artifacts, elite rewards) are expressed in **threat-equivalent units** — the same scale as enemy `baseThreat`. Net challenge = totalCombatThreat − totalPlayerAdvantage is meaningful because both sides use the same unit.
+
+### Anchor: die upgrade (+1/+1)
+The die upgrade is the anchor for all advantage values because it's a fixed, calculable input to the threat formula:
+- +1 avg damage/turn ≈ 5% DPS boost (player pool ~20 avg DPS)
+- Value = boost fraction × remaining combat threat
+- Post-Act 1: 0.05 × 720 ≈ 36
+- Post-Act 2: 0.04 × 1220 ≈ 48
+
+### Heal equivalence
+The 30% heal has the **same face value** as the die upgrade — they are meant to be equivalent maintenance choices. The heal won't always be fully utilized (~60-70% uptime when damaged), making both approximately equal in expected value.
+
+### Rest total
+Rest = transformation(2.5× upgrade) + maintenance(1× upgrade) + consumable(0.25× upgrade) ≈ 3.75× upgrade.
+- `REST_ADVANTAGES = [135, 180]` (post-Act 1, post-Act 2)
+
+### Other values
+- `SHOP_ADVANTAGES = [20, 40, 55]` — spending power × item efficiency per act
+- `EVENT_ADVANTAGES` — 10 to 40, scaled by event impact and permanence
+- `REWARD_ADVANTAGES` — bossArtifact: 35, eliteArtifact: 25
+- `ELITE_NET_ADVANTAGE = [8, 3, -5]` — rewards dominate early, attrition dominates late
+
+### Rationale
+Previous advantage values (e.g. rests at 15/18 vs Act 2 enemies at ~60 threat) were not on the same scale as threat, making the net challenge metric meaningless. Using the die upgrade as an anchor and deriving all other values relative to it ensures balanced scoring where each reward type speaks to a comparable benefit.
+
+---
+
+## Challenge Rating Bands — Strict Non-Overlapping Per Difficulty
+
+**Date:** 2026-03-05
+**Status:** Decided
+
+### Decision
+Each difficulty enforces a strict challenge rating band via rejection + reseed:
+- **Casual:** 1–3
+- **Standard:** 4–7
+- **Heroic:** 8–10
+
+If a generated dungeon's `challengeRating` falls outside its difficulty's band, the seed is nudged (+1) and the dungeon regenerated, up to 5 attempts. The `reseedAttempts` count is stored on the blueprint for diagnostics.
+
+### Schedule filtering
+Certain floor schedules are excluded per difficulty to prevent structural mismatches:
+- **Casual** excludes gauntlet (3 combats, no events) — too many combats produce too little player advantage
+- **Heroic** excludes event-heavy (2 events per act) — too much player advantage reduces effective challenge
+- **Standard** allows all 5 schedule types
+
+This is implemented via `DIFFICULTY_SCHEDULES` in `dungeonBlueprint.js`, passed as `allowedSchedules` to `generateAct()`.
+
+### Rationale
+Without band enforcement, seed RNG could produce wildly inappropriate ratings (e.g. 4/10 on Heroic, 1/10 on Standard). Non-overlapping bands ensure each difficulty feels distinct. Schedule filtering addresses the root cause: the schedule determines how many combat vs. non-combat floors exist, which directly determines the advantage/threat balance. Filtering prevents the mismatch rather than trying to compensate after the fact.
+
+### Normalization formula
+`challengeRating = round((effectiveChallenge − 350) / 80)` clamped to 1–10. Effective challenge range is ~400 (casual) to ~1250 (heroic).
+
+---
+
 ## Shop Advantage — Scaled by Act, Not Flat
 
 **Date:** 2026-03-02
 **Status:** Decided
 
 ### Decision
-Shop player-advantage in dungeon scoring uses `SHOP_ADVANTAGES = [4, 8, 12]` (Act 1 / Act 2 / Act 3) instead of a flat value. Double-shop schedules use `DOUBLE_SHOP_ADVANTAGES = [6, 12, 18]`.
+Shop player-advantage in dungeon scoring uses `SHOP_ADVANTAGES = [20, 40, 55]` (Act 1 / Act 2 / Act 3) instead of a flat value. Double-shop schedules use `DOUBLE_SHOP_ADVANTAGES = [30, 60, 82]`.
 
 ### Rationale
-An Act 1 shop is objectively worth less than an Act 3 shop: the player has fewer dice, less gold accumulated, and fewer upgrade paths explored. A flat value of 8 overestimated the benefit of early shops (player can barely afford one item) and underestimated late shops (player has capital and a clear strategy). The scaled values better reflect actual purchasing power and decision quality at each act.
+An Act 1 shop is objectively worth less than an Act 3 shop: the player has fewer dice, less gold accumulated, and fewer upgrade paths explored. Scaled values reflect actual purchasing power and decision quality at each act. Values are expressed in threat-equivalent units (same scale as enemy baseThreat).
 
 ---
 

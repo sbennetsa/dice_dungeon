@@ -904,7 +904,7 @@ export function updateSlotTotals() {
         const m = getActiveFace(d)?.modifier;
         if (m?.effect === 'executioner') { val *= 5; perDieMults.push({ mult: 5, label: 'Executioner' }); }
         else if (m?.effect === 'chainLightning') { val *= 2; perDieMults.push({ mult: 2, label: 'Chain Lightning' }); }
-        const utilFx = new Set(['freezeStrike', 'jackpot', 'shieldBash', 'critical']);
+        const utilFx = new Set(['freezeStrike', 'jackpot', 'critical']);
         const isStatus = !!(m && utilFx.has(m.effect));
         if (isStatus) val = 0;
         return { val, displayVal, perDieMults, echoAdd, isStatus, skip: false };

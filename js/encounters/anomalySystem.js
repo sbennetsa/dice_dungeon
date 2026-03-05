@@ -76,8 +76,13 @@ export const ANOMALIES = {
             const keys = Object.keys(enemy.abilities || {});
             if (keys.length === 0) return { logMessage: `Reality flickers around the ${enemy.name}...` };
 
-            const randomKey = keys[Math.floor(Math.random() * keys.length)];
-            const types     = ['attack', 'heal', 'buff', 'poison', 'shield'];
+            // Only glitch non-attack abilities so the enemy always retains damage capability
+            const eligible = keys.filter(k => enemy.abilities[k].type !== 'attack');
+            if (eligible.length === 0) return { logMessage: `Reality flickers around the ${enemy.name}...` };
+
+            const randomKey = eligible[Math.floor(Math.random() * eligible.length)];
+            const oldType   = enemy.abilities[randomKey].type;
+            const types     = ['attack', 'heal', 'buff', 'poison', 'shield'].filter(t => t !== oldType);
             const newType   = types[Math.floor(Math.random() * types.length)];
             enemy.abilities[randomKey] = { ...enemy.abilities[randomKey], type: newType };
 

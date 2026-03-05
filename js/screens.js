@@ -6,7 +6,7 @@ import { FACE_MODS, ARTIFACT_POOL, LEGENDARY_ARTIFACT_POOL, RUNES, SKILL_TREE, C
 import { GS, $, rand, pick, shuffle, pickWeighted, log, gainXP, gainGold, heal } from './state.js';
 import { createDie, createDieFromFaces, createUtilityDie, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones } from './engine.js';
 import { Combat } from './combat.js';
-import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone } from './encounters/encounterGenerator.js';
+import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone, checkForNCE, applyEncounterResult, markEncounterSeen } from './encounters/encounterGenerator.js';
 import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
 import { scoreDungeon, scoreFloorDetailed, scorePlayerAdvantage, SHOP_ADVANTAGES, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
@@ -353,6 +353,16 @@ const Game = {
     },
 
     nextFloor() {
+        const resolvedType = getFloorType(GS.floor);
+        const nce = checkForNCE(resolvedType);
+        if (nce) {
+            NCE.show(nce);
+            return;
+        }
+        Game._doAdvance();
+    },
+
+    _doAdvance() {
         GS.floor++;
         if (GS.floor > 15) {
             Game.victory();
@@ -2282,6 +2292,75 @@ const Shop = {
         back.onclick = () => Shop.showFaceRemoval();
         c.appendChild(back);
     }
+};
+
+// ════════════════════════════════════════════════════════════
+//  NCE — Non-Combat Encounters (random corridor interrupts)
+// ════════════════════════════════════════════════════════════
+const NCE = {
+    show(nce) {
+        const ev = nce.event;
+        markEncounterSeen(ev.id);
+        updateStats();
+
+        const panel = $('event-panel');
+        panel.innerHTML = '';
+
+        // Title
+        const titleEl = document.createElement('div');
+        titleEl.style.cssText = 'font-size:1.15em; font-family:var(--font-heading); color:var(--gold); margin-bottom:6px; font-weight:bold;';
+        titleEl.textContent = ev.title;
+        panel.appendChild(titleEl);
+
+        // Flavour
+        const flavEl = document.createElement('div');
+        flavEl.style.cssText = 'font-family:var(--font-body); font-style:italic; color:var(--muted,#888); margin-bottom:10px; font-size:0.95em;';
+        flavEl.textContent = ev.flavour;
+        panel.appendChild(flavEl);
+
+        // Body
+        const bodyEl = document.createElement('div');
+        bodyEl.className = 'event-text';
+        bodyEl.style.cssText = 'margin-bottom:14px;';
+        bodyEl.textContent = ev.body;
+        panel.appendChild(bodyEl);
+
+        // Choices
+        ev.choices.forEach(ch => {
+            const disabled = ch.available ? !ch.available(GS) : false;
+            const btn = document.createElement('button');
+            btn.className = 'btn';
+            btn.style.cssText = 'width:100%; text-align:left; margin:5px 0; padding:11px 16px;';
+            if (disabled) btn.style.cssText += 'opacity:0.45; cursor:not-allowed;';
+
+            let label = ch.label;
+            if (ch.hint) label += `  —  ${ch.hint}`;
+            btn.textContent = label;
+
+            if (!disabled) btn.onclick = () => {
+                panel.querySelectorAll('button').forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
+                NCE._resolve(ev, ch);
+            };
+            panel.appendChild(btn);
+        });
+
+        show('screen-event');
+    },
+
+    _resolve(ev, choice) {
+        const result = choice.effect();
+        if (result) applyEncounterResult(result);
+
+        const lines = [];
+        if (result?.narrative) lines.push(result.narrative);
+        if (result?.deltaHP > 0) lines.push(`<span style="color:var(--green,#4a4)">+${result.deltaHP} HP</span>`);
+        if (result?.deltaHP < 0) lines.push(`<span style="color:var(--red,#c44)">${result.deltaHP} HP</span>`);
+        if (result?.deltaGold > 0) lines.push(`<span style="color:var(--gold,#da3)">+${result.deltaGold} gold</span>`);
+        if (result?.deltaGold < 0) lines.push(`<span style="color:var(--red,#c44)">${result.deltaGold} gold</span>`);
+        if (result?.deltaXP > 0) lines.push(`<span style="color:var(--blue,#6af)">+${result.deltaXP} XP</span>`);
+
+        Events._showOutcome(ev.title, lines.length ? lines : ['Nothing happens.'], () => Game._doAdvance());
+    },
 };
 
 // ════════════════════════════════════════════════════════════
@@ -4695,6 +4774,7 @@ window.SkillDie = SkillDie;
 window.BattleSummary = BattleSummary;
 window.Shop = Shop;
 window.Events = Events;
+window.NCE = NCE;
 window.Rest = Rest;
 window.Inventory = Inventory;
 window.DungeonMap = DungeonMap;

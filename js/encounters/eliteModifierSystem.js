@@ -234,7 +234,7 @@ export function applyEliteModifier(enemy, modifier) {
     }
     if (modifier.addPassive) {
         if (!enemy.passives) enemy.passives = [];
-        enemy.passives.push({ ...modifier.addPassive });
+        enemy.passives.push({ ...modifier.addPassive, _eliteGranted: true });
     }
     if (modifier.doublePhases && enemy.phases) {
         enemy.phases = enemy.phases.map(p => ({
@@ -252,9 +252,10 @@ export function applyEliteModifier(enemy, modifier) {
 // ────────────────────────────────────────────────────────────
 
 /**
- * Scale an enemy's existing passives to elite-tier values.
+ * Scale elite-granted passives to elite-tier values.
+ * Only scales passives tagged with `_eliteGranted: true` (added by applyEliteModifier).
+ * Enemy's baked-in passives are already calibrated per-act and must not be scaled.
  * Scaling is act-aware: Act 1 = 1.0×, Act 2 = 1.25×, Act 3 = 1.5×.
- * Call once after elite modifiers are applied.
  * @param {object} enemy
  * @param {number} [floor=15]
  */
@@ -262,7 +263,7 @@ export function scaleElitePassives(enemy, floor = 15) {
     if (!enemy.passives) return;
     const act = Math.ceil(floor / 5);
     const s = 1.0 + 0.25 * (act - 1); // Act 1: 1.0, Act 2: 1.25, Act 3: 1.5
-    enemy.passives.forEach(p => {
+    enemy.passives.filter(p => p._eliteGranted).forEach(p => {
         const v = p.params;
         switch (p.id) {
             case 'thickHide':
@@ -302,8 +303,8 @@ export function scaleElitePassives(enemy, floor = 15) {
                 p.desc = `Below ${Math.round(v.hpPercent * 100)}% HP, gains ${v.extraDice.length} extra d${v.extraDice[0]}`;
                 break;
             case 'greedTax':
-                v.goldPer = Math.max(50, Math.round(v.goldPer / s));
-                p.desc = `Gains +1d${v.dieSize} per ${v.goldPer} gold player holds`;
+                v.goldSteal = Math.round((v.goldSteal || 5) * s);
+                p.desc = `Steals ${v.goldSteal} gold on hit`;
                 break;
             case 'overcharge':
                 v.threshold = Math.round(v.threshold * s);

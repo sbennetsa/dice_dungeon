@@ -69,6 +69,84 @@ function applyStatus(type, stacks, turns = 2) {
     }
 }
 
+// ── DIE MANIPULATION HELPERS (for enemy passives) ──
+
+/**
+ * Corrupt N random player dice by reducing max by 1.
+ * Respects Iron Will artifact.
+ */
+function _corruptPlayerDice(count, source) {
+    if (GS.artifacts.some(a => a.effect === 'ironWill')) {
+        log(`🧠 Iron Will: ${source} blocked!`, 'info');
+        return;
+    }
+    const available = GS.dice.filter(d => d.max > 1 && !d.locked);
+    for (let i = 0; i < count && available.length > 0; i++) {
+        const die = available.splice(Math.floor(Math.random() * available.length), 1)[0];
+        if (die._savedMax === undefined) die._savedMax = die.max;
+        if (die._savedMin === undefined) die._savedMin = die.min;
+        die.max = Math.max(1, die.max - 1);
+        if (die.faceValues) {
+            die.faceValues = die.faceValues.filter(v => v <= die.max);
+            if (die.faceValues.length === 0) die.faceValues = [1];
+        }
+        die.min = die.faceValues ? die.faceValues[0] : 1;
+        log(`💀 ${source}: die corrupted! (now d${die.max})`, 'damage');
+    }
+}
+
+/**
+ * Lock N random player dice for turnsLeft turns.
+ * Locked dice cannot be rolled or allocated.
+ */
+function _lockPlayerDice(count, turnsLeft, source) {
+    if (GS.artifacts.some(a => a.effect === 'ironWill')) {
+        log(`🧠 Iron Will: ${source} blocked!`, 'info');
+        return;
+    }
+    const available = GS.dice.filter(d => !d.locked);
+    for (let i = 0; i < count && available.length > 0; i++) {
+        const die = available.splice(Math.floor(Math.random() * available.length), 1)[0];
+        die.locked = true;
+        die.lockedTurns = turnsLeft;
+        log(`🔒 ${source}: die locked for ${turnsLeft} turn(s)!`, 'damage');
+    }
+}
+
+/**
+ * Set N random player dice values to 1.
+ */
+function _setPlayerDiceToMin(count, source) {
+    if (GS.artifacts.some(a => a.effect === 'ironWill')) {
+        log(`🧠 Iron Will: ${source} blocked!`, 'info');
+        return;
+    }
+    const available = GS.dice.filter(d => d.rolled && d.value > 1 && !d.locked);
+    for (let i = 0; i < count && available.length > 0; i++) {
+        const die = available.splice(Math.floor(Math.random() * available.length), 1)[0];
+        die.value = 1;
+        log(`🩸 ${source}: die set to 1!`, 'damage');
+    }
+}
+
+/**
+ * Devour N random player dice for turnsLeft turns.
+ * Devoured dice are removed from GS.dice and stored.
+ */
+function _devourPlayerDice(count, turnsLeft, source) {
+    if (GS.artifacts.some(a => a.effect === 'ironWill')) {
+        log(`🧠 Iron Will: ${source} blocked!`, 'info');
+        return;
+    }
+    if (!GS.playerDebuffs.devouredDice) GS.playerDebuffs.devouredDice = [];
+    for (let i = 0; i < count && GS.dice.length > 1; i++) {
+        const idx = Math.floor(Math.random() * GS.dice.length);
+        const die = GS.dice.splice(idx, 1)[0];
+        GS.playerDebuffs.devouredDice.push({ die, turnsLeft });
+        log(`👄 ${source}: die swallowed for ${turnsLeft} turns!`, 'damage');
+    }
+}
+
 // ── CONSUMABLE HELPERS ──
 function findConsumableIdx(id) { return GS.consumables.findIndex(c => c && c.id === id); }
 function findConsumable(id) { return GS.consumables.find(c => c && c.id === id); }
@@ -186,6 +264,12 @@ export const Combat = {
             eliteXpMult,
             isElite, isBoss,
             poison: 0,
+            _frenzyTempDice: [],
+            _buffTempDice: [],
+            _buffTurnsLeft: 0,
+            _engorgeTriggered: false,
+            _reassembleUsed: false,
+            _tookDamageThisTurn: false,
         };
 
         // Track encounter in bestiary
@@ -207,7 +291,10 @@ export const Combat = {
         }
 
         // Reset player debuffs for new combat
-        GS.playerDebuffs = { poison: 0, disabledSlots: [], diceReduction: 0 };
+        GS.playerDebuffs = { poison: 0, disabledSlots: [], diceReduction: 0, diceCurse: 0, diceCurseTurns: 0, lockedDice: [], devouredDice: [] };
+
+        // Unlock any locked dice from previous combat
+        GS.dice.forEach(d => { delete d.locked; delete d.lockedTurns; });
 
         // Reset enemy status effects for new combat
         GS.enemyStatus = { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: 0 };
@@ -414,6 +501,16 @@ export const Combat = {
                 html += `<span class="player-status-tag player-status-tag--sealed">🔒 ${slotType} sealed (${ds.turnsLeft}t)</span>`;
             });
         }
+        if (GS.playerDebuffs.diceCurse > 0) {
+            html += `<span class="player-status-tag player-status-tag--sealed">💀 Cursed: dice −${GS.playerDebuffs.diceCurse} (${GS.playerDebuffs.diceCurseTurns}t)</span>`;
+        }
+        const lockedCount = GS.dice.filter(d => d.locked).length;
+        if (lockedCount > 0) {
+            html += `<span class="player-status-tag player-status-tag--sealed">🔒 ${lockedCount} die locked</span>`;
+        }
+        if (GS.playerDebuffs.devouredDice && GS.playerDebuffs.devouredDice.length > 0) {
+            html += `<span class="player-status-tag player-status-tag--sealed">👄 ${GS.playerDebuffs.devouredDice.length} die swallowed</span>`;
+        }
         bar.innerHTML = html;
     },
 
@@ -446,12 +543,8 @@ export const Combat = {
             for (let i = 0; i < slotCount; i++) turnBonusDice.push(enemyDie(exposeP.params.dieSize));
         }
 
-        // Greed Tax: +1 die per goldPer gold held (re-computed each turn)
-        const greedP = e.passives.find(p => p.id === 'greedTax');
-        const greedExtra = greedP ? Array.from({length: Math.floor(GS.gold / greedP.params.goldPer)}, () => enemyDie(greedP.params.dieSize)) : [];
-
-        // Assemble pool; if charged, double it
-        const pool = [...e.dice, ...e.extraDice, ...greedExtra, ...turnBonusDice];
+        // Assemble pool; include frenzy temp dice and warCry buff dice
+        const pool = [...e.dice, ...e.extraDice, ...e._frenzyTempDice, ...e._buffTempDice, ...turnBonusDice];
         const effectivePool = e.charged ? [...pool, ...pool] : pool;
         e.charged = false;
 
@@ -478,8 +571,13 @@ export const Combat = {
         const chillReduction = GS.enemyStatus ? (GS.enemyStatus.chill || 0) : 0;
 
         if (ability.type === 'buff') {
-            e.storedBonus += rawSum;
-            e.intentValue = rawSum;
+            if (ability.buffDice) {
+                // warCry-style: gains temporary dice (no storedBonus)
+                e.intentValue = ability.buffDice;
+            } else {
+                e.storedBonus += rawSum;
+                e.intentValue = rawSum;
+            }
         } else if (ability.type === 'attack' || ability.type === 'unblockable') {
             e.intentValue = Math.max(0, rawSum + e.storedBonus - chillReduction);
             e.storedBonus = 0;
@@ -522,14 +620,25 @@ export const Combat = {
             case 'unblockable':
                 return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → ${iv} unblockable!`;
             case 'buff':
+                if (ab.buffDice) {
+                    const bDieSize = e.dice.length > 0 ? e.dice[0].max : 6;
+                    return `${ab.icon} ${ab.name}: Gains +${ab.buffDice} d${bDieSize} for ${ab.buffDuration || 2} turns!`;
+                }
                 return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → +${sum} stored for next attack`;
             case 'heal':
                 return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → heals ${sum} HP`;
             case 'shield':
                 return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → gains ${sum} shield`;
             case 'poison':
+                if (ab.fixedPoison) {
+                    const healPart = ab.selfHeal ? ` + heals ${ab.selfHeal}` : '';
+                    return `${ab.icon} ${ab.name}: Applies ${ab.fixedPoison} poison (${ab.fixedDuration || 2}t)${healPart}`;
+                }
                 return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → ${iv} damage + ${sum} poison${modStr}`;
             case 'curse': {
+                if (ab.diceCurse) {
+                    return `${ab.icon} ${ab.name}: All your dice −${ab.diceCurse} for ${ab.fixedDuration || 2} turns!`;
+                }
                 const sealCount = ab.slotsToSeal || 1;
                 const sealDur = ab.fixedDuration || 1;
                 return `${ab.icon} ${ab.name}: ${diceStr} = ${sum} → seal ${sealCount} slot${sealCount > 1 ? 's' : ''} for ${sealDur} turn${sealDur > 1 ? 's' : ''}`;
@@ -550,6 +659,7 @@ export const Combat = {
 
     roll() {
         GS.dice.forEach(d => {
+            if (d.locked) return; // Locked dice cannot be rolled
             if (!d.rolled) rollSingleDie(d);
         });
         GS.rolled = true;
@@ -561,6 +671,34 @@ export const Combat = {
             } else {
                 GS.dice.forEach(d => {
                     if (d.rolled) d.value = Math.max(1, d.value - GS.playerDebuffs.diceReduction);
+                });
+            }
+        }
+
+        // diceCurse: reduce all rolled dice values
+        if (GS.playerDebuffs.diceCurse > 0) {
+            if (GS.artifacts.some(a => a.effect === 'ironWill')) {
+                log('🧠 Iron Will: Curse resisted!', 'info');
+            } else {
+                GS.dice.forEach(d => {
+                    if (d.rolled) d.value = Math.max(1, d.value - GS.playerDebuffs.diceCurse);
+                });
+                log(`💀 Cursed! All dice −${GS.playerDebuffs.diceCurse}`, 'damage');
+            }
+        }
+
+        // Hex: cursed dice that rolled 1 are removed from pool
+        if (GS.playerDebuffs.diceCurse > 0 && GS.enemy?.passives?.find(p => p.id === 'hex')) {
+            const hexed = GS.dice.filter(d => d.rolled && d.value <= 1 && !d.locked);
+            if (hexed.length > 0) {
+                if (!GS.playerDebuffs.devouredDice) GS.playerDebuffs.devouredDice = [];
+                hexed.forEach(d => {
+                    const idx = GS.dice.indexOf(d);
+                    if (idx >= 0) {
+                        GS.dice.splice(idx, 1);
+                        GS.playerDebuffs.devouredDice.push({ die: d, turnsLeft: 999 });
+                        log(`💀 Hex! Die consumed (rolled ${d.value})!`, 'damage');
+                    }
                 });
             }
         }
@@ -1250,6 +1388,18 @@ export const Combat = {
 
         // ── POST-ATTACK PASSIVE CHECKS ──
 
+        // Track damage for frenzy passive
+        if (finalAtk > 0) e._tookDamageThisTurn = true;
+
+        // Absorb: while engorged, non-lethal strikes increase a die face
+        if (finalAtk > 0 && e.currentHp > 0 && e._engorgeTriggered && e.passives.find(p => p.id === 'absorb')) {
+            const upgradeDie = e.dice[Math.floor(Math.random() * e.dice.length)];
+            if (upgradeDie) {
+                upgradeDie.max = upgradeDie.max + 1;
+                log(`🟢 Absorb! ${e.name} grows stronger (d${upgradeDie.max})!`, 'damage');
+            }
+        }
+
         // Overcharge: stun if hit for threshold+
         const overchargeP = e.passives.find(p => p.id === 'overcharge');
         if (overchargeP && finalAtk >= overchargeP.params.threshold && !es.stunCooldown) {
@@ -1267,6 +1417,28 @@ export const Combat = {
                 e.phylacteryUsed = true;
                 e.currentHp = Math.floor(e.maxHp * phylP.params.revivePercent);
                 log(`💀 The Phylactery pulses... ${e.name} reforms!`, 'damage');
+                Combat.renderEnemy(); updateStats();
+            }
+        }
+
+        // Reassemble: intercept first death (like phylactery, with optional bonus die + boneCage)
+        if (e.currentHp <= 0) {
+            const reassP = e.passives.find(p => p.id === 'reassemble');
+            if (reassP && !e._reassembleUsed) {
+                e._reassembleUsed = true;
+                e.currentHp = Math.floor(e.maxHp * reassP.params.revivePercent);
+                log(`💀 ${e.name} reassembles! (${e.currentHp} HP)`, 'damage');
+                if (reassP.params.bonusDice) {
+                    const dSize = e.dice.length > 0 ? e.dice[0].max : 6;
+                    for (let i = 0; i < reassP.params.bonusDice; i++) {
+                        e.extraDice.push(enemyDie(dSize));
+                    }
+                    log(`💀 Gains +${reassP.params.bonusDice} d${dSize}!`, 'damage');
+                }
+                // Bone Cage: on revive, lock all player dice
+                if (e.passives.find(p => p.id === 'boneCage')) {
+                    _lockPlayerDice(GS.dice.length, 1, 'Bone Cage');
+                }
                 Combat.renderEnemy(); updateStats();
             }
         }
@@ -1299,10 +1471,21 @@ export const Combat = {
 
             if (e.currentHp <= 0) {
                 const phylP2 = e.passives.find(p => p.id === 'phylactery');
+                const reassP2 = e.passives.find(p => p.id === 'reassemble');
                 if (phylP2 && !e.phylacteryUsed) {
                     e.phylacteryUsed = true;
                     e.currentHp = Math.floor(e.maxHp * phylP2.params.revivePercent);
                     log(`💀 The Phylactery pulses... ${e.name} reforms!`, 'damage');
+                    Combat.renderEnemy();
+                } else if (reassP2 && !e._reassembleUsed) {
+                    e._reassembleUsed = true;
+                    e.currentHp = Math.floor(e.maxHp * reassP2.params.revivePercent);
+                    log(`💀 ${e.name} reassembles! (${e.currentHp} HP)`, 'damage');
+                    if (reassP2.params.bonusDice) {
+                        const dSize = e.dice.length > 0 ? e.dice[0].max : 6;
+                        for (let i = 0; i < reassP2.params.bonusDice; i++) e.extraDice.push(enemyDie(dSize));
+                    }
+                    if (e.passives.find(p => p.id === 'boneCage')) _lockPlayerDice(GS.dice.length, 1, 'Bone Cage');
                     Combat.renderEnemy();
                 } else {
                     Combat.enemyDefeated(); return;
@@ -1354,11 +1537,30 @@ export const Combat = {
                 }
                 const burnOnP = e.passives.find(p => p.id === 'burnOnPhase');
                 if (burnOnP) applyStatus('burn', burnOnP.params.burn, 3);
+                // Post-hit passives on unblockable attacks
+                if (dmg > 0) {
+                    if (e.passives.find(p => p.id === 'shiv')) _corruptPlayerDice(1, 'Shiv');
+                    if (e.passives.find(p => p.id === 'hellfireMod')) _corruptPlayerDice(1, 'Hellfire');
+                }
                 break;
             }
 
             case 'buff':
-                log(`${e.name} uses ${ab.name}! (+${e.diceResults.reduce((a,b)=>a+b,0)} stored for next attack)`, 'info');
+                if (ab.buffDice) {
+                    // warCry-style: add temporary dice
+                    const bDieSize = e.dice.length > 0 ? e.dice[0].max : 6;
+                    for (let i = 0; i < ab.buffDice; i++) {
+                        e._buffTempDice.push(enemyDie(bDieSize));
+                    }
+                    e._buffTurnsLeft = ab.buffDuration || 2;
+                    log(`${e.name} uses ${ab.name}! Gains +${ab.buffDice} d${bDieSize} for ${e._buffTurnsLeft} turns!`, 'info');
+                    // Sunder: warCry also corrupts 1 player die
+                    if (e.passives.find(p => p.id === 'sunder')) {
+                        _corruptPlayerDice(1, 'Sunder');
+                    }
+                } else {
+                    log(`${e.name} uses ${ab.name}! (+${e.diceResults.reduce((a,b)=>a+b,0)} stored for next attack)`, 'info');
+                }
                 break;
 
             case 'heal':
@@ -1375,17 +1577,45 @@ export const Combat = {
                 break;
 
             case 'poison': {
-                // Poison deals blockable damage AND applies poison stacks
-                const stacks = e.intentValue;
-                const ended = Combat._resolveEnemyAttack(ab, e, es, totalDef, steadfastContrib);
-                if (ended) return true;
-                GS.playerDebuffs.poison += stacks;
-                log(`${ab.icon} ${stacks} poison applied! (${GS.playerDebuffs.poison} stacks)`, 'damage');
-                Combat.renderPlayerStatus();
+                if (ab.fixedPoison) {
+                    // Fixed poison (Spore Cloud): no damage, just apply poison + optional self-heal
+                    GS.playerDebuffs.poison += ab.fixedPoison;
+                    log(`${ab.icon} ${ab.name}! ${ab.fixedPoison} poison applied! (${GS.playerDebuffs.poison} stacks)`, 'damage');
+                    if (ab.selfHeal) {
+                        const sh = Math.min(ab.selfHeal, e.maxHp - e.currentHp);
+                        e.currentHp += sh;
+                        if (sh > 0) {
+                            log(`🍄 ${e.name} heals ${sh} HP!`, 'heal');
+                            spawnFloatText(`+${sh}`, $('enemy-panel'), 'enemy-heal');
+                        }
+                    }
+                    Combat.renderPlayerStatus();
+                    Combat.renderEnemy();
+                } else {
+                    // Legacy: blockable damage + poison stacks
+                    const stacks = e.intentValue;
+                    const ended = Combat._resolveEnemyAttack(ab, e, es, totalDef, steadfastContrib);
+                    if (ended) return true;
+                    GS.playerDebuffs.poison += stacks;
+                    log(`${ab.icon} ${stacks} poison applied! (${GS.playerDebuffs.poison} stacks)`, 'damage');
+                    Combat.renderPlayerStatus();
+                }
                 break;
             }
 
             case 'curse': {
+                if (ab.diceCurse) {
+                    // diceCurse: reduce all player dice values
+                    if (GS.artifacts.some(a => a.effect === 'ironWill')) {
+                        log('🧠 Iron Will: Curse resisted!', 'info');
+                    } else {
+                        GS.playerDebuffs.diceCurse = ab.diceCurse;
+                        GS.playerDebuffs.diceCurseTurns = ab.fixedDuration || 2;
+                        log(`${ab.icon} ${ab.name}! All your dice −${ab.diceCurse} for ${GS.playerDebuffs.diceCurseTurns} turns!`, 'damage');
+                    }
+                    Combat.renderPlayerStatus();
+                    break;
+                }
                 if (GS.artifacts.some(a => a.effect === 'anchoredSlots')) {
                     log('⚓ Anchored Slots: Curse prevented!', 'info');
                 } else {
@@ -1497,6 +1727,10 @@ export const Combat = {
                     if (wardIdx >= 0) { GS.hp = 1; log('💀 Death Ward!', 'heal'); removeConsumableByIdx(wardIdx); updateStats(); }
                     else if (!GS.eternalPactUsed && GS.artifacts.some(a => a.effect === 'eternalPact')) { GS.hp = 1; GS.eternalPactUsed = true; log('💀 Eternal Pact activates — death cheated!', 'damage'); updateStats(); }
                     else { GS.hp = 0; updateStats(); setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000); return true; }
+                }
+                // Gnaw: each hit locks 1 player die (multiHit per-hit effect)
+                if (mitigated > 0 && e.passives.find(p => p.id === 'gnaw')) {
+                    _lockPlayerDice(1, 1, 'Gnaw');
                 }
             }
         } else {
@@ -1612,6 +1846,48 @@ export const Combat = {
             }
         }
 
+        // ── NEW POST-HIT PASSIVES ──
+
+        // Plague: apply poison to player on hit
+        const plagueP = e.passives.find(p => p.id === 'plague');
+        if (plagueP) {
+            GS.playerDebuffs.poison += plagueP.params.poisonDmg;
+            log(`🐀 Plague! ${plagueP.params.poisonDmg} poison! (${GS.playerDebuffs.poison} stacks)`, 'damage');
+            Combat.renderPlayerStatus();
+        }
+
+        // Greed Tax: steal gold on hit
+        const greedTaxP = e.passives.find(p => p.id === 'greedTax');
+        if (greedTaxP) {
+            const stolen = Math.min(GS.gold, greedTaxP.params.goldSteal || 0);
+            if (stolen > 0) {
+                GS.gold -= stolen;
+                log(`💰 Greed Tax! ${stolen} gold stolen!`, 'damage');
+                updateStats();
+            }
+        }
+
+        // Shiv: corrupt 1 player die after attacking
+        if (e.passives.find(p => p.id === 'shiv')) {
+            _corruptPlayerDice(1, 'Shiv');
+        }
+
+        // Hellfire Corruption: corrupt 1 player die per hit
+        if (e.passives.find(p => p.id === 'hellfireMod')) {
+            _corruptPlayerDice(1, 'Hellfire');
+        }
+
+        // Drain Mod: set 1 player die to 1
+        if (e.passives.find(p => p.id === 'drainMod')) {
+            _setPlayerDiceToMin(1, 'Life Drain');
+        }
+
+        // Devour: swallow 1 player die
+        const devourP = e.passives.find(p => p.id === 'devour');
+        if (devourP) {
+            _devourPlayerDice(1, devourP.params.duration || 2, 'Devour');
+        }
+
         return false;
     },
 
@@ -1691,8 +1967,19 @@ export const Combat = {
                 break;
             case 'cleanse':
                 GS.playerDebuffs.poison = 0;
+                GS.playerDebuffs.poisonTurns = 0;
                 GS.playerDebuffs.disabledSlots = [];
                 GS.playerDebuffs.diceReduction = 0;
+                GS.playerDebuffs.diceCurse = 0;
+                GS.playerDebuffs.diceCurseTurns = 0;
+                // Unlock locked dice
+                GS.dice.forEach(d => { d.locked = false; });
+                GS.playerDebuffs.lockedDice = 0;
+                // Restore devoured dice
+                if (GS.playerDebuffs.devouredDice && GS.playerDebuffs.devouredDice.length > 0) {
+                    GS.playerDebuffs.devouredDice.forEach(entry => GS.dice.push(entry.die));
+                    GS.playerDebuffs.devouredDice = [];
+                }
                 log(`✨ Cleansed all debuffs!`, 'heal');
                 Combat.renderPlayerStatus();
                 break;
@@ -1790,6 +2077,10 @@ export const Combat = {
             GS.playerDebuffs.poison = Math.max(0, GS.playerDebuffs.poison - 1);
             log(`☠️ Poison deals ${dmg} damage! (${GS.playerDebuffs.poison} stacks remain)`, 'damage');
             spawnFloatText(`-${dmg}`, $('player-hp-bar'), 'poison');
+            // Mycotoxin: poison ticks reduce 1 random player die max
+            if (GS.enemy?.passives?.find(p => p.id === 'mycotoxin') && dmg > 0) {
+                _corruptPlayerDice(1, 'Mycotoxin');
+            }
             updateStats();
             Combat.renderPlayerStatus();
             if (GS.hp <= 0) {
@@ -1844,6 +2135,43 @@ export const Combat = {
             }
         }
 
+        // ── DICE CURSE COUNTDOWN ──
+        if (GS.playerDebuffs.diceCurseTurns > 0) {
+            GS.playerDebuffs.diceCurseTurns--;
+            if (GS.playerDebuffs.diceCurseTurns <= 0) {
+                GS.playerDebuffs.diceCurse = 0;
+                log('💀 Curse fades.', 'info');
+            }
+        }
+
+        // ── LOCKED DICE COUNTDOWN ──
+        GS.dice.forEach(d => {
+            if (d.locked && d.lockedTurns !== undefined) {
+                d.lockedTurns--;
+                if (d.lockedTurns <= 0) {
+                    delete d.locked;
+                    delete d.lockedTurns;
+                    log('🔓 A die is unlocked!', 'info');
+                }
+            }
+        });
+
+        // ── DEVOURED DICE COUNTDOWN ──
+        if (GS.playerDebuffs.devouredDice && GS.playerDebuffs.devouredDice.length > 0) {
+            const returned = [];
+            GS.playerDebuffs.devouredDice.forEach(dd => {
+                dd.turnsLeft--;
+                if (dd.turnsLeft <= 0) returned.push(dd);
+            });
+            if (returned.length > 0) {
+                returned.forEach(dd => {
+                    GS.dice.push(dd.die);
+                    log('👄 A die returns from the void!', 'info');
+                });
+                GS.playerDebuffs.devouredDice = GS.playerDebuffs.devouredDice.filter(dd => dd.turnsLeft > 0);
+            }
+        }
+
         // ── RESET PER-TURN CONSUMABLE FLAGS ──
         GS.consumableUsedThisTurn = false;
         GS.ragePotionActive = false;
@@ -1886,6 +2214,47 @@ export const Combat = {
         if (GS.challengeMode) GS.challengeTurns++;
 
         // ── GENERIC PASSIVE PROCESSING ──
+
+        // Frenzy: after taking damage, gain temp dice for next turn(s)
+        const frenzyPassive = e.passives.find(p => p.id === 'frenzy');
+        if (frenzyPassive) {
+            if (e._tookDamageThisTurn) {
+                // Remove old frenzy dice and add fresh ones
+                e._frenzyTempDice = [];
+                const fDieSize = e.dice.length > 0 ? e.dice[0].max : 6;
+                for (let i = 0; i < (frenzyPassive.params.extraDice || 1); i++) {
+                    e._frenzyTempDice.push(enemyDie(fDieSize));
+                }
+                e._frenzyTurnsLeft = frenzyPassive.params.duration || 1;
+                log(`🔥 ${e.name} is frenzied! +${frenzyPassive.params.extraDice || 1} dice for ${e._frenzyTurnsLeft} turn(s)!`, 'damage');
+            } else if (e._frenzyTurnsLeft > 0) {
+                e._frenzyTurnsLeft--;
+                if (e._frenzyTurnsLeft <= 0) {
+                    e._frenzyTempDice = [];
+                    log(`${e.name}'s frenzy fades.`, 'info');
+                }
+            }
+        }
+        e._tookDamageThisTurn = false;
+
+        // Engorge: after N turns, gain HP and heal to full
+        const engorgeP = e.passives.find(p => p.id === 'engorge');
+        if (engorgeP && !e._engorgeTriggered && e.turnsAlive >= engorgeP.params.turnTrigger) {
+            e._engorgeTriggered = true;
+            e.maxHp += engorgeP.params.bonusHp;
+            e.hp = e.maxHp;
+            e.currentHp = e.maxHp;
+            log(`🟢 ${e.name} engorges! +${engorgeP.params.bonusHp} max HP, healed to full!`, 'damage');
+        }
+
+        // warCry buff dice countdown
+        if (e._buffTurnsLeft > 0) {
+            e._buffTurnsLeft--;
+            if (e._buffTurnsLeft <= 0) {
+                e._buffTempDice = [];
+                log(`${e.name}'s war cry fades.`, 'info');
+            }
+        }
 
         // Regen
         const regenP = e.passives.find(p => p.id === 'regen');
@@ -1994,10 +2363,6 @@ export const Combat = {
             const baseXP   = Array.isArray(e.xp)   ? rand(e.xp[0],  e.xp[1])  : e.xp;
             earnedGold = e.isElite ? Math.floor(baseGold * (e.eliteGoldMult || 1)) : baseGold;
             earnedXP   = e.isElite ? Math.floor(baseXP   * (e.eliteXpMult   || 1)) : baseXP;
-            // Gold and XP both scale with floor (4% compound per floor)
-            const floorScale = Math.pow(1.04, GS.floor - 1);
-            earnedGold = Math.floor(earnedGold * floorScale);
-            earnedXP   = Math.floor(earnedXP   * floorScale);
         }
 
         const g = gainGold(earnedGold);
@@ -2061,8 +2426,16 @@ export const Combat = {
             log(`The enemy dropped a ${consumableDrop.icon} ${consumableDrop.name}!`, 'info');
         }
 
+        // Restore devoured dice
+        if (GS.playerDebuffs.devouredDice && GS.playerDebuffs.devouredDice.length > 0) {
+            GS.playerDebuffs.devouredDice.forEach(dd => GS.dice.push(dd.die));
+        }
+
+        // Unlock locked dice
+        GS.dice.forEach(d => { delete d.locked; delete d.lockedTurns; });
+
         // Clear player debuffs at end of combat
-        GS.playerDebuffs = { poison: 0, disabledSlots: [], diceReduction: 0 };
+        GS.playerDebuffs = { poison: 0, disabledSlots: [], diceReduction: 0, diceCurse: 0, diceCurseTurns: 0, lockedDice: [], devouredDice: [] };
 
         // Decrement tempBuff combat counters
         if (GS.tempBuffs) {

@@ -83,6 +83,15 @@ export function computeBaseThreat(enemy, isBoss = false) {
             case 'greedTax':
                 sustainFactor += 0.1;
                 break;
+            case 'engorge':
+                sustainFactor += (p.params.bonusHp || 6) * 0.03 + 0.2;
+                break;
+            case 'reassemble':
+                sustainFactor += (p.params.revivePercent || 0.5);
+                break;
+            case 'absorb':
+                sustainFactor += 0.15;
+                break;
             // soulPact, escalate, overcharge handled elsewhere
         }
     }
@@ -165,11 +174,15 @@ export function computeBaseThreat(enemy, isBoss = false) {
         escalateBonus += (escalateP.params.dieSize + 1) / 2 * 0.4;
     }
 
-    // Greed tax: conditional extra dice
-    const greedP = passives.find(p => p.id === 'greedTax');
-    if (greedP) {
-        escalateBonus += (greedP.params.dieSize + 1) / 2 * 0.8;
+    // Frenzy: extra dice after taking damage (~70–85% uptime depending on duration)
+    const frenzyP = passives.find(p => p.id === 'frenzy');
+    if (frenzyP) {
+        const avgDie = dice.length > 0 ? (dice[0] + 1) / 2 : 3.5;
+        const uptime = Math.min(0.85, 0.7 + (frenzyP.params.duration || 1) * 0.075);
+        escalateBonus += avgDie * (frenzyP.params.extraDice || 1) * uptime;
     }
+
+    // Greed tax: gold theft (disruption, not offense — scored below)
 
     const offense = avgDieSum * patternMult * multiHitMult + bypassDamage + escalateBonus + summonBonus;
 
@@ -179,9 +192,13 @@ export function computeBaseThreat(enemy, isBoss = false) {
     for (const [key, ab] of Object.entries(abilities)) {
         const freq = pattern.filter(p => p === key).length / pattern.length;
 
-        // Slot sealing (curse): devastating, reduces player output
+        // Curse: diceCurse (reduce dice values) or slot sealing
         if (ab.type === 'curse') {
-            disruption += (ab.slotsToSeal || 1) * (ab.fixedDuration || 1) * 8 * freq;
+            if (ab.diceCurse) {
+                disruption += ab.diceCurse * (ab.fixedDuration || 2) * 5 * freq;
+            } else {
+                disruption += (ab.slotsToSeal || 1) * (ab.fixedDuration || 1) * 8 * freq;
+            }
         }
 
         // Decay: permanently shrinks player dice — extremely disruptive
@@ -189,9 +206,14 @@ export function computeBaseThreat(enemy, isBoss = false) {
             disruption += 25 * freq;
         }
 
-        // Poison: damage + stacking compounds over turns
+        // Poison: fixed poison (spore) or dice-scaled
         if (ab.type === 'poison') {
-            disruption += avgDieSum * 3.0 * freq;
+            if (ab.fixedPoison) {
+                disruption += ab.fixedPoison * (ab.fixedDuration || 2) * 1.5 * freq;
+                if (ab.selfHeal) disruption += ab.selfHeal * 0.5 * freq;
+            } else {
+                disruption += avgDieSum * 3.0 * freq;
+            }
         }
 
         // Burn application
@@ -213,6 +235,17 @@ export function computeBaseThreat(enemy, isBoss = false) {
     // Passive disruption
     for (const p of passives) {
         if (p.id === 'soulPact') disruption += 6;
+        if (p.id === 'greedTax') disruption += (p.params.goldSteal || 5) * 0.6;
+        if (p.id === 'plague') disruption += (p.params.poison || 2) * (p.params.duration || 2) * 1.5;
+        if (p.id === 'shiv') disruption += 4;
+        if (p.id === 'gnaw') disruption += 6;
+        if (p.id === 'mycotoxin') disruption += 5;
+        if (p.id === 'hex') disruption += 4;
+        if (p.id === 'drainMod') disruption += 3;
+        if (p.id === 'devour') disruption += (p.params.count || 1) * 6;
+        if (p.id === 'hellfireMod') disruption += 6;
+        if (p.id === 'sunder') disruption += 4;
+        if (p.id === 'boneCage') disruption += 5;
     }
 
     // Boss phase disruption (entropy, burn-on-phase, etc.)
@@ -248,445 +281,218 @@ export function computeBaseThreat(enemy, isBoss = false) {
 
 export const ENEMY_PROFILES = {
 
-    // ── ACT 1 ──────────────────────────────────────────────
+    // ── UNIVERSAL ENEMIES (Acts 1–3) ─────────────────────
 
     'Goblin': {
-        baseThreat: 17,   // formula: dur=16 × off=10.5, no disruption
+        baseThreat: { 1: 17, 2: 59, 3: 200 },
         eliteAffinities: {
-            deadly:       10,   // 3d6+2 = 3d8, avg 13.5; 16 HP still fragile
-            armored:       8,   // reduction 2 meaningful vs early player dice
-            swift:         7,   // +1d6 on 3d6 = 4d6 avg 14
-            enraged:      10,   // +4 faces on d6 → d10, avg jumps to 16.5
-            regenerating:  5,   // 3 regen on 16 HP is significant
-            vampiric:      6,   // 3d6 avg 10.5 = decent lifesteal
-            brittle:      -3,   // 16 HP + brittle = fast kill
-            cursed:        6,   // -1 dice hurts early player
-            berserker:     6,   // berserker at 8 HP, still threatening with 3d6
+            deadly: 10, armored: 8, swift: 7, enraged: 10,
+            regenerating: 5, vampiric: 6, brittle: -3, cursed: 6, berserker: 6,
         },
         envAffinities: {
-            burningGround:    -2,   // 3/turn on 16 HP = dead in 5 turns
-            healingAura:       2,   // helps goblin survive; 3d6 outpaces player heal
-            slipperyFloor:     0,   // d6-1 = d5, proportional loss
-            arcaneNexus:       1,   // max d6 = 6 per die, decent
-            narrowCorridor:    2,   // enemy strikes first; flat +5 hurts
-            thornsAura:        1,   // moderate damage both ways
-            unstableGround:    0,   // random, short fight
-            consecratedGround: 5,   // non-undead: +15% stats
-            voidZone:         -1,   // d6 has 33% chance of <3
-            bloodMoon:        -2,   // no healing
-            chaosStorm:        1,   // random reroll, minor
+            burningGround: -2, healingAura: 2, slipperyFloor: 0, arcaneNexus: 1,
+            narrowCorridor: 2, thornsAura: 1, unstableGround: 0, consecratedGround: 5,
+            voidZone: -1, bloodMoon: -2, chaosStorm: 1,
         },
-        notes: '3d6 baseline fighter. Many small hits force guarding. Elite enraged pushes damage significantly.',
+        notes: 'Act 1: vanilla 3d6. Act 2: Frenzy (+1 die after hit). Act 3: Frenzy(2t) + Shiv (corrupt dice).',
     },
 
     'Dire Rat': {
-        baseThreat: 16,   // formula: dur=14 × off=11.5 (multi-hit 1.15×)
+        baseThreat: { 1: 16, 2: 60, 3: 202 },
         eliteAffinities: {
-            deadly:        8,   // +2 on d4 → d6, avg jumps to 14
-            armored:       9,   // reduction 2 makes this rat tanky relative to its HP
-            swift:         8,   // +1d6 on a multi-hit enemy is strong
-            enraged:      10,   // +4 on d4 → d8, avg jumps to 18
-            regenerating:  4,   // 3/turn on 14 HP extends fight
-            vampiric:      7,   // 4 multi-hit = 4 heal procs
-            brittle:      -3,   // 14 HP + brittle = instant kill
-            cursed:        5,   // -1 dice hurts player; rat has many small hits
-            berserker:     5,   // low HP threshold triggers fast
+            deadly: 8, armored: 9, swift: 8, enraged: 10,
+            regenerating: 4, vampiric: 7, brittle: -3, cursed: 5, berserker: 5,
         },
         envAffinities: {
-            burningGround:    -3,   // 3/turn on 14 HP = dead fast
-            healingAura:       2,   // helps rat survive; multi-hit outpaces player heal
-            slipperyFloor:    -1,   // d4-1 = d3, significant relative loss
-            arcaneNexus:       0,   // max d4 = 4, not scary
-            narrowCorridor:    2,   // strikes first
-            thornsAura:        3,   // 4 multi-hit = 4 thorns procs on player
-            unstableGround:   -1,   // 10 random damage often kills the rat
-            consecratedGround: 4,   // non-undead: +15%
-            voidZone:         -3,   // d4 dice have 50% chance of <3
-            bloodMoon:        -2,   // no healing
-            chaosStorm:        0,
+            burningGround: -3, healingAura: 2, slipperyFloor: -1, arcaneNexus: 0,
+            narrowCorridor: 2, thornsAura: 3, unstableGround: -1, consecratedGround: 4,
+            voidZone: -3, bloodMoon: -2, chaosStorm: 0,
         },
-        notes: 'Fragile 4-hit swarm. Multi-hit makes vampiric and thornsAura dangerous.',
+        notes: 'Multi-hit swarm. Act 2: Plague (poison on hit). Act 3: Plague(3,3t) + Gnaw (locks dice).',
     },
 
     'Fungal Creep': {
-        baseThreat: 17,   // formula: dur=16 × off=4.5, disruption=6.8 (poison stacking)
+        baseThreat: { 1: 18, 2: 57, 3: 195 },
         eliteAffinities: {
-            deadly:       12,   // +2 on d2 → d4, doubles avg; poison scales hard
-            armored:       9,   // 16 HP is low; armor extends poison stacking time
-            swift:         8,   // +1d6 boosts both damage and poison
-            enraged:      14,   // +4 on d4 → d8, massive poison stacking + real damage
-            regenerating: 10,   // extends fight = more poison stacking rounds
-            vampiric:      6,   // spore now deals damage, so lifesteal works on it
-            brittle:      -2,
-            cursed:       10,   // -1 dice + poison stacking = player crumbles
-            berserker:     6,
+            deadly: 12, armored: 9, swift: 8, enraged: 14,
+            regenerating: 10, vampiric: 6, brittle: -2, cursed: 10, berserker: 6,
         },
         envAffinities: {
-            burningGround:    -2,   // 16 HP is vulnerable
-            healingAura:       5,   // heals enemy while poison + damage ticks on player
-            slipperyFloor:    -1,   // d4-1 = d3, hurts proportionally
-            arcaneNexus:       1,   // max d4 = 4
-            narrowCorridor:    3,   // +5 on spore that now deals damage
-            thornsAura:        1,
-            unstableGround:    0,
-            consecratedGround: 5,
-            voidZone:         -2,   // d4 dice often <3
-            bloodMoon:        -2,
-            chaosStorm:        1,
+            burningGround: -2, healingAura: 5, slipperyFloor: -1, arcaneNexus: 1,
+            narrowCorridor: 3, thornsAura: 1, unstableGround: 0, consecratedGround: 5,
+            voidZone: -2, bloodMoon: -2, chaosStorm: 1,
         },
-        notes: 'Spore Cloud deals damage AND poisons. 3d2 = low per-hit but compounding poison pressure.',
+        notes: 'Poison utility. Act 2: Sporadic (poison+heal). Act 3: Mycotoxin (poison ticks shrink dice).',
     },
 
     'Slime': {
-        baseThreat: 19,   // formula: dur=31 (mitosis +0.4 sustain) × off=7
+        baseThreat: { 1: 16, 2: 59, 3: 194 },
         eliteAffinities: {
-            deadly:       11,   // bigger starting dice + mitosis evolve = strong
-            armored:      10,   // survives to mitosis more reliably
-            swift:         8,
-            enraged:      14,   // enraged + mitosis = massive damage post-evolve
-            regenerating: 10,   // regen + mitosis = very hard to kill before evolve
-            vampiric:      6,
-            brittle:      -2,   // helps player kill before mitosis
-            cursed:        8,
-            berserker:     7,
+            deadly: 11, armored: 10, swift: 8, enraged: 14,
+            regenerating: 10, vampiric: 6, brittle: -2, cursed: 8, berserker: 7,
         },
         envAffinities: {
-            burningGround:    -1,   // helps player race to kill pre-mitosis
-            healingAura:       5,   // heals to mitosis threshold
-            slipperyFloor:    -1,
-            arcaneNexus:       1,
-            narrowCorridor:    2,
-            thornsAura:        1,
-            unstableGround:    1,
-            consecratedGround: 5,
-            voidZone:         -2,
-            bloodMoon:        -2,
-            chaosStorm:        2,   // rerolls add variance; mitosis race
+            burningGround: -1, healingAura: 5, slipperyFloor: -1, arcaneNexus: 1,
+            narrowCorridor: 2, thornsAura: 1, unstableGround: 1, consecratedGround: 5,
+            voidZone: -2, bloodMoon: -2, chaosStorm: 2,
         },
-        notes: 'Mitosis is the threat. 22 HP + 2d6 means it survives to evolve more often. Post-mitosis gains 2d8 + 15 HP.',
+        notes: 'Tank. Act 1: vanilla 2d6. Act 2: Engorge (HP+heal). Act 3: Engorge(2t) + Absorb (+die face).',
     },
 
     'Skeleton': {
-        baseThreat: 15,   // formula: dur=15 (brittle −0.25 armor) × off=9
+        baseThreat: { 1: 15, 2: 58, 3: 210 },
         eliteAffinities: {
-            deadly:        8,
-            armored:      14,   // armored negates the brittle weakness — huge synergy
-            swift:         7,
-            enraged:      10,   // d8→d12, 2d12 avg 13 is scary
-            regenerating:  8,   // regen + brittle partially cancels; extends fight
-            vampiric:      7,   // 2d8 = decent lifesteal
-            brittle:      -5,   // double brittle = player crushes it
-            cursed:        7,   // weaker player dice = less excess above threshold
-            berserker:     6,
+            deadly: 8, armored: 14, swift: 7, enraged: 10,
+            regenerating: 8, vampiric: 7, brittle: -5, cursed: 7, berserker: 6,
         },
         envAffinities: {
-            burningGround:    -2,   // 20 HP vulnerable to burn
-            healingAura:       1,
-            slipperyFloor:     0,
-            arcaneNexus:       2,   // max d8 = 8
-            narrowCorridor:    2,
-            thornsAura:        1,
-            unstableGround:   -1,
-            consecratedGround:-8,   // UNDEAD: -30% stats
-            voidZone:         -1,
-            bloodMoon:        -2,
-            chaosStorm:        1,
+            burningGround: -2, healingAura: 1, slipperyFloor: 0, arcaneNexus: 2,
+            narrowCorridor: 2, thornsAura: 1, unstableGround: -1, consecratedGround: -8,
+            voidZone: -1, bloodMoon: -2, chaosStorm: 1,
         },
-        notes: 'Brittle rewards tall builds (high per-slot damage). Armored elite negates brittle completely.',
-    },
-
-    // ── ACT 2 ──────────────────────────────────────────────
-
-    'Orc Warrior': {
-        baseThreat: 61,   // formula: dur=125 × off=14.0 (war cry +0.15 pattern)
-        eliteAffinities: {
-            deadly:       16,   // war cry + bigger dice = huge buffed strikes
-            armored:      14,
-            swift:        11,
-            enraged:      20,   // +4 on d8→d12; war cry stores MORE damage
-            regenerating:  9,
-            vampiric:     12,   // high damage = good lifesteal
-            brittle:      -2,
-            cursed:       14,
-            berserker:    15,   // war cry + berserker rage = spike damage
-        },
-        envAffinities: {
-            burningGround:     1,   // 48 HP absorbs 3/turn well
-            healingAura:       3,   // high HP benefits more from flat heal
-            slipperyFloor:     0,
-            arcaneNexus:       5,   // max d8 = 8 every turn; benefits the war cry cycle
-            narrowCorridor:    3,   // +5 on already big hits
-            thornsAura:        2,   // high damage = some recoil, but worth it
-            unstableGround:    1,
-            consecratedGround: 5,   // non-undead: +15%
-            voidZone:          1,   // d8 rarely <3
-            bloodMoon:        -2,   // no healing
-            chaosStorm:        1,
-        },
-        notes: 'Bruiser. War Cry + 3d8 stores big damage for spike turns. Enraged + deadly amplify the burst.',
+        notes: 'Act 1: Brittle (tall builds rewarded). Act 2: Reassemble (revive 50%). Act 3: Reassemble+die + Bone Cage.',
     },
 
     'Dark Mage': {
-        baseThreat: 59,   // formula: dur=110 × off=13.0, disruption=5.3 (penetrate + curse seal)
+        baseThreat: { 1: 16, 2: 57, 3: 201 },
         eliteAffinities: {
-            deadly:       14,
-            armored:      12,   // 28 HP is low; armor helps survive
-            swift:        10,
-            enraged:      18,   // penetrating d12s are devastating
-            regenerating:  8,
-            vampiric:     10,   // penetrate = guaranteed damage = guaranteed heal
-            brittle:      -3,   // 28 HP melts
-            cursed:       18,   // curse + slot seal = player has very few functional dice
-            berserker:    12,
+            deadly: 14, armored: 12, swift: 10, enraged: 18,
+            regenerating: 8, vampiric: 10, brittle: -3, cursed: 18, berserker: 12,
         },
         envAffinities: {
-            burningGround:    -2,   // 28 HP is very vulnerable
-            healingAura:       2,
-            slipperyFloor:     0,
-            arcaneNexus:       4,   // max d8 bolt with penetrate = strong
-            narrowCorridor:    4,   // +5 on penetrating 3d8 attacks
-            thornsAura:       -1,   // penetrate still triggers thorns; mage is fragile
-            unstableGround:    0,
-            consecratedGround: 5,
-            voidZone:          1,
-            bloodMoon:        -2,
-            chaosStorm:        1,
+            burningGround: -2, healingAura: 2, slipperyFloor: 0, arcaneNexus: 4,
+            narrowCorridor: 4, thornsAura: -1, unstableGround: 0, consecratedGround: 5,
+            voidZone: 1, bloodMoon: -2, chaosStorm: 1,
         },
-        notes: 'Glass cannon. 3d8 with penetrate 3 is devastating. Slot seal + curse elite = player lockdown.',
+        notes: 'Glass cannon. Act 1: vanilla 2d10. Act 2: Bolt(pen 5) + Curse(-1 dice). Act 3: Curse(-2,3t) + Hex.',
+    },
+
+    'Orc Warrior': {
+        baseThreat: { 1: 17, 2: 62, 3: 219 },
+        eliteAffinities: {
+            deadly: 16, armored: 14, swift: 11, enraged: 20,
+            regenerating: 9, vampiric: 12, brittle: -2, cursed: 14, berserker: 15,
+        },
+        envAffinities: {
+            burningGround: 1, healingAura: 3, slipperyFloor: 0, arcaneNexus: 5,
+            narrowCorridor: 3, thornsAura: 2, unstableGround: 1, consecratedGround: 5,
+            voidZone: 1, bloodMoon: -2, chaosStorm: 1,
+        },
+        notes: 'Bruiser. Act 1: vanilla 2d8. Act 2: War Cry (+1 die 2t). Act 3: War Cry(+2,2t) + Sunder.',
     },
 
     'Troll': {
-        baseThreat: 67,   // formula: dur=289 (thickHide +0.5, regen +0.15, heal +0.13) × off=7.3
+        baseThreat: { 1: 17, 2: 58, 3: 205 },
         eliteAffinities: {
-            deadly:       14,
-            armored:      18,   // armor + thick hide + high HP = near-unkillable wall
-            swift:        10,
-            enraged:      16,   // d8→d12, smash hits are devastating
-            regenerating: 16,   // regen 3 + regen 3 = 6/turn; with passive scale up to 9/turn
-            vampiric:     14,   // heal ability + vampiric + regen = triple sustain
-            brittle:       0,   // brittle helps player get past thick hide, but HP pool absorbs
-            cursed:       12,   // thick hide means player needs big dice; curse shrinks them
-            berserker:    12,
+            deadly: 14, armored: 18, swift: 10, enraged: 16,
+            regenerating: 16, vampiric: 14, brittle: 0, cursed: 12, berserker: 12,
         },
         envAffinities: {
-            burningGround:     3,   // 55 HP absorbs burn; 3/turn is noise
-            healingAura:       6,   // heals BOTH: troll already heals, this adds more
-            slipperyFloor:     1,   // d8-1 still good; player's small dice suffer more
-            arcaneNexus:       5,   // max d8 = 8 guaranteed; huge with thick hide
-            narrowCorridor:    3,
-            thornsAura:        2,
-            unstableGround:    1,
-            consecratedGround: 5,
-            voidZone:          3,   // d8 rarely <3; hurts player dice more
-            bloodMoon:        12,   // DOUBLES heal ability AND regen — devastating
-            chaosStorm:        1,
+            burningGround: 3, healingAura: 6, slipperyFloor: 1, arcaneNexus: 5,
+            narrowCorridor: 3, thornsAura: 2, unstableGround: 1, consecratedGround: 5,
+            voidZone: 3, bloodMoon: 12, chaosStorm: 1,
         },
-        notes: 'The healing wall. Blood Moon + Troll is one of the most dangerous pairings.',
+        notes: 'Healing wall. Act 1: vanilla tank. Act 2: Regen(3) + heal. Act 3: Regen(5) + Thick Hide + heal.',
     },
 
     'Vampire': {
-        baseThreat: 72,   // formula: dur=122 (lifesteal +0.25, bloodFrenzy +0.1) × off=19.5
+        baseThreat: { 1: 15, 2: 60, 3: 215 },
         eliteAffinities: {
-            deadly:       16,   // bigger dice = more lifesteal healing
-            armored:      12,
-            swift:        11,   // +1d6 = more drain hits
-            enraged:      18,   // d8→d12 drains; massive heal per turn
-            regenerating: 14,   // lifesteal + regen = very hard to out-damage
-            vampiric:      2,   // already has lifesteal; stacking is marginal
-            brittle:      -3,   // helps player burst past blood frenzy threshold
-            cursed:       14,   // weaker player dice = less damage through lifesteal
-            berserker:    16,   // blood frenzy at 20% now gains 2d8 instead of 2d6
+            deadly: 16, armored: 12, swift: 11, enraged: 18,
+            regenerating: 14, vampiric: 2, brittle: -3, cursed: 14, berserker: 16,
         },
         envAffinities: {
-            burningGround:    -1,   // 40 HP, but lifesteal compensates
-            healingAura:       4,   // heals on top of lifesteal
-            slipperyFloor:     0,
-            arcaneNexus:       5,   // max d8 drain = guaranteed 8 heal
-            narrowCorridor:    3,
-            thornsAura:       -2,   // lifesteal partially counters, but thorns hits back
-            unstableGround:    0,
-            consecratedGround: 5,
-            voidZone:          0,
-            bloodMoon:        14,   // doubles lifesteal healing on 3d8 — devastating
-            chaosStorm:        0,
+            burningGround: -1, healingAura: 4, slipperyFloor: 0, arcaneNexus: 5,
+            narrowCorridor: 3, thornsAura: -2, unstableGround: 0, consecratedGround: 5,
+            voidZone: 0, bloodMoon: 14, chaosStorm: 0,
         },
-        notes: 'Lifesteal + 3d8 makes attrition impossible. Blood Moon doubles the sustain. Blood Frenzy adds 2d8.',
+        notes: 'Sustain. Act 1: vanilla. Act 2: Lifesteal(50%). Act 3: Lifesteal(75%) + Drain (sets die to 1).',
     },
 
     'Mimic': {
-        baseThreat: 56,   // formula: dur=99 (greedTax +0.1) × off=14.6, disruption=1
+        baseThreat: { 1: 15, 2: 59, 3: 200 },
         eliteAffinities: {
-            deadly:       11,
-            armored:       9,
-            swift:         9,
-            enraged:      14,   // bigger steal + bigger strikes
-            regenerating:  7,
-            vampiric:      8,
-            brittle:      -3,
-            cursed:        9,
-            berserker:     9,
+            deadly: 11, armored: 9, swift: 9, enraged: 14,
+            regenerating: 7, vampiric: 8, brittle: -3, cursed: 9, berserker: 9,
         },
         envAffinities: {
-            burningGround:    -1,
-            healingAura:       2,
-            slipperyFloor:     0,
-            arcaneNexus:       3,   // max d8 = 8
-            narrowCorridor:    2,
-            thornsAura:        1,
-            unstableGround:    0,
-            consecratedGround: 5,
-            voidZone:          0,
-            bloodMoon:        -2,
-            chaosStorm:        1,
+            burningGround: -1, healingAura: 2, slipperyFloor: 0, arcaneNexus: 3,
+            narrowCorridor: 2, thornsAura: 1, unstableGround: 0, consecratedGround: 5,
+            voidZone: 0, bloodMoon: -2, chaosStorm: 1,
         },
-        notes: 'Greed Tax now adds d8 per 100 gold. Gold-heavy builds face a harder fight.',
+        notes: 'Utility. Act 1: vanilla. Act 2: Greed Tax (steal gold). Act 3: Greed Tax(8g) + Devour (swallow die).',
     },
 
-    // ── ACT 3 ──────────────────────────────────────────────
+    // ── SPECIALIST ENEMIES (Acts 2–3) ────────────────────
 
     'Demon': {
-        baseThreat: 202,  // formula: dur=380 × off=38.5 (unblockable ×0.6), disruption=6
+        baseThreat: { 2: 64, 3: 225 },
         eliteAffinities: {
-            deadly:       18,
-            armored:      16,   // 90 HP + armor on d12 attacks = extreme
-            swift:        14,
-            enraged:      22,   // d12→d16; hellfire caps at 20 but strike doesn't
-            regenerating: 12,
-            vampiric:     15,   // high damage = massive lifesteal
-            brittle:      -2,   // 90 HP means brittle barely matters
-            cursed:       16,   // player needs big dice for 90 HP; curse shrinks them
-            berserker:    16,
+            deadly: 18, armored: 16, swift: 14, enraged: 22,
+            regenerating: 12, vampiric: 15, brittle: -2, cursed: 16, berserker: 16,
         },
         envAffinities: {
-            burningGround:     3,   // 90 HP shrugs off 3/turn
-            healingAura:       5,   // high HP benefits most from flat heal
-            slipperyFloor:     1,   // d12-1 still strong
-            arcaneNexus:       6,   // max d12 = 12 guaranteed per turn
-            narrowCorridor:    4,   // +5 on d12 attacks
-            thornsAura:        3,   // high damage = player takes thorns recoil
-            unstableGround:    2,   // long fight = more procs
-            consecratedGround: 6,   // non-undead: +15% on already massive stats
-            voidZone:          3,   // d12 almost never <3; hurts player
-            bloodMoon:        -2,   // no healing (soul pact is not heal)
-            chaosStorm:        2,
+            burningGround: 3, healingAura: 5, slipperyFloor: 1, arcaneNexus: 6,
+            narrowCorridor: 4, thornsAura: 3, unstableGround: 2, consecratedGround: 6,
+            voidZone: 3, bloodMoon: -2, chaosStorm: 2,
         },
-        notes: 'Unblockable hellfire ignores guard. Soul Pact punishes overkill. Huge HP pool.',
+        notes: 'Hellfire (unblockable) + Soul Pact. Act 3: Hellfire Corruption (corrupt player dice on hit).',
     },
 
     'Lich': {
-        baseThreat: 194,  // formula: dur=770 (phylactery +0.4) × off=17.3, disruption=8.3 (decay)
+        baseThreat: { 2: 64, 3: 220 },
         eliteAffinities: {
-            deadly:       18,
-            armored:      16,   // 80 HP × revive + armor = enormous effective HP
-            swift:        12,
-            enraged:      20,   // d12→d16 + decay = player dice shrink while enemy grows
-            regenerating: 14,   // regen + phylactery = multiple health bars
-            vampiric:     14,   // lifesteal + revive = 3+ effective health bars
-            brittle:      -1,   // 80 HP + revive means brittle is negligible
-            cursed:       18,   // decay + curse = player dice collapse
-            berserker:    14,
+            deadly: 18, armored: 16, swift: 12, enraged: 20,
+            regenerating: 14, vampiric: 14, brittle: -1, cursed: 18, berserker: 14,
         },
         envAffinities: {
-            burningGround:     2,
-            healingAura:       4,   // heals through both health bars
-            slipperyFloor:     1,
-            arcaneNexus:       5,   // max d12 = 12
-            narrowCorridor:    3,
-            thornsAura:        2,
-            unstableGround:    2,
-            consecratedGround:-8,   // UNDEAD: -30% stats; massive relief
-            voidZone:          3,
-            bloodMoon:        -2,   // no healing ability (revive is not heal)
-            chaosStorm:        2,
+            burningGround: 2, healingAura: 4, slipperyFloor: 1, arcaneNexus: 5,
+            narrowCorridor: 3, thornsAura: 2, unstableGround: 2, consecratedGround: -8,
+            voidZone: 3, bloodMoon: -2, chaosStorm: 2,
         },
-        notes: 'Decay erodes player dice permanently. Phylactery means you kill it twice. Consecrated Ground is the hard counter.',
+        notes: 'UNDEAD. Act 2: Phylactery(50%). Act 3: Phylactery(75%) + Decay. Consecrated Ground hard counter.',
     },
 
     'Dragon Whelp': {
-        baseThreat: 241,  // formula: dur=792 (scales +0.32) × off=26.7, disruption=2 (burn)
+        baseThreat: { 2: 68, 3: 236 },
         eliteAffinities: {
-            deadly:       20,   // 4d12+2 = 4d14 with scales; monstrous
-            armored:      18,   // scales (8) + armor (2) = 10 reduction per slot
-            swift:        14,   // +1d6 on a 4d12 is incremental but still strong
-            enraged:      24,   // d12→d16 on a charge/breath cycle = potential 1-shot
-            regenerating: 14,   // 110 HP + regen = extremely long fight
-            vampiric:     16,   // 4d12 damage = massive lifesteal
-            brittle:      -1,   // 110 HP + scales makes brittle negligible
-            cursed:       16,   // player needs huge dice to get past scales; curse cripples that
-            berserker:    16,   // already 4d12; berserker at 55 HP adds +2d6 for 6d dice
+            deadly: 20, armored: 18, swift: 14, enraged: 24,
+            regenerating: 14, vampiric: 16, brittle: -1, cursed: 16, berserker: 16,
         },
         envAffinities: {
-            burningGround:     3,   // 110 HP ignores 3/turn
-            healingAura:       5,
-            slipperyFloor:     1,
-            arcaneNexus:       6,   // max d12 = 12; with charge → 24
-            narrowCorridor:    4,
-            thornsAura:        3,   // 4 dice = lots of recoil on player
-            unstableGround:    2,
-            consecratedGround: 6,
-            voidZone:          3,
-            bloodMoon:        -2,   // no healing
-            chaosStorm:       -1,   // 4 dice means reroll is less impactful
+            burningGround: 3, healingAura: 5, slipperyFloor: 1, arcaneNexus: 6,
+            narrowCorridor: 4, thornsAura: 3, unstableGround: 2, consecratedGround: 6,
+            voidZone: 3, bloodMoon: -2, chaosStorm: -1,
         },
-        notes: 'Highest raw stat block. Dragon Scales + armored elite = near-impervious.',
+        notes: 'Bruiser. Charge (immune + double next). Act 3: Dragon Scales (8 per-slot ignore). Highest Act 2 threat.',
     },
 
     'Shadow Assassin': {
-        baseThreat: 194,  // formula: dur=666 (evasion +0.25, vanish immune +0.17) × off=21.7
+        baseThreat: { 2: 61, 3: 216 },
         eliteAffinities: {
-            deadly:       16,
-            armored:      12,   // evasion already reduces incoming; armor stacks
-            swift:        12,
-            enraged:      20,   // d12→d16 on doubled vanish strikes = huge burst
-            regenerating: 10,   // evasion + regen = hard to chip down
-            vampiric:     12,   // high damage + lifesteal, but vanish turn has 0 drain
-            brittle:      -2,   // 70 HP; brittle helps but evasion blocks a hit
-            cursed:       14,   // fewer dice = evasion blocks a higher % of output
-            berserker:    14,   // vanish + berserker = doubled burst from low HP
+            deadly: 16, armored: 12, swift: 12, enraged: 20,
+            regenerating: 10, vampiric: 12, brittle: -2, cursed: 14, berserker: 14,
         },
         envAffinities: {
-            burningGround:     2,
-            healingAura:       3,
-            slipperyFloor:     1,
-            arcaneNexus:       5,
-            narrowCorridor:    4,   // strikes first; +5 on doubled vanish hit
-            thornsAura:       -1,   // evasion turn = no damage taken = no thorns
-            unstableGround:    1,
-            consecratedGround: 6,
-            voidZone:          3,
-            bloodMoon:        -2,
-            chaosStorm:        1,
+            burningGround: 2, healingAura: 3, slipperyFloor: 1, arcaneNexus: 5,
+            narrowCorridor: 4, thornsAura: -1, unstableGround: 1, consecratedGround: 6,
+            voidZone: 3, bloodMoon: -2, chaosStorm: 1,
         },
-        notes: 'Evasion wastes one attack die per turn. Vanish makes it immune then doubles next hit.',
+        notes: 'Glass cannon. Vanish (immune + double). Act 3: shorter pattern + Evasion (ignore 1 die/turn).',
     },
 
     'Iron Golem': {
-        baseThreat: 228,  // formula: dur=563 (armor +0.25) × off=34.3 (escalate +1.8)
+        baseThreat: { 2: 60, 3: 212 },
         eliteAffinities: {
-            deadly:       18,
-            armored:      20,   // armor 5 + armor 2 = 7 flat reduction; brutal
-            swift:        12,
-            enraged:      18,   // d10→d14 with escalating dice
-            regenerating: 16,   // 130 HP + regen + armor = eternal fight
-            vampiric:     14,   // escalating damage = escalating lifesteal
-            brittle:       2,   // brittle partially offsets armor 5; net still negative for player
-            cursed:       16,   // overcharge threshold 25 is harder with cursed dice
-            berserker:    14,   // 130 HP means berserker triggers at 65 HP; adds dice to escalation
+            deadly: 18, armored: 20, swift: 12, enraged: 18,
+            regenerating: 16, vampiric: 14, brittle: 2, cursed: 16, berserker: 14,
         },
         envAffinities: {
-            burningGround:     3,   // armor reduces burn (poison/dmg -5); 130 HP
-            healingAura:       6,   // high HP benefits most; armor extends fight
-            slipperyFloor:     1,
-            arcaneNexus:       5,   // max d10 = 10, good
-            narrowCorridor:    3,
-            thornsAura:        3,   // player has to hit hard to get past armor; thorns punishes that
-            unstableGround:    2,   // long fight = more procs
-            consecratedGround: 6,
-            voidZone:          2,
-            bloodMoon:        -2,
-            chaosStorm:        2,
+            burningGround: 3, healingAura: 6, slipperyFloor: 1, arcaneNexus: 5,
+            narrowCorridor: 3, thornsAura: 3, unstableGround: 2, consecratedGround: 6,
+            voidZone: 2, bloodMoon: -2, chaosStorm: 2,
         },
-        notes: 'Armor stacking is the core problem. Armor 5 + armored elite = 7 flat reduction.',
+        notes: 'Tank. Act 2: Armor(2). Act 3: Armor(3) + Escalate (+1d8 every 3t). Armor + armored elite = brutal.',
     },
 };
 
@@ -778,13 +584,21 @@ export const BOSS_PROFILES = {
 
 /**
  * Get the threat profile for an enemy or boss.
+ * When act is provided, resolves per-act baseThreat to a single number.
  * @param {string} enemyName - Enemy name from constants.js (e.g. 'Troll')
  * @param {number|null} bossFloor - Boss floor number (5, 10, 15) or null for regular enemies
+ * @param {number|null} [act] - Act number (1, 2, or 3) for per-act baseThreat resolution
  * @returns {object|null} Profile with baseThreat, eliteAffinities, envAffinities, notes
  */
-export function getEnemyProfile(enemyName, bossFloor = null) {
+export function getEnemyProfile(enemyName, bossFloor = null, act = null) {
     if (bossFloor) return BOSS_PROFILES[bossFloor] || null;
-    return ENEMY_PROFILES[enemyName] || null;
+    const profile = ENEMY_PROFILES[enemyName];
+    if (!profile) return null;
+    // Resolve per-act baseThreat when act is specified
+    if (act && typeof profile.baseThreat === 'object') {
+        return { ...profile, baseThreat: profile.baseThreat[act] || 0 };
+    }
+    return profile;
 }
 
 /**

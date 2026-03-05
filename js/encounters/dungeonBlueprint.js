@@ -5,7 +5,7 @@
 //  is pre-determined from a seed for reproducible runs.
 // ════════════════════════════════════════════════════════════
 
-import { ENEMIES, BOSSES } from '../constants.js';
+import { BOSSES, resolveEnemy, getEnemyPool } from '../constants.js';
 import { ENVIRONMENTS } from './environmentSystem.js';
 import { ELITE_MODIFIERS, BOSS_ELITE_MODIFIERS } from './eliteModifierSystem.js';
 import { ANOMALIES } from './anomalySystem.js';
@@ -145,8 +145,8 @@ function distributeActBudgets(totalBudget, rng) {
  * Compute quick threat for a generated floor (base + env + anomaly, no elite).
  * Used during generation to track budget consumption.
  */
-function quickThreat(enemy, environment, anomaly, bossFloor) {
-    const profile = getEnemyProfile(enemy.name, bossFloor);
+function quickThreat(enemy, environment, anomaly, bossFloor, act) {
+    const profile = getEnemyProfile(enemy.name, bossFloor, act);
     let threat = profile ? profile.baseThreat : 15;
     if (environment) threat += getEnvThreatForEnemy(environment.id, enemy.name, bossFloor);
     if (anomaly) threat += (ANOMALY_THREATS[anomaly.id] || 0);
@@ -183,9 +183,9 @@ function weightedPick(items, weights, rng) {
  * @returns {object} Deep-cloned enemy template
  */
 function pickEnemySeeded(floor, act, rng) {
-    if (floor === 1) return deepClone(ENEMIES[1][0]); // always Goblin
+    if (floor === 1) return deepClone(resolveEnemy('goblin', act));
 
-    const pool = ENEMIES[act] || ENEMIES[1];
+    const pool = getEnemyPool(act);
     return deepClone(rng.pick(pool));
 }
 
@@ -200,13 +200,13 @@ function pickEnemySeeded(floor, act, rng) {
  * @returns {object} Deep-cloned enemy template
  */
 function pickEnemyForBudget(floor, act, targetThreat, rng) {
-    if (floor === 1) return deepClone(ENEMIES[1][0]); // always Goblin
+    if (floor === 1) return deepClone(resolveEnemy('goblin', act));
 
-    const pool = ENEMIES[act] || ENEMIES[1];
+    const pool = getEnemyPool(act);
 
     // Weight each enemy: closer to target → higher weight
     const weights = pool.map(enemy => {
-        const profile = getEnemyProfile(enemy.name);
+        const profile = getEnemyProfile(enemy.name, null, act);
         const baseThreat = profile ? profile.baseThreat : 15;
         const distance = Math.abs(baseThreat - targetThreat);
         return 1 / (1 + distance * 0.12);
@@ -342,21 +342,6 @@ function rollForAnomalySeeded(floor, rng, anomalyRate = 'normal') {
 }
 
 // ────────────────────────────────────────────────────────────
-//  Floor HP Scaling
-// ────────────────────────────────────────────────────────────
-
-/**
- * Apply HP scaling to an enemy based on floor.
- * Same formula as the original: 4% compound per floor above 1.
- * @param {object} enemy
- * @param {number} floor
- */
-function applyHPScaling(enemy, floor) {
-    const scale  = Math.pow(1.04, floor - 1);
-    enemy.hp     = Math.round(enemy.hp * scale);
-    enemy.maxHp  = enemy.hp;
-}
-
 // ────────────────────────────────────────────────────────────
 //  Generate a Single Combat Floor
 // ────────────────────────────────────────────────────────────
@@ -389,8 +374,8 @@ function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
         enemy = pickEnemySeeded(floor, act, rng);
     }
 
-    // 2. Apply HP scaling
-    applyHPScaling(enemy, floor);
+    // 2. Set maxHp from baked HP (no scaling — stats are per-act)
+    enemy.maxHp = enemy.hp;
 
     // 3. Roll for anomaly
     const anomaly = rollForAnomalySeeded(floor, rng, options.anomalyRate);
@@ -399,7 +384,7 @@ function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
     let environment;
     if (hasBudget) {
         // Budget-aware: compute current threat so far, steer env choice
-        const profile = getEnemyProfile(enemy.name, bossFloor);
+        const profile = getEnemyProfile(enemy.name, bossFloor, act);
         const baseThreat = profile ? profile.baseThreat : 15;
         const anomalyThreat = anomaly ? (ANOMALY_THREATS[anomaly.id] || 0) : 0;
         const currentThreat = baseThreat + anomalyThreat;
@@ -492,7 +477,7 @@ function generateAct(actNum, baseFloor, rng, options = {}) {
             // Track actual threat consumed
             if (hasBudget) {
                 const bossFloor = isBoss ? absoluteFloor : null;
-                const actual = quickThreat(floorBP.enemy, floorBP.environment, floorBP.anomaly, bossFloor);
+                const actual = quickThreat(floorBP.enemy, floorBP.environment, floorBP.anomaly, bossFloor, actNum);
                 remainingBudget -= actual;
                 combatsGenerated++;
             }

@@ -30,60 +30,151 @@ export function getAct(floor) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  ENEMIES
+//  ENEMIES — Per-Act Stat Blocks
+//  Each enemy has explicit stats per act. No hidden multipliers.
+//  Act 1: vanilla (basic stats)
+//  Act 2: +1 ability or passive
+//  Act 3: +dice mod (post-attack effect or defensive mechanic)
 // ════════════════════════════════════════════════════════════
 export const ENEMIES = {
-    // ── ACT 1 ──
-    1: [
-        {
-            name: 'Goblin', hp: 16, dice: [6, 6, 6], gold: [15, 25], xp: [20, 30],
-            id: 'goblin',
-            image: 'assets/enemies/goblin.webp',
+    // ── UNIVERSAL ENEMIES (Acts 1–3) ────────────────────────
+
+    goblin: {
+        id: 'goblin', name: 'Goblin', image: 'assets/enemies/goblin.webp',
+        act1: {
+            hp: 16, dice: [6, 6, 6], gold: [15, 25], xp: [20, 30],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
             passives: [],
             pattern: ['strike'],
         },
-        {
-            name: 'Dire Rat', hp: 14, dice: [4, 4, 4, 4], gold: [12, 20], xp: [15, 25],
-            id: 'dire_rat',
-            
-            image: 'assets/enemies/direrat.webp',
+        act2: {
+            hp: 80, dice: [10, 10, 10], gold: [22, 35], xp: [38, 55],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+            },
+            passives: [
+                { id: 'frenzy', name: 'Frenzy', desc: 'After taking damage, gains +1 die next turn', params: { extraDice: 1, duration: 1 } },
+            ],
+            pattern: ['strike'],
+        },
+        act3: {
+            hp: 450, dice: [12, 12, 12, 12], gold: [40, 60], xp: [60, 85],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+            },
+            passives: [
+                { id: 'frenzy', name: 'Frenzy', desc: 'After taking damage, gains +1 die for 2 turns', params: { extraDice: 1, duration: 2 } },
+                { id: 'shiv', name: 'Shiv', desc: 'After attacking, corrupt 1 player die (-1 max)', params: {} },
+            ],
+            pattern: ['strike'],
+        },
+    },
+
+    dire_rat: {
+        id: 'dire_rat', name: 'Dire Rat', image: 'assets/enemies/direrat.webp',
+        act1: {
+            hp: 14, dice: [4, 4, 4, 4], gold: [12, 20], xp: [15, 25],
             abilities: {
                 frenzy: { name: 'Frenzy', icon: '🐀', type: 'attack', desc: 'Each die hits separately', multiHit: true },
             },
             passives: [],
             pattern: ['frenzy'],
         },
-        {
-            name: 'Fungal Creep', hp: 16, dice: [2, 2, 2], gold: [15, 22], xp: [20, 35],
-            id: 'fungal_creep',
-            
-            image: 'assets/enemies/fungal_creep.webp',
+        act2: {
+            hp: 90, dice: [6, 6, 6, 6], gold: [22, 35], xp: [38, 55],
+            abilities: {
+                frenzy: { name: 'Frenzy', icon: '🐀', type: 'attack', desc: 'Each die hits separately', multiHit: true },
+            },
+            passives: [
+                { id: 'plague', name: 'Plague', desc: 'On hit, applies 2 poison for 2 turns', params: { poisonDmg: 2, duration: 2 } },
+            ],
+            pattern: ['frenzy'],
+        },
+        act3: {
+            hp: 550, dice: [6, 6, 6, 6, 6, 6], gold: [42, 62], xp: [62, 88],
+            abilities: {
+                frenzy: { name: 'Frenzy', icon: '🐀', type: 'attack', desc: 'Each die hits separately', multiHit: true },
+            },
+            passives: [
+                { id: 'plague', name: 'Plague', desc: 'On hit, applies 3 poison for 3 turns', params: { poisonDmg: 3, duration: 3 } },
+                { id: 'gnaw', name: 'Gnaw', desc: 'Each hit locks 1 player die for 1 turn', params: {} },
+            ],
+            pattern: ['frenzy'],
+        },
+    },
+
+    fungal_creep: {
+        id: 'fungal_creep', name: 'Fungal Creep', image: 'assets/enemies/fungal_creep.webp',
+        act1: {
+            hp: 18, dice: [6, 6], gold: [15, 22], xp: [20, 35],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
-                spore:  { name: 'Spore Cloud', icon: '🍄', type: 'poison', desc: 'Deal damage and apply poison equal to dice sum' },
+                spore:  { name: 'Spore Cloud', icon: '🍄', type: 'poison', desc: 'Apply 1 poison for 2 turns', fixedPoison: 1, fixedDuration: 2 },
             },
             passives: [],
             pattern: ['strike', 'spore'],
         },
-        {
-            name: 'Slime', hp: 22, dice: [6, 6], gold: [18, 28], xp: [25, 40],
-            id: 'slime',
-            image: 'assets/enemies/slime.webp',
+        act2: {
+            hp: 120, dice: [8, 8], gold: [20, 32], xp: [35, 52],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+                spore:  { name: 'Spore Cloud', icon: '🍄', type: 'poison', desc: 'Apply 2 poison for 3 turns + heal self 3', fixedPoison: 2, fixedDuration: 3, selfHeal: 3 },
+            },
+            passives: [],
+            pattern: ['strike', 'spore'],
+        },
+        act3: {
+            hp: 600, dice: [10, 10, 10], gold: [38, 58], xp: [58, 82],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+                spore:  { name: 'Spore Cloud', icon: '🍄', type: 'poison', desc: 'Apply 3 poison for 3 turns + heal self 5', fixedPoison: 3, fixedDuration: 3, selfHeal: 5 },
+            },
+            passives: [
+                { id: 'mycotoxin', name: 'Mycotoxin', desc: 'Poison ticks reduce 1 random player die max by 1', params: {} },
+            ],
+            pattern: ['strike', 'spore'],
+        },
+    },
+
+    slime: {
+        id: 'slime', name: 'Slime', image: 'assets/enemies/slime.webp',
+        act1: {
+            hp: 22, dice: [6, 6], gold: [14, 24], xp: [18, 30],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+            },
+            passives: [],
+            pattern: ['strike'],
+        },
+        act2: {
+            hp: 130, dice: [8, 8], gold: [22, 35], xp: [38, 55],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
             passives: [
-                { id: 'mitosis', name: 'Mitosis', desc: 'After 3 turns, evolves: gains bigger dice and +15 HP',
-                  params: { turnTrigger: 3, newDice: [8, 8], bonusHp: 15 } },
+                { id: 'engorge', name: 'Engorge', desc: 'After 3 turns, gains +6 HP and heals to full', params: { turnTrigger: 3, bonusHp: 6 } },
             ],
             pattern: ['strike'],
         },
-        {
-            name: 'Skeleton', hp: 20, dice: [8, 8], gold: [14, 22], xp: [20, 30], image: 'assets/enemies/skeleton.webp',
-            id: 'skeleton',
+        act3: {
+            hp: 800, dice: [10, 10], gold: [38, 58], xp: [58, 82],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+            },
+            passives: [
+                { id: 'engorge', name: 'Engorge', desc: 'After 2 turns, gains +8 HP and heals to full', params: { turnTrigger: 2, bonusHp: 8 } },
+                { id: 'absorb', name: 'Absorb', desc: 'While engorged, non-lethal strikes increase a die face by 1', params: {} },
+            ],
+            pattern: ['strike'],
+        },
+    },
+
+    skeleton: {
+        id: 'skeleton', name: 'Skeleton', image: 'assets/enemies/skeleton.webp',
+        act1: {
+            hp: 20, dice: [8, 8], gold: [14, 22], xp: [18, 28],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
@@ -92,135 +183,357 @@ export const ENEMIES = {
             ],
             pattern: ['strike'],
         },
-    ],
-    // ── ACT 2 ──
-    2: [
-        {
-            name: 'Orc Warrior', hp: 125, dice: [12, 12, 12], gold: [20, 30], xp: [35, 50], image: 'assets/enemies/orc_warrior.webp',
-            id: 'orc_warrior',
+        act2: {
+            hp: 95, dice: [10, 10], gold: [22, 34], xp: [36, 54],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
-                warCry: { name: 'War Cry', icon: '📯', type: 'buff', desc: 'Store dice sum, add to next Strike', buffTarget: 'strike' },
+            },
+            passives: [
+                { id: 'reassemble', name: 'Reassemble', desc: 'Revives once at 50% HP', params: { revivePercent: 0.5 } },
+            ],
+            pattern: ['strike'],
+        },
+        act3: {
+            hp: 500, dice: [12, 12, 12], gold: [42, 62], xp: [62, 88],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+            },
+            passives: [
+                { id: 'reassemble', name: 'Reassemble', desc: 'Revives once at 50% HP and gains +1 die', params: { revivePercent: 0.5, bonusDice: 1 } },
+                { id: 'boneCage', name: 'Bone Cage', desc: 'On revive, locks all player dice for 1 turn', params: {} },
+            ],
+            pattern: ['strike'],
+        },
+    },
+
+    dark_mage: {
+        id: 'dark_mage', name: 'Dark Mage', image: 'assets/enemies/Dark_Mage.webp',
+        act1: {
+            hp: 14, dice: [10, 10], gold: [15, 25], xp: [20, 32],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
             passives: [],
-            pattern: ['strike', 'strike', 'warCry'],
+            pattern: ['strike'],
         },
-        {
-            name: 'Dark Mage', hp: 110, dice: [10, 10, 10], gold: [22, 35], xp: [40, 60], image: 'assets/enemies/Dark_Mage.webp',
-            id: 'dark_mage',
+        act2: {
+            hp: 85, dice: [12, 12, 12], gold: [22, 35], xp: [40, 60],
             abilities: {
-                bolt:  { name: 'Shadow Bolt', icon: '🔮', type: 'attack', desc: 'Deal damage (penetrates 3 block)', penetrate: 3 },
-                curse: { name: 'Curse', icon: '💀', type: 'curse', desc: 'Seal 1 strike slot for 2 turns', slotsToSeal: 1, slotTarget: 'strike', fixedDuration: 2 },
+                bolt:  { name: 'Shadow Bolt', icon: '🔮', type: 'attack', desc: 'Deal damage (penetrates 5 block)', penetrate: 5 },
+                curse: { name: 'Curse', icon: '💀', type: 'curse', desc: 'Reduce all player dice by 1 for 2 turns', diceCurse: 1, fixedDuration: 2 },
             },
             passives: [],
             pattern: ['bolt', 'bolt', 'curse'],
         },
-        {
-            name: 'Troll', hp: 150, dice: [10, 10], gold: [20, 30], xp: [35, 55], image: 'assets/enemies/Troll.webp',
-            id: 'troll',
+        act3: {
+            hp: 500, dice: [12, 12, 12, 12, 12], gold: [42, 62], xp: [62, 88],
+            abilities: {
+                bolt:  { name: 'Shadow Bolt', icon: '🔮', type: 'attack', desc: 'Deal damage (penetrates 5 block)', penetrate: 5 },
+                curse: { name: 'Curse', icon: '💀', type: 'curse', desc: 'Reduce all player dice by 2 for 3 turns', diceCurse: 2, fixedDuration: 3 },
+            },
+            passives: [
+                { id: 'hex', name: 'Hex', desc: 'Cursed dice that roll 1 are removed from pool', params: {} },
+            ],
+            pattern: ['bolt', 'bolt', 'curse'],
+        },
+    },
+
+    orc_warrior: {
+        id: 'orc_warrior', name: 'Orc Warrior', image: 'assets/enemies/orc_warrior.webp',
+        act1: {
+            hp: 20, dice: [8, 8], gold: [15, 25], xp: [20, 30],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+            },
+            passives: [],
+            pattern: ['strike'],
+        },
+        act2: {
+            hp: 120, dice: [10, 10, 10], gold: [24, 38], xp: [40, 58],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+                warCry: { name: 'War Cry', icon: '📯', type: 'buff', desc: 'Gains +1 die for 2 turns', buffDice: 1, buffDuration: 2 },
+            },
+            passives: [],
+            pattern: ['strike', 'strike', 'warCry'],
+        },
+        act3: {
+            hp: 650, dice: [12, 12, 12, 12], gold: [45, 65], xp: [65, 92],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+                warCry: { name: 'War Cry', icon: '📯', type: 'buff', desc: 'Gains +2 dice for 2 turns', buffDice: 2, buffDuration: 2 },
+            },
+            passives: [
+                { id: 'sunder', name: 'Sunder', desc: 'War Cry also reduces 1 player die max by 1', params: {} },
+            ],
+            pattern: ['strike', 'strike', 'warCry'],
+        },
+    },
+
+    troll: {
+        id: 'troll', name: 'Troll', image: 'assets/enemies/Troll.webp',
+        act1: {
+            hp: 26, dice: [6, 6], gold: [16, 26], xp: [20, 32],
+            abilities: {
+                strike: { name: 'Smash', icon: '💪', type: 'attack', desc: 'Deal damage' },
+            },
+            passives: [],
+            pattern: ['strike'],
+        },
+        act2: {
+            hp: 170, dice: [10, 10], gold: [22, 34], xp: [36, 55],
             abilities: {
                 strike: { name: 'Smash', icon: '💪', type: 'attack', desc: 'Deal damage' },
                 heal:   { name: 'Regenerate', icon: '💚', type: 'heal', desc: 'Heal HP equal to dice sum' },
             },
             passives: [
-                { id: 'thickHide', name: 'Thick Hide', desc: 'Ignores slot damage below 10', params: { threshold: 10 } },
                 { id: 'regen', name: 'Passive Regen', desc: 'Heals 3 HP per turn', params: { amount: 3 } },
             ],
             pattern: ['strike', 'strike', 'heal'],
         },
-        {
-            name: 'Vampire', hp: 90, dice: [12, 12, 12], gold: [25, 40], xp: [45, 65], image: 'assets/enemies/Vampire.webp',
-            id: 'vampire',
+        act3: {
+            hp: 900, dice: [12, 12], gold: [42, 62], xp: [62, 88],
+            abilities: {
+                strike: { name: 'Smash', icon: '💪', type: 'attack', desc: 'Deal damage' },
+                heal:   { name: 'Regenerate', icon: '💚', type: 'heal', desc: 'Heal HP equal to dice sum' },
+            },
+            passives: [
+                { id: 'regen', name: 'Passive Regen', desc: 'Heals 5 HP per turn', params: { amount: 5 } },
+                { id: 'thickHide', name: 'Thick Hide', desc: 'Ignores slot damage below 10', params: { threshold: 10 } },
+            ],
+            pattern: ['strike', 'strike', 'heal'],
+        },
+    },
+
+    vampire: {
+        id: 'vampire', name: 'Vampire', image: 'assets/enemies/Vampire.webp',
+        act1: {
+            hp: 20, dice: [6, 6], gold: [14, 22], xp: [18, 28],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+            },
+            passives: [],
+            pattern: ['strike'],
+        },
+        act2: {
+            hp: 100, dice: [8, 8, 8], gold: [25, 40], xp: [45, 65],
             abilities: {
                 drain: { name: 'Drain', icon: '🩸', type: 'attack', desc: 'Deal damage and heal 50% of amount dealt' },
             },
             passives: [
                 { id: 'lifesteal', name: 'Lifesteal', desc: 'Heals 50% of damage dealt to player', params: { percent: 0.5 } },
-                { id: 'bloodFrenzy', name: 'Blood Frenzy', desc: 'Below 20% HP, gains 2 extra d8', params: { hpPercent: 0.2, extraDice: [8, 8] } },
             ],
             pattern: ['drain'],
         },
-        {
-            name: 'Mimic', hp: 90, dice: [10, 10, 10], gold: [20, 30], xp: [35, 50], image: 'assets/enemies/Mimic.webp',
-            id: 'mimic',
+        act3: {
+            hp: 550, dice: [10, 10, 10, 10], gold: [44, 64], xp: [64, 90],
             abilities: {
-                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
-                steal:  { name: 'Gold Snatch', icon: '💰', type: 'steal', desc: 'Steal gold equal to dice sum' },
+                drain: { name: 'Drain', icon: '🩸', type: 'attack', desc: 'Deal damage and heal 75% of amount dealt' },
             },
             passives: [
-                { id: 'greedTax', name: 'Greed Tax', desc: 'Gains +1d8 per 100 gold player holds', params: { goldPer: 100, dieSize: 8 } },
+                { id: 'lifesteal', name: 'Lifesteal', desc: 'Heals 75% of damage dealt to player', params: { percent: 0.75 } },
+                { id: 'drainMod', name: 'Life Drain', desc: 'Drain also sets 1 player die to 1', params: {} },
             ],
-            pattern: ['steal', 'strike', 'strike'],
+            pattern: ['drain'],
         },
-    ],
-    // ── ACT 3 ──
-    3: [
-        {
-            name: 'Demon', hp: 380, dice: [12, 12, 12, 12, 12], gold: [35, 55], xp: [55, 80], image: 'assets/enemies/Demon.webp',
-            id: 'demon',
+    },
+
+    mimic: {
+        id: 'mimic', name: 'Mimic', image: 'assets/enemies/Mimic.webp',
+        act1: {
+            hp: 18, dice: [6, 6], gold: [14, 22], xp: [18, 28],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+            },
+            passives: [],
+            pattern: ['strike'],
+        },
+        act2: {
+            hp: 110, dice: [8, 8, 8], gold: [22, 35], xp: [38, 55],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+            },
+            passives: [
+                { id: 'greedTax', name: 'Greed Tax', desc: 'Steals 5 gold on hit', params: { goldSteal: 5 } },
+            ],
+            pattern: ['strike'],
+        },
+        act3: {
+            hp: 800, dice: [10, 10, 10], gold: [40, 60], xp: [60, 85],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+            },
+            passives: [
+                { id: 'greedTax', name: 'Greed Tax', desc: 'Steals 8 gold on hit', params: { goldSteal: 8 } },
+                { id: 'devour', name: 'Devour', desc: 'On hit, swallows 1 player die for 2 turns', params: { duration: 2 } },
+            ],
+            pattern: ['strike'],
+        },
+    },
+
+    // ── SPECIALIST ENEMIES (Acts 2–3) ───────────────────────
+
+    demon: {
+        id: 'demon', name: 'Demon', image: 'assets/enemies/Demon.webp',
+        act2: {
+            hp: 110, dice: [10, 10], gold: [28, 42], xp: [42, 62],
             abilities: {
                 strike:   { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
-                hellfire: { name: 'Hellfire', icon: '🔥', type: 'unblockable', desc: 'Deal unblockable damage (max 20)', maxDamage: 20 },
+                hellfire: { name: 'Hellfire', icon: '🔥', type: 'unblockable', desc: 'Deal unblockable damage (max 15)', maxDamage: 15 },
             },
             passives: [
                 { id: 'soulPact', name: 'Soul Pact', desc: 'Overkill damage reflects back to player', params: {} },
             ],
             pattern: ['strike', 'hellfire'],
         },
-        {
-            name: 'Lich', hp: 550, dice: [12, 12, 12, 12], gold: [40, 60], xp: [60, 85], image: 'assets/enemies/Lich.webp',
-            id: 'lich',
+        act3: {
+            hp: 520, dice: [12, 12, 12, 12], gold: [45, 65], xp: [65, 92],
+            abilities: {
+                strike:   { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+                hellfire: { name: 'Hellfire', icon: '🔥', type: 'unblockable', desc: 'Deal unblockable damage (max 20)', maxDamage: 20 },
+            },
+            passives: [
+                { id: 'soulPact', name: 'Soul Pact', desc: 'Overkill damage reflects back to player', params: {} },
+                { id: 'hellfireMod', name: 'Hellfire Corruption', desc: 'Each hit corrupts 1 player die (-1 max)', params: {} },
+            ],
+            pattern: ['strike', 'hellfire'],
+        },
+    },
+
+    lich: {
+        id: 'lich', name: 'Lich', image: 'assets/enemies/Lich.webp',
+        act2: {
+            hp: 65, dice: [12, 12, 12], gold: [28, 42], xp: [42, 62],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+            },
+            passives: [
+                { id: 'phylactery', name: 'Phylactery', desc: 'Revives once at 50% HP', params: { revivePercent: 0.5 } },
+            ],
+            pattern: ['strike'],
+        },
+        act3: {
+            hp: 450, dice: [12, 12, 12, 12, 12], gold: [45, 65], xp: [65, 92],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 decay:  { name: 'Decay', icon: '💀', type: 'decay', desc: 'All your dice permanently lose 1 max value this fight' },
             },
             passives: [
-                { id: 'phylactery', name: 'Phylactery', desc: 'Revives once at 40% HP', params: { revivePercent: 0.4 } },
+                { id: 'phylactery', name: 'Phylactery', desc: 'Revives once at 75% HP', params: { revivePercent: 0.75 } },
             ],
             pattern: ['strike', 'strike', 'decay'],
         },
-        {
-            name: 'Dragon Whelp', hp: 600, dice: [12, 12, 12, 12, 12, 12], gold: [45, 65], xp: [65, 90], image: 'assets/enemies/Dragon_Whelp.webp',
-            id: 'dragon_whelp',
+    },
+
+    dragon_whelp: {
+        id: 'dragon_whelp', name: 'Dragon Whelp', image: 'assets/enemies/Dragon_Whelp.webp',
+        act2: {
+            hp: 105, dice: [10, 10, 10], gold: [30, 45], xp: [45, 65],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
-                charge: { name: 'Breath Charge', icon: '🔥', type: 'charge', desc: 'Charging... next attack is doubled!' },
-                breath: { name: 'Fire Breath', icon: '🐲', type: 'attack', desc: 'Deal DOUBLED damage + apply burn', applyBurn: 3 },
+                charge: { name: 'Breath Charge', icon: '🔥', type: 'charge', desc: 'Charging... immune to damage, next attack doubled!', immune: true },
+            },
+            passives: [],
+            pattern: ['charge', 'strike'],
+        },
+        act3: {
+            hp: 480, dice: [12, 12, 12, 12], gold: [48, 68], xp: [68, 95],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+                charge: { name: 'Breath Charge', icon: '🔥', type: 'charge', desc: 'Charging... immune to damage, next attack doubled!', immune: true },
             },
             passives: [
                 { id: 'scales', name: 'Dragon Scales', desc: 'First 8 damage from each slot is ignored', params: { perSlot: 8 } },
             ],
-            pattern: ['strike', 'charge', 'breath'],
+            pattern: ['charge', 'strike'],
         },
-        {
-            name: 'Shadow Assassin', hp: 470, dice: [12, 12, 12, 12, 12], gold: [35, 55], xp: [55, 85], image: 'assets/enemies/Shadow_Assassin.webp',
-            id: 'shadow_assassin',
+    },
+
+    shadow_assassin: {
+        id: 'shadow_assassin', name: 'Shadow Assassin', image: 'assets/enemies/Shadow_Assassin.webp',
+        act2: {
+            hp: 75, dice: [12, 12, 12], gold: [24, 38], xp: [40, 58],
             abilities: {
                 strike: { name: 'Strike', icon: '🗡️', type: 'attack', desc: 'Deal damage' },
-                vanish: { name: 'Vanish', icon: '💨', type: 'charge', desc: 'Disappears — immune to damage this turn. Next strike is doubled.', immune: true },
+                vanish: { name: 'Vanish', icon: '💨', type: 'charge', desc: 'Disappears — immune this turn. Next strike doubled.', immune: true },
+            },
+            passives: [],
+            pattern: ['strike', 'strike', 'vanish'],
+        },
+        act3: {
+            hp: 450, dice: [12, 12, 12, 12], gold: [44, 64], xp: [64, 90],
+            abilities: {
+                strike: { name: 'Strike', icon: '🗡️', type: 'attack', desc: 'Deal damage' },
+                vanish: { name: 'Vanish', icon: '💨', type: 'charge', desc: 'Disappears — immune this turn. Next strike doubled.', immune: true },
             },
             passives: [
                 { id: 'evasion', name: 'Evasion', desc: 'One random attack die is ignored each turn', params: {} },
             ],
-            pattern: ['strike', 'strike', 'vanish'],
+            pattern: ['strike', 'vanish'],
         },
-        {
-            name: 'Iron Golem', hp: 450, dice: [12, 12, 12, 12, 12], gold: [50, 70], xp: [70, 95], image: 'assets/enemies/Iron_Golem.webp',
-            id: 'iron_golem',
+    },
+
+    iron_golem: {
+        id: 'iron_golem', name: 'Iron Golem', image: 'assets/enemies/Iron_Golem.webp',
+        act2: {
+            hp: 170, dice: [8, 8], gold: [25, 38], xp: [40, 58],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
             },
             passives: [
-                { id: 'armor', name: 'Iron Armor', desc: 'Reduces ALL incoming damage by 5 (including poison)', params: { reduction: 5 } },
-                { id: 'escalate', name: 'Escalate', desc: 'Gains +1d8 every 3 turns', params: { interval: 3, dieSize: 8 } },
-                { id: 'overcharge', name: 'Overcharge', desc: 'If hit for 25+ in one turn, stunned next turn', params: { threshold: 25 } },
+                { id: 'armor', name: 'Iron Armor', desc: 'Reduces ALL incoming damage by 2', params: { reduction: 2 } },
             ],
             pattern: ['strike'],
         },
-    ],
+        act3: {
+            hp: 1000, dice: [12, 12], gold: [50, 70], xp: [70, 95],
+            abilities: {
+                strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
+            },
+            passives: [
+                { id: 'armor', name: 'Iron Armor', desc: 'Reduces ALL incoming damage by 3', params: { reduction: 3 } },
+                { id: 'escalate', name: 'Escalate', desc: 'Gains +1d8 every 3 turns', params: { interval: 3, dieSize: 8 } },
+            ],
+            pattern: ['strike'],
+        },
+    },
 };
 
-// ELITES removed — replaced by ELITE_MODIFIERS in js/encounters/eliteModifierSystem.js
+// ════════════════════════════════════════════════════════════
+//  ENEMY RESOLUTION HELPERS
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Resolve an enemy for a specific act.
+ * Merges the enemy's identity (id, name, image) with act-specific stats
+ * into a flat object matching the shape expected by combat/encounter systems.
+ * @param {string} enemyId - Key in ENEMIES (e.g. 'goblin')
+ * @param {number} act - Act number (1, 2, or 3)
+ * @returns {object|null} Flat enemy template or null if not available in that act
+ */
+export function resolveEnemy(enemyId, act) {
+    const entry = ENEMIES[enemyId];
+    if (!entry) return null;
+    const actBlock = entry[`act${act}`];
+    if (!actBlock) return null;
+    return {
+        id: entry.id,
+        name: entry.name,
+        image: entry.image,
+        ...actBlock,
+    };
+}
+
+/**
+ * Get all enemies available in a given act.
+ * @param {number} act - Act number (1, 2, or 3)
+ * @returns {object[]} Array of resolved enemy templates
+ */
+export function getEnemyPool(act) {
+    return Object.keys(ENEMIES)
+        .filter(id => ENEMIES[id][`act${act}`])
+        .map(id => resolveEnemy(id, act));
+}
 
 export const BOSSES = {
     5: {
@@ -292,13 +605,13 @@ export const BOSSES = {
 //  ENCOUNTER SELECTION
 // ════════════════════════════════════════════════════════════
 export function pickEnemy(floor) {
-    if (floor === 1) return ENEMIES[1][0];  // always Goblin
-    if (floor === 2) {
-        const idx = Math.random() < 0.5 ? 1 : 4;  // Dire Rat or Skeleton
-        return ENEMIES[1][idx];
-    }
     const act = getAct(floor);
-    const pool = ENEMIES[act] || ENEMIES[1];
+    if (floor === 1) return resolveEnemy('goblin', 1);  // always Goblin
+    if (floor === 2) {
+        const id = Math.random() < 0.5 ? 'dire_rat' : 'skeleton';
+        return resolveEnemy(id, 1);
+    }
+    const pool = getEnemyPool(act);
     return pool[Math.floor(Math.random() * pool.length)];
 }
 

@@ -85,8 +85,9 @@ export function scoreFloor(floor) {
     const isBoss = floor.type === 'boss';
     const bossFloor = isBoss ? floor.floor : null;
 
-    // Base enemy threat from bestiary profile
-    const profile = getEnemyProfile(enemy.name, bossFloor);
+    // Base enemy threat from bestiary profile (per-act)
+    const act = Math.ceil(floor.floor / 5);
+    const profile = getEnemyProfile(enemy.name, bossFloor, act);
     const enemyThreat = profile ? profile.baseThreat : 0;
 
     // Contextual environment threat (per-enemy)
@@ -139,7 +140,8 @@ export function scoreFloorDetailed(floor) {
     const isBoss = floor.type === 'boss';
     const bossFloor = isBoss ? floor.floor : null;
 
-    const profile = getEnemyProfile(enemy.name, bossFloor);
+    const act = Math.ceil(floor.floor / 5);
+    const profile = getEnemyProfile(enemy.name, bossFloor, act);
     const enemyThreat = profile ? profile.baseThreat : 0;
     const envThreat = scoreEnvironmentThreat(floor.environment, enemy, bossFloor);
     const anomalyThreat = floor.anomaly ? (ANOMALY_THREATS[floor.anomaly.id] || 0) : 0;

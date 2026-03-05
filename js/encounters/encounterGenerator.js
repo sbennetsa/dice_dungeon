@@ -125,7 +125,7 @@ function _generateEncounterLegacy(floor) {
     const src      = isBossFloor ? BOSSES[floor] : pickEnemy(floor);
     const enemy    = deepClone(src);
 
-    applyFloorScaling(enemy, floor);
+    enemy.maxHp = enemy.hp; // no scaling — stats are per-act
 
     const anomaly = rollForAnomaly(floor);
     let environment = selectEnvironment(floor);
@@ -200,16 +200,6 @@ export function applyEliteChoice(enemy, eliteModifiers, floor = 15) {
 //  Helpers
 // ────────────────────────────────────────────────────────────
 
-/**
- * Scale enemy HP by floor (4% compound per floor above 1).
- * @param {object} enemy
- * @param {number} floor
- */
-export function applyFloorScaling(enemy, floor) {
-    const scale  = Math.pow(1.04, floor - 1);
-    enemy.hp     = Math.round(enemy.hp * scale);
-    enemy.maxHp  = enemy.hp;
-}
 
 /**
  * Calculate the average total damage per turn from the enemy's dice pool.

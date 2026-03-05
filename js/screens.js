@@ -4560,6 +4560,13 @@ const CampaignScreen = {
         show(this._caller);
     },
 
+    resetAll() {
+        if (!confirm('Reset all Ancient Order progress? This cannot be undone.')) return;
+        Campaign.reset();
+        RunHistory.clear();
+        this._render();
+    },
+
     _render() {
         const el = document.getElementById('campaign-content');
         if (!el) return;

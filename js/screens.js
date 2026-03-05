@@ -4648,9 +4648,9 @@ const Stats = {
 //  BESTIARY SCREEN
 // ════════════════════════════════════════════════════════════
 const Bestiary = {
-    _caller: 'screen-campaign',
+    _caller: 'screen-start',
 
-    show(callerScreen = 'screen-campaign') {
+    show(callerScreen = 'screen-start') {
         this._caller = callerScreen;
         const progress = BestiaryProgress.load();
         const data = BESTIARY_DATA.map(entry => ({

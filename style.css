@@ -3843,3 +3843,10 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     box-shadow: none;
   }
 }
+
+/* ════════════════════════════════════════════════════════════
+   DEV-ONLY ELEMENTS
+   Hidden on production; visible when <html> has .is-dev
+   ════════════════════════════════════════════════════════════ */
+.dev-only { display: none; }
+.is-dev .dev-only { display: revert; }

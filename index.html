@@ -3,7 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dice Dungeon DEV</title>
+    <script>
+        (function() {
+            var h = window.location.hostname;
+            if (h === 'localhost' || h === '127.0.0.1' || h.startsWith('dev.')) {
+                document.documentElement.classList.add('is-dev');
+                document.title = 'Dice Dungeon DEV';
+            } else {
+                document.title = 'Dice Dungeon';
+            }
+        })();
+    </script>
+    <title>Dice Dungeon</title>
     <!-- PWA -->
     <meta name="theme-color" content="#d4a534">
     <meta name="mobile-web-app-capable" content="yes">
@@ -20,7 +31,7 @@
 <!-- ═══════════ START SCREEN ═══════════ -->
 <div id="screen-start" class="screen active">
     <div class="start-screen">
-        <h1>Dice Dungeon DEV</h1>
+        <h1>Dice Dungeon<span class="dev-only"> DEV</span></h1>
         <div id="home-rank-display" class="home-rank"></div>
         <div class="subtitle">A Tactical Roguelike</div>
         <div id="diff-select-last-run"></div>
@@ -124,7 +135,7 @@
                 <button class="bestiary-filter-btn active" data-act="all">All</button>
                 <button class="bestiary-filter-btn" data-act="boss">Bosses</button>
             </div>
-            <button onclick="Bestiary.revealAll()" style="margin:6px 12px 2px;padding:4px 10px;font-size:0.75rem;font-family:var(--font-data);background:#7a2020;color:#f5e6c8;border:1px solid #5a1010;border-radius:3px;cursor:pointer;width:calc(100% - 24px)">[DEV] Reveal All</button>
+            <button class="dev-only" onclick="Bestiary.revealAll()" style="margin:6px 12px 2px;padding:4px 10px;font-size:0.75rem;font-family:var(--font-data);background:#7a2020;color:#f5e6c8;border:1px solid #5a1010;border-radius:3px;cursor:pointer;width:calc(100% - 24px)">[DEV] Reveal All</button>
             <div class="bestiary-index-count" id="bestiary-index-count">— entries</div>
             <div class="bestiary-index-list" id="bestiary-index-list"></div>
         </aside>

@@ -2080,6 +2080,7 @@ const Shop = {
                     if (result !== false) {
                         updateStats();
                         Shop._renderForge();
+                        Shop._renderMarket();
                     }
                 };
             }
@@ -2105,6 +2106,7 @@ const Shop = {
                 Shop.generateItems();
                 updateStats();
                 Shop._renderForge();
+                Shop._renderMarket();
                 log(`🔄 Forge refreshed!${refreshCost > 0 ? ` (-${refreshCost} gold)` : ' (free!)'}`, 'info');
             };
         }
@@ -2152,7 +2154,7 @@ const Shop = {
                     GS.gold -= item.price;
                     Shop.marketPurchased.add(i);
                     updateStats();
-                    addConsumableToInventory({ ...item }, () => Shop._renderMarket());
+                    addConsumableToInventory({ ...item }, () => { Shop._renderMarket(); Shop._renderForge(); });
                 };
             }
             grid.appendChild(card);
@@ -2173,6 +2175,7 @@ const Shop = {
                 Shop.generateMarket();
                 updateStats();
                 Shop._renderMarket();
+                Shop._renderForge();
                 log(`🔄 Market restocked! (-${mRefreshCost} gold)`, 'info');
             };
         }
@@ -2227,6 +2230,8 @@ const Shop = {
                     log(`Sold ${con.name} for ${sellPrice} gold.`, 'info');
                     updateStats();
                     Shop._renderSell();
+                    Shop._renderForge();
+                    Shop._renderMarket();
                 };
                 grid.appendChild(card);
             });
@@ -2253,6 +2258,8 @@ const Shop = {
                     log(`Sold ${art.name} for ${sellPrice} gold.`, 'info');
                     updateStats();
                     Shop._renderSell();
+                    Shop._renderForge();
+                    Shop._renderMarket();
                 };
                 grid.appendChild(card);
             });

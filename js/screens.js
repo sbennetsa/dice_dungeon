@@ -9,7 +9,7 @@ import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone, checkForNCE, applyEncounterResult, markEncounterSeen } from './encounters/encounterGenerator.js';
 import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
-import { scoreDungeon, scoreFloorDetailed, scorePlayerAdvantage, rewardToAdvantage, REST_ADVANTAGES } from './encounters/dungeonScoring.js';
+import { scoreDungeon, scoreFloorDetailed, scorePlayerAdvantage, rewardToAdvantage, REST_ADVANTAGES, REWARD_ADVANTAGES, GOLD_ADVANTAGE_RATE } from './encounters/dungeonScoring.js';
 import { RunHistory, BestiaryProgress } from './persistence.js';
 import { BESTIARY_DATA, BestiaryUI } from './bestiary.js';
 import { Campaign, RANKS, ACHIEVEMENTS } from './campaign.js';
@@ -1955,12 +1955,16 @@ const Shop = {
         Shop.tab = tab;
         const forgeBtn = document.getElementById('tab-forge');
         const marketBtn = document.getElementById('tab-market');
+        const sellBtn = document.getElementById('tab-sell');
         const forgeEl = document.getElementById('shop-forge-content');
         const marketEl = document.getElementById('shop-market-content');
+        const sellEl = document.getElementById('shop-sell-content');
         if (forgeBtn) forgeBtn.classList.toggle('active', tab === 'forge');
         if (marketBtn) marketBtn.classList.toggle('active', tab === 'market');
+        if (sellBtn) sellBtn.classList.toggle('active', tab === 'sell');
         if (forgeEl) forgeEl.style.display = tab === 'forge' ? '' : 'none';
         if (marketEl) marketEl.style.display = tab === 'market' ? '' : 'none';
+        if (sellEl) sellEl.style.display = tab === 'sell' ? '' : 'none';
     },
 
     generateMarket() {
@@ -2049,6 +2053,7 @@ const Shop = {
         Shop.switchTab(Shop.tab);
         Shop._renderForge();
         Shop._renderMarket();
+        Shop._renderSell();
     },
 
     _renderForge() {
@@ -2173,6 +2178,85 @@ const Shop = {
         }
         grid.appendChild(mRefreshCard);
         marketEl.appendChild(grid);
+    },
+
+    _renderSell() {
+        const sellEl = document.getElementById('shop-sell-content');
+        if (!sellEl) return;
+        sellEl.innerHTML = '';
+
+        const consumables = GS.consumables
+            .map((con, idx) => ({ con, idx }))
+            .filter(x => x.con !== null);
+        const artifacts = GS.artifacts || [];
+
+        if (consumables.length === 0 && artifacts.length === 0) {
+            sellEl.innerHTML = '<div style="color:var(--text-dim); text-align:center; padding:24px; font-family:var(--font-body),serif;">Nothing to sell</div>';
+            return;
+        }
+
+        const grid = document.createElement('div');
+        grid.className = 'card-grid';
+        sellEl.appendChild(grid);
+
+        function artSellPrice(art) {
+            const threat = art.legendary ? REWARD_ADVANTAGES.legendaryChance : REWARD_ADVANTAGES.eliteArtifact;
+            return Math.round(threat / GOLD_ADVANTAGE_RATE[GS.act - 1] / 2);
+        }
+
+        if (consumables.length > 0) {
+            const label = document.createElement('div');
+            label.className = 'section-title';
+            label.style.cssText = 'grid-column:1/-1; margin-bottom:0;';
+            label.textContent = 'Consumables';
+            grid.appendChild(label);
+
+            consumables.forEach(({ con, idx }) => {
+                const sellPrice = Math.max(1, Math.floor((con.price || 10) / 2));
+                const card = document.createElement('div');
+                card.className = 'card';
+                const rarityColor = con.rarity === 'rare' ? '#e8c97a' : con.rarity === 'uncommon' ? '#7ab4e8' : '#aaa';
+                card.innerHTML = `
+                    <div class="card-title">${con.icon} ${con.name}</div>
+                    <div class="card-desc" style="font-size:0.75em; color:${rarityColor};">[${con.rarity}] ${con.category}</div>
+                    <div class="card-desc">${con.description}</div>
+                    <div class="card-price" style="color:var(--gold);">Sell: ${sellPrice} gold</div>`;
+                card.onclick = () => {
+                    GS.consumables[idx] = null;
+                    gainGold(sellPrice);
+                    log(`Sold ${con.name} for ${sellPrice} gold.`, 'info');
+                    updateStats();
+                    Shop._renderSell();
+                };
+                grid.appendChild(card);
+            });
+        }
+
+        if (artifacts.length > 0) {
+            const label = document.createElement('div');
+            label.className = 'section-title';
+            label.style.cssText = 'grid-column:1/-1; margin-bottom:0;';
+            label.textContent = 'Artifacts';
+            grid.appendChild(label);
+
+            artifacts.forEach(art => {
+                const sellPrice = artSellPrice(art);
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="card-title">${art.icon} ${art.name}</div>
+                    <div class="card-desc">${art.desc}</div>
+                    <div class="card-price" style="color:var(--gold);">Sell: ${sellPrice} gold</div>`;
+                card.onclick = () => {
+                    GS.artifacts = GS.artifacts.filter(a => a !== art);
+                    gainGold(sellPrice);
+                    log(`Sold ${art.name} for ${sellPrice} gold.`, 'info');
+                    updateStats();
+                    Shop._renderSell();
+                };
+                grid.appendChild(card);
+            });
+        }
     },
 
     showUpgrade() {

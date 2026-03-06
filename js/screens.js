@@ -1149,21 +1149,23 @@ const Rewards = {
         $('reward-title').textContent = '🔥 Dice Forge — Select 2 Dice';
         const c = $('reward-cards');
         c.innerHTML = '';
+        c.style.display = 'block';
         const selected = [];
 
         const infoDiv = document.createElement('div');
-        infoDiv.style.cssText = 'text-align:center; margin-bottom:16px; color:var(--text-dim); font-family:var(--font-body),serif;';
-        infoDiv.textContent = 'Select 2 dice to merge into one. The new die combines both ranges.';
+        infoDiv.style.cssText = 'margin-bottom:10px; color:var(--text-dim); font-family:var(--font-body),serif; font-size:0.9em;';
+        infoDiv.textContent = 'Select 2 dice to merge. The new die combines both ranges.';
         c.appendChild(infoDiv);
 
-        const grid = document.createElement('div');
-        grid.style.cssText = 'display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-bottom:16px;';
-        const cardEls = new Map();
+        // Compact scrollable die picker
+        const picker = document.createElement('div');
+        picker.style.cssText = 'display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; max-height:240px; overflow-y:auto; margin-bottom:12px; padding:2px;';
         GS.dice.forEach(die => {
             const card = document.createElement('div');
             card.className = 'card';
-            card.style.cssText = 'cursor:pointer; min-width:110px; max-width:160px; flex:0 0 auto; transition:border-color 0.15s, box-shadow 0.15s;';
-            card.innerHTML = renderDieCard(die);
+            card.style.cssText = 'cursor:pointer; transition:border-color 0.15s, box-shadow 0.15s; padding:8px;';
+            card.innerHTML = `<div class="card-title" style="font-size:0.9em; margin-bottom:4px;">d${die.faceValues.length}: ${die.min}–${die.max}</div>
+                <div style="display:flex; gap:1px; flex-wrap:wrap;">${renderFaceStrip(die)}</div>`;
             card.onclick = () => {
                 const idx = selected.indexOf(die);
                 if (idx >= 0) {
@@ -1173,18 +1175,18 @@ const Rewards = {
                 } else if (selected.length < 2) {
                     selected.push(die);
                     card.style.borderColor = 'var(--gold)';
-                    card.style.boxShadow = '0 0 12px var(--gold)';
+                    card.style.boxShadow = '0 0 10px var(--gold)';
                 }
                 updatePreview();
             };
-            cardEls.set(die, card);
-            grid.appendChild(card);
+            picker.appendChild(card);
         });
-        c.appendChild(grid);
+        c.appendChild(picker);
 
+        // Result preview
         const previewDiv = document.createElement('div');
         previewDiv.id = 'merge-preview';
-        previewDiv.style.cssText = 'min-height:60px; margin-bottom:16px; padding:12px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; text-align:center;';
+        previewDiv.style.cssText = 'margin-bottom:12px; padding:12px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; text-align:center; min-height:56px;';
         c.appendChild(previewDiv);
 
         const confirmBtn = document.createElement('button');
@@ -1206,10 +1208,10 @@ const Rewards = {
                 preview.innerHTML = `
                     <div style="color:var(--gold); font-family:var(--font-data),monospace; margin-bottom:8px;">[${d1.min}–${d1.max}] + [${d2.min}–${d2.max}] → <strong>[${nMin}–${nMax}] d6</strong></div>
                     <div style="display:flex; flex-wrap:wrap; justify-content:center;">${faceHtml}</div>
-                    ${tf > 0 ? `<div style="font-size:0.75em; color:var(--text-dim); margin-top:6px;">${tf} face mod(s) to place on the new die</div>` : ''}`;
+                    ${tf > 0 ? `<div style="font-size:0.75em; color:var(--text-dim); margin-top:6px;">${tf} face mod(s) available to assign</div>` : ''}`;
                 confirmBtn.disabled = false; confirmBtn.style.opacity = '1';
             } else if (selected.length === 1) {
-                preview.innerHTML = `<div style="color:var(--text-dim); font-family:var(--font-data),monospace;">[${selected[0].min}–${selected[0].max}] selected — pick one more die</div>`;
+                preview.innerHTML = `<div style="color:var(--text-dim); font-family:var(--font-data),monospace;">[${selected[0].min}–${selected[0].max}] selected — pick one more</div>`;
                 confirmBtn.disabled = true; confirmBtn.style.opacity = '0.5';
             } else {
                 preview.innerHTML = `<div style="color:var(--text-dim);">Select 2 dice to preview the result</div>`;
@@ -1224,6 +1226,7 @@ const Rewards = {
         $('reward-title').textContent = '🔥 Forge — Assign Face Mods';
         const c = $('reward-cards');
         c.innerHTML = '';
+        c.style.display = 'block';
 
         const newMin = d1.min + d2.min, newMax = d1.max + d2.max;
         const step = (newMax - newMin) / 5;
@@ -1266,7 +1269,7 @@ const Rewards = {
 
         const facesDiv = document.createElement('div');
         facesDiv.id = 'forge-faces';
-        facesDiv.style.cssText = 'display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:16px;';
+        facesDiv.style.cssText = 'display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px;';
         c.appendChild(facesDiv);
 
         const forgeBtn = document.createElement('button');

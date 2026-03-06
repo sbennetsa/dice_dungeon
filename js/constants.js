@@ -431,7 +431,7 @@ export const ENEMIES = {
             hp: 105, dice: [10, 10, 10], gold: [30, 45],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
-                charge: { name: 'Breath Charge', icon: '🔥', type: 'charge', desc: 'Charging... immune to damage, next attack doubled!', immune: true },
+                charge: { name: 'Breath Charge', icon: '🔥', type: 'charge', desc: 'Charging breath... next attack doubled!' },
             },
             passives: [],
             pattern: ['strike', 'strike', 'charge', 'strike'],
@@ -440,7 +440,7 @@ export const ENEMIES = {
             hp: 480, dice: [12, 12, 12, 12], gold: [48, 68],
             abilities: {
                 strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
-                charge: { name: 'Breath Charge', icon: '🔥', type: 'charge', desc: 'Charging... immune to damage, next attack doubled!', immune: true },
+                charge: { name: 'Breath Charge', icon: '🔥', type: 'charge', desc: 'Charging breath... next attack doubled!' },
             },
             passives: [
                 { id: 'scales', name: 'Dragon Scales', desc: 'First 8 damage from each slot is ignored', params: { perSlot: 8 } },

@@ -1,8 +1,16 @@
 {
   "name": "dicedungeon",
+  "compatibility_date": "2025-09-27",
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": "."
+  },
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "routes": [{ "pattern": "dicedungeon.stopdoingnothing.co.za", "custom_domain": true }],
-  // ... your other config
-
   "env": {
     "dev": {
       "name": "dicedungeondev",

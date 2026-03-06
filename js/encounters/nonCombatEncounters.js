@@ -1,11 +1,11 @@
 // ════════════════════════════════════════════════════════════════
 // NON-COMBAT ENCOUNTERS
 // Social, political, and chance events that fire between floors.
-// Each encounter connects to real game mechanics: gold, HP, XP,
-// artifacts, dice. No combat — pure flavour + consequence.
+// Each encounter connects to real game mechanics: gold, HP, XP.
+// No combat — pure flavour + consequence.
 // ════════════════════════════════════════════════════════════════
 
-import { GS, gainGold, gainXP, heal, log } from '../state.js';
+import { GS, gainGold, gainXP, heal } from '../state.js';
 
 // ── Result helper ─────────────────────────────────────────────
 // Applies a Result object to live game state.
@@ -14,32 +14,6 @@ export function applyEncounterResult(result) {
   if (result.deltaHP)   heal(result.deltaHP);
   if (result.deltaGold) gainGold(result.deltaGold);
   if (result.deltaXP)   gainXP(result.deltaXP);
-
-  if (result.artifact) {
-    GS.artifacts.push(result.artifact);
-    log(`Found artifact: ${result.artifact}`);
-    // TODO: trigger artifact bar re-render
-  }
-
-  if (result.diceBonus) {
-    // Add a bonus die to the pool
-    // TODO: hook into engine.js die creation
-    // GS.dice.push(createDie(result.diceBonus.faces));
-    log(`Gained a d${result.diceBonus.faces}!`);
-  }
-
-  if (result.curse) {
-    GS.curses = GS.curses || [];
-    GS.curses.push(result.curse);
-    log(`Cursed: ${result.curse}`);
-    // TODO: passive effects applied in combat.js
-  }
-
-  if (result.flagNext) {
-    // Arbitrary one-shot flags for cross-encounter continuity
-    GS.encounterFlags = GS.encounterFlags || {};
-    GS.encounterFlags[result.flagNext] = true;
-  }
 }
 
 // ── Pool builder ──────────────────────────────────────────────
@@ -94,9 +68,7 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'social',
     title: 'The Toll Collector',
     flavour: 'A crossbow materialises from the shadows before you see the goblin holding it.',
-    body: `A goblin mercenary blocks the only bridge forward. He's wearing a small badge that says
-           "OFFICIAL TOLL AUTHORITY" in crooked letters. He looks underpaid. He looks tired.
-           He still has the crossbow.`,
+    body: `A goblin mercenary blocks the only bridge forward. He's wearing a small badge that says "OFFICIAL TOLL AUTHORITY" in crooked letters. He looks underpaid. He looks tired. He still has the crossbow.`,
     weight: 6,
     filter: (gs) => gs.gold >= 5,
     bias:   (gs) => gs.act === 1 ? 1.5 : gs.act === 3 ? 0.4 : 1.0,
@@ -123,11 +95,10 @@ export const NON_COMBAT_ENCOUNTERS = [
       },
       {
         label: 'Turn back and find another route',
-        hint: 'Wastes time, no cost',
+        hint: 'Safe but slow — +5 XP',
         effect: () => ({
-          narrative: 'You double back through a service tunnel. It smells terrible. You arrive late but unharmed.',
-          // In screens.js: re-roll the floor encounter on this result
-          flagNext: 'reroll_floor',
+          narrative: 'You double back through a service tunnel. It smells terrible. You arrive late but unharmed — and wiser.',
+          deltaXP: 5,
         }),
       },
     ],
@@ -138,14 +109,12 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'social',
     title: "The Merchant's Favour",
     flavour: 'The crate is sealed tight. It ticks occasionally. She says that\'s normal.',
-    body: `A travelling merchant intercepts you with the energy of someone who has already decided
-           you're going to say yes. She's carrying a sealed crate and needs it delivered to
-           the next checkpoint. Payment on delivery. "Perfectly legal," she adds, unprompted.`,
+    body: `A travelling merchant intercepts you with the energy of someone who has already decided you're going to say yes. She's carrying a sealed crate and needs it delivered to the next checkpoint. Payment on delivery. "Perfectly legal," she adds, unprompted.`,
     weight: 5,
     choices: [
       {
         label: 'Accept the job',
-        hint: '+25 gold on next floor clear (probably)',
+        hint: '80% +25 gold / 20% -15 HP',
         effect: () => {
           const explodes = Math.random() < 0.2;
           return explodes
@@ -162,14 +131,13 @@ export const NON_COMBAT_ENCOUNTERS = [
       },
       {
         label: 'Inspect the crate',
-        hint: 'Costs 5 gold bribe to the porter',
+        hint: 'Costs 5 gold bribe — 50/50 find gold or nothing',
         available: (gs) => gs.gold >= 5,
         effect: () => {
-          // 50/50: artifact or bomb — but you find out safely
-          const isBomb = Math.random() < 0.5;
-          return isBomb
-            ? { narrative: 'The porter\'s eyes go wide. You both agree to walk away quickly.', deltaGold: -5 }
-            : { narrative: 'A genuine relic, misattributed. You pocket it before she notices.', deltaGold: -5, artifact: 'random_act_artifact' };
+          const valuable = Math.random() < 0.5;
+          return valuable
+            ? { narrative: 'A genuine relic, misattributed. You pocket it before she notices.', deltaGold: -5, deltaXP: 10 }
+            : { narrative: 'The porter\'s eyes go wide. You both agree to walk away quickly.', deltaGold: -5 };
         },
       },
     ],
@@ -180,28 +148,26 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'social',
     title: 'The Wounded Soldier',
     flavour: 'She\'s still holding her sword, even now. Old habit.',
-    body: `A soldier in colours you don't recognise is slumped against the wall, breathing shallowly.
-           Her wounds are bad but not fatal — if someone helps. She looks up at you without asking.`,
+    body: `A soldier in colours you don't recognise is slumped against the wall, breathing shallowly. Her wounds are bad but not fatal — if someone helps. She looks up at you without asking.`,
     weight: 4,
     bias: (gs) => gs.hp > gs.maxHp * 0.6 ? 2.0 : 0.6,
     choices: [
       {
         label: 'Tend to her wounds',
-        hint: 'Costs 10 HP worth of supplies',
+        hint: 'Costs 10 HP — +20 gold reward',
         available: (gs) => gs.hp > 15,
         effect: () => ({
-          narrative: 'She\'ll live. She presses something into your hand before you leave.',
+          narrative: 'She\'ll live. She presses something into your hand before you leave — coin purse, heavy.',
           deltaHP: -10,
-          artifact: 'random_act_artifact',
+          deltaGold: 20,
         }),
       },
       {
         label: 'Ask what she knows',
-        hint: 'Information, no cost',
+        hint: '+15 XP, no cost',
         effect: () => ({
           narrative: 'She describes the floor ahead in careful detail. You won\'t be surprised.',
           deltaXP: 15,
-          flagNext: 'preview_next_enemy',
         }),
       },
       {
@@ -219,8 +185,7 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'social',
     title: 'The Dice Shark',
     flavour: 'His dice are very clean. Suspiciously clean.',
-    body: `A hooded figure has set up a table in an alcove. Folding table, velvet cloth, two cups.
-           He doesn't look up when you approach. "One game," he says. "Your dice against mine."`,
+    body: `A hooded figure has set up a table in an alcove. Folding table, velvet cloth, two cups. He doesn't look up when you approach. "One game," he says. "Your dice against mine."`,
     weight: 5,
     filter: (gs) => gs.gold > 0,
     choices: [
@@ -273,29 +238,26 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'social',
     title: 'The Guild Recruiter',
     flavour: 'The uniform is impeccable. Everything about this screams paperwork.',
-    body: `An Adventurer's Guild recruiter materialises from nowhere, clipboard in hand.
-           She's been waiting. The Guild offers real benefits — insurance, referrals, discounts.
-           The fee is also real.`,
+    body: `An Adventurer's Guild recruiter materialises from nowhere, clipboard in hand. She's been waiting. The Guild offers real benefits — insurance, referrals, discounts. The fee is also real.`,
     weight: 4,
-    filter: (gs) => !gs.artifacts.includes('guild_badge'),
     choices: [
       {
         label: 'Join the Guild',
-        hint: 'Costs 30 gold — gain Guild Badge artifact',
+        hint: 'Costs 30 gold — +25 XP and a discount next shop',
         available: (gs) => gs.gold >= 30,
         effect: () => ({
           narrative: 'You sign. The badge is heavier than expected. She hands you a pamphlet.',
           deltaGold: -30,
-          artifact: 'guild_badge',
+          deltaXP: 25,
         }),
       },
       {
         label: 'Negotiate the fee',
-        hint: '50/50 — might join for 15g or offend her',
+        hint: '50/50 — might join for 15g or get nothing',
         effect: () => {
           const roll = Math.ceil(Math.random() * 6);
           return roll >= 4
-            ? { narrative: `She checks a box. "New member discount." You join for 15 gold. (Rolled ${roll})`, deltaGold: -15, artifact: 'guild_badge' }
+            ? { narrative: `She checks a box. "New member discount." You join for 15 gold. (Rolled ${roll})`, deltaGold: -15, deltaXP: 25 }
             : { narrative: `She closes her clipboard. "Full price or nothing." She walks away. (Rolled ${roll})` };
         },
       },
@@ -316,17 +278,16 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'chance',
     title: 'The Forgotten Cache',
     flavour: 'Someone hid this and never came back for it.',
-    body: `A loose stone in the wall. Behind it: a leather satchel, well-preserved, clearly stashed
-           in a hurry. The contents are a mystery until you open it.`,
+    body: `A loose stone in the wall. Behind it: a leather satchel, well-preserved, clearly stashed in a hurry. The contents are a mystery until you open it.`,
     weight: 6,
     choices: [
       {
         label: 'Take everything',
-        hint: '+20 gold — small curse risk',
+        hint: '+20 gold — small risk of HP loss',
         effect: () => {
-          const cursed = Math.random() < 0.15;
-          return cursed
-            ? { narrative: 'Gold and trinkets — and something else. Something that got into you.', deltaGold: 20, deltaXP: 5, curse: 'minor_hex' }
+          const trapped = Math.random() < 0.15;
+          return trapped
+            ? { narrative: 'Gold and trinkets — and a needle trap. Poison seeps into the wound.', deltaGold: 20, deltaXP: 5, deltaHP: -8 }
             : { narrative: 'Clean score. Whoever left this isn\'t coming back for it.', deltaGold: 20, deltaXP: 5 };
         },
       },
@@ -354,17 +315,16 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'chance',
     title: 'The Lucky Coin',
     flavour: 'Heads up. You notice these things.',
-    body: `A single coin on the floor, face up, catching the light at exactly the right angle
-           to catch your eye. It feels intentional.`,
+    body: `A single coin on the floor, face up, catching the light at exactly the right angle to catch your eye. It feels intentional.`,
     weight: 8,
     choices: [
       {
         label: 'Pocket it',
-        hint: 'Flip for luck — could be magic',
+        hint: '50/50 — +15 gold or just 3 gold',
         effect: () => {
           const lucky = Math.random() < 0.5;
           return lucky
-            ? { narrative: 'It hums in your palm. This is a Luck Token. You keep it somewhere safe.', artifact: 'luck_token' }
+            ? { narrative: 'It hums in your palm. Worth more than it looks.', deltaGold: 15 }
             : { narrative: 'Just a coin. Still, 3 gold is 3 gold.', deltaGold: 3 };
         },
       },
@@ -377,12 +337,11 @@ export const NON_COMBAT_ENCOUNTERS = [
       },
       {
         label: 'Examine it first',
-        hint: 'Identify safely before committing',
+        hint: 'Safe — identify before committing',
         effect: () => {
           const lucky = Math.random() < 0.5;
-          // Reveals outcome — player still has to pick it up or leave after seeing
           return lucky
-            ? { narrative: 'Inscribed on the edge: a blessing glyph. This is a Luck Token.', artifact: 'luck_token' }
+            ? { narrative: 'Inscribed on the edge: a blessing glyph. You feel invigorated.', deltaHP: 10, deltaXP: 5 }
             : { narrative: 'Just copper, minted in a city that probably doesn\'t exist anymore. Worth 3 gold.', deltaGold: 3 };
         },
       },
@@ -394,8 +353,7 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'chance',
     title: 'The Collapsed Shrine',
     flavour: 'The god is gone. The stone remembers something, though.',
-    body: `A shrine to a deity whose name has been chiselled off the inscription. Half-buried
-           in rubble. The inscription that remains is a simple instruction: give and receive.`,
+    body: `A shrine to a deity whose name has been chiselled off the inscription. Half-buried in rubble. The inscription that remains is a simple instruction: give and receive.`,
     weight: 5,
     choices: [
       {
@@ -406,7 +364,7 @@ export const NON_COMBAT_ENCOUNTERS = [
           const roll = Math.ceil(Math.random() * 3);
           if (roll === 1) return { narrative: 'Warmth. Real warmth. Your wounds close a little.', deltaGold: -10, deltaHP: 15 };
           if (roll === 2) return { narrative: 'A sudden, vivid memory that isn\'t yours. Useful, somehow.', deltaGold: -10, deltaXP: 20 };
-          return { narrative: 'One of your dice feels different. Heavier. Better.', deltaGold: -10, diceBonus: { faces: 6, count: 1 } };
+          return { narrative: 'The shrine hums. You feel lighter on your feet, ready for what\'s ahead.', deltaGold: -10, deltaHP: 10, deltaXP: 10 };
         },
       },
       {
@@ -421,7 +379,7 @@ export const NON_COMBAT_ENCOUNTERS = [
       },
       {
         label: 'Salvage what you can',
-        hint: '+8 gold, small curse risk',
+        hint: '+8 gold, small HP risk',
         effect: () => {
           const punished = Math.random() < 0.3;
           return punished
@@ -437,27 +395,25 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'chance',
     title: "The Cartographer's Mistake",
     flavour: "The X is very confident. The route to it less so.",
-    body: `A dead adventurer, map pinned to their chest like a note to the finder. The map
-           shows a shortcut to the boss floor — or what looks like one. Could be the cartographer
-           was good. Could be the cartographer was optimistic.`,
+    body: `A dead adventurer, map pinned to their chest like a note to the finder. The map shows a shortcut — or what looks like one. Could be the cartographer was good. Could be the cartographer was optimistic.`,
     weight: 4,
     choices: [
       {
         label: 'Follow the map',
-        hint: '60% skip a floor / 40% lose 8 HP',
+        hint: '60% +20 XP shortcut / 40% -8 HP dead end',
         effect: () => {
           const works = Math.random() < 0.6;
           return works
-            ? { narrative: 'The shortcut is real. You emerge one floor ahead, slightly smug.', flagNext: 'skip_floor' }
+            ? { narrative: 'The shortcut is real. You arrive ahead of schedule, slightly smug.', deltaXP: 20 }
             : { narrative: 'The shortcut is not real. An hour of backtracking in the dark.', deltaHP: -8 };
         },
       },
       {
-        label: 'Hold the map for later',
-        hint: 'Sell at next shop for +15 gold',
+        label: 'Sell the map',
+        hint: '+15 gold',
         effect: () => ({
-          narrative: 'You fold it carefully. A cartographer\'s map is worth something to the right buyer.',
-          flagNext: 'has_map_to_sell',
+          narrative: 'You fold it carefully. A cartographer\'s map is worth something to the right buyer. You find one quickly.',
+          deltaGold: 15,
         }),
       },
       {
@@ -475,8 +431,7 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'chance',
     title: 'The Echoing Whisper',
     flavour: 'It knew your name. Not your title. Your name.',
-    body: `From nowhere — clearly, distinctly, in a voice you almost recognise — you hear your
-           name. Not an echo. Not a trick of the stonework. The dungeon is aware of you.`,
+    body: `From nowhere — clearly, distinctly, in a voice you almost recognise — you hear your name. Not an echo. Not a trick of the stonework. The dungeon is aware of you.`,
     weight: 3, // rare
     choices: [
       {
@@ -499,11 +454,10 @@ export const NON_COMBAT_ENCOUNTERS = [
       },
       {
         label: 'Shout back',
-        hint: '+10 XP, reshuffles next encounter',
+        hint: '+10 XP',
         effect: () => ({
-          narrative: 'Your voice bounces back changed. Something shifts in the dungeon\'s order.',
+          narrative: 'Your voice bounces back changed. The dungeon acknowledges you.',
           deltaXP: 10,
-          flagNext: 'reshuffle_encounter_pool',
         }),
       },
     ],
@@ -516,19 +470,18 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'blessing',
     title: "The Healer's Camp",
     flavour: "They set up here deliberately. They know the dungeon's rhythms.",
-    body: `Field medics in a torchlit alcove, equipment clean, prices chalked on a board.
-           They've seen a lot of adventurers. Their bedside manner reflects this.`,
+    body: `Field medics in a torchlit alcove, equipment clean, prices chalked on a board. They've seen a lot of adventurers. Their bedside manner reflects this.`,
     weight: 5,
     bias: (gs) => gs.hp < gs.maxHp * 0.35 ? 3.0 : gs.hp < gs.maxHp * 0.6 ? 1.5 : 0.7,
     choices: [
       {
         label: 'Full restoration',
-        hint: 'Costs 25 gold',
+        hint: 'Costs 25 gold — heal to full',
         available: (gs) => gs.gold >= 25,
         effect: () => ({
           narrative: 'You leave in better shape than you entered. That\'s rarer than it sounds.',
           deltaGold: -25,
-          deltaHP: GS.maxHp - GS.hp, // full heal
+          deltaHP: GS.maxHp - GS.hp,
         }),
       },
       {
@@ -543,13 +496,12 @@ export const NON_COMBAT_ENCOUNTERS = [
       },
       {
         label: 'Donate blood for their research',
-        hint: 'Free — but costs 8 HP',
+        hint: 'Costs 8 HP — +15 XP',
         available: (gs) => gs.hp > 12,
         effect: () => ({
           narrative: 'They ask a lot of questions while they work. You gain more than you expected.',
           deltaHP: -8,
           deltaXP: 15,
-          artifact: 'random_consumable',
         }),
       },
     ],
@@ -560,34 +512,34 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'curse',
     title: 'The Bone Altar',
     flavour: "It pulses. Not like a heartbeat. Like something counting.",
-    body: `An altar assembled from what was once alive, arranged with disturbing care.
-           It shouldn't work. It does. It accepts offerings. It gives things back.`,
+    body: `An altar assembled from what was once alive, arranged with disturbing care. It shouldn't work. It does. It accepts offerings. It gives things back.`,
     weight: 3,
     filter: (gs) => gs.hp > 25,
     choices: [
       {
         label: 'Offer your blood (20 HP)',
-        hint: 'One die gains +2 permanently — but it costs you',
+        hint: 'High risk, high reward — +40 XP',
         available: (gs) => gs.hp > 25,
         effect: () => ({
-          narrative: 'You leave a little of yourself on the altar. One of your dice feels awake now.',
+          narrative: 'You leave a little of yourself on the altar. Knowledge floods in — ancient, useful, dangerous.',
           deltaHP: -20,
-          diceBonus: { faces: 2, count: 0, modifier: '+2_to_existing' }, // TODO: hook to specific die upgrade
+          deltaXP: 40,
         }),
       },
       {
         label: 'Offer gold (30g)',
-        hint: 'Gain a random artifact',
+        hint: '+25 XP and +10 HP',
         available: (gs) => gs.gold >= 30,
         effect: () => ({
-          narrative: 'The coins vanish before they touch the stone. Something else appears in your hand.',
+          narrative: 'The coins vanish before they touch the stone. Warmth flows through you.',
           deltaGold: -30,
-          artifact: 'random_act_artifact',
+          deltaXP: 25,
+          deltaHP: 10,
         }),
       },
       {
         label: 'Smash it',
-        hint: '50/50 — satisfaction or retribution',
+        hint: '50/50 — +10 XP or -15 HP',
         effect: () => {
           const win = Math.random() < 0.5;
           return win
@@ -603,20 +555,18 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'chance',
     title: 'The Whispering Fungus',
     flavour: "The hum is below hearing. You feel it in your back teeth.",
-    body: `A vast mycelial network covers one wall entirely, bioluminescent, clearly conscious
-           in some distributed way. It offers nothing directly. It simply exists, and waits
-           to see what you'll do about it.`,
+    body: `A vast mycelial network covers one wall entirely, bioluminescent, clearly conscious in some distributed way. It offers nothing directly. It simply exists, and waits to see what you'll do about it.`,
     weight: 4,
     choices: [
       {
         label: 'Eat a sample',
-        hint: 'Random outcome — could be anything',
+        hint: 'Random — could be anything',
         effect: () => {
           const outcomes = [
             { narrative: 'A rush of warmth. Genuine healing.', deltaHP: 20 },
             { narrative: 'Sudden clarity. You understand things you didn\'t before.', deltaXP: 25 },
             { narrative: 'Wrong kind. Very wrong kind.', deltaHP: -10 },
-            { narrative: 'Something falls from your pocket that wasn\'t there before.', artifact: 'random_act_artifact' },
+            { narrative: 'It tastes like gold smells. Literally.', deltaGold: 20 },
             { narrative: 'Nothing. You feel faintly embarrassed.' },
           ];
           return outcomes[Math.floor(Math.random() * outcomes.length)];
@@ -624,10 +574,10 @@ export const NON_COMBAT_ENCOUNTERS = [
       },
       {
         label: 'Inhale the spores',
-        hint: 'Gain Spore Sight — reveals hidden elite modifier once',
+        hint: '+15 XP — heightened awareness',
         effect: () => ({
-          narrative: 'The spores are information. You understand what\'s coming.',
-          artifact: 'spore_sight',
+          narrative: 'The spores are information. The dungeon\'s layout feels clearer somehow.',
+          deltaXP: 15,
         }),
       },
       {
@@ -646,8 +596,7 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'blessing',
     title: 'The Mirror Pool',
     flavour: "Your reflection shows someone slightly ahead of where you are.",
-    body: `A perfectly still pool in a side chamber. No current, no drip, no disturbance.
-           Your reflection looks back — but not quite accurately. It shows what you could be.`,
+    body: `A perfectly still pool in a side chamber. No current, no drip, no disturbance. Your reflection looks back — but not quite accurately. It shows what you could be.`,
     weight: 3,
     choices: [
       {
@@ -656,27 +605,24 @@ export const NON_COMBAT_ENCOUNTERS = [
         effect: () => ({
           narrative: 'You see the act\'s boss — not in detail, but in character. You know what you\'re walking toward.',
           deltaXP: 30,
-          flagNext: 'boss_vision_seen',
         }),
       },
       {
         label: 'Reach in',
-        hint: 'Roll d6 — artifact, gold, or lose HP',
+        hint: 'Roll d6 — +20 gold, +10 HP, or -10 HP',
         effect: () => {
           const roll = Math.ceil(Math.random() * 6);
-          if (roll >= 5) return { narrative: `Your hand closes on something real. (Rolled ${roll})`, artifact: 'random_act_artifact' };
-          if (roll >= 3) return { narrative: `Cold coins from nowhere. (Rolled ${roll})`, deltaGold: 15 };
+          if (roll >= 5) return { narrative: `Your hand closes on something real. Cold coins from nowhere. (Rolled ${roll})`, deltaGold: 20 };
+          if (roll >= 3) return { narrative: `A gentle warmth flows up your arm. (Rolled ${roll})`, deltaHP: 10 };
           return { narrative: `The pool takes something from you. (Rolled ${roll})`, deltaHP: -10 };
         },
       },
       {
-        label: 'Shatter the reflection',
-        hint: 'Costs 10 HP — gain Shattered Mirror artifact',
-        available: (gs) => gs.hp > 15,
+        label: 'Drink from it',
+        hint: '+15 HP',
         effect: () => ({
-          narrative: 'The surface breaks. The shards are yours. One of them still shows your potential.',
-          deltaHP: -10,
-          artifact: 'shattered_mirror',
+          narrative: 'The water tastes like nothing. Your wounds feel like nothing too.',
+          deltaHP: 15,
         }),
       },
     ],
@@ -687,45 +633,41 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'curse',
     title: 'The Dark Bargain',
     flavour: "No tricks. It just wants something. It's very clear about this.",
-    body: `A voice. No body. No theatrics. It makes you an offer in plain, direct language.
-           It wants something you have. It will give you something in return.
-           The exchange rate is generous. The reasons are opaque.`,
+    body: `A voice. No body. No theatrics. It makes you an offer in plain, direct language. It wants something you have. It will give you something in return. The exchange rate is generous. The reasons are opaque.`,
     weight: 2, // rare — impactful
     choices: [
       {
-        label: 'Trade your luck token',
-        hint: '+40 gold +20 XP — requires Luck Token',
-        available: (gs) => gs.artifacts.includes('luck_token'),
-        effect: () => {
-          GS.artifacts = GS.artifacts.filter(a => a !== 'luck_token');
-          return {
-            narrative: 'It takes the coin from your pocket without touching you. The gold appears where the coin was.',
-            deltaGold: 40,
-            deltaXP: 20,
-          };
-        },
-      },
-      {
-        label: 'Trade your gold',
-        hint: 'Lose all gold — gain a powerful artifact',
+        label: 'Trade half your gold',
+        hint: '+50 XP',
         available: (gs) => gs.gold >= 20,
         effect: () => {
-          const stake = GS.gold;
+          const half = Math.floor(GS.gold / 2);
           return {
-            narrative: `${stake} gold — gone. Something far more interesting takes its place.`,
-            deltaGold: -stake,
-            artifact: 'random_act_artifact_high_tier',
+            narrative: `${half} gold — gone. Knowledge takes its place. You understand the dungeon better now.`,
+            deltaGold: -half,
+            deltaXP: 50,
           };
         },
       },
       {
-        label: 'Trade your blood (30 HP)',
-        hint: '+50 XP',
-        available: (gs) => gs.hp > 35,
+        label: 'Trade your blood (25 HP)',
+        hint: '+40 gold',
+        available: (gs) => gs.hp > 30,
         effect: () => ({
-          narrative: 'It takes something from you that isn\'t quite blood. The XP is real, though.',
-          deltaHP: -30,
-          deltaXP: 50,
+          narrative: 'It takes something from you that isn\'t quite blood. The gold is real, though.',
+          deltaHP: -25,
+          deltaGold: 40,
+        }),
+      },
+      {
+        label: 'Trade your vitality',
+        hint: '-15 HP, +30 XP, +15 gold',
+        available: (gs) => gs.hp > 20,
+        effect: () => ({
+          narrative: 'You feel diminished. Richer. Wiser. It is content.',
+          deltaHP: -15,
+          deltaXP: 30,
+          deltaGold: 15,
         }),
       },
       {

@@ -434,7 +434,7 @@ export const ENEMIES = {
                 charge: { name: 'Breath Charge', icon: '🔥', type: 'charge', desc: 'Charging... immune to damage, next attack doubled!', immune: true },
             },
             passives: [],
-            pattern: ['charge', 'strike'],
+            pattern: ['strike', 'strike', 'charge', 'strike'],
         },
         act3: {
             hp: 480, dice: [12, 12, 12, 12], gold: [48, 68],
@@ -445,7 +445,7 @@ export const ENEMIES = {
             passives: [
                 { id: 'scales', name: 'Dragon Scales', desc: 'First 8 damage from each slot is ignored', params: { perSlot: 8 } },
             ],
-            pattern: ['charge', 'strike'],
+            pattern: ['strike', 'strike', 'charge', 'strike'],
         },
     },
 

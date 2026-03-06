@@ -13,7 +13,7 @@
   ],
   "env": {
     "dev": {
-      "name": "dicedungeon",
+      "name": "dicedungeondev",
       "routes": [
         { "custom_domain": true, "pattern": "dev.dicedungeon.stopdoingnothing.co.za" }
       ]

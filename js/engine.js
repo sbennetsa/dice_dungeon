@@ -189,17 +189,15 @@ export function renderConsumables() {
 
 export function updateStats() {
     const sets = [
-        ['s-floor','s-level','s-xp','s-hp','s-gold'],
-        ['r-floor',null,null,'r-hp','r-gold'],
-        ['bs-floor',null,null,'bs-hp','bs-gold'],
-        [null,null,null,'sh-hp','sh-gold'],
-        ['e-floor',null,null,'e-hp','e-gold'],
-        [null,null,null,'rest-hp','rest-gold'],
+        ['s-floor','s-hp','s-gold'],
+        ['r-floor','r-hp','r-gold'],
+        ['bs-floor','bs-hp','bs-gold'],
+        [null,'sh-hp','sh-gold'],
+        ['e-floor','e-hp','e-gold'],
+        [null,'rest-hp','rest-gold'],
     ];
-    sets.forEach(([fl,lv,xp,hp,gd]) => {
+    sets.forEach(([fl,hp,gd]) => {
         if (fl) $(fl).textContent = GS.floor;
-        if (lv) $(lv).textContent = GS.level;
-        if (xp) $(xp).textContent = `${GS.xp}/${GS.xpNext}`;
         if (hp) {
             const el = $(hp);
             const regenStr = GS.regenStacks > 0 ? ` <span style="color:#60d080; font-size:0.8em;">+${GS.regenStacks}❤️</span>` : '';
@@ -217,7 +215,7 @@ export function updateStats() {
     const runeStr = runeCount > 0 ? ` 🔮${runeCount}` : '';
     const diceStr = `${GS.dice.length}`;
     const rerollStr = GS.rerolls > 0 ? ` 🔄${GS.rerolls}` : '';
-    ['s-dice', 'sh-dice'].forEach(id => { const el = $(id); if (el) el.innerHTML = `${diceStr} <span style="opacity:0.6; font-size:0.8em">(${slotsStr}${runeStr}${rerollStr})</span>`; });
+    ['sh-dice'].forEach(id => { const el = $(id); if (el) el.innerHTML = `${diceStr} <span style="opacity:0.6; font-size:0.8em">(${slotsStr}${runeStr}${rerollStr})</span>`; });
     renderFloorProgress();
     renderArtifacts();
     renderBuffs();

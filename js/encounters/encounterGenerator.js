@@ -70,9 +70,8 @@ function _generateNCE(floor) {
  * @returns {object|null} NCE encounter object, or null if nothing fires
  */
 export function checkForNCE(resolvedFloorType) {
-    GS.lastFloorType = resolvedFloorType;
-    if (!_shouldGenerateNCE()) return null;
-    return _generateNCE(GS.floor);
+    // NCE system disabled — encounters need rework before re-enabling
+    return null;
 }
 
 // ────────────────────────────────────────────────────────────

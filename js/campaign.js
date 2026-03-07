@@ -100,6 +100,46 @@ const TIER_NODE_ENHANCEMENTS = {
     ],
 };
 
+// ── Starting boons ───────────────────────────────────────────
+// Granted at run start based on campaign favor tiers (cumulative).
+// Types: 'die', 'utilityDie', 'rune', 'gold', 'consumable', 'artifact', 'maxHp', 'transformBuff'
+// tierIdx: 0 = Tier 1, 1 = Tier 2, 2 = Tier 3
+const ORDER_START_BOONS = {
+    warpack: [
+        { tierIdx: 0, type: 'die',           min: 1, max: 6 },
+        { tierIdx: 1, type: 'rune',          runeEffect: 'lucky',      slotZone: 'strike' },
+        { tierIdx: 2, type: 'consumable',    consumableId: 'rage' },
+    ],
+    gilded: [
+        { tierIdx: 0, type: 'gold',          amount: 20 },
+        { tierIdx: 1, type: 'gold',          amount: 20 },
+        { tierIdx: 2, type: 'artifact',      artifactEffect: 'goldPerKill' },
+    ],
+    runeforged: [
+        { tierIdx: 0, type: 'rune',          runeEffect: 'amplifier',  slotZone: 'strike' },
+        { tierIdx: 1, type: 'utilityDie',    dieId: 'shield' },
+        { tierIdx: 2, type: 'rune',          runeEffect: 'titanBlow',  slotZone: 'strike' },
+    ],
+    brood: [
+        { tierIdx: 0, type: 'rune',          runeEffect: 'poisonCore', slotZone: 'strike' },
+        { tierIdx: 1, type: 'consumable',    consumableId: 'venom' },
+        { tierIdx: 2, type: 'transformBuff', key: 'conduit', amount: 3 },
+    ],
+    ironward: [
+        { tierIdx: 0, type: 'maxHp',         amount: 15 },
+        { tierIdx: 1, type: 'consumable',    consumableId: 'hp1' },
+        { tierIdx: 2, type: 'consumable',    consumableId: 'iron' },
+    ],
+};
+
+export const ORDER_START_BOON_DESCS = {
+    warpack:    ['Start with +1 d6 die', 'Strike slot starts with Lucky rune', 'Start with a Rage Potion'],
+    gilded:     ['+20 starting gold', '+20 starting gold (total +40)', 'Start with Tax Collector artifact'],
+    runeforged: ['Strike slot starts with Amplifier rune', 'Start with a Shield Die', "Strike slot starts with Titan's Blow rune"],
+    brood:      ['Strike slot starts with Poison Core rune', 'Start with a Venom Flask', '+3 Conduit (poison ×3 per die per turn)'],
+    ironward:   ['+15 starting max HP', 'Start with a Healing Potion', 'Start with an Iron Skin Potion'],
+};
+
 // ── Narrative texts ───────────────────────────────────────────
 
 const ORDER_INTERACTIONS = {
@@ -397,6 +437,21 @@ export const Campaign = {
         const tier = this.getOrderTier(order, currentFavor);
         if (tier >= thresholds.length) return null;
         return { nextTier: tier + 1, threshold: thresholds[tier] };
+    },
+
+    /** Returns list of start boon objects applicable at current campaign favor tiers. */
+    getApplicableStartBoons() {
+        const c = this._loadActive();
+        if (!c) return [];
+        const favor = c.orderFavor;
+        const result = [];
+        for (const [order, boons] of Object.entries(ORDER_START_BOONS)) {
+            const tier = this.getOrderTier(order, favor[order] || 0);
+            for (const boon of boons) {
+                if (tier > boon.tierIdx) result.push(boon);
+            }
+        }
+        return result;
     },
 
     /** Returns list of { order, tier } for newly crossed thresholds between two favor states. */

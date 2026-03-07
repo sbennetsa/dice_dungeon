@@ -12,7 +12,7 @@ import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
 import { scoreDungeon, scoreFloorDetailed, scorePlayerAdvantage, rewardToAdvantage, REST_ADVANTAGES, REWARD_ADVANTAGES, GOLD_ADVANTAGE_RATE } from './encounters/dungeonScoring.js';
 import { RunHistory, CampaignHistory, BestiaryProgress } from './persistence.js';
 import { BESTIARY_DATA, BestiaryUI } from './bestiary.js';
-import { Campaign, RANKS, ACHIEVEMENTS, ORDER_CODEX, ORDER_DISPLAY_NAMES, ORDER_ICONS, ORDER_TIER_DESCRIPTIONS } from './campaign.js';
+import { Campaign, RANKS, ACHIEVEMENTS, ORDER_CODEX, ORDER_DISPLAY_NAMES, ORDER_ICONS, ORDER_TIER_DESCRIPTIONS, ORDER_START_BOON_DESCS } from './campaign.js';
 
 // ════════════════════════════════════════════════════════════
 //  CAMPAIGN STATE
@@ -250,6 +250,70 @@ function showRuneAttachment(rune, onDone) {
 }
 
 // ════════════════════════════════════════════════════════════
+//  CAMPAIGN START BOONS
+// ════════════════════════════════════════════════════════════
+
+/** Apply Order starting boons to GS at run start (campaign mode only). */
+function applyStartBoons(boons, gs) {
+    for (const boon of boons) {
+        switch (boon.type) {
+
+            case 'die':
+                gs.dice.push(createDie(boon.min ?? 1, boon.max ?? 6));
+                break;
+
+            case 'utilityDie': {
+                const utDef = UTILITY_DICE.find(u => u.id === boon.dieId);
+                if (utDef) gs.dice.push(createUtilityDie(utDef));
+                break;
+            }
+
+            case 'rune': {
+                const rune = RUNES.find(r => r.effect === boon.runeEffect);
+                if (!rune) break;
+                const zone = boon.slotZone === 'strike' ? gs.slots.strike : gs.slots.guard;
+                const emptySlot = zone.find(s => s.runes.length === 0);
+                if (emptySlot) {
+                    emptySlot.runes.push({ ...rune });
+                } else {
+                    gs.pendingRunes.push({ ...rune });
+                }
+                break;
+            }
+
+            case 'gold':
+                gs.gold += boon.amount;
+                break;
+
+            case 'consumable': {
+                const c = CONSUMABLES.find(c => c.id === boon.consumableId);
+                if (c && gs.consumables.length < gs.consumableSlots) {
+                    gs.consumables.push({ ...c });
+                }
+                break;
+            }
+
+            case 'artifact': {
+                const a = ARTIFACT_POOL.find(a => a.effect === boon.artifactEffect);
+                if (a && !gs.artifacts.some(x => x.effect === a.effect)) {
+                    gs.artifacts.push({ ...a });
+                }
+                break;
+            }
+
+            case 'maxHp':
+                gs.maxHp += boon.amount;
+                gs.hp = Math.min(gs.hp + boon.amount, gs.maxHp);
+                break;
+
+            case 'transformBuff':
+                gs.transformBuffs[boon.key] = (gs.transformBuffs[boon.key] || 0) + boon.amount;
+                break;
+        }
+    }
+}
+
+// ════════════════════════════════════════════════════════════
 //  GAME CONTROLLER
 // ════════════════════════════════════════════════════════════
 const Game = {
@@ -336,6 +400,7 @@ const Game = {
         GS.campaign = activeCampaign || null;
         if (activeCampaign) {
             Campaign.applyTierEnhancements(GS);
+            applyStartBoons(Campaign.getApplicableStartBoons(), GS);
         }
 
         DungeonPath.show(difficulty);
@@ -4974,12 +5039,17 @@ const CampaignScreen = {
         const active  = Campaign.getActiveCampaign();
 
         // Tier rows
+        const boonDescs = ORDER_START_BOON_DESCS[key] || [];
         const tierRows = descs.map((desc, i) => {
-            const t       = i + 1;
-            const reached = tier >= t;
+            const t        = i + 1;
+            const reached  = tier >= t;
+            const boonDesc = boonDescs[i] || '';
             return `<div class="order-codex-tier-row${reached ? ' reached' : ''}">
                 <span class="order-codex-tier-label">Tier ${t}</span>
-                <span class="order-codex-tier-desc">${desc}</span>
+                <div class="order-codex-tier-desc-group">
+                    <span class="order-codex-tier-desc">${desc}</span>
+                    ${boonDesc ? `<span class="order-codex-tier-boon">${boonDesc}</span>` : ''}
+                </div>
             </div>`;
         }).join('');
 

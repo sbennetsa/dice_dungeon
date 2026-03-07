@@ -3840,6 +3840,22 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   color: #3d2e18;
 }
 
+.order-codex-tier-desc-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.order-codex-tier-boon {
+  font-family: var(--font-body);
+  font-size: 0.83em;
+  color: #8b6914;
+  font-style: italic;
+}
+.order-codex-tier-row.reached .order-codex-tier-boon {
+  color: #b8952a;
+}
+
 /* ── Favor progress bar ── */
 .order-codex-favor {
   margin-top: 22px;

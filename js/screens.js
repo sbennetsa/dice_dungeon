@@ -4120,6 +4120,28 @@ const DifficultySelect = {
             }
         }
 
+        // Campaign action bar
+        const campaignEl = $('start-campaign-action');
+        if (campaignEl) {
+            const active = Campaign.getActiveCampaign();
+            if (active) {
+                const loopLabel = ['Casual', 'Standard', 'Heroic'][active.currentLoop - 1] || 'Heroic';
+                campaignEl.innerHTML = `
+                    <div class="start-campaign-bar start-campaign-bar--active">
+                        <div class="start-campaign-bar__label">Campaign — Loop ${active.currentLoop} of 3 (${loopLabel})</div>
+                        <button class="btn btn-primary start-campaign-bar__btn"
+                            onclick="Game.start(Campaign.getDifficulty())">Resume Campaign</button>
+                    </div>`;
+            } else {
+                campaignEl.innerHTML = `
+                    <div class="start-campaign-bar">
+                        <div class="start-campaign-bar__label">Three dungeons. One permadeath campaign.</div>
+                        <button class="btn btn-primary start-campaign-bar__btn"
+                            onclick="CampaignScreen.startCampaign()">Begin Campaign</button>
+                    </div>`;
+            }
+        }
+
         // Apply campaign locks to difficulty cards
         const LOCK_HINTS = {
             standard: 'Win a Casual run to unlock',

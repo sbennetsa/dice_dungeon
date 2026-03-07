@@ -573,6 +573,7 @@ const Game = {
     startChallengeBoss() {
         GS.challengePrep = 3;
         GS.hp = GS.maxHp;
+        GS.battleSummary = null;
         Game.showChallengePrep();
     },
 
@@ -1577,7 +1578,7 @@ const Rewards = {
         show('screen-reward');
     },
 
-    showDieUpgrade() {
+    showDieUpgrade(backFn = null) {
         $('reward-title').textContent = 'Choose a Die to Upgrade';
         const c = $('reward-cards');
         c.innerHTML = '';
@@ -1602,7 +1603,7 @@ const Rewards = {
         const back = document.createElement('div');
         back.className = 'card';
         back.innerHTML = `<div class="card-title">← Back</div>`;
-        back.onclick = () => Rewards.show();
+        back.onclick = () => (backFn ? backFn() : Rewards.show());
         c.appendChild(back);
 
         show('screen-reward');
@@ -2060,14 +2061,13 @@ const BattleSummary = {
     _showSubChoice(type, lockCallback) {
         // Show die upgrade or sacrifice on the reward screen, then return
         if (type === 'upgrade') {
-            Rewards.showDieUpgrade();
-            // Override Game.nextFloor temporarily to return to summary
             const origNext = Game.nextFloor;
             Game.nextFloor = () => {
                 Game.nextFloor = origNext;
                 lockCallback('Die upgraded');
                 show('screen-battle-summary');
             };
+            Rewards.showDieUpgrade(() => { Game.nextFloor = origNext; show('screen-battle-summary'); });
         } else if (type === 'sacrifice') {
             Rewards.showDiceSacrifice(() => {
                 lockCallback('Dice sacrificed for +1 slot');

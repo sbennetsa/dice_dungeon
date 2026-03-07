@@ -1557,7 +1557,7 @@ export const Combat = {
             // Re-check for combat end after environment effects
             if (GS.hp <= 0) {
                 GS.hp = 0; updateStats();
-                setTimeout(() => window.Game.defeat(), 1000); return;
+                setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000); return;
             }
             if (GS.enemy.currentHp <= 0) { Combat.enemyDefeated(); return; }
         }
@@ -2104,7 +2104,7 @@ export const Combat = {
             updateStats();
             if (GS.hp <= 0) {
                 GS.hp = 0; updateStats();
-                setTimeout(() => window.Game.defeat(), 1000); return;
+                setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000); return;
             }
             if (GS.enemy && GS.enemy.currentHp <= 0) { Combat.enemyDefeated(); return; }
         }
@@ -2116,7 +2116,7 @@ export const Combat = {
             updateStats();
             if (GS.hp <= 0) {
                 GS.hp = 0; updateStats();
-                setTimeout(() => window.Game.defeat(), 1000);
+                setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000);
                 return;
             }
         }
@@ -2131,7 +2131,7 @@ export const Combat = {
                 updateStats();
                 if (GS.hp <= 0) {
                     GS.hp = 0; updateStats();
-                    setTimeout(() => window.Game.defeat(), 1000);
+                    setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000);
                     return;
                 }
             }
@@ -2154,7 +2154,7 @@ export const Combat = {
             if (GS.hp <= 0) {
                 GS.hp = 0;
                 updateStats();
-                setTimeout(() => window.Game.defeat(), 1000);
+                setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000);
                 return;
             }
         }

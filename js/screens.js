@@ -5221,24 +5221,24 @@ const IssueReport = {
         if (ctx.enemy) lines.push(`Enemy: ${ctx.enemy} (${ctx.enemyHp})`);
         if (ctx.environment) lines.push(`Env: ${ctx.environment}`);
         lines.push(`HP: ${ctx.playerHp} · Lv ${ctx.level}`);
-        $('#issue-context').textContent = lines.join(' | ');
-        $('#issue-title').value = '';
-        $('#issue-desc').value = '';
-        $('#issue-status').textContent = '';
-        $('#issue-report-overlay').style.display = 'block';
+        $('issue-context').textContent = lines.join(' | ');
+        $('issue-title').value = '';
+        $('issue-desc').value = '';
+        $('issue-status').textContent = '';
+        $('issue-report-overlay').style.display = 'block';
     },
     close() {
-        $('#issue-report-overlay').style.display = 'none';
+        $('issue-report-overlay').style.display = 'none';
     },
     async submit() {
-        const title = $('#issue-title').value.trim();
-        const desc = $('#issue-desc').value.trim();
-        const category = $('#issue-category').value;
-        if (!title) { $('#issue-status').textContent = 'Please enter a title.'; return; }
+        const title = $('issue-title').value.trim();
+        const desc = $('issue-desc').value.trim();
+        const category = $('issue-category').value;
+        if (!title) { $('issue-status').textContent = 'Please enter a title.'; return; }
 
-        const btn = $('#issue-report-overlay .btn-primary');
+        const btn = $('issue-report-overlay').querySelector('.btn-primary');
         btn.disabled = true;
-        $('#issue-status').textContent = 'Submitting...';
+        $('issue-status').textContent = 'Submitting...';
         try {
             const res = await fetch('/api/issue', {
                 method: 'POST',
@@ -5246,14 +5246,14 @@ const IssueReport = {
                 body: JSON.stringify({ title, description: desc, category, context: this._captureContext() })
             });
             if (res.ok) {
-                $('#issue-status').textContent = 'Issue reported — thank you!';
+                $('issue-status').textContent = 'Issue reported — thank you!';
                 setTimeout(() => this.close(), 1500);
             } else {
                 const data = await res.json().catch(() => ({}));
-                $('#issue-status').textContent = data.error || 'Failed to submit. Try again.';
+                $('issue-status').textContent = data.error || 'Failed to submit. Try again.';
             }
         } catch {
-            $('#issue-status').textContent = 'Network error. Check your connection.';
+            $('issue-status').textContent = 'Network error. Check your connection.';
         } finally {
             btn.disabled = false;
         }

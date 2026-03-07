@@ -4,6 +4,24 @@ A record of intentional design choices made during development, including the re
 
 ---
 
+## Order Favor — Auto-Granted Nodes Do Not Accumulate Favor
+
+**Date:** 2026-03-07
+**Status:** Decided
+
+### Decision
+The `root` node (and any future auto-granted nodes) must have `orderFavor: {}`. Only nodes the player explicitly unlocks by spending a skill point should accumulate Order favor.
+
+### Rationale
+`root` is granted automatically when the skill die is first revealed — it is not a player choice. Giving it non-zero `orderFavor` caused Order favor to start accumulating after the very first combat, before the player had spent any skill points. This was confusing and meaningless as a signal — Order favor is supposed to reflect deliberate build choices.
+
+### Rule
+- `root` node: `orderFavor: {}` — no favor contribution
+- Any future auto-granted node (e.g. campaign boons that unlock a node directly): set `orderFavor: {}` or omit the field
+- Only explicitly player-chosen nodes (skill point spends) should carry non-zero `orderFavor`
+
+---
+
 ## No On-Death Effects That Can Kill the Player
 
 **Date:** 2026-03-07

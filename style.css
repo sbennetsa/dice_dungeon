@@ -2297,6 +2297,38 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 .sd-face-top    { transform: rotateX(-90deg) translateZ(155px); }
 .sd-face-bottom { transform: rotateX(90deg) translateZ(155px); }
 
+/* Face tier pips */
+.sd-face-tier {
+    position: absolute;
+    bottom: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; align-items: center;
+    padding: 6px 12px;
+    cursor: pointer; z-index: 2;
+    transition: opacity .15s;
+}
+.sd-face-tier:hover .sd-tier-pip { transform: scale(1.25); }
+.sd-tier-pip {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    transition: background .25s, box-shadow .25s, transform .15s;
+}
+
+/* Tier detail in detail bar */
+.sd-tier-list {
+    display: flex; flex-direction: column; gap: 3px;
+    margin-top: 4px;
+}
+.sd-tier-row {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-body); font-size: 11px;
+    transition: color .2s;
+}
+.sd-tier-num {
+    font-family: var(--font-data); font-size: 9px; font-weight: bold;
+    min-width: 18px; opacity: 0.7;
+}
+.sd-tier-earned { font-weight: 600; }
+
 /* Nodes */
 .sd-nodes { position: absolute; inset: 0; }
 .sd-node {

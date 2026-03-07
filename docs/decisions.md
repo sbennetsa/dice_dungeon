@@ -299,6 +299,29 @@ Tier enhancements (passive upgrades to existing nodes) reward players who invest
 
 ---
 
+## Order Face Tier Bonuses — Skill Die Face Leveling
+
+**Date:** 2026-03-07
+**Status:** Decided
+
+### Decision
+Each skill die face corresponds to one Order (Wide→Warpack, Gold→Gilded, Tall→Runeforged, Venom→Brood, Heart→Ironward). Reaching a campaign tier grants a passive bonus on that face **regardless of which skill die nodes have been unlocked**. These are separate from `TIER_NODE_ENHANCEMENTS`, which only enhance nodes the player has already unlocked.
+
+| Face / Order | Tier 1 | Tier 2 | Tier 3 |
+|---|---|---|---|
+| **Wide / Warpack** | +2 flat Strike dmg | +2 flat Strike dmg (total +4) | +1 Strike slot |
+| **Gold / Gilded** | +5 gold per combat | +5 gold per combat (total +10) | Free shop refresh |
+| **Tall / Runeforged** | +1 reroll per combat | +1 reroll per combat (total +2) | +1 reroll per combat (total +3) |
+| **Venom / Brood** | +1 poison per attack | +1 poison per attack (total +2) | Poison ticks deal +1 dmg |
+| **Heart / Ironward** | +8 max HP | +8 max HP (total +16) | +1 HP regen per turn |
+
+The skill die UI shows 3 pips at the bottom of each face (filled = tier earned). Tapping the pips opens a tier detail tooltip in the detail bar.
+
+### Rationale
+`TIER_NODE_ENHANCEMENTS` require node investment in a specific face — if the player built a Wide+Venom hybrid, they get no benefit from Ironward tiers. Face bonuses give every player some return on Order favor regardless of build, and make tier crossings feel meaningful on the die itself. The pip UI also surfaces the otherwise-invisible tier state directly on the game's central object.
+
+---
+
 ## Campaign Mode — Loop Structure and Order Favor System
 
 **Date:** 2026-03-07

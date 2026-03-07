@@ -100,6 +100,46 @@ const TIER_NODE_ENHANCEMENTS = {
     ],
 };
 
+// ── Face tier bonuses ─────────────────────────────────────────
+// Applied per Order tier reached, regardless of which nodes are unlocked.
+// Each entry: { tierIdx: 0-2, type, value? }. Applied additively — each delta stacks.
+const ORDER_FACE_BONUSES = {
+    warpack:    [
+        { tierIdx: 0, type: 'flatDmg',              value: 2 },
+        { tierIdx: 1, type: 'flatDmg',              value: 2 },  // +4 total
+        { tierIdx: 2, type: 'extraStrikeSlot' },
+    ],
+    gilded:     [
+        { tierIdx: 0, type: 'goldPerCombat',        value: 5 },
+        { tierIdx: 1, type: 'goldPerCombat',        value: 5 },  // +10 total
+        { tierIdx: 2, type: 'freeRefresh' },
+    ],
+    runeforged: [
+        { tierIdx: 0, type: 'rerolls',              value: 1 },
+        { tierIdx: 1, type: 'rerolls',              value: 1 },  // +2 total
+        { tierIdx: 2, type: 'rerolls',              value: 1 },  // +3 total
+    ],
+    brood:      [
+        { tierIdx: 0, type: 'poisonOnAtk',          value: 1 },
+        { tierIdx: 1, type: 'poisonOnAtk',          value: 1 },  // +2 total
+        { tierIdx: 2, type: 'enemyPoisonTickBonus', value: 1 },
+    ],
+    ironward:   [
+        { tierIdx: 0, type: 'maxHp',                value: 8 },
+        { tierIdx: 1, type: 'maxHp',                value: 8 },  // +16 total
+        { tierIdx: 2, type: 'regen',                value: 1 },
+    ],
+};
+
+/** Player-facing descriptions for face tier bonuses, shown in the skill die UI. */
+export const ORDER_FACE_BONUS_DESCS = {
+    warpack:    ['+2 flat Strike dmg', '+2 flat Strike dmg (total +4)', '+1 Strike slot'],
+    gilded:     ['+5 gold per combat', '+5 gold per combat (total +10)', 'Free shop refresh'],
+    runeforged: ['+1 reroll per combat', '+1 reroll per combat (total +2)', '+1 reroll per combat (total +3)'],
+    brood:      ['+1 poison per attack', '+1 poison per attack (total +2)', 'Poison ticks deal +1 dmg'],
+    ironward:   ['+8 max HP', '+8 max HP (total +16)', '+1 HP regen per turn'],
+};
+
 // ── Starting boons ───────────────────────────────────────────
 // Granted at run start based on campaign favor tiers (cumulative).
 // Types: 'die', 'utilityDie', 'rune', 'gold', 'consumable', 'artifact', 'maxHp', 'transformBuff'
@@ -552,6 +592,43 @@ export const Campaign = {
                     for (const [k, v] of Object.entries(enh.extra)) {
                         gs.passives[k] = v;
                     }
+                }
+            }
+        }
+
+        // ── Apply face tier bonuses (independent of node unlocks) ────
+        for (const [order, bonuses] of Object.entries(ORDER_FACE_BONUSES)) {
+            for (const bonus of bonuses) {
+                if (tier[order] <= bonus.tierIdx) continue;  // tier not yet reached
+                switch (bonus.type) {
+                    case 'flatDmg':
+                        gs.passives.flatDmg = (gs.passives.flatDmg || 0) + bonus.value;
+                        break;
+                    case 'goldPerCombat':
+                        gs.passives.goldPerCombat = (gs.passives.goldPerCombat || 0) + bonus.value;
+                        break;
+                    case 'rerolls':
+                        gs.rerolls = (gs.rerolls || 0) + bonus.value;
+                        break;
+                    case 'poisonOnAtk':
+                        gs.passives.poisonOnAtk = (gs.passives.poisonOnAtk || 0) + bonus.value;
+                        break;
+                    case 'enemyPoisonTickBonus':
+                        gs.passives.enemyPoisonTickBonus = (gs.passives.enemyPoisonTickBonus || 0) + bonus.value;
+                        break;
+                    case 'maxHp':
+                        gs.maxHp += bonus.value;
+                        gs.hp = Math.min(gs.hp + bonus.value, gs.maxHp);
+                        break;
+                    case 'freeRefresh':
+                        gs.passives.freeRefresh = true;
+                        break;
+                    case 'extraStrikeSlot':
+                        gs.slots.strike.push({ id: `str-face-${Date.now()}`, runes: [] });
+                        break;
+                    case 'regen':
+                        gs.passives.regen = (gs.passives.regen || 0) + bonus.value;
+                        break;
                 }
             }
         }

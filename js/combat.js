@@ -1245,6 +1245,7 @@ export const Combat = {
         const goldScale = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor((GS.goldSpent || 0) / a.value), 0);
         if (goldScale > 0) atkBonus += goldScale;
         if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
+        if (GS.passives.flatDmg) atkBonus += GS.passives.flatDmg;
         if (GS.passives.threshold) {
             const threshT = GS.passives.thresholdValue || 12;
             GS.allocated.strike.forEach(d => { if (d.value >= threshT) atkBase += d.value; });
@@ -1495,6 +1496,7 @@ export const Combat = {
         if (e.poison > 0) {
             let poisonDmg = e.poison;
             if (GS.passives.plagueLord) poisonDmg *= (GS.passives.plagueLordMult || 2);
+            if (GS.passives.enemyPoisonTickBonus) poisonDmg += GS.passives.enemyPoisonTickBonus;
             const armorP2 = e.passives.find(p => p.id === 'armor');
             if (armorP2) poisonDmg = Math.max(0, poisonDmg - armorP2.params.reduction);
             e.currentHp -= poisonDmg;

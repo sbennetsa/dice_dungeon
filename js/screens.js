@@ -12,7 +12,7 @@ import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
 import { scoreDungeon, scoreFloorDetailed, scorePlayerAdvantage, rewardToAdvantage, REST_ADVANTAGES, REWARD_ADVANTAGES, GOLD_ADVANTAGE_RATE } from './encounters/dungeonScoring.js';
 import { RunHistory, CampaignHistory, BestiaryProgress } from './persistence.js';
 import { BESTIARY_DATA, BestiaryUI } from './bestiary.js';
-import { Campaign, RANKS, ACHIEVEMENTS, ORDER_CODEX, ORDER_DISPLAY_NAMES, ORDER_ICONS, ORDER_TIER_DESCRIPTIONS, ORDER_START_BOON_DESCS } from './campaign.js';
+import { Campaign, RANKS, ACHIEVEMENTS, ORDER_CODEX, ORDER_DISPLAY_NAMES, ORDER_ICONS, ORDER_TIER_DESCRIPTIONS, ORDER_START_BOON_DESCS, ORDER_FACE_BONUS_DESCS } from './campaign.js';
 
 // ════════════════════════════════════════════════════════════
 //  CAMPAIGN STATE
@@ -184,7 +184,7 @@ function _pickArtifactChoices() {
 // ════════════════════════════════════════════════════════════
 //  CONSUMABLE INVENTORY HELPER
 // ════════════════════════════════════════════════════════════
-function addConsumableToInventory(c, onDone) {
+function addConsumableToInventory(c, onDone, onCancel) {
     const filled = GS.consumables.filter(x => x !== null).length;
     if (filled < GS.consumableSlots) {
         // Add to first empty slot
@@ -212,8 +212,8 @@ function addConsumableToInventory(c, onDone) {
     };
 
     cardsEl.innerHTML = '';
-    const close = () => { overlay.style.display = 'none'; cancelBtn.onclick = null; if (onDone) onDone(); };
-    cancelBtn.onclick = close;
+    const close = (cancelled) => { overlay.style.display = 'none'; cancelBtn.onclick = null; if (cancelled && onCancel) onCancel(); else if (onDone) onDone(); };
+    cancelBtn.onclick = () => close(true);
 
     GS.consumables.forEach((existing, idx) => {
         if (!existing) return;
@@ -221,7 +221,7 @@ function addConsumableToInventory(c, onDone) {
         card.onclick = () => {
             GS.consumables[idx] = c;
             renderConsumables();
-            close();
+            close(false);
         };
         cardsEl.appendChild(card);
     });
@@ -854,11 +854,11 @@ const Game = {
 const SkillDie = (() => {
     // Face definitions: front=wide(+Z), right=gold(+X), back=tall(-Z), left=venom(-X)
     const SD_FACES = [
-        { key: 'wide',  label: 'Wide',  color: '#5fa84f', icon: '🐺' },
-        { key: 'gold',  label: 'Gold',  color: '#d4a534', icon: '💰' },
-        { key: 'tall',  label: 'Tall',  color: '#d48830', icon: '🔨' },
-        { key: 'venom', label: 'Venom', color: '#9050c0', icon: '🧪' },
-        { key: 'heart', label: 'Heart', color: '#e05050', icon: '❤️' },
+        { key: 'wide',  label: 'Wide',  color: '#5fa84f', icon: '🐺', order: 'warpack'    },
+        { key: 'gold',  label: 'Gold',  color: '#d4a534', icon: '💰', order: 'gilded'     },
+        { key: 'tall',  label: 'Tall',  color: '#d48830', icon: '🔨', order: 'runeforged' },
+        { key: 'venom', label: 'Venom', color: '#9050c0', icon: '🧪', order: 'brood'      },
+        { key: 'heart', label: 'Heart', color: '#e05050', icon: '❤️', order: 'ironward'   },
     ];
     const SD_NORMALS = [[0,0,1],[1,0,0],[0,0,-1],[-1,0,0],[0,1,0]];
     const SD_FACE_CSS = ['sd-face-front','sd-face-right','sd-face-back','sd-face-left','sd-face-top'];
@@ -1005,6 +1005,19 @@ const SkillDie = (() => {
             }
 
             faceDiv.appendChild(nodesDiv);
+
+            // Tier pip strip (3 pips = 3 possible Order tiers)
+            const tierDiv = document.createElement('div');
+            tierDiv.className = 'sd-face-tier';
+            tierDiv.dataset.order = fData.order;
+            for (let i = 0; i < 3; i++) {
+                const pip = document.createElement('div');
+                pip.className = 'sd-tier-pip';
+                tierDiv.appendChild(pip);
+            }
+            tierDiv.addEventListener('click', e => { e.stopPropagation(); _showFaceTierDetail(fData); });
+            faceDiv.appendChild(tierDiv);
+
             _cubeEl.appendChild(faceDiv);
         });
 
@@ -1138,6 +1151,35 @@ const SkillDie = (() => {
         document.getElementById('sd-done-btn').addEventListener('click', _onDone);
     }
 
+    function _showFaceTierDetail(fData) {
+        const bar = document.getElementById('sd-detail-bar');
+        if (!bar) return;
+        const tierMap = GS.passives?._campaignTier || {};
+        const t = tierMap[fData.order] || 0;
+        const color = fData.color;
+        const bonusDescs = ORDER_FACE_BONUS_DESCS[fData.order] || [];
+        const rows = bonusDescs.map((desc, i) => {
+            const earned = i < t;
+            return `<div class="sd-tier-row${earned ? ' sd-tier-earned' : ''}" style="color:${earned ? color : 'rgba(255,255,255,0.3)'}">
+                <span class="sd-tier-num">T${i + 1}</span><span>${desc}</span>
+            </div>`;
+        }).join('');
+        const tierLabel = t > 0
+            ? `<span class="sd-d-status" style="color:${color}">Tier ${t}</span>`
+            : `<span class="sd-d-status" style="opacity:.35">No tier yet</span>`;
+        const doneLabel = _viewMode ? '← Back' : (_sp() > 0 ? 'Skip →' : 'Continue →');
+        bar.style.borderColor = t > 0 ? color + '60' : 'rgba(255,255,255,.06)';
+        bar.innerHTML = `
+            <div class="sd-d-icon">${fData.icon}</div>
+            <div class="sd-d-body">
+                <div><span class="sd-d-name" style="color:${color}">${fData.label} — Order Tiers</span>${tierLabel}</div>
+                <div class="sd-tier-list">${rows}</div>
+            </div>
+            <button class="sd-done-btn" id="sd-done-btn">${doneLabel}</button>
+        `;
+        document.getElementById('sd-done-btn').addEventListener('click', _onDone);
+    }
+
     function _clearDetail() {
         const bar = document.getElementById('sd-detail-bar');
         if (!bar) return;
@@ -1265,6 +1307,26 @@ const SkillDie = (() => {
             if (isNotable) {
                 _updateCapstoneRing(el, diamond, emojiEl, fData, state);
             }
+        });
+
+        // Update face tier pips
+        const tierMap = GS.passives?._campaignTier || {};
+        document.querySelectorAll('.sd-face-tier').forEach(tierEl => {
+            const order = tierEl.dataset.order;
+            const t = tierMap[order] || 0;
+            const fDef = SD_FACES.find(f => f.order === order);
+            const faceIdx = SD_FACES.findIndex(f => f.order === order);
+            const faceOpacity = faceIdx >= 0 ? vis[faceIdx] : 1;
+            tierEl.style.opacity = faceOpacity;
+            tierEl.querySelectorAll('.sd-tier-pip').forEach((pip, i) => {
+                if (i < t) {
+                    pip.style.background = fDef.color;
+                    pip.style.boxShadow = `0 0 5px ${fDef.color}aa`;
+                } else {
+                    pip.style.background = 'rgba(255,255,255,0.12)';
+                    pip.style.boxShadow = 'none';
+                }
+            });
         });
     }
 
@@ -2416,10 +2478,12 @@ const Shop = {
             `;
             if (canBuy) {
                 card.onclick = () => {
-                    spendGold(item.price);
-                    Shop.marketPurchased.add(i);
-                    updateStats();
-                    addConsumableToInventory({ ...item }, () => { Shop._renderMarket(); Shop._renderForge(); Shop._renderSell(); });
+                    addConsumableToInventory({ ...item }, () => {
+                        spendGold(item.price);
+                        Shop.marketPurchased.add(i);
+                        updateStats();
+                        Shop._renderMarket(); Shop._renderForge(); Shop._renderSell();
+                    }, () => { Shop._renderMarket(); });
                 };
             }
             grid.appendChild(card);

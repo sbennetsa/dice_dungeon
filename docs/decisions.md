@@ -317,8 +317,10 @@ Each skill die face corresponds to one Order (Wide→Warpack, Gold→Gilded, Tal
 
 The skill die UI shows 3 pips at the bottom of each face (filled = tier earned). Tapping the pips opens a tier detail tooltip in the detail bar.
 
+Face bonuses take effect **immediately** when the threshold is crossed mid-run, not at the start of the next run. After each enemy kill, `Campaign.applyMidRunTierBonuses(GS)` checks live favor against `GS.passives._campaignTier`, applies any newly earned tier bonuses to GS on the spot, and returns the list of crossings. `BattleSummary.show()` intercepts this list and shows `OrderTierPopup` — a dedicated modal overlay — before proceeding to the normal post-combat summary.
+
 ### Rationale
-`TIER_NODE_ENHANCEMENTS` require node investment in a specific face — if the player built a Wide+Venom hybrid, they get no benefit from Ironward tiers. Face bonuses give every player some return on Order favor regardless of build, and make tier crossings feel meaningful on the die itself. The pip UI also surfaces the otherwise-invisible tier state directly on the game's central object.
+`TIER_NODE_ENHANCEMENTS` require node investment in a specific face — if the player built a Wide+Venom hybrid, they get no benefit from Ironward tiers. Face bonuses give every player some return on Order favor regardless of build, and make tier crossings feel meaningful on the die itself. The pip UI also surfaces the otherwise-invisible tier state directly on the game's central object. Immediate mid-run application (rather than next-run-only) makes the campaign progression feel responsive and rewarding within the run where the threshold is reached.
 
 ---
 

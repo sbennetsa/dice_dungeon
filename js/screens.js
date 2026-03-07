@@ -4135,7 +4135,17 @@ const DifficultySelect = {
             } else {
                 campaignEl.innerHTML = `
                     <div class="start-campaign-bar">
-                        <div class="start-campaign-bar__label">Three dungeons. One permadeath campaign.</div>
+                        <p class="start-campaign-bar__desc">
+                            A three-dungeon journey across escalating difficulties.
+                            Death ends the campaign. The Orders watch.
+                        </p>
+                        <div class="start-campaign-bar__steps">
+                            <span>Loop 1 — Casual</span>
+                            <span class="start-campaign-bar__arrow">→</span>
+                            <span>Loop 2 — Standard</span>
+                            <span class="start-campaign-bar__arrow">→</span>
+                            <span>Loop 3 — Heroic</span>
+                        </div>
                         <button class="btn btn-primary start-campaign-bar__btn"
                             onclick="CampaignScreen.startCampaign()">Begin Campaign</button>
                     </div>`;
@@ -4862,60 +4872,8 @@ const CampaignScreen = {
         const el = document.getElementById('campaign-content');
         if (!el) return;
 
-        const active   = Campaign.getActiveCampaign();
         const history  = CampaignHistory.getAll();
         const stats    = CampaignHistory.getStats();
-
-        // ── Active / launch section ────────────────────────────
-        let launchSection;
-        if (active) {
-            const loopLabel = ['Casual', 'Standard', 'Heroic'][active.currentLoop - 1] || 'Heroic';
-            const loopsHTML = [1, 2, 3].map(n => {
-                const loop = active.loops.find(l => l.loop === n);
-                let cls = 'campaign-loop-pip campaign-loop-pip--future';
-                let lbl = `Loop ${n}`;
-                if (loop) {
-                    cls = loop.outcome === 'victory'
-                        ? 'campaign-loop-pip campaign-loop-pip--done'
-                        : 'campaign-loop-pip campaign-loop-pip--fail';
-                    lbl = loop.outcome === 'victory' ? `Loop ${n} — Cleared` : `Loop ${n} — Fallen`;
-                } else if (n === active.currentLoop) {
-                    cls = 'campaign-loop-pip campaign-loop-pip--current';
-                    lbl = `Loop ${n} — ${loopLabel} (active)`;
-                }
-                return `<div class="${cls}">${lbl}</div>`;
-            }).join('');
-
-            launchSection = `
-                <div class="campaign-active-panel">
-                    <div class="campaign-active-label">Campaign in progress</div>
-                    ${loopsHTML}
-                    <button class="btn btn-primary" style="margin-top:16px;"
-                        onclick="CampaignScreen.back(); Game.start('${Campaign.getDifficulty()}');">
-                        Resume — Loop ${active.currentLoop}
-                    </button>
-                </div>`;
-        } else {
-            launchSection = `
-                <div class="campaign-launch-panel">
-                    <p class="campaign-launch-desc">
-                        A three-dungeon journey across escalating difficulties.
-                        Casual → Standard → Heroic. Death ends the campaign.
-                        The Orders watch. Their favour accumulates unseen.
-                    </p>
-                    <div class="campaign-difficulty-steps">
-                        <span>Loop 1 — Casual</span>
-                        <span class="campaign-difficulty-arrow">→</span>
-                        <span>Loop 2 — Standard</span>
-                        <span class="campaign-difficulty-arrow">→</span>
-                        <span>Loop 3 — Heroic</span>
-                    </div>
-                    <button class="btn btn-primary" style="margin-top:20px;"
-                        onclick="CampaignScreen.startCampaign();">
-                        Begin Campaign
-                    </button>
-                </div>`;
-        }
 
         // ── History section ────────────────────────────────────
         let historySection = '';
@@ -4955,7 +4913,7 @@ const CampaignScreen = {
                 </div>
             </div>`;
 
-        el.innerHTML = launchSection + historySection + codexSection;
+        el.innerHTML = historySection + codexSection;
     },
 };
 

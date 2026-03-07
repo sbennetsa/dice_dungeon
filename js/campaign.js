@@ -2,16 +2,56 @@
 //  CAMPAIGN — Ancient Order favor system and campaign loop manager.
 //  Tracks per-campaign favor accumulation across loops,
 //  resolves tier thresholds, applies node/artifact enhancements.
-//  The Order system is entirely hidden from the player.
+//  Favor gains and tier benefits are shown in BattleSummary and
+//  Order Interaction screens.
 // ════════════════════════════════════════════════════════════
 
 import { CampaignHistory } from './persistence.js';
+import { GS } from './state.js';
 
 const CAMPAIGN_KEY = 'diceDungeon_v1_campaign';
 
 // ── Orders ───────────────────────────────────────────────────
 
 export const ORDERS = ['warpack', 'gilded', 'runeforged', 'brood', 'ironward'];
+
+export const ORDER_DISPLAY_NAMES = {
+    warpack: 'The Warpack', gilded: 'The Gilded Hand',
+    runeforged: 'The Runeforged', brood: 'The Brood', ironward: 'The Ironward',
+};
+
+export const ORDER_ICONS = {
+    warpack: '⚔️', gilded: '💰', runeforged: '🔮', brood: '☠️', ironward: '🛡️',
+};
+
+/** Player-facing tier benefit descriptions per order [Tier1, Tier2, Tier3]. */
+export const ORDER_TIER_DESCRIPTIONS = {
+    warpack: [
+        'Pack Tactics: +2 dmg per die (was +1)',
+        'Volley: triggers at 3+ dice (was 4+)',
+        'Swarm Master: +3 dmg per die (was +2)',
+    ],
+    gilded: [
+        'Prospector: +7 gold per combat (was +4)',
+        'Gold Interest: 18% (was 10%)',
+        'Golden Wrath: +1 dmg per 6 gold (was per 8)',
+    ],
+    runeforged: [
+        'Threshold: triggers at 10+ (was 12+)',
+        'Runeforger: 4 rune slots (was 3)',
+        'Amplify: also grants Titan effect',
+    ],
+    brood: [
+        'Venom: +2 poison per attack (was +1)',
+        'Plague Lord: poison ×3 (was ×2)',
+        'Gambler: +4 dmg per reroll + poison (was +2)',
+    ],
+    ironward: [
+        'Fortify: +25 Max HP total (was +15)',
+        'Convalescence: 35% recovery (was 25%)',
+        'Life Weave: healing ×3 (was ×2)',
+    ],
+};
 
 const LOOP_DIFFICULTIES = ['casual', 'standard', 'heroic'];
 
@@ -340,6 +380,23 @@ export const Campaign = {
             else break;
         }
         return tier;
+    },
+
+    /** Live cumulative favor = saved campaign total + current loop's running total. */
+    getLiveFavor() {
+        const saved = this.getOrderFavor();
+        for (const order of ORDERS) {
+            saved[order] += Math.round(GS._loopFavor?.[order] || 0);
+        }
+        return saved;
+    },
+
+    /** Returns { nextTier, threshold } for the next uncrossed tier, or null if maxed. */
+    getNextTierInfo(order, currentFavor) {
+        const thresholds = ORDER_TIERS[order] || [];
+        const tier = this.getOrderTier(order, currentFavor);
+        if (tier >= thresholds.length) return null;
+        return { nextTier: tier + 1, threshold: thresholds[tier] };
     },
 
     /** Returns list of { order, tier } for newly crossed thresholds between two favor states. */

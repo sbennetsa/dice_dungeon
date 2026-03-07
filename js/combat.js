@@ -2529,6 +2529,7 @@ export const Combat = {
 
         // ── Campaign favor accumulation ────────────────────────
         if (GS.campaign) {
+            const loopBefore = { ...GS._loopFavor };
             const threat = GS.encounter?.enemy?.baseThreat || 0;
             if (threat > 0) {
                 for (const nodeId of (GS.unlockedNodes || [])) {
@@ -2539,6 +2540,13 @@ export const Combat = {
                     }
                 }
             }
+            // Store per-combat favor delta on battleSummary for UI display
+            const favorGained = {};
+            for (const order of ['warpack', 'gilded', 'runeforged', 'brood', 'ironward']) {
+                const delta = Math.round((GS._loopFavor[order] || 0) - (loopBefore[order] || 0));
+                if (delta > 0) favorGained[order] = delta;
+            }
+            summary.favorGained = favorGained;
         }
 
         if (GS.challengeMode) {

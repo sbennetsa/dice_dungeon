@@ -1603,6 +1603,94 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     margin-bottom: 16px;
 }
 
+/* ── Campaign favor in battle summary ── */
+.bs-favor-order {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.bs-favor-order:last-child { border-bottom: none; }
+.bs-favor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9em;
+    margin-bottom: 4px;
+}
+.bs-favor-gained {
+    color: var(--gold);
+    font-family: var(--font-data);
+    font-weight: 600;
+}
+.bs-tier-unlocked {
+    color: var(--gold);
+    font-size: 0.82em;
+    padding: 4px 8px;
+    margin: 4px 0;
+    background: rgba(212,165,52,0.1);
+    border: 1px solid rgba(212,165,52,0.3);
+    border-radius: 4px;
+}
+.bs-favor-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+.bs-favor-bar {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.bs-favor-fill {
+    height: 100%;
+    background: var(--gold);
+    border-radius: 3px;
+    transition: width 0.3s;
+}
+.bs-favor-label {
+    font-family: var(--font-data);
+    font-size: 0.75em;
+    color: var(--text-dim);
+    white-space: nowrap;
+}
+.bs-favor-maxed {
+    font-size: 0.8em;
+    color: var(--gold);
+    font-style: italic;
+    margin-top: 4px;
+}
+
+/* ── Order interaction tier benefits ── */
+.oi-tier-benefits {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+.oi-tier-heading {
+    font-family: var(--font-data);
+    font-size: 0.8em;
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+}
+.oi-tier-entry {
+    padding: 6px 0;
+}
+.oi-tier-label {
+    color: var(--gold);
+    font-family: var(--font-data);
+    font-size: 0.85em;
+}
+.oi-tier-desc {
+    font-size: 0.82em;
+    color: var(--text-dim);
+    padding-left: 24px;
+    margin-top: 2px;
+}
+
 /* ════════════════════════════════════════════════════════════
    ENCOUNTER PREVIEW — ABILITY TOOLTIPS
 ════════════════════════════════════════════════════════════ */

@@ -12,7 +12,7 @@ import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
 import { scoreDungeon, scoreFloorDetailed, scorePlayerAdvantage, rewardToAdvantage, REST_ADVANTAGES, REWARD_ADVANTAGES, GOLD_ADVANTAGE_RATE } from './encounters/dungeonScoring.js';
 import { RunHistory, CampaignHistory, BestiaryProgress } from './persistence.js';
 import { BESTIARY_DATA, BestiaryUI } from './bestiary.js';
-import { Campaign, RANKS, ACHIEVEMENTS, ORDER_CODEX } from './campaign.js';
+import { Campaign, RANKS, ACHIEVEMENTS, ORDER_CODEX, ORDER_DISPLAY_NAMES, ORDER_ICONS, ORDER_TIER_DESCRIPTIONS } from './campaign.js';
 
 // ════════════════════════════════════════════════════════════
 //  CAMPAIGN STATE
@@ -441,7 +441,7 @@ const Game = {
             // currentLoop was already incremented by endLoop; if > 3 campaign is complete
             const isComplete = Campaign.getCurrentLoop() === null || Campaign.getCurrentLoop() > 3;
             if (isComplete) Campaign.endCampaign('completed');
-            OrderInteraction.show(interactions, isComplete ? 'campaign_complete' : 'next_loop');
+            OrderInteraction.show(interactions, isComplete ? 'campaign_complete' : 'next_loop', newTiers);
             return;
         }
 
@@ -1720,6 +1720,50 @@ const BattleSummary = {
             </div>
         `;
         content.appendChild(stateSection);
+
+        // ── CAMPAIGN FAVOR SECTION (campaign mode only) ──
+        if (GS.campaign && summary.favorGained && Object.keys(summary.favorGained).length > 0) {
+            const favorSection = document.createElement('div');
+            favorSection.className = 'bs-section bs-favor-section';
+            const liveFavor = Campaign.getLiveFavor();
+
+            let fhtml = '<div class="bs-section-title">Ancient Order Favor</div>';
+            for (const [order, gained] of Object.entries(summary.favorGained)) {
+                const cumulative = liveFavor[order] || 0;
+                const tier = Campaign.getOrderTier(order, cumulative);
+                const priorTier = Campaign.getOrderTier(order, cumulative - gained);
+                const tierCrossed = tier > priorTier;
+                const nextInfo = Campaign.getNextTierInfo(order, cumulative);
+
+                fhtml += `<div class="bs-favor-order${tierCrossed ? ' tier-crossed' : ''}">`;
+                fhtml += `<div class="bs-favor-header">`;
+                fhtml += `<span>${ORDER_ICONS[order] || ''} ${ORDER_DISPLAY_NAMES[order] || order}</span>`;
+                fhtml += `<span class="bs-favor-gained">+${gained}</span>`;
+                fhtml += `</div>`;
+
+                if (tierCrossed) {
+                    for (let t = priorTier + 1; t <= tier; t++) {
+                        const desc = ORDER_TIER_DESCRIPTIONS[order]?.[t - 1] || '';
+                        fhtml += `<div class="bs-tier-unlocked">Tier ${t} reached!${desc ? ' — ' + desc : ''}</div>`;
+                    }
+                }
+
+                if (nextInfo) {
+                    const pct = Math.min(100, Math.round((cumulative / nextInfo.threshold) * 100));
+                    fhtml += `<div class="bs-favor-progress">`;
+                    fhtml += `<div class="bs-favor-bar"><div class="bs-favor-fill" style="width:${pct}%"></div></div>`;
+                    fhtml += `<span class="bs-favor-label">${Math.round(cumulative)} / ${nextInfo.threshold}</span>`;
+                    fhtml += `</div>`;
+                } else {
+                    fhtml += `<div class="bs-favor-maxed">Max tier reached</div>`;
+                }
+
+                fhtml += `</div>`;
+            }
+
+            favorSection.innerHTML = fhtml;
+            content.appendChild(favorSection);
+        }
 
         // ── Handle consumable drop before showing reward sections ──
         if (summary.consumableDrop) {
@@ -4809,16 +4853,35 @@ const OrderInteraction = {
      * Show the Order Interaction screen.
      * @param {Array<{text:string}>} interactions - Narrative beat objects
      * @param {'next_loop'|'campaign_complete'} mode
+     * @param {Array<{order:string, tier:number}>} [newTiers] - Tier crossings this loop
      */
-    show(interactions, mode) {
+    show(interactions, mode, newTiers = []) {
         this._mode = mode;
 
         const container = $('order-interaction-entries');
-        container.innerHTML = interactions.length
+        let html = interactions.length
             ? interactions.map(i =>
                 `<div class="order-beat"><p class="order-beat-text">${i.text}</p></div>`
               ).join('')
             : `<div class="order-beat"><p class="order-beat-text">The dungeon falls silent. The Order watches.</p></div>`;
+
+        // Append mechanical tier benefit summary
+        if (newTiers.length > 0) {
+            html += `<div class="oi-tier-benefits">`;
+            html += `<div class="oi-tier-heading">Tier Benefits Earned</div>`;
+            for (const { order, tier } of newTiers) {
+                const icon = ORDER_ICONS[order] || '';
+                const name = ORDER_DISPLAY_NAMES[order] || order;
+                const desc = ORDER_TIER_DESCRIPTIONS[order]?.[tier - 1] || '';
+                html += `<div class="oi-tier-entry">`;
+                html += `<div class="oi-tier-label">${icon} ${name} — Tier ${tier}</div>`;
+                if (desc) html += `<div class="oi-tier-desc">${desc}</div>`;
+                html += `</div>`;
+            }
+            html += `</div>`;
+        }
+
+        container.innerHTML = html;
 
         const btn = $('order-interaction-continue');
         btn.textContent = mode === 'campaign_complete' ? 'Claim Victory' : 'Enter the Next Dungeon';

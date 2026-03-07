@@ -4289,6 +4289,10 @@ const DifficultySelect = {
         }
     },
 
+    show() {
+        document.querySelector('.diff-card-row').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    },
+
     pick(difficulty) {
         if (!Campaign.isDifficultyUnlocked(difficulty)) return;
 

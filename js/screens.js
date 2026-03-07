@@ -1279,7 +1279,7 @@ const SkillDie = (() => {
             { x: 0,      y: PI / 2 },      // right
             { x: 0,      y: ry > 0 ? PI : -PI }, // back (pick sign to minimise travel)
             { x: 0,      y: -PI / 2 },     // left
-            { x: -PI / 2, y: ry },         // top (keep current Y)
+            { x: PI / 2, y: ry },           // top (keep current Y)
         ];
         let best = null, bestDist = Infinity;
         for (const c of candidates) {

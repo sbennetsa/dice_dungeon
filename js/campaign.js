@@ -71,32 +71,32 @@ const ORDER_TIERS = {
 
 // ── Tier node enhancements ────────────────────────────────────
 // Applied to GS.passives at dungeon start based on favor tiers.
-// { tierIdx: 0-2, nodeId, passiveKey, value, extra? }
-const TIER_NODE_ENHANCEMENTS = {
+// { tierIdx: 0-2, nodeId, passiveKey, value, extra?, enhancedDesc }
+export const TIER_NODE_ENHANCEMENTS = {
     warpack: [
-        { tierIdx: 0, nodeId: 'w_b', passiveKey: 'packTactics',    value: 2 },
-        { tierIdx: 1, nodeId: 'w_d', passiveKey: 'volleyThreshold', value: 3 },
-        { tierIdx: 2, nodeId: 'w_n', passiveKey: 'swarmMaster',     value: 3 },
+        { tierIdx: 0, nodeId: 'w_b', passiveKey: 'packTactics',      value: 2,    enhancedDesc: 'Passive: +2 dmg per die in the strike zone' },
+        { tierIdx: 1, nodeId: 'w_d', passiveKey: 'volleyThreshold',  value: 3,    enhancedDesc: 'Passive: 3+ dice in zone = +3 per die' },
+        { tierIdx: 2, nodeId: 'w_n', passiveKey: 'swarmMaster',      value: 3,    enhancedDesc: 'Passive: +3 per die in any zone' },
     ],
     gilded: [
-        { tierIdx: 0, nodeId: 'g_a', passiveKey: 'goldPerCombat',   value: 7 },
-        { tierIdx: 1, nodeId: 'g_d', passiveKey: 'goldInterest',     value: 0.18 },
-        { tierIdx: 2, nodeId: 'g_n', passiveKey: 'goldDmg',          value: 6 },
+        { tierIdx: 0, nodeId: 'g_a', passiveKey: 'goldPerCombat',    value: 7,    enhancedDesc: '+15 gold immediately, +7 gold per combat' },
+        { tierIdx: 1, nodeId: 'g_d', passiveKey: 'goldInterest',     value: 0.18, enhancedDesc: 'Gain 18% of current gold after each combat' },
+        { tierIdx: 2, nodeId: 'g_n', passiveKey: 'goldDmg',          value: 6,    enhancedDesc: '+1 dmg per 6 gold held, free shop refresh' },
     ],
     runeforged: [
-        { tierIdx: 0, nodeId: 't_c', passiveKey: 'thresholdValue',   value: 10 },
-        { tierIdx: 1, nodeId: 't_n', passiveKey: 'runeforgerSlotCap', value: 4 },
-        { tierIdx: 2, nodeId: 't_d', passiveKey: 'amplifyGrantsTitan', value: true },
+        { tierIdx: 0, nodeId: 't_c', passiveKey: 'thresholdValue',    value: 10,   enhancedDesc: 'Passive: dice ≥10 deal double value' },
+        { tierIdx: 1, nodeId: 't_n', passiveKey: 'runeforgerSlotCap', value: 4,    enhancedDesc: 'Your slots can hold up to 4 runes each' },
+        { tierIdx: 2, nodeId: 't_d', passiveKey: 'amplifyGrantsTitan', value: true, enhancedDesc: 'Gain a free Amplifier rune that also grants Titan Blow' },
     ],
     brood: [
-        { tierIdx: 0, nodeId: 'v_b', passiveKey: 'poisonOnAtk',     value: 2 },
-        { tierIdx: 1, nodeId: 'v_n', passiveKey: 'plagueLordMult',   value: 3 },
-        { tierIdx: 2, nodeId: 'v_c', passiveKey: 'rerollDmg',        value: 4, extra: { rerollPoison: 1 } },
+        { tierIdx: 0, nodeId: 'v_b', passiveKey: 'poisonOnAtk',     value: 2,    enhancedDesc: 'All attacks apply 2 poison' },
+        { tierIdx: 1, nodeId: 'v_n', passiveKey: 'plagueLordMult',   value: 3,    enhancedDesc: 'Poison ×3, +2 poison/turn' },
+        { tierIdx: 2, nodeId: 'v_c', passiveKey: 'rerollDmg',        value: 4, extra: { rerollPoison: 1 }, enhancedDesc: '+1 Reroll, rerolls deal 4 dmg + 1 poison' },
     ],
     ironward: [
-        { tierIdx: 0, nodeId: 'h_a', passiveKey: '_fortifyBoost',    value: 10 },  // extra 10 HP above base 15
-        { tierIdx: 1, nodeId: 'h_b', passiveKey: 'postCombatRecovery', value: 0.35 },
-        { tierIdx: 2, nodeId: 'h_n', passiveKey: 'lifeWeaveMult',    value: 3 },
+        { tierIdx: 0, nodeId: 'h_a', passiveKey: '_fortifyBoost',       value: 10,   enhancedDesc: '+25 Max HP; heal 8 HP at the start of each combat' },
+        { tierIdx: 1, nodeId: 'h_b', passiveKey: 'postCombatRecovery',  value: 0.35, enhancedDesc: 'After each combat, heal 35% of missing HP' },
+        { tierIdx: 2, nodeId: 'h_n', passiveKey: 'lifeWeaveMult',       value: 3,    enhancedDesc: 'All healing is tripled' },
     ],
 };
 
@@ -479,6 +479,72 @@ export const Campaign = {
             saved[order] += Math.round(GS._loopFavor?.[order] || 0);
         }
         return saved;
+    },
+
+    /**
+     * Check if any Order has crossed a new tier mid-run (live favor vs _campaignTier).
+     * Applies the newly earned tier bonuses to gs immediately.
+     * Returns array of { order, tier } for each newly crossed tier (for popup display).
+     */
+    applyMidRunTierBonuses(gs) {
+        if (!this._loadActive()) return [];
+
+        const liveFavor = this.getLiveFavor();
+        const currentTier = gs.passives._campaignTier || {};
+        const newUnlocks = [];
+
+        for (const order of ORDERS) {
+            const newTier = this.getOrderTier(order, liveFavor[order] || 0);
+            const appliedTier = currentTier[order] || 0;
+            if (newTier <= appliedTier) continue;
+
+            // Apply bonuses for each tier level just crossed
+            const bonuses = ORDER_FACE_BONUSES[order] || [];
+            for (const bonus of bonuses) {
+                if (bonus.tierIdx < appliedTier) continue;  // already applied
+                if (bonus.tierIdx >= newTier) continue;     // not reached yet
+                switch (bonus.type) {
+                    case 'flatDmg':
+                        gs.passives.flatDmg = (gs.passives.flatDmg || 0) + bonus.value;
+                        break;
+                    case 'goldPerCombat':
+                        gs.passives.goldPerCombat = (gs.passives.goldPerCombat || 0) + bonus.value;
+                        break;
+                    case 'rerolls':
+                        gs.rerolls = (gs.rerolls || 0) + bonus.value;
+                        break;
+                    case 'poisonOnAtk':
+                        gs.passives.poisonOnAtk = (gs.passives.poisonOnAtk || 0) + bonus.value;
+                        break;
+                    case 'enemyPoisonTickBonus':
+                        gs.passives.enemyPoisonTickBonus = (gs.passives.enemyPoisonTickBonus || 0) + bonus.value;
+                        break;
+                    case 'maxHp':
+                        gs.maxHp += bonus.value;
+                        gs.hp = Math.min(gs.hp + bonus.value, gs.maxHp);
+                        break;
+                    case 'freeRefresh':
+                        gs.passives.freeRefresh = true;
+                        break;
+                    case 'extraStrikeSlot':
+                        gs.slots.strike.push({ id: `str-face-${Date.now()}`, runes: [] });
+                        break;
+                    case 'regen':
+                        gs.passives.regen = (gs.passives.regen || 0) + bonus.value;
+                        break;
+                }
+            }
+
+            // Update the tier tracker so we don't re-apply
+            gs.passives._campaignTier[order] = newTier;
+
+            // Record each individual tier crossed for the popup
+            for (let t = appliedTier + 1; t <= newTier; t++) {
+                newUnlocks.push({ order, tier: t });
+            }
+        }
+
+        return newUnlocks;
     },
 
     /** Returns { nextTier, threshold } for the next uncrossed tier, or null if maxed. */

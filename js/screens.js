@@ -12,7 +12,7 @@ import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
 import { scoreDungeon, scoreFloorDetailed, scorePlayerAdvantage, rewardToAdvantage, REST_ADVANTAGES, REWARD_ADVANTAGES, GOLD_ADVANTAGE_RATE } from './encounters/dungeonScoring.js';
 import { RunHistory, CampaignHistory, BestiaryProgress } from './persistence.js';
 import { BESTIARY_DATA, BestiaryUI } from './bestiary.js';
-import { Campaign, RANKS, ACHIEVEMENTS, ORDER_CODEX, ORDER_DISPLAY_NAMES, ORDER_ICONS, ORDER_TIER_DESCRIPTIONS, ORDER_START_BOON_DESCS, ORDER_FACE_BONUS_DESCS } from './campaign.js';
+import { Campaign, RANKS, ACHIEVEMENTS, ORDER_CODEX, ORDER_DISPLAY_NAMES, ORDER_ICONS, ORDER_TIER_DESCRIPTIONS, ORDER_START_BOON_DESCS, ORDER_FACE_BONUS_DESCS, TIER_NODE_ENHANCEMENTS } from './campaign.js';
 
 // ════════════════════════════════════════════════════════════
 //  CAMPAIGN STATE
@@ -1125,6 +1125,18 @@ const SkillDie = (() => {
     }
 
     // ── Detail bar ────────────────────────────────────────────
+    function _getNodeDesc(sNode) {
+        const tiers = GS.passives?._campaignTier || {};
+        for (const [order, enhancements] of Object.entries(TIER_NODE_ENHANCEMENTS)) {
+            for (const enh of enhancements) {
+                if (enh.nodeId === sNode.id && tiers[order] > enh.tierIdx && enh.enhancedDesc) {
+                    return `${enh.enhancedDesc} <span style="opacity:0.55; font-size:0.85em;">(⬆ enhanced)</span>`;
+                }
+            }
+        }
+        return sNode.desc;
+    }
+
     function _showDetail(sNode, fData, isUnlocked, avail, isNotable) {
         const bar = document.getElementById('sd-detail-bar');
         if (!bar) return;
@@ -1141,7 +1153,7 @@ const SkillDie = (() => {
             <div class="sd-d-icon">${isNotable ? '👑' : fData.icon}</div>
             <div class="sd-d-body">
                 <div><span class="sd-d-name" style="color:${color}">${sNode.name}</span>${st}</div>
-                <div class="sd-d-desc">${sNode.desc}</div>
+                <div class="sd-d-desc">${_getNodeDesc(sNode)}</div>
             </div>
             ${allocBtn}
             <button class="sd-done-btn" id="sd-done-btn">${doneLabel}</button>
@@ -1891,6 +1903,41 @@ const Rewards = {
 };
 
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+//  ORDER TIER POPUP — Mid-run tier unlock announcement
+// ════════════════════════════════════════════════════════════
+const OrderTierPopup = {
+    show(unlocks, onContinue) {
+        const content = $('otp-content');
+        let html = '';
+        for (const { order, tier } of unlocks) {
+            const icon  = ORDER_ICONS[order] || '';
+            const name  = ORDER_DISPLAY_NAMES[order] || order;
+            const desc  = ORDER_FACE_BONUS_DESCS[order]?.[tier - 1] || '';
+            const face  = ['warpack','gilded','runeforged','brood','ironward'];
+            const colors = { warpack:'#5fa84f', gilded:'#d4a534', runeforged:'#d48830', brood:'#9050c0', ironward:'#e05050' };
+            const color = colors[order] || 'var(--gold)';
+            html += `
+                <div class="otp-unlock" style="border-color:${color}44;">
+                    <div class="otp-order-name" style="color:${color};">${icon} ${name}</div>
+                    <div class="otp-tier-badge" style="background:${color}22; border-color:${color}88;">Tier ${tier} Reached</div>
+                    ${desc ? `<div class="otp-bonus-desc">${desc}</div>` : ''}
+                </div>`;
+        }
+        content.innerHTML = html;
+
+        const popup = $('order-tier-popup');
+        const btn   = $('otp-continue');
+        popup.style.display = 'flex';
+        btn.onclick = () => {
+            popup.style.display = 'none';
+            btn.onclick = null;
+            if (onContinue) onContinue();
+        };
+    },
+};
+window.OrderTierPopup = OrderTierPopup;
+
 //  BATTLE SUMMARY — Unified post-battle screen
 // ════════════════════════════════════════════════════════════
 const BattleSummary = {
@@ -1900,6 +1947,14 @@ const BattleSummary = {
     show() {
         const summary = GS.battleSummary;
         if (!summary) { Game.nextFloor(); return; }
+
+        // Show tier unlock popup first if any tiers were just crossed
+        const unlocks = summary.newTierUnlocks || [];
+        if (unlocks.length > 0) {
+            summary.newTierUnlocks = [];
+            OrderTierPopup.show(unlocks, () => BattleSummary.show());
+            return;
+        }
 
         updateStats();
         $('bs-title').textContent = `${summary.enemyName} Defeated!`;

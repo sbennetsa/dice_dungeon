@@ -1693,6 +1693,59 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     margin-bottom: 16px;
 }
 
+/* ── Order Tier Popup ── */
+#order-tier-popup {
+    align-items: center;
+    justify-content: center;
+}
+.otp-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 24px;
+    max-width: 360px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+.otp-unlock {
+    margin-bottom: 16px;
+    padding: 16px;
+    border: 1px solid;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+}
+.otp-unlock:last-of-type { margin-bottom: 20px; }
+.otp-order-name {
+    font-family: var(--font-heading);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+}
+.otp-tier-badge {
+    display: inline-block;
+    font-family: var(--font-data);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    padding: 3px 12px;
+    border: 1px solid;
+    border-radius: 20px;
+    margin-bottom: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.otp-bonus-desc {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-dim);
+    line-height: 1.4;
+}
+.otp-btn {
+    width: 100%;
+    margin-top: 4px;
+}
+
 /* ── Campaign favor in battle summary ── */
 .bs-favor-order {
     padding: 8px 0;

@@ -2537,6 +2537,9 @@ export const Combat = {
                 if (delta > 0) favorGained[order] = delta;
             }
             summary.favorGained = favorGained;
+
+            // Check for mid-run tier crossings and apply bonuses immediately
+            summary.newTierUnlocks = Campaign.applyMidRunTierBonuses(GS);
         }
 
         if (GS.challengeMode) {

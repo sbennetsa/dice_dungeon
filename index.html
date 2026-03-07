@@ -110,13 +110,26 @@
 
 <!-- ═══════════ CAMPAIGN SCREEN ═══════════ -->
 <div id="screen-campaign" class="screen">
-    <div class="campaign-screen">
-        <h2>The Ancient Order</h2>
-        <div id="campaign-content"></div>
-        <div style="margin-top:24px; display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
-            <button class="btn btn-primary" onclick="CampaignScreen.back()">Back to Menu</button>
-            <button class="btn" onclick="CampaignScreen.resetAll()" style="color:var(--red);">Reset All Progress</button>
-        </div>
+    <div class="order-codex-shell">
+        <aside class="order-codex-index">
+            <div class="order-codex-index-header">
+                <div class="order-codex-back-btn" onclick="CampaignScreen.back()">← Back</div>
+                <h1>The Ancient Orders</h1>
+                <div class="order-codex-subtitle">Favoured Compendium</div>
+            </div>
+            <div class="order-codex-index-list" id="order-codex-index-list"></div>
+            <div class="order-codex-index-footer">
+                <button class="order-codex-reset-btn" onclick="CampaignScreen.resetAll()">Reset Progress</button>
+            </div>
+        </aside>
+        <main class="order-codex-page" id="order-codex-page">
+            <div class="order-codex-parchment" id="order-codex-parchment">
+                <div class="order-codex-empty-state">
+                    <div class="order-codex-empty-glyph">✦</div>
+                    <p>Select an Order from the index<br>to read its record.</p>
+                </div>
+            </div>
+        </main>
     </div>
 </div>
 
@@ -185,6 +198,7 @@
         <div class="header-btns">
             <button class="btn" onclick="DungeonMap.toggle()" style="font-size:0.8em; padding:5px 10px;">🗺️</button>
             <button class="btn" id="btn-inventory" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+            <button class="btn" onclick="IssueReport.show()" style="font-size:0.8em; padding:5px 10px;">🐛</button>
         </div>
     </div>
     <div id="floor-progress"></div>
@@ -274,6 +288,7 @@
         <div class="header-btns">
             <button class="btn" onclick="DungeonMap.toggle()" style="font-size:0.8em; padding:5px 10px;">🗺️</button>
             <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+            <button class="btn" onclick="IssueReport.show()" style="font-size:0.8em; padding:5px 10px;">🐛</button>
         </div>
     </div>
     <div class="section-title" id="bs-title">Victory!</div>
@@ -292,6 +307,7 @@
         <div class="header-btns">
             <button class="btn" onclick="DungeonMap.toggle()" style="font-size:0.8em; padding:5px 10px;">🗺️</button>
             <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+            <button class="btn" onclick="IssueReport.show()" style="font-size:0.8em; padding:5px 10px;">🐛</button>
         </div>
     </div>
     <div class="section-title" id="reward-title">Victory — Choose Your Reward</div>
@@ -313,6 +329,7 @@
         <div class="header-btns">
             <button class="btn" onclick="DungeonMap.toggle()" style="font-size:0.8em; padding:5px 10px;">🗺️</button>
             <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+            <button class="btn" onclick="IssueReport.show()" style="font-size:0.8em; padding:5px 10px;">🐛</button>
         </div>
     </div>
     <div class="shop-tabs-row">
@@ -340,6 +357,7 @@
         <div class="header-btns">
             <button class="btn" onclick="DungeonMap.toggle()" style="font-size:0.8em; padding:5px 10px;">🗺️</button>
             <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+            <button class="btn" onclick="IssueReport.show()" style="font-size:0.8em; padding:5px 10px;">🐛</button>
         </div>
     </div>
     <div class="event-panel" id="event-panel"></div>
@@ -356,6 +374,7 @@
         <div class="header-btns">
             <button class="btn" onclick="DungeonMap.toggle()" style="font-size:0.8em; padding:5px 10px;">🗺️</button>
             <button class="btn" onclick="Inventory.toggle()" style="font-size:0.8em; padding:5px 10px; white-space:nowrap; flex-shrink:0;">📋</button>
+            <button class="btn" onclick="IssueReport.show()" style="font-size:0.8em; padding:5px 10px;">🐛</button>
         </div>
     </div>
     <div class="section-title" id="rest-title">Act Complete — Rest &amp; Prepare</div>
@@ -426,6 +445,30 @@
         </div>
         <div id="dungeon-map-seed"></div>
         <div id="dungeon-map-content"></div>
+    </div>
+</div>
+
+<!-- ═══════════ ISSUE REPORT OVERLAY ═══════════ -->
+<div id="issue-report-overlay" style="display:none; position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.75);">
+    <div class="issue-report-box">
+        <h2>Report Issue</h2>
+        <label class="issue-label">Category</label>
+        <select id="issue-category" class="issue-select">
+            <option value="bug">Bug</option>
+            <option value="balance">Balance</option>
+            <option value="ui-ux">UI / UX</option>
+            <option value="suggestion">Suggestion</option>
+        </select>
+        <label class="issue-label">Title</label>
+        <input type="text" id="issue-title" class="issue-input" placeholder="Brief title..." maxlength="100" autocomplete="off">
+        <label class="issue-label">Description</label>
+        <textarea id="issue-desc" class="issue-input issue-textarea" placeholder="Describe the issue..." rows="4"></textarea>
+        <div id="issue-context" class="issue-context-preview"></div>
+        <div class="issue-actions">
+            <button class="btn" onclick="IssueReport.close()">Cancel</button>
+            <button class="btn btn-primary" onclick="IssueReport.submit()">Submit</button>
+        </div>
+        <div id="issue-status" class="issue-status"></div>
     </div>
 </div>
 

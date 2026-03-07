@@ -444,16 +444,7 @@ export const Combat = {
             ? `<div class="enemy-passive-tags">${e.passives.map(p => `<span class="passive-tag">${p.name}: ${p.desc}</span>`).join('')}</div>`
             : '';
 
-        // Player debuff indicators
-        let debuffHtml = '';
-        if (GS.playerDebuffs.poison > 0)
-            debuffHtml += `<span class="passive-tag" style="color:#f07070;border-color:rgba(200,60,60,0.3)">☠️ You: Poison ×${GS.playerDebuffs.poison}</span>`;
-        if (GS.playerDebuffs.disabledSlots && GS.playerDebuffs.disabledSlots.length > 0)
-            GS.playerDebuffs.disabledSlots.forEach(ds => {
-                const slotType = ds.slotId.startsWith('str') ? 'strike' : 'guard';
-                debuffHtml += `<span class="passive-tag" style="color:#f07070;border-color:rgba(200,60,60,0.3)">🔒 ${slotType} slot sealed (${ds.turnsLeft}t)</span>`;
-            });
-        if (debuffHtml) debuffHtml = `<div class="enemy-passive-tags">${debuffHtml}</div>`;
+        // Player debuffs shown in renderPlayerStatus() — no longer duplicated here
 
         const intentDisplay = Combat._buildIntentText();
 
@@ -462,7 +453,7 @@ export const Combat = {
             $('enemy-panel').innerHTML = `
                 <div class="${nameCls}">${e.name}${statusIndicators}</div>
                 <div class="enemy-subtitle">💀 CHALLENGE — Survive and deal maximum damage</div>
-                ${diceHtml}${passiveHtml}${debuffHtml}
+                ${diceHtml}${passiveHtml}
                 <div style="text-align:center;margin:8px 0;">
                     <span style="font-size:1.4em;color:var(--gold);font-family:JetBrains Mono,monospace;">💥 ${GS.challengeDmg.toLocaleString()}</span>
                     <span style="font-size:0.8em;color:var(--text-dim);margin-left:8px;">(${dpt}/turn)</span>
@@ -481,7 +472,7 @@ export const Combat = {
                 ${diceHtml}
                 <div class="enemy-hp-bar"><div class="enemy-hp-fill" style="width:${pct}%"></div></div>
                 <div class="enemy-hp-text">${e.currentHp} / ${e.hp}</div>
-                ${passiveHtml}${debuffHtml}
+                ${passiveHtml}
                 <div class="enemy-intent">${intentDisplay}</div>
             `;
         }
@@ -504,12 +495,14 @@ export const Combat = {
         if (GS.playerDebuffs.diceCurse > 0) {
             html += `<span class="player-status-tag player-status-tag--sealed">💀 Cursed: dice −${GS.playerDebuffs.diceCurse} (${GS.playerDebuffs.diceCurseTurns}t)</span>`;
         }
-        const lockedCount = GS.dice.filter(d => d.locked).length;
-        if (lockedCount > 0) {
-            html += `<span class="player-status-tag player-status-tag--sealed">🔒 ${lockedCount} die locked</span>`;
+        const lockedDice = GS.dice.filter(d => d.locked);
+        if (lockedDice.length > 0) {
+            const maxTurns = Math.max(...lockedDice.map(d => d.lockedTurns || 0));
+            html += `<span class="player-status-tag player-status-tag--sealed">🔒 ${lockedDice.length} die locked${maxTurns > 0 ? ` (${maxTurns}t)` : ''}</span>`;
         }
         if (GS.playerDebuffs.devouredDice && GS.playerDebuffs.devouredDice.length > 0) {
-            html += `<span class="player-status-tag player-status-tag--sealed">👄 ${GS.playerDebuffs.devouredDice.length} die swallowed</span>`;
+            const maxDevour = Math.max(...GS.playerDebuffs.devouredDice.map(dd => dd.turnsLeft || 0));
+            html += `<span class="player-status-tag player-status-tag--sealed">👄 ${GS.playerDebuffs.devouredDice.length} die swallowed${maxDevour > 0 ? ` (${maxDevour}t)` : ''}</span>`;
         }
         bar.innerHTML = html;
     },
@@ -2494,6 +2487,7 @@ export const Combat = {
 
         // Clear player debuffs at end of combat
         GS.playerDebuffs = { poison: 0, disabledSlots: [], diceReduction: 0, diceCurse: 0, diceCurseTurns: 0, lockedDice: [], devouredDice: [] };
+        Combat.renderPlayerStatus();
 
         // Decrement tempBuff combat counters
         if (GS.tempBuffs) {

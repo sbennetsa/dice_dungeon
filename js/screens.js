@@ -25,6 +25,22 @@ let _pendingUnlocks = [];
 //  HELPERS
 // ════════════════════════════════════════════════════════════
 
+// Replace YOURNAME with your Buy Me a Coffee username once set up.
+const SUPPORT_URL = 'https://buymeacoffee.com/YOURNAME';
+
+/** Append a donate link after the #go-buttons container on the game-over screen. */
+function _appendSupportLink() {
+    const existing = document.querySelector('#screen-gameover .support-link');
+    if (existing) return; // defeat path already has it in static HTML
+    const a = document.createElement('a');
+    a.className = 'support-link';
+    a.href = SUPPORT_URL;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = '☕ Buy me a coffee';
+    document.querySelector('.gameover-screen').appendChild(a);
+}
+
 /** Populate #home-rank-display with the player's current campaign rank title. */
 function _refreshHomeRank() {
     const el = document.getElementById('home-rank-display');
@@ -579,6 +595,7 @@ const Game = {
 
         _renderUnlockNotification();
         _renderCombatLogReplay();
+        _appendSupportLink();
         show('screen-gameover');
     },
 
@@ -602,6 +619,7 @@ const Game = {
         btn.onclick = () => Game.backToStart();
         btns.appendChild(btn);
         _renderCombatLogReplay();
+        _appendSupportLink();
         show('screen-gameover');
     },
 
@@ -825,6 +843,7 @@ const Game = {
 
         GS.challengeMode = false;
         _renderCombatLogReplay();
+        _appendSupportLink();
         show('screen-gameover');
     }
 };

@@ -1060,6 +1060,18 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 .gameover-screen h2.defeat { color: var(--red); }
 .gameover-screen h2.victory { color: var(--gold); text-shadow: 0 0 20px rgba(212,165,52,0.3); }
 
+.support-link {
+    display: block;
+    margin-top: 18px;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-dim);
+    text-decoration: none;
+    opacity: 0.75;
+    transition: opacity 0.15s, color 0.15s;
+}
+.support-link:hover { opacity: 1; color: var(--gold); }
+
 .final-stats {
     background: var(--bg-surface);
     border: 1px solid var(--border);

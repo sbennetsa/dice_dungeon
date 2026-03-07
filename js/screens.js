@@ -5072,12 +5072,37 @@ const CampaignScreen = {
         this._caller = caller;
         this._activeOrder = null;
         this._renderIndex();
-        document.getElementById('order-codex-parchment').innerHTML = `
-            <div class="order-codex-empty-state">
-                <div class="order-codex-empty-glyph">✦</div>
-                <p>Select an Order from the index<br>to read its record.</p>
-            </div>`;
+        this._renderLanding();
         show('screen-campaign');
+    },
+
+    _renderLanding() {
+        const favor = Campaign.getOrderFavor();
+        const entries = ORDER_CODEX.map(o => {
+            const tier = Campaign.getOrderTier(o.key, favor[o.key] || 0);
+            const tierLabel = tier > 0 ? `Tier ${tier}` : 'No standing';
+            return `<div class="order-codex-nav-entry" onclick="CampaignScreen._openOrder('${o.key}')">
+                ${o.badgeImg ? `<img class="order-codex-nav-badge" src="${o.badgeImg}" alt="">` : `<span class="order-codex-nav-glyph">✦</span>`}
+                <div class="order-codex-nav-text">
+                    <div class="order-codex-nav-name">${o.name}</div>
+                    <div class="order-codex-nav-tier">${tierLabel}</div>
+                </div>
+            </div>`;
+        }).join('');
+        document.getElementById('order-codex-parchment').innerHTML = `
+            <div class="order-codex-page-border">
+                <div class="order-codex-corner order-codex-corner--tl">❧</div>
+                <div class="order-codex-corner order-codex-corner--tr">❧</div>
+                <div class="order-codex-corner order-codex-corner--bl">❧</div>
+                <div class="order-codex-corner order-codex-corner--br">❧</div>
+                <div class="order-codex-page-header">
+                    <h2>The Ancient Orders</h2>
+                    <hr class="order-codex-rule">
+                </div>
+                <p class="order-codex-lore" style="text-align:center;">Five powers watch from the shadows of the dungeon. Their favour shapes the gifts that await those who survive.</p>
+                <hr class="order-codex-rule order-codex-rule--section">
+                <div class="order-codex-nav-grid">${entries}</div>
+            </div>`;
     },
 
     back() {
@@ -5145,26 +5170,6 @@ const CampaignScreen = {
             </div>`;
         }).join('');
 
-        // Favor progress (only show if active campaign)
-        let favorSection = '';
-        if (active) {
-            const nextInfo = Campaign.getNextTierInfo(key, f);
-            const pct      = nextInfo
-                ? Math.min(100, Math.round((f / nextInfo.threshold) * 100))
-                : 100;
-            const barLabel = nextInfo
-                ? `${Math.round(f).toLocaleString()} / ${nextInfo.threshold.toLocaleString()} favor`
-                : 'Maximum tier reached';
-            favorSection = `
-                <div class="order-codex-favor">
-                    <div class="order-codex-favor-label">Current Standing</div>
-                    <div class="order-codex-favor-bar-wrap">
-                        <div class="order-codex-favor-bar" style="width:${pct}%"></div>
-                    </div>
-                    <div class="order-codex-favor-meta">${barLabel}</div>
-                </div>`;
-        }
-
         document.getElementById('order-codex-parchment').innerHTML = `
             <div class="order-codex-page-border">
                 <div class="order-codex-corner order-codex-corner--tl">❧</div>
@@ -5180,7 +5185,6 @@ const CampaignScreen = {
                 <hr class="order-codex-rule order-codex-rule--section">
                 <div class="order-codex-tiers-heading">Tier Benefits</div>
                 <div class="order-codex-tiers">${tierRows}</div>
-                ${favorSection}
                 ${entry.badgeImg ? `<div class="order-codex-badge-footer"><img src="${entry.badgeImg}" alt="${entry.name} badge"></div>` : ''}
             </div>`;
     },

@@ -3942,6 +3942,68 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   color: #6b5020;
 }
 
+.order-codex-nav-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.order-codex-nav-entry {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: rgba(139, 105, 20, 0.08);
+  border: 1px solid rgba(139, 105, 20, 0.25);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.order-codex-nav-entry:hover {
+  background: rgba(139, 105, 20, 0.18);
+  border-color: rgba(139, 105, 20, 0.5);
+}
+
+.order-codex-nav-badge {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.order-codex-nav-glyph {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4em;
+  color: #8b6914;
+  flex-shrink: 0;
+}
+
+.order-codex-nav-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.order-codex-nav-name {
+  font-family: var(--font-heading);
+  font-size: 0.95em;
+  color: #c8a44a;
+}
+
+.order-codex-nav-tier {
+  font-family: var(--font-body);
+  font-size: 0.78em;
+  color: #8b6914;
+  font-style: italic;
+}
+
 /* ── Responsive ── */
 @media (max-width: 600px) {
   .order-codex-shell {

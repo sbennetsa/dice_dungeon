@@ -752,7 +752,7 @@ export const RUNES = [
 // ════════════════════════════════════════════════════════════
 export const SKILL_TREE = [
     // ── ROOT ──
-    { id: 'root', name: 'Adventurer', icon: '⭐', desc: '+1 Strike Slot, +1 Guard Slot', requires: [], orderFavor: { warpack: 0.5, ironward: 0.3, runeforged: 0.2 }, effect: (gs) => { gs.slots.strike.push({ id: `str-${Date.now()}`, rune: null }); gs.slots.guard.push({ id: `grd-${Date.now()}`, rune: null }); } },
+    { id: 'root', name: 'Adventurer', icon: '⭐', desc: '+1 Strike Slot, +1 Guard Slot', requires: [], orderFavor: {}, effect: (gs) => { gs.slots.strike.push({ id: `str-${Date.now()}`, rune: null }); gs.slots.guard.push({ id: `grd-${Date.now()}`, rune: null }); } },
 
     // ── WIDE FACE 🐺 — slots & quantity ──
     { id: 'w_a', name: 'Extra Arms',   icon: '🐺', desc: '+1 Strike Slot',                          requires: ['root'], orderFavor: { warpack: 1.0 }, effect: (gs) => { gs.slots.strike.push({ id: `str-${Date.now()}`, rune: null }); } },

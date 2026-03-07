@@ -4349,7 +4349,7 @@ const DifficultySelect = {
                             <button class="btn btn-primary start-campaign-bar__btn"
                                 onclick="Game.start(Campaign.getDifficulty())">Resume Campaign</button>
                             <button class="btn start-campaign-bar__btn"
-                                onclick="DifficultySelect.show()">New Run</button>
+                                onclick="Game.start(Campaign.getDifficulty())">New Run</button>
                         </div>
                     </div>`;
             } else {

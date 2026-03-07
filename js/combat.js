@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════
 //  COMBAT
 // ════════════════════════════════════════════════════════════
-import { pickWeightedConsumable } from './constants.js';
+import { pickWeightedConsumable, SKILL_TREE } from './constants.js';
 import { calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { GS, $, log, gainXP, gainGold, heal, pick, rand } from './state.js';
 import { BestiaryProgress } from './persistence.js';
@@ -802,10 +802,10 @@ export const Combat = {
         GS.allocated.guard.forEach(d => {
             if (d.dieType) return;
             const runes = getSlotRunes(d.slotId);
-            const defBaseVolley = (GS.passives.volley && defCount >= 4) ? GS.passives.volley : 0;
+            const defBaseVolley = (GS.passives.volley && defCount >= (GS.passives.volleyThreshold || 4)) ? GS.passives.volley : 0;
             let val = d.value + (GS.passives.swarmMaster || 0) + defAscendBonus + defBaseVolley;
             for (const r of runes) {
-                if (r.effect === 'amplifier') val *= 2;
+                if (r.effect === 'amplifier') { val *= 2; if (GS.passives.amplifyGrantsTitan && defNonUtilCount === 1) val *= 3; }
                 else if (r.effect === 'titanBlow' && defNonUtilCount === 1) val *= 3;
                 else if (r.effect === 'leaden') val *= 2;
             }
@@ -818,11 +818,11 @@ export const Combat = {
             const m = face ? face.modifier : null;
 
             const defRunes = getSlotRunes(d.slotId);
-            const defVolley = (!d.dieType && GS.passives.volley && defCount >= 4) ? GS.passives.volley : 0;
+            const defVolley = (!d.dieType && GS.passives.volley && defCount >= (GS.passives.volleyThreshold || 4)) ? GS.passives.volley : 0;
             const bulwarkBonus = (!d.dieType && GS.passives.bulwark && GS.hp >= GS.maxHp * 0.75) ? 2 : 0;
             let dieVal = d.value + (GS.passives.swarmMaster || 0) + (d.dieType ? 0 : defAscendBonus) + defVolley + bulwarkBonus;
             for (const r of defRunes) {
-                if (r.effect === 'amplifier') dieVal *= 2;
+                if (r.effect === 'amplifier') { dieVal *= 2; if (GS.passives.amplifyGrantsTitan && defCount === 1) dieVal *= 3; }
                 if (r.effect === 'titanBlow' && defCount === 1) dieVal *= 3;
                 if (r.effect === 'leaden') dieVal *= 2;
             }
@@ -910,7 +910,8 @@ export const Combat = {
         // transformBuffs: Fortification defend multiplier
         if (GS.transformBuffs && GS.transformBuffs.fortified > 1) defMult *= GS.transformBuffs.fortified;
         if (GS.passives.threshold) {
-            GS.allocated.guard.forEach(d => { if (d.value >= 12) defBase += d.value; });
+            const threshT = GS.passives.thresholdValue || 12;
+            GS.allocated.guard.forEach(d => { if (d.value >= threshT) defBase += d.value; });
         }
         // New artifact defend bonuses
         defBonus += GS.artifacts.filter(a => a.effect === 'goldenAegis').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
@@ -1020,10 +1021,10 @@ export const Combat = {
         GS.allocated.strike.forEach(d => {
             if (d.dieType) return;
             const runes = getSlotRunes(d.slotId);
-            const atkBaseVolley = (GS.passives.volley && atkCount >= 4) ? GS.passives.volley : 0;
+            const atkBaseVolley = (GS.passives.volley && atkCount >= (GS.passives.volleyThreshold || 4)) ? GS.passives.volley : 0;
             let val = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0) + atkAscendBonus + atkBaseVolley + (splinterBonus[d.id] || 0);
             for (const r of runes) {
-                if (r.effect === 'amplifier') val *= 2;
+                if (r.effect === 'amplifier') { val *= 2; if (GS.passives.amplifyGrantsTitan && atkNonUtilCount === 1) val *= 3; }
                 else if (r.effect === 'titanBlow' && atkNonUtilCount === 1) val *= 3;
                 else if (r.effect === 'leaden') val *= 2;
             }
@@ -1041,10 +1042,10 @@ export const Combat = {
             // Splinter rune: die's value was distributed to others — skip own contribution
             if (atkRunes.some(r => r.effect === 'splinter')) return;
 
-            const atkVolley = (!d.dieType && GS.passives.volley && atkCount >= 4) ? GS.passives.volley : 0;
+            const atkVolley = (!d.dieType && GS.passives.volley && atkCount >= (GS.passives.volleyThreshold || 4)) ? GS.passives.volley : 0;
             let dieVal = d.value + ptAtkPerDie + (GS.passives.swarmMaster || 0) + (d.dieType ? 0 : atkAscendBonus) + atkVolley + (splinterBonus[d.id] || 0);
             for (const r of atkRunes) {
-                if (r.effect === 'amplifier') dieVal *= 2;
+                if (r.effect === 'amplifier') { dieVal *= 2; if (GS.passives.amplifyGrantsTitan && atkCount === 1) dieVal *= 3; }
                 if (r.effect === 'titanBlow' && atkCount === 1) dieVal *= 3;
                 if (r.effect === 'leaden') dieVal *= 2;
             }
@@ -1203,13 +1204,15 @@ export const Combat = {
         if (goldScale > 0) atkBonus += goldScale;
         if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
         if (GS.passives.threshold) {
-            GS.allocated.strike.forEach(d => { if (d.value >= 12) atkBase += d.value; });
+            const threshT = GS.passives.thresholdValue || 12;
+            GS.allocated.strike.forEach(d => { if (d.value >= threshT) atkBase += d.value; });
         }
         const rerollsUsed = GS.rerolls - GS.rerollsLeft;
         if (rerollsUsed > 0) {
             let rerollDmg = GS.artifacts.filter(a => a.effect === 'rerollDmg').reduce((s, a) => s + a.value, 0) * rerollsUsed;
             if (GS.passives.rerollDmg) rerollDmg += GS.passives.rerollDmg * rerollsUsed;
             if (rerollDmg > 0) { atkBonus += rerollDmg; log(`🪙 Reroll damage: +${rerollDmg} (${rerollsUsed} rerolls)`, 'info'); }
+            if (GS.passives.rerollPoison) applyEnemyPoison(GS.passives.rerollPoison * rerollsUsed);
         }
 
         if (GS.isFirstTurn) GS.isFirstTurn = false;
@@ -1464,7 +1467,7 @@ export const Combat = {
         // ── POISON TICK ON ENEMY ──
         if (e.poison > 0) {
             let poisonDmg = e.poison;
-            if (GS.passives.plagueLord) poisonDmg *= 2;
+            if (GS.passives.plagueLord) poisonDmg *= (GS.passives.plagueLordMult || 2);
             const armorP2 = e.passives.find(p => p.id === 'armor');
             if (armorP2) poisonDmg = Math.max(0, poisonDmg - armorP2.params.reduction);
             e.currentHp -= poisonDmg;
@@ -2519,6 +2522,20 @@ export const Combat = {
         summary.consumableDrop = consumableDrop;
         summary.skillPoints = GS.pendingSkillPoints || 0;
         GS.battleSummary = summary;
+
+        // ── Campaign favor accumulation ────────────────────────
+        if (GS.campaign) {
+            const threat = GS.encounter?.enemy?.baseThreat || 0;
+            if (threat > 0) {
+                for (const nodeId of (GS.unlockedNodes || [])) {
+                    const node = SKILL_TREE.find(n => n.id === nodeId);
+                    if (!node?.orderFavor) continue;
+                    for (const [order, weight] of Object.entries(node.orderFavor)) {
+                        GS._loopFavor[order] = (GS._loopFavor[order] || 0) + threat * weight;
+                    }
+                }
+            }
+        }
 
         if (GS.challengeMode) {
             setTimeout(() => window.Game.challengeResult(), 1200);

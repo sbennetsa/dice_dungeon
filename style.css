@@ -2843,6 +2843,154 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 .campaign-milestone--locked .milestone-title { color: var(--text-dim); opacity: 0.5; }
 .campaign-milestone--locked .milestone-desc  { color: var(--text-dim); opacity: 0.35; }
 
+/* ── Campaign launch / active panels ── */
+.campaign-launch-panel,
+.campaign-active-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+}
+
+.campaign-active-label {
+    font-family: var(--font-heading);
+    font-size: 0.9em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+}
+
+.campaign-launch-desc {
+    font-family: var(--font-body);
+    font-size: 0.98em;
+    line-height: 1.6;
+    color: var(--text-dim);
+    font-style: italic;
+    margin: 0 0 14px;
+}
+
+.campaign-difficulty-steps {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-family: var(--font-data);
+    font-size: 0.82em;
+    color: var(--text-dim);
+}
+
+.campaign-difficulty-arrow {
+    color: var(--gold-dim);
+}
+
+/* ── Campaign loop pips ── */
+.campaign-loop-pip {
+    font-family: var(--font-body);
+    font-size: 0.9em;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.campaign-loop-pip:last-of-type { border-bottom: none; }
+
+.campaign-loop-pip--done    { color: var(--gold-dim); }
+.campaign-loop-pip--done::before    { content: '✓'; color: var(--gold-dim); width: 16px; }
+.campaign-loop-pip--current { color: var(--gold); font-weight: 700; }
+.campaign-loop-pip--current::before { content: '▶'; color: var(--gold); width: 16px; }
+.campaign-loop-pip--future  { color: var(--text-dim); opacity: 0.5; }
+.campaign-loop-pip--future::before  { content: '·'; width: 16px; }
+.campaign-loop-pip--fail    { color: var(--red); }
+.campaign-loop-pip--fail::before    { content: '✕'; color: var(--red); width: 16px; }
+
+/* ── Campaign history ── */
+.campaign-history {
+    margin-bottom: 20px;
+}
+
+.campaign-section-title {
+    font-family: var(--font-heading);
+    font-size: 0.9em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+}
+
+.campaign-history-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.88em;
+}
+.campaign-history-row:last-of-type { border-bottom: none; }
+
+.campaign-history-date  { font-family: var(--font-data); color: var(--text-dim); flex-shrink: 0; }
+.campaign-history-loops { font-family: var(--font-data); color: var(--text-dim); flex-shrink: 0; }
+.campaign-history-outcome { font-family: var(--font-body); flex: 1; text-align: right; }
+.campaign-history-outcome.outcome--win  { color: var(--gold); }
+.campaign-history-outcome.outcome--loss { color: var(--red); }
+
+.campaign-history-meta {
+    font-family: var(--font-data);
+    font-size: 0.75em;
+    color: var(--text-dim);
+    margin-top: 8px;
+    text-align: right;
+}
+
+/* ── Campaign Codex (collapsible) ── */
+.campaign-codex {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    margin-top: 4px;
+}
+
+.campaign-codex-toggle {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-family: var(--font-heading);
+    font-size: 0.88em;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    padding: 6px 0;
+    width: 100%;
+    text-align: left;
+}
+.campaign-codex-toggle:hover { color: var(--text); }
+
+.campaign-codex-body {
+    display: none;
+    margin-top: 12px;
+}
+.campaign-codex.is-open .campaign-codex-body { display: block; }
+
+.campaign-codex-entry {
+    margin-bottom: 16px;
+}
+
+.campaign-codex-name {
+    font-family: var(--font-heading);
+    font-size: 0.95em;
+    color: var(--gold-dim);
+    margin-bottom: 4px;
+}
+
+.campaign-codex-lore {
+    font-family: var(--font-body);
+    font-size: 0.9em;
+    line-height: 1.65;
+    color: var(--text-dim);
+    font-style: italic;
+    margin: 0;
+}
+
 /* ── Start screen secondary buttons ── */
 .start-secondary-btns {
     display: flex;
@@ -3842,6 +3990,44 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     padding: 30px 20px 44px;
     box-shadow: none;
   }
+}
+
+/* ── Order Interaction Screen ── */
+.order-interaction-wrap {
+    max-width: 540px;
+    margin: 0 auto;
+    padding: 40px 20px 60px;
+    text-align: center;
+}
+
+.order-interaction-wrap h2 {
+    font-family: var(--font-heading);
+    font-size: 1.5em;
+    color: var(--gold);
+    margin-bottom: 32px;
+}
+
+.order-beat {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    text-align: left;
+}
+
+.order-beat-text {
+    font-family: var(--font-body);
+    font-size: 1.05em;
+    line-height: 1.65;
+    color: var(--text);
+    font-style: italic;
+    margin: 0;
+}
+
+.order-interaction-wrap .btn {
+    margin-top: 32px;
+    min-width: 200px;
 }
 
 /* ════════════════════════════════════════════════════════════

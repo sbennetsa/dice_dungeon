@@ -135,6 +135,7 @@ function _generateEncounterLegacy(floor) {
     const profile = getEnemyProfile(enemy.name, isBossFloor ? floor : null, act);
     const xpThreat = profile ? profile.baseThreat : 15;
     enemy.xp = threatToXPRange(xpThreat);
+    enemy.baseThreat = xpThreat; // used by campaign favor accumulation
 
     const anomaly = rollForAnomaly(floor);
     let environment = selectEnvironment(floor);

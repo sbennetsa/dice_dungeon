@@ -78,6 +78,62 @@ export const RunHistory = {
 };
 
 // ════════════════════════════════════════════════════════════
+//  CAMPAIGN HISTORY — archives completed campaigns (top-level)
+//  with nested loop records. Max 50 campaigns stored.
+// ════════════════════════════════════════════════════════════
+
+const CAMPAIGN_HISTORY_KEY = 'diceDungeon_v1_campaigns';
+const MAX_CAMPAIGNS        = 50;
+
+export const CampaignHistory = {
+
+    /** Archive a completed campaign record. */
+    save(campaign) {
+        const all = this._load();
+        all.push({ ...campaign, archivedAt: Date.now() });
+        if (all.length > MAX_CAMPAIGNS) all.splice(0, all.length - MAX_CAMPAIGNS);
+        try {
+            localStorage.setItem(CAMPAIGN_HISTORY_KEY, JSON.stringify(all));
+        } catch (e) {
+            console.warn('[Persistence] Could not save campaign history:', e);
+        }
+    },
+
+    /** All archived campaigns, oldest first. */
+    getAll() {
+        return this._load();
+    },
+
+    /** Aggregated campaign stats, or null if no campaigns recorded. */
+    getStats() {
+        const all = this._load();
+        if (!all.length) return null;
+        const completed = all.filter(c => c.outcome === 'completed');
+        const defeated  = all.filter(c => c.outcome === 'defeated');
+        const loopCounts = all.map(c => c.loops?.length || 0);
+        return {
+            totalCampaigns:  all.length,
+            completed:       completed.length,
+            defeated:        defeated.length,
+            avgLoopsReached: loopCounts.length ? (loopCounts.reduce((a, b) => a + b, 0) / loopCounts.length).toFixed(1) : 0,
+        };
+    },
+
+    /** Wipe all campaign history. */
+    clear() {
+        localStorage.removeItem(CAMPAIGN_HISTORY_KEY);
+    },
+
+    _load() {
+        try {
+            return JSON.parse(localStorage.getItem(CAMPAIGN_HISTORY_KEY) || '[]');
+        } catch {
+            return [];
+        }
+    },
+};
+
+// ════════════════════════════════════════════════════════════
 //  BESTIARY PROGRESS — tracks unlocked entries and encounter
 //  counts across all runs. Stored separately from run history.
 // ════════════════════════════════════════════════════════════

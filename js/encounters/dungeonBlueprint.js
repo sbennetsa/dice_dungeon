@@ -407,6 +407,7 @@ function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
     const xpProfile = getEnemyProfile(enemy.name, isBoss ? floor : null, act);
     const xpThreat  = xpProfile ? xpProfile.baseThreat : 15;
     enemy.xp = threatToXPRange(xpThreat);
+    enemy.baseThreat = xpThreat; // used by campaign favor accumulation
 
     // 3. Roll for anomaly
     const anomaly = rollForAnomalySeeded(floor, rng, options.anomalyRate);

@@ -10,9 +10,9 @@ import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone, che
 import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
 import { scoreDungeon, scoreFloorDetailed, scorePlayerAdvantage, rewardToAdvantage, REST_ADVANTAGES, REWARD_ADVANTAGES, GOLD_ADVANTAGE_RATE } from './encounters/dungeonScoring.js';
-import { RunHistory, BestiaryProgress } from './persistence.js';
+import { RunHistory, CampaignHistory, BestiaryProgress } from './persistence.js';
 import { BESTIARY_DATA, BestiaryUI } from './bestiary.js';
-import { Campaign, RANKS, ACHIEVEMENTS } from './campaign.js';
+import { Campaign, RANKS, ACHIEVEMENTS, ORDER_CODEX } from './campaign.js';
 
 // ════════════════════════════════════════════════════════════
 //  CAMPAIGN STATE
@@ -216,7 +216,7 @@ function showRuneAttachment(rune, onDone) {
         card.className = 'card';
         card.style.cssText = `width:160px; cursor:pointer;${!compatible ? ' opacity:0.6;' : ''}`;
         const runeCount = slotInfo.runes?.length || 0;
-        const maxRunes = GS.passives.runeforger ? 3 : 1;
+        const maxRunes = GS.passives.runeforger ? (GS.passives.runeforgerSlotCap || 3) : 1;
         const willAdd = runeCount < maxRunes;
         const existingRuneNote = runeCount > 0
             ? (willAdd
@@ -301,6 +301,8 @@ const Game = {
             blueprint: null,
             seed: null,
             runDifficulty: difficulty,
+            campaign: null,
+            _loopFavor: { warpack: 0, gilded: 0, runeforged: 0, brood: 0, ironward: 0 },
         });
 
         // Generate dungeon blueprint (all 15 floors pre-determined)
@@ -327,6 +329,13 @@ const Game = {
             GS.unlockedNodes.push('root');
             GS.slots.strike.push({ id: 'str-2', runes: [] });
             GS.slots.guard.push({ id: 'grd-2', runes: [] });
+        }
+
+        // Load active campaign and apply Order tier enhancements
+        const activeCampaign = Campaign.getActiveCampaign();
+        GS.campaign = activeCampaign || null;
+        if (activeCampaign) {
+            Campaign.applyTierEnhancements(GS);
         }
 
         DungeonPath.show(difficulty);
@@ -386,36 +395,59 @@ const Game = {
                 totalGold:    GS.totalGold,
                 seed:         GS.seed,
             };
-            RunHistory.save(runData);
-            _pendingUnlocks = Campaign.checkRun(runData);
+            if (GS.campaign) {
+                // Campaign defeat: record loop and archive campaign
+                Campaign.endLoop(GS._loopFavor, 'defeat', runData);
+            } else {
+                RunHistory.save(runData);
+                _pendingUnlocks = Campaign.checkRun(runData);
+            }
         }
         const t = $('go-title');
         t.textContent = '💀 Defeated';
         t.className = 'defeat';
-        $('go-stats').innerHTML = [
+        const statRows = [
             ['Floor Reached', GS.floor],
             ['Level', GS.level],
             ['Enemies Slain', GS.enemiesKilled],
             ['Gold Earned', GS.totalGold],
             ['Seed', DungeonMap.formatSeed(GS.seed)],
-        ].map(([k,v]) => `<div class="final-stat-row"><span>${k}</span><span>${v}</span></div>`).join('');
+        ];
+        if (GS.campaign) {
+            statRows.unshift(['Campaign Ended', `Loop ${GS.campaign.currentLoop} of 3`]);
+        }
+        $('go-stats').innerHTML = statRows
+            .map(([k,v]) => `<div class="final-stat-row"><span>${k}</span><span>${v}</span></div>`).join('');
         _renderUnlockNotification();
         _renderCombatLogReplay();
         show('screen-gameover');
     },
 
     victory() {
-        const runData = {
-            outcome:      'victory',
-            difficulty:   GS.runDifficulty,
-            floor:        15,
-            level:        GS.level,
+        const runStats = {
+            outcome:       'victory',
+            difficulty:    GS.runDifficulty,
+            floor:         15,
+            level:         GS.level,
             enemiesKilled: GS.enemiesKilled,
-            totalGold:    GS.totalGold,
-            seed:         GS.seed,
+            totalGold:     GS.totalGold,
+            seed:          GS.seed,
         };
-        RunHistory.save(runData);
-        _pendingUnlocks = Campaign.checkRun(runData);
+
+        // ── Campaign mode: end loop, show Order Interaction screen ──
+        if (GS.campaign) {
+            const { newTiers, newSynergies } = Campaign.endLoop(GS._loopFavor, 'victory', runStats);
+            const interactions = Campaign.getLoopInteractions(newTiers, newSynergies);
+            // currentLoop was already incremented by endLoop; if > 3 campaign is complete
+            const isComplete = Campaign.getCurrentLoop() === null || Campaign.getCurrentLoop() > 3;
+            if (isComplete) Campaign.endCampaign('completed');
+            OrderInteraction.show(interactions, isComplete ? 'campaign_complete' : 'next_loop');
+            return;
+        }
+
+        // ── Single-run mode: existing victory screen ──
+        RunHistory.save(runStats);
+        _pendingUnlocks = Campaign.checkRun(runStats);
         const t = $('go-title');
         t.textContent = '🏆 Victory!';
         t.className = 'victory';
@@ -446,6 +478,29 @@ const Game = {
         btns.appendChild(challenge);
 
         _renderUnlockNotification();
+        _renderCombatLogReplay();
+        show('screen-gameover');
+    },
+
+    /** Start the next campaign loop. Called from OrderInteraction. */
+    startNextLoop() {
+        const diff = Campaign.getDifficulty();
+        Game.start(diff);
+    },
+
+    /** Show campaign victory on the game-over screen. */
+    _showCampaignVictory() {
+        const t = $('go-title');
+        t.textContent = '🏆 Campaign Complete!';
+        t.className = 'victory';
+        $('go-stats').innerHTML = `<div class="final-stat-row"><span>All three dungeons conquered.</span></div>`;
+        const btns = $('go-buttons');
+        btns.innerHTML = '';
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-primary';
+        btn.textContent = 'Return to the Order';
+        btn.onclick = () => Game.backToStart();
+        btns.appendChild(btn);
         _renderCombatLogReplay();
         show('screen-gameover');
     },
@@ -4713,6 +4768,44 @@ const EncounterChoice = {
 };
 
 // ════════════════════════════════════════════════════════════
+//  ORDER INTERACTION SCREEN — Post-loop narrative beats
+// ════════════════════════════════════════════════════════════
+const OrderInteraction = {
+    _mode: 'next_loop', // 'next_loop' | 'campaign_complete'
+
+    /**
+     * Show the Order Interaction screen.
+     * @param {Array<{text:string}>} interactions - Narrative beat objects
+     * @param {'next_loop'|'campaign_complete'} mode
+     */
+    show(interactions, mode) {
+        this._mode = mode;
+
+        const container = $('order-interaction-entries');
+        container.innerHTML = interactions.length
+            ? interactions.map(i =>
+                `<div class="order-beat"><p class="order-beat-text">${i.text}</p></div>`
+              ).join('')
+            : `<div class="order-beat"><p class="order-beat-text">The dungeon falls silent. The Order watches.</p></div>`;
+
+        const btn = $('order-interaction-continue');
+        btn.textContent = mode === 'campaign_complete' ? 'Claim Victory' : 'Enter the Next Dungeon';
+        btn.onclick = () => this._continue();
+
+        show('screen-order-interaction');
+    },
+
+    _continue() {
+        if (this._mode === 'campaign_complete') {
+            Game._showCampaignVictory();
+        } else {
+            Game.startNextLoop();
+        }
+    },
+};
+window.OrderInteraction = OrderInteraction;
+
+// ════════════════════════════════════════════════════════════
 //  CAMPAIGN SCREEN — The Ancient Order progression view
 // ════════════════════════════════════════════════════════════
 const CampaignScreen = {
@@ -4730,10 +4823,16 @@ const CampaignScreen = {
         show(this._caller);
     },
 
+    startCampaign() {
+        Campaign.startCampaign();
+        Game.start(Campaign.getDifficulty());
+    },
+
     resetAll() {
         if (!confirm('Reset all Ancient Order progress? This cannot be undone.')) return;
         Campaign.reset();
         RunHistory.clear();
+        CampaignHistory.clear();
         this._render();
     },
 
@@ -4741,90 +4840,100 @@ const CampaignScreen = {
         const el = document.getElementById('campaign-content');
         if (!el) return;
 
-        const state     = Campaign.getState();
-        const earned    = new Set(state.achievements.map(a => a.id));
-        const earnedMap = Object.fromEntries(state.achievements.map(a => [a.id, a.completedAt]));
-        const current   = state.rankIndex;
+        const active   = Campaign.getActiveCampaign();
+        const history  = CampaignHistory.getAll();
+        const stats    = CampaignHistory.getStats();
 
-        // ── Rank path ──────────────────────────────────────────
-        const UNLOCK_HINTS = [
-            '',                              // The Outsider — starting rank
-            'Complete any run',              // The Descended
-            'Win a Casual run',              // Initiate of the Order
-            'Win a Standard run',            // The Acolyte
-            'Win a Heroic run',              // The Adept
-        ];
+        // ── Active / launch section ────────────────────────────
+        let launchSection;
+        if (active) {
+            const loopLabel = ['Casual', 'Standard', 'Heroic'][active.currentLoop - 1] || 'Heroic';
+            const loopsHTML = [1, 2, 3].map(n => {
+                const loop = active.loops.find(l => l.loop === n);
+                let cls = 'campaign-loop-pip campaign-loop-pip--future';
+                let lbl = `Loop ${n}`;
+                if (loop) {
+                    cls = loop.outcome === 'victory'
+                        ? 'campaign-loop-pip campaign-loop-pip--done'
+                        : 'campaign-loop-pip campaign-loop-pip--fail';
+                    lbl = loop.outcome === 'victory' ? `Loop ${n} — Cleared` : `Loop ${n} — Fallen`;
+                } else if (n === active.currentLoop) {
+                    cls = 'campaign-loop-pip campaign-loop-pip--current';
+                    lbl = `Loop ${n} — ${loopLabel} (active)`;
+                }
+                return `<div class="${cls}">${lbl}</div>`;
+            }).join('');
 
-        const steps = RANKS.map((rank, i) => {
-            const isDone    = i < current;
-            const isCurrent = i === current;
-            const isLocked  = i > current;
-
-            let cls, icon, hint;
-            if (isDone)    { cls = 'campaign-step--done';    icon = '✓'; hint = ''; }
-            else if (isCurrent) { cls = 'campaign-step--current'; icon = '★'; hint = rank.flavour; }
-            else           { cls = 'campaign-step--locked';  icon = '🔒'; hint = UNLOCK_HINTS[i] ? `Unlock: ${UNLOCK_HINTS[i]}` : ''; }
-
-            const connector = i < RANKS.length - 1
-                ? `<div class="campaign-step-connector ${isDone ? 'campaign-step-connector--done' : ''}"></div>`
-                : '';
-
-            return `
-                <div class="campaign-step ${cls}">
-                    <div class="campaign-step-icon">${icon}</div>
-                    <div class="campaign-step-body">
-                        <div class="campaign-step-title">${rank.title}</div>
-                        ${hint ? `<div class="campaign-step-hint">${hint}</div>` : ''}
+            launchSection = `
+                <div class="campaign-active-panel">
+                    <div class="campaign-active-label">Campaign in progress</div>
+                    ${loopsHTML}
+                    <button class="btn btn-primary" style="margin-top:16px;"
+                        onclick="CampaignScreen.back(); Game.start('${Campaign.getDifficulty()}');">
+                        Resume — Loop ${active.currentLoop}
+                    </button>
+                </div>`;
+        } else {
+            launchSection = `
+                <div class="campaign-launch-panel">
+                    <p class="campaign-launch-desc">
+                        A three-dungeon journey across escalating difficulties.
+                        Casual → Standard → Heroic. Death ends the campaign.
+                        The Orders watch. Their favour accumulates unseen.
+                    </p>
+                    <div class="campaign-difficulty-steps">
+                        <span>Loop 1 — Casual</span>
+                        <span class="campaign-difficulty-arrow">→</span>
+                        <span>Loop 2 — Standard</span>
+                        <span class="campaign-difficulty-arrow">→</span>
+                        <span>Loop 3 — Heroic</span>
                     </div>
-                </div>
-                ${connector}`;
-        }).join('');
+                    <button class="btn btn-primary" style="margin-top:20px;"
+                        onclick="CampaignScreen.startCampaign();">
+                        Begin Campaign
+                    </button>
+                </div>`;
+        }
 
-        // ── Milestones ─────────────────────────────────────────
-        const milestoneRows = ACHIEVEMENTS.map(ach => {
-            const ts = earnedMap[ach.id];
-            if (ts) {
-                const d = new Date(ts);
-                const dateStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-                return `
-                    <div class="campaign-milestone campaign-milestone--earned">
-                        <span class="milestone-icon">✓</span>
-                        <div class="milestone-body">
-                            <span class="milestone-title">${ach.title}</span>
-                            <span class="milestone-desc">${ach.description}</span>
-                        </div>
-                        <span class="milestone-date">${dateStr}</span>
-                    </div>`;
-            } else {
-                return `
-                    <div class="campaign-milestone campaign-milestone--locked">
-                        <span class="milestone-icon">🔒</span>
-                        <div class="milestone-body">
-                            <span class="milestone-title">${ach.title}</span>
-                            <span class="milestone-desc">${ach.description}</span>
-                        </div>
-                    </div>`;
-            }
-        }).join('');
+        // ── History section ────────────────────────────────────
+        let historySection = '';
+        if (history.length > 0) {
+            const rows = history.slice(-5).reverse().map(c => {
+                const loopsCleared = c.loops.filter(l => l.outcome === 'victory').length;
+                const outcome      = c.outcome === 'completed' ? 'Completed' : `Defeated (Loop ${c.defeatedAt?.loop || '?'})`;
+                const date         = new Date(c.campaignId).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                return `<div class="campaign-history-row">
+                    <span class="campaign-history-date">${date}</span>
+                    <span class="campaign-history-loops">${loopsCleared}/3 loops</span>
+                    <span class="campaign-history-outcome ${c.outcome === 'completed' ? 'outcome--win' : 'outcome--loss'}">${outcome}</span>
+                </div>`;
+            }).join('');
+            historySection = `
+                <div class="campaign-history">
+                    <h3 class="campaign-section-title">Past Campaigns</h3>
+                    ${rows}
+                    <p class="campaign-history-meta">${stats.totalCampaigns} total &middot; ${stats.completed} completed &middot; ${stats.defeated} defeated</p>
+                </div>`;
+        }
 
-        // ── Skill die milestone ────────────────────────────────
-        const skillDieEarned = state.skillDieRevealed;
-        const skillDieRow = `
-            <div class="campaign-milestone ${skillDieEarned ? 'campaign-milestone--earned' : 'campaign-milestone--locked'}">
-                <span class="milestone-icon">${skillDieEarned ? '✓' : '🔒'}</span>
-                <div class="milestone-body">
-                    <span class="milestone-title">The Die Awakens</span>
-                    <span class="milestone-desc">Reveal the skill die for the first time. It will be pre-allocated in all future runs.</span>
+        // ── Campaign Codex ─────────────────────────────────────
+        const codexEntries = ORDER_CODEX.map(o => `
+            <div class="campaign-codex-entry">
+                <div class="campaign-codex-name">${o.name}</div>
+                <p class="campaign-codex-lore">${o.lore}</p>
+            </div>`).join('');
+
+        const codexSection = `
+            <div class="campaign-codex">
+                <button class="campaign-codex-toggle" onclick="this.parentElement.classList.toggle('is-open')">
+                    Campaign Codex ▾
+                </button>
+                <div class="campaign-codex-body">
+                    ${codexEntries}
                 </div>
             </div>`;
 
-        el.innerHTML = `
-            <div class="campaign-path">${steps}</div>
-            <div class="campaign-milestones">
-                <h3 class="campaign-milestones-title">Milestones</h3>
-                ${milestoneRows}
-                ${skillDieRow}
-            </div>`;
+        el.innerHTML = launchSection + historySection + codexSection;
     },
 };
 

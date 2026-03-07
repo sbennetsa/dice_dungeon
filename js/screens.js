@@ -4173,8 +4173,12 @@ const DifficultySelect = {
                 campaignEl.innerHTML = `
                     <div class="start-campaign-bar start-campaign-bar--active">
                         <div class="start-campaign-bar__label">Campaign — Loop ${active.currentLoop} of 3 (${loopLabel})</div>
-                        <button class="btn btn-primary start-campaign-bar__btn"
-                            onclick="Game.start(Campaign.getDifficulty())">Resume Campaign</button>
+                        <div class="start-campaign-bar__btns">
+                            <button class="btn btn-primary start-campaign-bar__btn"
+                                onclick="Game.start(Campaign.getDifficulty())">Resume Campaign</button>
+                            <button class="btn start-campaign-bar__btn"
+                                onclick="DifficultySelect.show()">New Run</button>
+                        </div>
                     </div>`;
             } else {
                 campaignEl.innerHTML = `

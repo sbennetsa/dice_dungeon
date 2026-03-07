@@ -3212,6 +3212,12 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     gap: 10px;
 }
 
+.start-campaign-bar__btns {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
 .start-campaign-bar__btn {
     flex-shrink: 0;
     padding: 8px 18px;
@@ -3582,7 +3588,7 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 .order-codex-shell {
   display: flex;
   width: 100%;
-  max-width: 1100px;
+  max-width: 1360px;
   height: calc(100vh - 64px);
   overflow: hidden;
   box-shadow:
@@ -3593,67 +3599,82 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 
 /* ── Left spine: index ── */
 .order-codex-index {
-  width: 260px;
-  min-width: 260px;
+  width: 300px;
+  min-width: 300px;
   background: #0a0703;
-  border-right: 1px solid rgba(80,55,15,0.35);
+  background-image: linear-gradient(to right, #060402 0%, #0d0904 55%, #140e06 100%);
+  border-right: 10px solid #050301;
+  box-shadow: inset -10px 0 28px rgba(0,0,0,0.55);
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
 .order-codex-index-header {
-  padding: 20px 16px 14px;
-  border-bottom: 1px solid rgba(80,55,15,0.25);
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid #241908;
   flex-shrink: 0;
+  text-align: center;
 }
 
 .order-codex-back-btn {
-  font-family: var(--font-body);
-  font-size: 0.8em;
-  color: #6b5830;
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  color: #4a3820;
+  letter-spacing: 0.1em;
   cursor: pointer;
-  margin-bottom: 10px;
+  text-align: left;
+  padding-bottom: 8px;
   transition: color 0.15s;
 }
-.order-codex-back-btn:hover { color: #c8b880; }
+.order-codex-back-btn:hover { color: #8b6914; }
 
 .order-codex-index-header h1 {
   font-family: var(--font-heading);
-  font-size: 1.1em;
-  color: #c8b880;
-  letter-spacing: 0.03em;
-  margin: 0 0 2px;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #e0cfa0;
+  text-shadow: 0 0 24px rgba(160,110,30,0.45);
+  line-height: 1;
+  margin: 0 0 5px;
 }
 
 .order-codex-subtitle {
-  font-family: var(--font-body);
-  font-size: 0.75em;
-  color: #6b5830;
-  font-style: italic;
+  font-family: var(--font-data);
+  font-size: var(--text-xs);
+  color: #4a3820;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
 }
 
 .order-codex-index-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #2e2010 transparent;
 }
+.order-codex-index-list::-webkit-scrollbar { width: 3px; }
+.order-codex-index-list::-webkit-scrollbar-thumb { background: #2e2010; }
 
 .order-codex-entry {
-  padding: 12px 16px;
+  padding: 8px 14px;
   cursor: pointer;
-  border-left: 3px solid transparent;
-  transition: background 0.12s, border-color 0.12s;
+  border-bottom: 1px solid #18120a;
+  transition: background 0.15s;
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
-.order-codex-entry:hover {
-  background: rgba(200,184,128,0.06);
-}
-.order-codex-entry.active {
-  background: rgba(200,184,128,0.1);
-  border-left-color: #c8b880;
+.order-codex-entry:hover { background: #16100a; }
+.order-codex-entry.active { background: #1e1608; }
+.order-codex-entry.active::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: #8b6914;
 }
 
 .order-codex-entry-name {
@@ -3675,8 +3696,8 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 
 .order-codex-index-footer {
   flex-shrink: 0;
-  padding: 12px 16px;
-  border-top: 1px solid rgba(80,55,15,0.25);
+  padding: 12px 14px;
+  border-top: 1px solid #241908;
 }
 
 .order-codex-reset-btn {
@@ -3697,29 +3718,37 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 .order-codex-page {
   flex: 1;
   overflow-y: auto;
-  background: #eddfc4;
-  padding: 32px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
+  scrollbar-width: thin;
+  scrollbar-color: #6b5530 transparent;
 }
+.order-codex-page::-webkit-scrollbar { width: 6px; }
+.order-codex-page::-webkit-scrollbar-thumb { background: #6b5530; border-radius: 3px; }
 
 /* ── Parchment ── */
 .order-codex-parchment {
   width: 100%;
-  max-width: 580px;
   min-height: 100%;
-  background: linear-gradient(160deg, #eddfc4 0%, #e0cc9a 60%, #d8c090 100%);
+  position: relative;
+  padding: 48px 56px 64px;
+  background-image: linear-gradient(155deg, #eddfc4 0%, #e8d9b5 25%, #e0ce9e 60%, #d8c090 100%);
   color: #3d2e18;
-  border-radius: 2px;
-  box-shadow:
-    0 4px 24px rgba(0,0,0,0.22),
-    inset 0 0 40px rgba(120,90,30,0.08);
+  box-shadow: inset 8px 0 24px rgba(0,0,0,0.12);
+}
+
+.order-codex-parchment::after {
+  content: '';
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 0% 0%,   rgba(70,40,5,0.16) 0%, transparent 45%),
+    radial-gradient(ellipse at 100% 0%,  rgba(60,35,5,0.12) 0%, transparent 40%),
+    radial-gradient(ellipse at 0% 100%,  rgba(60,35,5,0.12) 0%, transparent 40%),
+    radial-gradient(ellipse at 100% 100%,rgba(70,40,5,0.16) 0%, transparent 45%);
 }
 
 .order-codex-page-border {
   position: relative;
   padding: 36px 40px 40px;
+  z-index: 1;
 }
 
 .order-codex-corner {
@@ -3875,11 +3904,29 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 
 /* ── Responsive ── */
 @media (max-width: 600px) {
-  .order-codex-shell { flex-direction: column; height: auto; }
-  .order-codex-index { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid rgba(80,55,15,0.35); }
-  .order-codex-index-list { max-height: 200px; }
-  .order-codex-page { padding: 16px; }
-  .order-codex-page-border { padding: 24px 20px 28px; }
+  .order-codex-shell {
+    flex-direction: column;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    min-height: 100vh;
+    box-shadow: none;
+  }
+  .order-codex-index {
+    width: 100%;
+    min-width: 0;
+    max-height: 44vh;
+    border-right: none;
+    border-bottom: 6px solid #050301;
+    box-shadow: none;
+    background: #0a0703;
+  }
+  .order-codex-page { overflow-y: visible; }
+  .order-codex-parchment {
+    min-height: 0;
+    padding: 30px 20px 44px;
+    box-shadow: none;
+  }
 }
 
 /* ════════════════════════════════════════════════════════════ */

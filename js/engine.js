@@ -590,7 +590,7 @@ export function makeDieElement(die, context) {
                 const zone = die.slotId.startsWith('str') ? GS.allocated.strike : GS.allocated.guard;
                 if (zone.length >= 4) volleyBonus = GS.passives.volley;
             }
-            ptBonus = GS.passives.packTactics || 0;
+            ptBonus = (context === 'strike') ? (GS.passives.packTactics || 0) : 0;
             swBonus = GS.passives.swarmMaster || 0;
         }
     }
@@ -883,12 +883,12 @@ export function updateSlotTotals() {
     const ascendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0) ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
 
     // Helper: compute a single die's contribution
-    function dieContribution(d, zoneAllocated, zoneAscend) {
+    function dieContribution(d, zoneAllocated, zoneAscend, isStrike) {
         if (d.dieType) return { val: 0, displayVal: 0, perDieMults: [], echoAdd: 0, isStatus: false, skip: true };
         const runes = getSlotRunes(d.slotId);
         const nonUtil = zoneAllocated.filter(x => !x.dieType).length;
         const zoneCount = zoneAllocated.length;
-        const pt = GS.passives.packTactics || 0;
+        const pt = isStrike ? (GS.passives.packTactics || 0) : 0;
         const sw = GS.passives.swarmMaster || 0;
         const vy = (GS.passives.volley && zoneCount >= 4) ? GS.passives.volley : 0;
         const displayVal = d.value + pt + sw + vy + (zoneAscend || 0);
@@ -969,7 +969,7 @@ export function updateSlotTotals() {
     });
 
     const atkNormal = GS.allocated.strike.filter(d => !d.dieType);
-    const atkContribs = atkNormal.map(d => dieContribution(d, GS.allocated.strike, ascendBonus));
+    const atkContribs = atkNormal.map(d => dieContribution(d, GS.allocated.strike, ascendBonus, true));
     atkNormal.forEach((d, i) => {
         const c = atkContribs[i];
         let val = c.val;
@@ -1069,7 +1069,7 @@ export function updateSlotTotals() {
     });
 
     const defNormal = GS.allocated.guard.filter(d => !d.dieType);
-    const defContribs = defNormal.map(d => dieContribution(d, GS.allocated.guard, ascendBonus));
+    const defContribs = defNormal.map(d => dieContribution(d, GS.allocated.guard, ascendBonus, false));
     defNormal.forEach((d, i) => {
         const c = defContribs[i];
         let val = c.val;

@@ -98,6 +98,9 @@ export const GS = {
     lastFloorType:  null,     // 'combat' | 'boss' | 'shop' | 'event' | null
     encounterFlags: {},       // cross-encounter continuity flags
     seenEncounters: [],       // rolling window of last 8 NCE IDs
+    // ── CAMPAIGN ──
+    campaign: null,           // active campaign object (set by Game.start in campaign mode)
+    _loopFavor: { warpack: 0, gilded: 0, runeforged: 0, brood: 0, ironward: 0 }, // accumulated per loop
 };
 
 // ════════════════════════════════════════════════════════════
@@ -153,7 +156,7 @@ export function gainGold(amount) {
 export function heal(amount) {
     const mult   = GS.environment?.healingMultiplier || 1.0;
     let scaled   = Math.floor(amount * mult);
-    if (GS.passives?.lifeWeave) scaled *= 2;
+    if (GS.passives?.lifeWeave) scaled *= (GS.passives.lifeWeaveMult || 2);
     const actual = Math.min(scaled, GS.maxHp - GS.hp);
     GS.hp += actual;
     return actual;

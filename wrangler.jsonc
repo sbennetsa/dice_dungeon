@@ -1,5 +1,6 @@
 {
   "name": "dicedungeon",
+  "main": "worker.js",
   "compatibility_date": "2025-09-27",
   "observability": {
     "enabled": true

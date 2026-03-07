@@ -10,7 +10,7 @@ import { ENVIRONMENTS } from './environmentSystem.js';
 import { ELITE_MODIFIERS, BOSS_ELITE_MODIFIERS } from './eliteModifierSystem.js';
 import { ANOMALIES } from './anomalySystem.js';
 import { scoreDungeon, ANOMALY_THREAT_MULTS, threatToXPRange } from './dungeonScoring.js';
-import { getEnemyProfile, getEnvThreatForEnemy } from './bestiaryThreatData.js';
+import { getEnemyProfile, getEnvThreatForEnemy, computeBaseThreat } from './bestiaryThreatData.js';
 
 // ────────────────────────────────────────────────────────────
 //  Seeded RNG (mulberry32)
@@ -104,6 +104,22 @@ export const CHALLENGE_BUDGETS = {
     heroic:   [1350, 1550],
 };
 
+/**
+ * Per-difficulty, per-act multipliers for enemy HP and dice face sizes.
+ * Standard is always 1.0 (the baseline).
+ * Act 1 has minimal scaling — small stat pools make large multipliers arbitrary.
+ * Act 2–3 scale progressively to widen the difficulty gap.
+ * HP is scaled more aggressively than dice (dice affect offense AND defense,
+ * and must remain integers — rounding on small faces is coarse).
+ *   hp:   [Act1, Act2, Act3]
+ *   dice: [Act1, Act2, Act3]
+ */
+export const DIFFICULTY_SCALING = {
+    casual:   { hp: [0.90, 0.80, 0.70], dice: [0.95, 0.85, 0.80] },
+    standard: { hp: [1.00, 1.00, 1.00], dice: [1.00, 1.00, 1.00] },
+    heroic:   { hp: [1.10, 1.20, 1.30], dice: [1.05, 1.10, 1.15] },
+};
+
 /** Act distribution weights (Act 1 lightest, Act 3 heaviest) */
 const ACT_BUDGET_WEIGHTS = [0.15, 0.30, 0.55];
 
@@ -166,8 +182,12 @@ function distributeActBudgets(totalBudget, rng) {
  * Used during generation to track budget consumption.
  */
 function quickThreat(enemy, environment, anomaly, bossFloor, act) {
-    const profile = getEnemyProfile(enemy.name, bossFloor, act);
-    let threat = profile ? profile.baseThreat : 15;
+    // Prefer pre-computed baseThreat on the enemy (reflects difficulty scaling)
+    let threat = enemy.baseThreat;
+    if (!threat) {
+        const profile = getEnemyProfile(enemy.name, bossFloor, act);
+        threat = profile ? profile.baseThreat : 15;
+    }
     if (environment) threat += getEnvThreatForEnemy(environment.id, enemy.name, bossFloor);
     if (anomaly) threat = Math.round(threat * (ANOMALY_THREAT_MULTS[anomaly.id] ?? 1.0));
     return threat;
@@ -384,6 +404,7 @@ function rollForAnomalySeeded(floor, rng, anomalyRate = 'normal') {
  * @param {number}  [options.floorTarget]   - Target threat for this floor (budget mode)
  * @param {number}  [options.eliteRate]     - Base elite offer rate (budget mode)
  * @param {boolean} [options.singleModifier] - When true, elite has visible modifier only
+ * @param {string}  [options.difficulty]     - 'casual' | 'standard' | 'heroic' (stat scaling)
  * @returns {object} Floor blueprint
  */
 function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
@@ -400,13 +421,31 @@ function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
         enemy = pickEnemySeeded(floor, act, rng);
     }
 
-    // 2. Set maxHp from baked HP (no scaling — stats are per-act)
+    // 2. Set maxHp from baked HP
     enemy.maxHp = enemy.hp;
 
-    // 2b. Compute XP from baseThreat (links reward to challenge)
-    const xpProfile = getEnemyProfile(enemy.name, isBoss ? floor : null, act);
-    const xpThreat  = xpProfile ? xpProfile.baseThreat : 15;
-    enemy.xp = threatToXPRange(xpThreat);
+    // 2a. Apply difficulty-based stat scaling (Casual easier, Heroic harder)
+    const diffScale = options.difficulty && DIFFICULTY_SCALING[options.difficulty];
+    if (diffScale) {
+        const actIdx   = act - 1;
+        const hpMult   = diffScale.hp[actIdx]   ?? 1.0;
+        const diceMult = diffScale.dice[actIdx] ?? 1.0;
+
+        if (hpMult !== 1.0) {
+            enemy.hp    = Math.round(enemy.hp * hpMult);
+            enemy.maxHp = enemy.hp;
+        }
+        if (diceMult !== 1.0) {
+            enemy.dice = enemy.dice.map(d => Math.max(2, Math.round(d * diceMult)));
+        }
+    }
+
+    // 2b. Compute baseThreat from (possibly scaled) stats
+    const scaledThreat = (diffScale && options.difficulty !== 'standard')
+        ? computeBaseThreat(enemy, isBoss).baseThreat
+        : (getEnemyProfile(enemy.name, isBoss ? floor : null, act)?.baseThreat ?? 15);
+    enemy.xp = threatToXPRange(scaledThreat);
+    enemy.baseThreat = scaledThreat; // used by scoring + campaign favor
 
     // 3. Roll for anomaly
     const anomaly = rollForAnomalySeeded(floor, rng, options.anomalyRate);
@@ -485,6 +524,7 @@ function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
  * @param {number}  [options.actBudget]     - Target total combat threat for this act
  * @param {number}  [options.eliteRate]     - Base elite offer rate (budget mode)
  * @param {boolean} [options.singleModifier] - When true, elites have only 1 (visible) modifier
+ * @param {string}  [options.difficulty]     - 'casual' | 'standard' | 'heroic' (stat scaling)
  * @returns {object} Act blueprint
  */
 function generateAct(actNum, baseFloor, rng, options = {}) {

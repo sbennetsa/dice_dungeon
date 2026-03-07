@@ -9,17 +9,20 @@ Dice Dungeon is a tactical dice-based roguelike dungeon crawler built as a Progr
 - **JavaScript** (ES6 modules) — all game logic
 - **HTML5 / CSS3** — semantic markup, CSS custom properties, flexbox
 - **Service Worker** — offline-first PWA caching
-- **Cloudflare Workers** (Wrangler) — deployment
+- **Cloudflare Workers** (Wrangler) — deployment; `worker.js` handles `POST /api/issue` (play tester reporting → GitHub Issues API), falls through to static assets via `env.ASSETS.fetch()`
 
 ## Project Structure
 
 ```
+worker.js          — Cloudflare Worker: POST /api/issue → GitHub Issues API; static asset fallthrough
 js/
   state.js         — Global game state (GS object), utility functions ($, rand, pick, shuffle, log)
   constants.js     — Enemy definitions, artifacts, skills, consumables
   engine.js        — Dice creation, rendering, drag-and-drop
   combat.js        — Combat turn execution, status effects
-  screens.js       — UI screens, game flow (entry point)
+  screens.js       — UI screens, game flow (entry point); IssueReport module
+  campaign.js      — Ancient Order favor system, campaign loop manager, ORDER_START_BOONS, ORDER_CODEX
+  bestiary.js      — Bestiary data (BESTIARY_DATA) and UI (BestiaryUI class)
   encounters/      — Procedural encounter generation system
     encounterGenerator.js
     environmentSystem.js
@@ -27,8 +30,16 @@ js/
     anomalySystem.js
     dungeonBlueprint.js  — Seeded dungeon generation (all 15 floors pre-determined)
     dungeonScoring.js    — Threat/reward budget values, per-floor and dungeon scoring
-  persistence.js   — Run history (localStorage, up to 100 completed runs)
+  persistence.js   — Run history: RunHistory (localStorage, up to 100 runs) + CampaignHistory (up to 50 campaigns)
+assets/
+  orders/
+    headers/       — Order Codex header images (800×920px, ink sketch style)
+    badges/        — Order guild badge images (400×400px, ink sketch style)
+  enemies/
+    sketch/        — Bestiary creature sketches (ink style, webp)
+    card/          — Enemy card art (webp)
 docs/              — Design specs (enemies, consumables, events, artifacts, encounters)
+  order-art-prompts.md — AI image generation prompts for Order header and badge art
 ```
 
 ## Running Locally
@@ -55,7 +66,7 @@ No automated test suite. Testing is manual in-browser.
 
 - **Naming**: camelCase for functions/variables, UPPERCASE for constants
 - **Global state**: centralized in the `GS` object (`state.js`)
-- **DOM helpers**: use `$()` from `state.js` (alias for `document.querySelector`)
+- **DOM helpers**: use `$()` from `state.js` (alias for `document.getElementById` — no `#` prefix)
 - **Utility functions**: `rand()`, `pick()`, `shuffle()`, `log()`, `gainXP()`, `gainGold()`, `heal()` — all in `state.js`
 - **Section headers**: decorated with `// ════════════════════` comment borders
 - **Module pattern**: each file exports specific functions, `screens.js` is the main entry point
@@ -79,3 +90,17 @@ See `docs/decisions.md` for the full record. Summary of decisions that affect co
 - **Dual reward system**: `goldMult`/`xpMult` on modifiers in `eliteModifierSystem.js` are player-visible reward signals only. Actual balance lives in `eliteAffinities`. Do not attempt to align them — the discrepancy is intentional.
 - **ELITE_NET_ADVANTAGE**: `[15, 8, -15]` in `dungeonScoring.js` — modifier-agnostic net advantage per elite fight per act. Must remain constant regardless of specific modifiers drawn; variation in individual encounters is by design. See `docs/elite-modifier-threat-analysis.md`.
 - **Casual elite constraints**: max 10% elite rate; 1 modifier (visible only, `hidden: null`). `selectEliteModifiersSeeded` always consumes the same RNG calls regardless of `singleModifier` flag to preserve seed stability. Brittle on Casual is accepted as player-favourable (rare, optional, fully transparent).
+- **Campaign Mode / Order favor system**: Five Orders (warpack/gilded/runeforged/brood/ironward); favor accumulates per-kill as `Σ(baseThreat × node.orderFavor[order])` for each unlocked Skill Die node. **Only explicitly player-chosen nodes accumulate favor** — the `root` node has `orderFavor: {}` (auto-granted, not a choice). Flushed to campaign state at loop end via `Campaign.endLoop(GS._loopFavor, ...)`. Three tiers per Order; reaching a tier enhances already-unlocked nodes (written to `gs.passives` at dungeon start by `Campaign.applyTierEnhancements(GS)`) and upgrades aligned artifacts. Cross-order synergies activate when both Orders ≥ Tier 2. Order system is fully hidden during runs — player never sees numbers or bars; narrative-only Order Interaction screen shown at loop end when thresholds are crossed. Brood thresholds are lower (max weight 3.4 vs 5–6.9 for others) to ensure similar pacing. `GS.campaign` = active campaign obj or null; `GS._loopFavor` = per-order running totals for current loop. "New Run" in the campaign bar calls `Game.start(Campaign.getDifficulty())` directly — when a campaign is active there is no standalone run path. See `docs/campaign-mode.md` and `js/campaign.js`.
+- **Campaign starting boons**: At run start, `Campaign.getApplicableStartBoons()` returns boons for each crossed Order tier. Applied in `Game.start()`. Types: `die`, `utilityDie`, `rune`, `gold`, `consumable`, `artifact`, `maxHp`, `transformBuff`. Defined in `ORDER_START_BOONS` in `campaign.js`. Boons are cumulative — reaching Tier 2 grants Tier 1 + Tier 2 boons. See `docs/decisions.md`.
+- **Order face tier bonuses**: Each skill die face maps to an Order. Reaching a tier grants additive passive bonuses **regardless of which nodes are unlocked** — these are separate from `TIER_NODE_ENHANCEMENTS` (which require the node to be unlocked). Defined in `ORDER_FACE_BONUSES` in `campaign.js`; descriptions exported as `ORDER_FACE_BONUS_DESCS`. Applied in `applyTierEnhancements()` at run start AND immediately mid-run via `Campaign.applyMidRunTierBonuses(GS)`. Mid-run: called in `enemyDefeated()` after `_loopFavor` is updated; compares live favor (saved + loop) against `GS.passives._campaignTier`; applies delta bonuses to GS immediately; updates `_campaignTier[order]`; returns `[{ order, tier }]` stored in `summary.newTierUnlocks`. `BattleSummary.show()` checks for `newTierUnlocks` first — if any, shows `OrderTierPopup` (fixed overlay, z-index 300) before proceeding to the summary. New passives introduced: `GS.passives.flatDmg` (added to `atkBonus` in `combat.js`), `GS.passives.enemyPoisonTickBonus` (added to poison tick damage in `combat.js`). Face bonuses also directly mutate `gs.rerolls`, `gs.passives.poisonOnAtk`, `gs.passives.goldPerCombat`, `gs.passives.regen`, `gs.maxHp`, `gs.passives.freeRefresh`, and `gs.slots.strike` (Warpack T3). The skill die UI shows 3 tier pips at the bottom of each face; tapping shows the tier bonus tooltip via `_showFaceTierDetail()` in `screens.js`.
+- **Pack Tactics zone scoping**: `packTactics` passive applies to strike zone dice only — never guard. This must be enforced in three places: `renderDieCard()` (display), `dieContribution()` (slot totals), and the attack calculation in `combat.js`. The `dieContribution()` helper takes an `isStrike` boolean for this purpose.
+- **Order Codex art**: Each Order in `ORDER_CODEX` has `headerImg` and `badgeImg` fields pointing to `assets/orders/headers/` and `assets/orders/badges/`. Art style matches bestiary sketches (black-and-white ink, white background). See `docs/order-art-prompts.md` for generation prompts.
+- **Play tester issue reporting**: In-game 🐛 button in all header bars opens `IssueReport` overlay. Submits to `POST /api/issue` in `worker.js`, which creates a GitHub issue via the API. `GITHUB_TOKEN` stored as a Cloudflare Worker secret. Auto-captures seed, floor, act, difficulty, enemy, HP, artifacts, environment, browser.
+- **Casual environment filtering**: Casual difficulty uses a flat 10% environment spawn chance (vs. 30–70% budget-steered on Standard/Heroic). Boss floors on Casual always have `environment = null`. Environment selection still runs (consuming its RNG call) before nulling the result, to preserve seed stability. Implemented via `chanceOverride` parameter in `selectEnvironmentSeeded()` / `selectEnvironmentForBudget()` in `dungeonBlueprint.js`.
+- **Player debuff countdown timing**: All player debuff countdowns (sealed slots, locked dice, dice curse, devoured dice) are decremented at the **START of `execute()`**, not in `newTurn()`. This ensures effects persist through the full allocation phase the turn they are applied, then expire at the moment the player submits. See `docs/decisions.md`.
+- **Player debuff tag display**: All player debuff tags (sealed slots, locked dice, dice curse, devoured dice, poison) are shown exclusively in the `#player-status-bar` via `renderPlayerStatus()`. They are NOT duplicated in the enemy panel. Tags for all timed effects show a turn count `(Nt)`. `renderPlayerStatus()` is called at the end of `enemyDefeated()` to ensure stale tags are cleared when combat ends.
+- **Gold spending — `spendGold(amount)`**: All intentional player gold spends (shop purchases, event costs, skill upgrades, artifact triggers) must call `spendGold(amount)` from `state.js` instead of directly mutating `GS.gold`. This decrements `GS.gold` and increments `GS.goldSpent` (cumulative spend this run), which Merchant's Crown uses for its damage scaling. Direct `GS.gold -=` is only acceptable for non-player-initiated gold loss (e.g. enemy steal effects).
+- **Glass Cannon — newly acquired dice**: When any die enters the player's hand (shop buy, reward, event, boon, transform), call `_checkGlassCannon(die)` in `screens.js` before `_checkBelt(die)`. Uses `die.glassApplied` flag to prevent double-application, mirroring the `_checkBelt` pattern. `onAcquire` in `_applyArtifactOnAcquire` sets `glassApplied = true` on all existing dice so they are not re-processed.
+- **Frost Brand freeze trigger**: The freeze effect (when chill >= 5) is handled inside `applyStatus('chill', ...)` in `combat.js` — not as a separate artifact check. Passives `GS.passives._frostBrandThresh` (default 8, block threshold to apply chill) and `GS.passives._frozenHeartTurns` (default 1, freeze duration) are set by Campaign Ironward T1. Frozen Heart no longer exists as a separate artifact — it was merged into Frost Brand.
+- **Artifact campaign override passives**: Several artifact behaviours are driven by passives set in `campaign.js _applyArtifactEnhancements()`. Pattern: passive defaults live in the artifact handler (e.g. `GS.passives._thornMailPct ?? 0.15`, `GS.passives._eternalPactRevivePct ?? 0.25`), campaign enhancement sets the override value. Never hardcode the enhanced value in the artifact handler — always read through the passive.
+- **NCE (Non-Combat Encounters)**: Random corridor interrupts that fire *between* floors without advancing the floor counter. Integrated at `Game.nextFloor()` — NCE check runs first; if one fires the floor advance is deferred until the player hits Continue. Fire rates: 50% after boss, 30% after combat, 25% after event, 10% after shop. Design intent: flavour + minor rewards only — not run-defining. `applyEncounterResult` scales positive gold (`×1/×1.5/×2.5`) and HP (`×1/×1.2/×1.5`) by act; negative outcomes never scale; XP is flat. NCE UI reuses `#screen-event` via the `NCE` object in `screens.js`. `GS.seenEncounters` deduplicates the last 8 encounters. See `docs/nce-balance-audit.md` for full design rationale and encounter breakdown.

@@ -12,6 +12,7 @@ export const GS = {
     hp: 50,
     maxHp: 50,
     gold: 0,
+    goldSpent: 0,           // cumulative gold spent by the player this run (for Merchant's Crown)
     level: 1,
     xp: 0,
     xpNext: 30,
@@ -73,9 +74,6 @@ export const GS = {
     },
     echoStoneDieId: null,        // id of first die allocated this turn (Echo Stone artifact)
     gamblerCoinBonus: 0,         // +2 or -1 for this combat (Gambler's Coin artifact)
-    hourglassFreeFirstTurn: false,
-    huntersMarkFired: false,
-    parasiteGoldPerCombat: 0,    // accumulates per-run from Parasite kills
     eternalPactUsed: false,      // Eternal Pact legendary: cheat-death fires once per run
     // ── CONSUMABLE INVENTORY ──
     consumables: [],             // max length = consumableSlots; null entries = empty slots
@@ -151,6 +149,11 @@ export function gainGold(amount) {
     GS.gold += amount;
     GS.totalGold += amount;
     return amount;
+}
+
+export function spendGold(amount) {
+    GS.gold -= amount;
+    GS.goldSpent = (GS.goldSpent || 0) + amount;
 }
 
 export function heal(amount) {

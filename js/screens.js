@@ -3,7 +3,7 @@
 //  Entry point: exposes all modules on window for onclick handlers
 // ════════════════════════════════════════════════════════════
 import { ENEMIES, FACE_MODS, ARTIFACT_POOL, LEGENDARY_ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, UTILITY_DICE, getAct, getFloorType, getArtifactPool, pickConsumablesForMarket, pickWeightedConsumable } from './constants.js';
-import { GS, $, rand, pick, shuffle, pickWeighted, log, gainXP, gainGold, heal } from './state.js';
+import { GS, $, rand, pick, shuffle, pickWeighted, log, gainXP, gainGold, spendGold, heal } from './state.js';
 import { createDie, createDieFromFaces, createUtilityDie, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones } from './engine.js';
 import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone, checkForNCE, applyEncounterResult, markEncounterSeen } from './encounters/encounterGenerator.js';
@@ -12,7 +12,7 @@ import { generateDungeonBlueprint } from './encounters/dungeonBlueprint.js';
 import { scoreDungeon, scoreFloorDetailed, scorePlayerAdvantage, rewardToAdvantage, REST_ADVANTAGES, REWARD_ADVANTAGES, GOLD_ADVANTAGE_RATE } from './encounters/dungeonScoring.js';
 import { RunHistory, CampaignHistory, BestiaryProgress } from './persistence.js';
 import { BESTIARY_DATA, BestiaryUI } from './bestiary.js';
-import { Campaign, RANKS, ACHIEVEMENTS, ORDER_CODEX, ORDER_DISPLAY_NAMES, ORDER_ICONS, ORDER_TIER_DESCRIPTIONS, ORDER_START_BOON_DESCS } from './campaign.js';
+import { Campaign, RANKS, ACHIEVEMENTS, ORDER_CODEX, ORDER_DISPLAY_NAMES, ORDER_ICONS, ORDER_TIER_DESCRIPTIONS, ORDER_START_BOON_DESCS, ORDER_FACE_BONUS_DESCS, TIER_NODE_ENHANCEMENTS } from './campaign.js';
 
 // ════════════════════════════════════════════════════════════
 //  CAMPAIGN STATE
@@ -24,6 +24,22 @@ let _pendingUnlocks = [];
 // ════════════════════════════════════════════════════════════
 //  HELPERS
 // ════════════════════════════════════════════════════════════
+
+// Replace YOURNAME with your Buy Me a Coffee username once set up.
+const SUPPORT_URL = 'https://buymeacoffee.com/YOURNAME';
+
+/** Append a donate link after the #go-buttons container on the game-over screen. */
+function _appendSupportLink() {
+    const existing = document.querySelector('#screen-gameover .support-link');
+    if (existing) return; // defeat path already has it in static HTML
+    const a = document.createElement('a');
+    a.className = 'support-link';
+    a.href = SUPPORT_URL;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = '☕ Buy me a coffee';
+    document.querySelector('.gameover-screen').appendChild(a);
+}
 
 /** Populate #home-rank-display with the player's current campaign rank title. */
 function _refreshHomeRank() {
@@ -72,10 +88,35 @@ function _renderCombatLogReplay() {
     stats.parentElement.insertBefore(wrapper, stats.nextSibling);
 }
 
-// Applies a die upgrade, doubling the effect if mastersHammer is active
+// Applies a die upgrade, doubling the effect if mastersHammer is active.
+// Also checks Colossus Belt in case the upgrade pushed the die past the threshold.
 function applyUpgrade(die) {
     upgradeDie(die);
     if (GS.tempBuffs && GS.tempBuffs.mastersHammer) upgradeDie(die);
+    _checkBelt(die);
+}
+
+// Applies Glass Cannon bonus to a newly acquired die (if Glass Cannon is held and die not yet marked).
+function _checkGlassCannon(die) {
+    const art = GS.artifacts?.find(a => a.effect === 'glassCannon');
+    if (!art || die.glassApplied) return;
+    die.faceValues = die.faceValues.map(v => v + art.value);
+    die.min += art.value; die.max += art.value;
+    die.glassApplied = true;
+    log(`💥 Glass Cannon: new die gained +${art.value} to all faces`, 'info');
+}
+
+// Applies Colossus Belt bonus to a single die if it qualifies and hasn't been marked yet.
+function _checkBelt(die) {
+    const belt = GS.artifacts?.find(a => a.effect === 'colossussBelt');
+    if (!belt) return;
+    const thresh = GS.passives?._colossusThresh ?? 9;
+    if (!die.beltApplied && die.max >= thresh) {
+        die.faceValues = die.faceValues.map(v => v + belt.value);
+        die.min += belt.value; die.max += belt.value;
+        die.beltApplied = true;
+        log(`🏋️ Colossus Belt: ${die.name || 'die'} reached the threshold! +${belt.value} to all faces`, 'info');
+    }
 }
 
 // ── Artifact helpers ──
@@ -86,23 +127,28 @@ function applyUpgrade(die) {
  */
 function _applyArtifactOnAcquire(art) {
     if (art.effect === 'colossussBelt') {
+        const thresh = GS.passives?._colossusThresh ?? 9;
         GS.dice.forEach(d => {
-            if (d.max >= 9) {
+            if (!d.beltApplied && d.max >= thresh) {
                 d.faceValues = d.faceValues.map(v => v + art.value);
                 d.min += art.value; d.max += art.value;
+                d.beltApplied = true;
             }
         });
-        log(`🏋️ Colossus Belt: dice with max≥9 gained +${art.value} to all faces!`, 'info');
+        log(`🏋️ Colossus Belt: dice with max≥${thresh} gained +${art.value} to all faces!`, 'info');
     } else if (art.effect === 'glassCannon') {
         GS.dice.forEach(d => {
             d.faceValues = d.faceValues.map(v => v + art.value);
             d.min += art.value; d.max += art.value;
+            d.glassApplied = true;
         });
         GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2));
         GS.hp = Math.min(GS.hp, GS.maxHp);
         log(`💥 Glass Cannon: all dice +${art.value} faces, max HP halved to ${GS.maxHp}!`, 'damage');
     } else if (art.effect === 'titansDie') {
-        GS.dice.push(createDieFromFaces([12, 12, 12, 12, 12, 12]));
+        const d = createDieFromFaces([12, 12, 12, 12, 12, 12]);
+        GS.dice.push(d);
+        _checkBelt(d); _checkGlassCannon(d);
         log(`🎲 Titan's Die: permanent d12 added to your pool!`, 'info');
     }
 }
@@ -138,7 +184,7 @@ function _pickArtifactChoices() {
 // ════════════════════════════════════════════════════════════
 //  CONSUMABLE INVENTORY HELPER
 // ════════════════════════════════════════════════════════════
-function addConsumableToInventory(c, onDone) {
+function addConsumableToInventory(c, onDone, onCancel) {
     const filled = GS.consumables.filter(x => x !== null).length;
     if (filled < GS.consumableSlots) {
         // Add to first empty slot
@@ -166,8 +212,8 @@ function addConsumableToInventory(c, onDone) {
     };
 
     cardsEl.innerHTML = '';
-    const close = () => { overlay.style.display = 'none'; cancelBtn.onclick = null; if (onDone) onDone(); };
-    cancelBtn.onclick = close;
+    const close = (cancelled) => { overlay.style.display = 'none'; cancelBtn.onclick = null; if (cancelled && onCancel) onCancel(); else if (onDone) onDone(); };
+    cancelBtn.onclick = () => close(true);
 
     GS.consumables.forEach((existing, idx) => {
         if (!existing) return;
@@ -175,7 +221,7 @@ function addConsumableToInventory(c, onDone) {
         card.onclick = () => {
             GS.consumables[idx] = c;
             renderConsumables();
-            close();
+            close(false);
         };
         cardsEl.appendChild(card);
     });
@@ -258,13 +304,15 @@ function applyStartBoons(boons, gs) {
     for (const boon of boons) {
         switch (boon.type) {
 
-            case 'die':
-                gs.dice.push(createDie(boon.min ?? 1, boon.max ?? 6));
+            case 'die': {
+                const d = createDie(boon.min ?? 1, boon.max ?? 6);
+                gs.dice.push(d); _checkBelt(d); _checkGlassCannon(d);
                 break;
+            }
 
             case 'utilityDie': {
                 const utDef = UTILITY_DICE.find(u => u.id === boon.dieId);
-                if (utDef) gs.dice.push(createUtilityDie(utDef));
+                if (utDef) { const d = createUtilityDie(utDef); gs.dice.push(d); _checkGlassCannon(d); }
                 break;
             }
 
@@ -334,7 +382,6 @@ const Game = {
             gamblerCoinBonus: 0,
             hourglassFreeFirstTurn: false,
             huntersMarkFired: false,
-            parasiteGoldPerCombat: 0,
             passives: {}, unlockedNodes: [],
             rerolls: 0, rerollsLeft: 0,
             enemy: null, enemiesKilled: 0, totalGold: 0,
@@ -403,7 +450,11 @@ const Game = {
             applyStartBoons(Campaign.getApplicableStartBoons(), GS);
         }
 
-        DungeonPath.show(difficulty);
+        if (GS.campaign) {
+            Game.enterFloor();
+        } else {
+            DungeonPath.show(difficulty);
+        }
     },
 
     backToStart() {
@@ -544,6 +595,7 @@ const Game = {
 
         _renderUnlockNotification();
         _renderCombatLogReplay();
+        _appendSupportLink();
         show('screen-gameover');
     },
 
@@ -567,12 +619,14 @@ const Game = {
         btn.onclick = () => Game.backToStart();
         btns.appendChild(btn);
         _renderCombatLogReplay();
+        _appendSupportLink();
         show('screen-gameover');
     },
 
     startChallengeBoss() {
         GS.challengePrep = 3;
         GS.hp = GS.maxHp;
+        GS.battleSummary = null;
         Game.showChallengePrep();
     },
 
@@ -611,7 +665,7 @@ const Game = {
 
         const totalSlots = GS.slots.strike.length + GS.slots.guard.length;
         rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
-            GS.dice.push(createDie(1, 6));
+            const _nd = createDie(1, 6); GS.dice.push(_nd); _checkBelt(_nd); _checkGlassCannon(_nd);
             log('Added new D6!', 'info');
             GS.challengePrep--;
             if (GS.challengePrep > 0) Game.showChallengePrep();
@@ -789,6 +843,7 @@ const Game = {
 
         GS.challengeMode = false;
         _renderCombatLogReplay();
+        _appendSupportLink();
         show('screen-gameover');
     }
 };
@@ -799,11 +854,11 @@ const Game = {
 const SkillDie = (() => {
     // Face definitions: front=wide(+Z), right=gold(+X), back=tall(-Z), left=venom(-X)
     const SD_FACES = [
-        { key: 'wide',  label: 'Wide',  color: '#5fa84f', icon: '🐺' },
-        { key: 'gold',  label: 'Gold',  color: '#d4a534', icon: '💰' },
-        { key: 'tall',  label: 'Tall',  color: '#d48830', icon: '🔨' },
-        { key: 'venom', label: 'Venom', color: '#9050c0', icon: '🧪' },
-        { key: 'heart', label: 'Heart', color: '#e05050', icon: '❤️' },
+        { key: 'wide',  label: 'Wide',  color: '#5fa84f', icon: '🐺', order: 'warpack'    },
+        { key: 'gold',  label: 'Gold',  color: '#d4a534', icon: '💰', order: 'gilded'     },
+        { key: 'tall',  label: 'Tall',  color: '#d48830', icon: '🔨', order: 'runeforged' },
+        { key: 'venom', label: 'Venom', color: '#9050c0', icon: '🧪', order: 'brood'      },
+        { key: 'heart', label: 'Heart', color: '#e05050', icon: '❤️', order: 'ironward'   },
     ];
     const SD_NORMALS = [[0,0,1],[1,0,0],[0,0,-1],[-1,0,0],[0,1,0]];
     const SD_FACE_CSS = ['sd-face-front','sd-face-right','sd-face-back','sd-face-left','sd-face-top'];
@@ -816,6 +871,7 @@ const SkillDie = (() => {
     let _rotX = 0.18, _rotY = 0;
     let _velX = 0, _velY = 0;
     let _isDragging = false, _dragDist = 0;
+    let _snapTargetX = null, _snapTargetY = null;
     let _prevX = 0, _prevY = 0;
     let _pinching = false, _idleT = 0;
     let _selectedId = null;
@@ -949,6 +1005,19 @@ const SkillDie = (() => {
             }
 
             faceDiv.appendChild(nodesDiv);
+
+            // Tier pip strip (3 pips = 3 possible Order tiers)
+            const tierDiv = document.createElement('div');
+            tierDiv.className = 'sd-face-tier';
+            tierDiv.dataset.order = fData.order;
+            for (let i = 0; i < 3; i++) {
+                const pip = document.createElement('div');
+                pip.className = 'sd-tier-pip';
+                tierDiv.appendChild(pip);
+            }
+            tierDiv.addEventListener('click', e => { e.stopPropagation(); _showFaceTierDetail(fData); });
+            faceDiv.appendChild(tierDiv);
+
             _cubeEl.appendChild(faceDiv);
         });
 
@@ -1056,6 +1125,18 @@ const SkillDie = (() => {
     }
 
     // ── Detail bar ────────────────────────────────────────────
+    function _getNodeDesc(sNode) {
+        const tiers = GS.passives?._campaignTier || {};
+        for (const [order, enhancements] of Object.entries(TIER_NODE_ENHANCEMENTS)) {
+            for (const enh of enhancements) {
+                if (enh.nodeId === sNode.id && tiers[order] > enh.tierIdx && enh.enhancedDesc) {
+                    return `${enh.enhancedDesc} <span style="opacity:0.55; font-size:0.85em;">(⬆ enhanced)</span>`;
+                }
+            }
+        }
+        return sNode.desc;
+    }
+
     function _showDetail(sNode, fData, isUnlocked, avail, isNotable) {
         const bar = document.getElementById('sd-detail-bar');
         if (!bar) return;
@@ -1072,13 +1153,42 @@ const SkillDie = (() => {
             <div class="sd-d-icon">${isNotable ? '👑' : fData.icon}</div>
             <div class="sd-d-body">
                 <div><span class="sd-d-name" style="color:${color}">${sNode.name}</span>${st}</div>
-                <div class="sd-d-desc">${sNode.desc}</div>
+                <div class="sd-d-desc">${_getNodeDesc(sNode)}</div>
             </div>
             ${allocBtn}
             <button class="sd-done-btn" id="sd-done-btn">${doneLabel}</button>
         `;
         const aBtn = document.getElementById('sd-alloc-btn');
         if (aBtn) aBtn.addEventListener('click', _doAllocate);
+        document.getElementById('sd-done-btn').addEventListener('click', _onDone);
+    }
+
+    function _showFaceTierDetail(fData) {
+        const bar = document.getElementById('sd-detail-bar');
+        if (!bar) return;
+        const tierMap = GS.passives?._campaignTier || {};
+        const t = tierMap[fData.order] || 0;
+        const color = fData.color;
+        const bonusDescs = ORDER_FACE_BONUS_DESCS[fData.order] || [];
+        const rows = bonusDescs.map((desc, i) => {
+            const earned = i < t;
+            return `<div class="sd-tier-row${earned ? ' sd-tier-earned' : ''}" style="color:${earned ? color : 'rgba(255,255,255,0.3)'}">
+                <span class="sd-tier-num">T${i + 1}</span><span>${desc}</span>
+            </div>`;
+        }).join('');
+        const tierLabel = t > 0
+            ? `<span class="sd-d-status" style="color:${color}">Tier ${t}</span>`
+            : `<span class="sd-d-status" style="opacity:.35">No tier yet</span>`;
+        const doneLabel = _viewMode ? '← Back' : (_sp() > 0 ? 'Skip →' : 'Continue →');
+        bar.style.borderColor = t > 0 ? color + '60' : 'rgba(255,255,255,.06)';
+        bar.innerHTML = `
+            <div class="sd-d-icon">${fData.icon}</div>
+            <div class="sd-d-body">
+                <div><span class="sd-d-name" style="color:${color}">${fData.label} — Order Tiers</span>${tierLabel}</div>
+                <div class="sd-tier-list">${rows}</div>
+            </div>
+            <button class="sd-done-btn" id="sd-done-btn">${doneLabel}</button>
+        `;
         document.getElementById('sd-done-btn').addEventListener('click', _onDone);
     }
 
@@ -1210,6 +1320,49 @@ const SkillDie = (() => {
                 _updateCapstoneRing(el, diamond, emojiEl, fData, state);
             }
         });
+
+        // Update face tier pips
+        const tierMap = GS.passives?._campaignTier || {};
+        document.querySelectorAll('.sd-face-tier').forEach(tierEl => {
+            const order = tierEl.dataset.order;
+            const t = tierMap[order] || 0;
+            const fDef = SD_FACES.find(f => f.order === order);
+            const faceIdx = SD_FACES.findIndex(f => f.order === order);
+            const faceOpacity = faceIdx >= 0 ? vis[faceIdx] : 1;
+            tierEl.style.opacity = faceOpacity;
+            tierEl.querySelectorAll('.sd-tier-pip').forEach((pip, i) => {
+                if (i < t) {
+                    pip.style.background = fDef.color;
+                    pip.style.boxShadow = `0 0 5px ${fDef.color}aa`;
+                } else {
+                    pip.style.background = 'rgba(255,255,255,0.12)';
+                    pip.style.boxShadow = 'none';
+                }
+            });
+        });
+    }
+
+    // ── Snap target: find the closest face-aligned rotation ───
+    function _computeSnapTarget() {
+        // Candidate target rotations (rotX, rotY) per face index (SD_NORMALS order)
+        const PI = Math.PI;
+        // Normalise rotY to [-π, π] range for shortest-path snapping
+        const ry = ((_rotY % (2 * PI)) + 3 * PI) % (2 * PI) - PI;
+        const candidates = [
+            { x: 0,      y: 0 },          // front
+            { x: 0,      y: PI / 2 },      // right
+            { x: 0,      y: ry > 0 ? PI : -PI }, // back (pick sign to minimise travel)
+            { x: 0,      y: -PI / 2 },     // left
+            { x: PI / 2, y: ry },           // top (keep current Y)
+        ];
+        let best = null, bestDist = Infinity;
+        for (const c of candidates) {
+            const rx = ((_rotX % (2 * PI)) + 3 * PI) % (2 * PI) - PI;
+            const dx = c.x - rx, dy = c.y - ry;
+            const dist = dx * dx + dy * dy;
+            if (dist < bestDist) { bestDist = dist; best = c; }
+        }
+        return best;
     }
 
     // ── rAF loop ──────────────────────────────────────────────
@@ -1218,10 +1371,32 @@ const SkillDie = (() => {
         if (!_isDragging && !_pinching) {
             _rotY += _velY; _rotX += _velX;
             _velX *= 0.96; _velY *= 0.96;
-            if (Math.abs(_velX) < 0.0004 && Math.abs(_velY) < 0.0004) {
+            const stopped = Math.abs(_velX) < 0.0004 && Math.abs(_velY) < 0.0004;
+            if (stopped) {
+                // Kick off a snap if we don't have a target yet
+                if (_snapTargetX === null) {
+                    const t = _computeSnapTarget();
+                    _snapTargetX = t.x; _snapTargetY = t.y;
+                    _idleT = 0;
+                }
+                // Lerp toward snap target
+                _rotX += (_snapTargetX - _rotX) * 0.12;
+                _rotY += (_snapTargetY - _rotY) * 0.12;
+                // Once close enough, lock exactly and switch to idle drift
+                if (Math.abs(_snapTargetX - _rotX) < 0.002 && Math.abs(_snapTargetY - _rotY) < 0.002) {
+                    _rotX = _snapTargetX; _rotY = _snapTargetY;
+                    _snapTargetX = null; _snapTargetY = null;
+                    _idleT += 0.002;
+                    _rotY += Math.sin(_idleT) * 0.0004;
+                }
+            } else {
+                // Still decelerating — clear any stale snap target
+                _snapTargetX = null; _snapTargetY = null;
                 _idleT += 0.002;
-                _rotY += Math.sin(_idleT) * 0.0004;
             }
+        } else {
+            // User is dragging — cancel snap
+            _snapTargetX = null; _snapTargetY = null;
         }
         _updateVisuals();
         requestAnimationFrame(_loop);
@@ -1403,6 +1578,7 @@ const Rewards = {
                 if (slot.mod) merged.faceMods.push({ faceIndex: i, mod: { ...slot.mod } });
             });
             GS.dice.push(merged);
+            _checkBelt(merged); _checkGlassCannon(merged);
             const fs = merged.faceMods.length ? ` [${merged.faceMods.map(m => `face${m.faceIndex}:${m.mod.icon}`).join(', ')}]` : '';
             log(`🔥 Forged: [${newMin}-${newMax}] d6${fs}`, 'info');
             updateStats();
@@ -1534,7 +1710,7 @@ const Rewards = {
 
         const totalSlots = GS.slots.strike.length + GS.slots.guard.length;
         rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — you have ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
-            GS.dice.push(createDie(1, 6));
+            const _nd = createDie(1, 6); GS.dice.push(_nd); _checkBelt(_nd); _checkGlassCannon(_nd);
             log('Added new D6!', 'info');
             Game.nextFloor();
         }});
@@ -1577,7 +1753,7 @@ const Rewards = {
         show('screen-reward');
     },
 
-    showDieUpgrade() {
+    showDieUpgrade(backFn = null) {
         $('reward-title').textContent = 'Choose a Die to Upgrade';
         const c = $('reward-cards');
         c.innerHTML = '';
@@ -1602,7 +1778,7 @@ const Rewards = {
         const back = document.createElement('div');
         back.className = 'card';
         back.innerHTML = `<div class="card-title">← Back</div>`;
-        back.onclick = () => Rewards.show();
+        back.onclick = () => (backFn ? backFn() : Rewards.show());
         c.appendChild(back);
 
         show('screen-reward');
@@ -1727,6 +1903,41 @@ const Rewards = {
 };
 
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+//  ORDER TIER POPUP — Mid-run tier unlock announcement
+// ════════════════════════════════════════════════════════════
+const OrderTierPopup = {
+    show(unlocks, onContinue) {
+        const content = $('otp-content');
+        let html = '';
+        for (const { order, tier } of unlocks) {
+            const icon  = ORDER_ICONS[order] || '';
+            const name  = ORDER_DISPLAY_NAMES[order] || order;
+            const desc  = ORDER_FACE_BONUS_DESCS[order]?.[tier - 1] || '';
+            const face  = ['warpack','gilded','runeforged','brood','ironward'];
+            const colors = { warpack:'#5fa84f', gilded:'#d4a534', runeforged:'#d48830', brood:'#9050c0', ironward:'#e05050' };
+            const color = colors[order] || 'var(--gold)';
+            html += `
+                <div class="otp-unlock" style="border-color:${color}44;">
+                    <div class="otp-order-name" style="color:${color};">${icon} ${name}</div>
+                    <div class="otp-tier-badge" style="background:${color}22; border-color:${color}88;">Tier ${tier} Reached</div>
+                    ${desc ? `<div class="otp-bonus-desc">${desc}</div>` : ''}
+                </div>`;
+        }
+        content.innerHTML = html;
+
+        const popup = $('order-tier-popup');
+        const btn   = $('otp-continue');
+        popup.style.display = 'flex';
+        btn.onclick = () => {
+            popup.style.display = 'none';
+            btn.onclick = null;
+            if (onContinue) onContinue();
+        };
+    },
+};
+window.OrderTierPopup = OrderTierPopup;
+
 //  BATTLE SUMMARY — Unified post-battle screen
 // ════════════════════════════════════════════════════════════
 const BattleSummary = {
@@ -1736,6 +1947,14 @@ const BattleSummary = {
     show() {
         const summary = GS.battleSummary;
         if (!summary) { Game.nextFloor(); return; }
+
+        // Show tier unlock popup first if any tiers were just crossed
+        const unlocks = summary.newTierUnlocks || [];
+        if (unlocks.length > 0) {
+            summary.newTierUnlocks = [];
+            OrderTierPopup.show(unlocks, () => BattleSummary.show());
+            return;
+        }
 
         updateStats();
         $('bs-title').textContent = `${summary.enemyName} Defeated!`;
@@ -2018,7 +2237,7 @@ const BattleSummary = {
         const totalSlots = GS.slots.strike.length + GS.slots.guard.length;
 
         rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
-            GS.dice.push(createDie(1, 6));
+            const _nd = createDie(1, 6); GS.dice.push(_nd); _checkBelt(_nd); _checkGlassCannon(_nd);
             log('Added new D6!', 'info');
             lockGeneral('New D6 (1-6) added');
         }});
@@ -2060,14 +2279,13 @@ const BattleSummary = {
     _showSubChoice(type, lockCallback) {
         // Show die upgrade or sacrifice on the reward screen, then return
         if (type === 'upgrade') {
-            Rewards.showDieUpgrade();
-            // Override Game.nextFloor temporarily to return to summary
             const origNext = Game.nextFloor;
             Game.nextFloor = () => {
                 Game.nextFloor = origNext;
                 lockCallback('Die upgraded');
                 show('screen-battle-summary');
             };
+            Rewards.showDieUpgrade(() => { Game.nextFloor = origNext; show('screen-battle-summary'); });
         } else if (type === 'sacrifice') {
             Rewards.showDiceSacrifice(() => {
                 lockCallback('Dice sacrificed for +1 slot');
@@ -2146,10 +2364,10 @@ const Shop = {
         const all = [
             { title: '🎲 Weighted Die', desc: `Rolls 2-7 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 35, type: 'DICE', rarity: 'common',
               effect: 'Adds a 2-7 die to your pool',
-              action: () => { GS.dice.push(createDie(2, 7)); log('Bought Weighted Die (2-7)!', 'info'); } },
+              action: () => { const d = createDie(2, 7); GS.dice.push(d); _checkBelt(d); _checkGlassCannon(d); log('Bought Weighted Die (2-7)!', 'info'); } },
             { title: '💎 Power Die', desc: `Rolls 4-9 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 80, type: 'DICE', rarity: 'uncommon',
               effect: 'Adds a 4-9 die to your pool',
-              action: () => { GS.dice.push(createDie(4, 9)); log('Bought Power Die (4-9)!', 'info'); } },
+              action: () => { const d = createDie(4, 9); GS.dice.push(d); _checkBelt(d); _checkGlassCannon(d); log('Bought Power Die (4-9)!', 'info'); } },
             { title: '⬆️ Die Upgrade', desc: 'Improve one die\'s range', price: 50, type: 'UPGRADE', rarity: 'uncommon',
               effect: '+1/+1 to a die', action: () => { Shop.showUpgrade(); return false; } },
             { title: '🗡️ Blade Oil', desc: 'Sharpen your blades permanently', price: 25, type: 'BUFF', rarity: 'common',
@@ -2170,7 +2388,7 @@ const Shop = {
             all.push(
                 { title: '⚡ Titan Die', desc: `Rolls 6-11 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 150, type: 'DICE', rarity: 'rare',
                   effect: 'Adds a 6-11 die to your pool',
-                  action: () => { GS.dice.push(createDie(6, 11)); log('Bought Titan Die (6-11)!', 'info'); } },
+                  action: () => { const d = createDie(6, 11); GS.dice.push(d); _checkBelt(d); _checkGlassCannon(d); log('Bought Titan Die (6-11)!', 'info'); } },
             );
         }
 
@@ -2200,7 +2418,7 @@ const Shop = {
                 desc: `Utility die (${utDef.zone}) — ${utDef.desc}`,
                 price: utDef.price,
                 type: 'UTILITY DIE', effect: utDef.desc, rarity: utDef.rarity,
-                action: () => { GS.dice.push(createUtilityDie(utDef)); log(`Bought ${utDef.icon} ${utDef.name}!`, 'info'); },
+                action: () => { const d = createUtilityDie(utDef); GS.dice.push(d); _checkGlassCannon(d); log(`Bought ${utDef.icon} ${utDef.name}!`, 'info'); },
             });
         });
 
@@ -2238,7 +2456,7 @@ const Shop = {
             `;
             if (canBuy) {
                 card.onclick = () => {
-                    GS.gold -= item.price;
+                    spendGold(item.price);
                     Shop.purchased.add(i);
                     const result = item.action();
                     if (result !== false) {
@@ -2264,7 +2482,7 @@ const Shop = {
         `;
         if (canRefresh) {
             refreshCard.onclick = () => {
-                GS.gold -= refreshCost;
+                spendGold(refreshCost);
                 Shop.refreshCount++;
                 Shop.purchased = new Set();
                 Shop.generateItems();
@@ -2315,10 +2533,12 @@ const Shop = {
             `;
             if (canBuy) {
                 card.onclick = () => {
-                    GS.gold -= item.price;
-                    Shop.marketPurchased.add(i);
-                    updateStats();
-                    addConsumableToInventory({ ...item }, () => { Shop._renderMarket(); Shop._renderForge(); });
+                    addConsumableToInventory({ ...item }, () => {
+                        spendGold(item.price);
+                        Shop.marketPurchased.add(i);
+                        updateStats();
+                        Shop._renderMarket(); Shop._renderForge(); Shop._renderSell();
+                    }, () => { Shop._renderMarket(); });
                 };
             }
             grid.appendChild(card);
@@ -2333,7 +2553,7 @@ const Shop = {
         mRefreshCard.innerHTML = `<div class="card-title">🔄 Refresh Market</div><div class="card-desc">Restock consumables</div><div class="card-price">${mRefreshCost} gold</div>`;
         if (canMRefresh) {
             mRefreshCard.onclick = () => {
-                GS.gold -= mRefreshCost;
+                spendGold(mRefreshCost);
                 Shop.marketRefreshCount++;
                 Shop.marketPurchased = new Set();
                 Shop.generateMarket();
@@ -2777,16 +2997,23 @@ const Events = {
     _gainArtifact(art) {
         GS.artifacts.push({ ...art });
         if (art.effect === 'colossussBelt') {
+            const thresh = GS.passives?._colossusThresh ?? 9;
             GS.dice.forEach(d => {
-                if (d.max >= 9) { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; }
+                if (!d.beltApplied && d.max >= thresh) {
+                    d.faceValues = d.faceValues.map(v => v + art.value);
+                    d.min += art.value; d.max += art.value;
+                    d.beltApplied = true;
+                }
             });
-            log(`🏋️ Colossus Belt: dice with max≥9 gained +${art.value} to all faces!`, 'info');
+            log(`🏋️ Colossus Belt: dice with max≥${thresh} gained +${art.value} to all faces!`, 'info');
         } else if (art.effect === 'glassCannon') {
-            GS.dice.forEach(d => { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; });
+            GS.dice.forEach(d => { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; d.glassApplied = true; });
             GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2)); GS.hp = Math.min(GS.hp, GS.maxHp);
             log(`💥 Glass Cannon: all dice +${art.value} faces, max HP halved!`, 'damage');
         } else if (art.effect === 'titansDie') {
-            GS.dice.push(createDie(1, art.value));
+            const d = createDie(1, art.value);
+            GS.dice.push(d);
+            _checkBelt(d); _checkGlassCannon(d);
             log(`🎲 Titan's Die: permanent d${art.value} added to your pool!`, 'info');
         }
         log(`Found ${art.icon} ${art.name}!`, 'info');
@@ -2963,10 +3190,10 @@ const Events = {
                     text: GS.gold >= 30 ? 'Buy a mystery die (30g) — random between d4 and d8' : 'Buy a mystery die (30g) — Not enough gold',
                     disabled: GS.gold < 30,
                     action: () => {
-                        GS.gold -= 30;
+                        spendGold(30);
                         const opts = [{min:1,max:4},{min:2,max:6},{min:1,max:6},{min:2,max:8},{min:1,max:8}];
                         const {min, max} = pick(opts);
-                        GS.dice.push(createDie(min, max));
+                        const _md = createDie(min, max); GS.dice.push(_md); _checkBelt(_md); _checkGlassCannon(_md);
                         Events._showOutcome('🎲 Mystery Die Revealed!', [
                             `You received: <strong>d${max} (${min}–${max})</strong>`,
                             `<span style="color:var(--text-dim); font-size:0.9em;">Added to your dice pool</span>`
@@ -3039,7 +3266,7 @@ const Events = {
                     text: GS.gold >= 25 ? 'Offer 25 gold — choose face mod, die, and face' : 'Offer 25 gold — Not enough gold',
                     disabled: GS.gold < 25,
                     action: () => {
-                        GS.gold -= 25;
+                        spendGold(25);
                         updateStats();
                         Events._chooseFaceMod(mod => {
                             Events._applyModFlow(mod, () => { updateStats(); Game.nextFloor(); });
@@ -3088,7 +3315,7 @@ const Events = {
                     text: 'Smash it — a random die gains +1/+1',
                     action: () => {
                         const die = pick(GS.dice);
-                        upgradeDie(die);
+                        applyUpgrade(die);
                         log(`Smashed the chest! ${die.min}-${die.max} die upgraded!`, 'info');
                         updateStats(); Game.nextFloor();
                     }
@@ -3217,7 +3444,7 @@ const Events = {
                     text: GS.gold >= 50 ? 'Bet 50 gold (50%: +100 gold, 50%: lose it all)' : 'Bet 50 gold — Not enough gold',
                     disabled: GS.gold < 50,
                     action: () => {
-                        GS.gold -= 50;
+                        spendGold(50);
                         let outcomeLines;
                         if (Math.random() < 0.5) {
                             const g = gainGold(100);
@@ -3397,7 +3624,7 @@ const Events = {
                     text: GS.gold >= 100 ? 'Buy everything (100g) — gain 3 random artifacts' : 'Buy everything (100g) — Not enough gold',
                     disabled: GS.gold < 100,
                     action: () => {
-                        GS.gold -= 100;
+                        spendGold(100);
                         const gained = Events._gainRandomArtifacts(3);
                         Events._showOutcome('💎 Merchant Prince Deal', [
                             `<span style="color:var(--gold)">You received 3 artifacts:</span>`,
@@ -3409,7 +3636,7 @@ const Events = {
                     text: GS.gold >= 60 ? 'Exclusive stock (60g) — choose 1 artifact from 5' : 'Exclusive stock (60g) — Not enough gold',
                     disabled: GS.gold < 60,
                     action: () => {
-                        GS.gold -= 60;
+                        spendGold(60);
                         updateStats();
                         Events._chooseArtifact(5, art => {
                             Events._gainArtifact(art);
@@ -3513,7 +3740,6 @@ const Rest = {
         const maintHeader = document.createElement('div');
         maintHeader.className = 'section-title';
         maintHeader.textContent = '🔧 MAINTENANCE';
-        if (!Rest._transformDone) maintHeader.style.opacity = '0.4';
         content.appendChild(maintHeader);
 
         const maintGrid = document.createElement('div');
@@ -3522,9 +3748,9 @@ const Rest = {
         if (!Rest._maintenanceDone) {
             const healAmt = Math.floor(GS.maxHp * 0.3);
             const healCard = document.createElement('div');
-            healCard.className = 'card' + (!Rest._transformDone ? ' disabled' : '');
+            healCard.className = 'card';
             healCard.innerHTML = `<div class="card-title">❤️ Heal</div><div class="card-desc">Restore ${healAmt} HP (30% max)</div>`;
-            if (Rest._transformDone) healCard.onclick = () => {
+            healCard.onclick = () => {
                 const h = heal(healAmt);
                 log(`Rested: +${h} HP`, 'heal');
                 updateStats();
@@ -3534,25 +3760,25 @@ const Rest = {
             maintGrid.appendChild(healCard);
 
             const upCard = document.createElement('div');
-            upCard.className = 'card' + (!Rest._transformDone ? ' disabled' : '');
+            upCard.className = 'card';
             upCard.innerHTML = `<div class="card-title">⬆️ Train</div><div class="card-desc">Upgrade one die +1/+1</div>`;
-            if (Rest._transformDone) upCard.onclick = () => Rest.showUpgrade();
+            upCard.onclick = () => Rest.showUpgrade();
             maintGrid.appendChild(upCard);
 
             const hasTrimmable = GS.dice.some(d => d.faceValues && d.faceValues.length > 3);
             if (hasTrimmable) {
                 const trimCard = document.createElement('div');
-                trimCard.className = 'card' + (!Rest._transformDone ? ' disabled' : '');
+                trimCard.className = 'card';
                 trimCard.innerHTML = `<div class="card-title">✂️ Trim</div><div class="card-desc">Remove a face from a die</div>`;
-                if (Rest._transformDone) trimCard.onclick = () => Rest.showFaceTrim();
+                trimCard.onclick = () => Rest.showFaceTrim();
                 maintGrid.appendChild(trimCard);
             }
 
             if (GS.passives.canMerge && GS.dice.length >= 4) {
                 const mergeCard = document.createElement('div');
-                mergeCard.className = 'card' + (!Rest._transformDone ? ' disabled' : '');
+                mergeCard.className = 'card';
                 mergeCard.innerHTML = `<div class="card-title">🔥 Forge Merge</div><div class="card-desc">Fuse 2 dice into 1</div>`;
-                if (Rest._transformDone) mergeCard.onclick = () => {
+                mergeCard.onclick = () => {
                     Rewards.showMergeSelection(() => { Rest._maintenanceDone = true; Rest._render(); });
                 };
                 maintGrid.appendChild(mergeCard);
@@ -4242,7 +4468,7 @@ const DifficultySelect = {
                             <button class="btn btn-primary start-campaign-bar__btn"
                                 onclick="Game.start(Campaign.getDifficulty())">Resume Campaign</button>
                             <button class="btn start-campaign-bar__btn"
-                                onclick="DifficultySelect.show()">New Run</button>
+                                onclick="Game.start(Campaign.getDifficulty())">New Run</button>
                         </div>
                     </div>`;
             } else {
@@ -4984,12 +5210,37 @@ const CampaignScreen = {
         this._caller = caller;
         this._activeOrder = null;
         this._renderIndex();
-        document.getElementById('order-codex-parchment').innerHTML = `
-            <div class="order-codex-empty-state">
-                <div class="order-codex-empty-glyph">✦</div>
-                <p>Select an Order from the index<br>to read its record.</p>
-            </div>`;
+        this._renderLanding();
         show('screen-campaign');
+    },
+
+    _renderLanding() {
+        const favor = Campaign.getOrderFavor();
+        const entries = ORDER_CODEX.map(o => {
+            const tier = Campaign.getOrderTier(o.key, favor[o.key] || 0);
+            const tierLabel = tier > 0 ? `Tier ${tier}` : 'No standing';
+            return `<div class="order-codex-nav-entry" onclick="CampaignScreen._openOrder('${o.key}')">
+                ${o.badgeImg ? `<img class="order-codex-nav-badge" src="${o.badgeImg}" alt="">` : `<span class="order-codex-nav-glyph">✦</span>`}
+                <div class="order-codex-nav-text">
+                    <div class="order-codex-nav-name">${o.name}</div>
+                    <div class="order-codex-nav-tier">${tierLabel}</div>
+                </div>
+            </div>`;
+        }).join('');
+        document.getElementById('order-codex-parchment').innerHTML = `
+            <div class="order-codex-page-border">
+                <div class="order-codex-corner order-codex-corner--tl">❧</div>
+                <div class="order-codex-corner order-codex-corner--tr">❧</div>
+                <div class="order-codex-corner order-codex-corner--bl">❧</div>
+                <div class="order-codex-corner order-codex-corner--br">❧</div>
+                <div class="order-codex-page-header">
+                    <h2>The Ancient Orders</h2>
+                    <hr class="order-codex-rule">
+                </div>
+                <p class="order-codex-lore" style="text-align:center;">Five powers watch from the shadows of the dungeon. Their favour shapes the gifts that await those who survive.</p>
+                <hr class="order-codex-rule order-codex-rule--section">
+                <div class="order-codex-nav-grid">${entries}</div>
+            </div>`;
     },
 
     back() {
@@ -5057,26 +5308,6 @@ const CampaignScreen = {
             </div>`;
         }).join('');
 
-        // Favor progress (only show if active campaign)
-        let favorSection = '';
-        if (active) {
-            const nextInfo = Campaign.getNextTierInfo(key, f);
-            const pct      = nextInfo
-                ? Math.min(100, Math.round((f / nextInfo.threshold) * 100))
-                : 100;
-            const barLabel = nextInfo
-                ? `${Math.round(f).toLocaleString()} / ${nextInfo.threshold.toLocaleString()} favor`
-                : 'Maximum tier reached';
-            favorSection = `
-                <div class="order-codex-favor">
-                    <div class="order-codex-favor-label">Current Standing</div>
-                    <div class="order-codex-favor-bar-wrap">
-                        <div class="order-codex-favor-bar" style="width:${pct}%"></div>
-                    </div>
-                    <div class="order-codex-favor-meta">${barLabel}</div>
-                </div>`;
-        }
-
         document.getElementById('order-codex-parchment').innerHTML = `
             <div class="order-codex-page-border">
                 <div class="order-codex-corner order-codex-corner--tl">❧</div>
@@ -5092,7 +5323,6 @@ const CampaignScreen = {
                 <hr class="order-codex-rule order-codex-rule--section">
                 <div class="order-codex-tiers-heading">Tier Benefits</div>
                 <div class="order-codex-tiers">${tierRows}</div>
-                ${favorSection}
                 ${entry.badgeImg ? `<div class="order-codex-badge-footer"><img src="${entry.badgeImg}" alt="${entry.name} badge"></div>` : ''}
             </div>`;
     },

@@ -3,7 +3,7 @@
 // ════════════════════════════════════════════════════════════
 import { pickWeightedConsumable, SKILL_TREE } from './constants.js';
 import { calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
-import { GS, $, log, gainXP, gainGold, heal, pick, rand } from './state.js';
+import { GS, $, log, gainXP, gainGold, spendGold, heal, pick, rand } from './state.js';
 import { BestiaryProgress } from './persistence.js';
 import { rollSingleDie, getActiveFace, renderCombatDice, renderConsumables, updateStats, setupDropZones, show, createDie, getSlotById, getSlotRunes, enterRerollMode, exitRerollMode, sortPoolDice, resetSortMode } from './engine.js';
 
@@ -44,10 +44,11 @@ function applyStatus(type, stacks, turns = 2) {
     if (type === 'chill') {
         es.chill += stacks; es.chillTurns = 2;
         log(`❄️ Chill: ${es.chill} stacks!`, 'info');
-        if (GS.artifacts.some(a => a.effect === 'frozenHeart') && es.chill >= 6) {
-            es.freeze = es.freeze > 0 ? es.freeze + 1 : 1;
+        if (GS.artifacts.some(a => a.effect === 'frostBrand') && es.chill >= 5) {
+            const freezeTurns = GS.passives._frozenHeartTurns ?? 1;
+            es.freeze = es.freeze > 0 ? es.freeze + freezeTurns : freezeTurns;
             es.chill = 0;
-            log('🧊 Frozen Heart: Freeze!', 'info');
+            log('🧊 Frost Brand: Freeze!', 'info');
         }
     } else if (type === 'freeze') {
         es.freeze = es.freeze > 0 ? es.freeze + 1 : 1;
@@ -300,8 +301,6 @@ export const Combat = {
         GS.enemyStatus = { chill: 0, chillTurns: 0, freeze: 0, mark: 0, markTurns: 0, weaken: 0, burn: 0, burnTurns: 0, stun: 0, stunCooldown: 0 };
         GS.echoStoneDieId = null;
         GS.gamblerCoinBonus = 0;
-        GS.huntersMarkFired = false;
-        GS.hourglassFreeFirstTurn = false;
         GS.furyCharges = 0;
         // Reset per-combat consumable flags
         GS.ironSkinActive = false;
@@ -335,34 +334,23 @@ export const Combat = {
             if (h > 0) { log(`❤️ Fortify: +${h} HP`, 'heal'); spawnFloatText(`+${h}`, $('player-hp-bar'), 'heal'); }
         }
 
-        const gildedArtifact = GS.artifacts.find(a => a.effect === 'goldToDmg');
-        if (gildedArtifact && GS.gold >= 50) {
-            GS.gold -= 50;
-            GS.enemy.currentHp -= 15;
-            if (GS.challengeMode) GS.challengeDmg += 15;
-            log(`✨ Gilded Gauntlet: Spent 50 gold, dealt 15 damage!`, 'damage');
+        if (GS.artifacts.some(a => a.effect === 'goldToDmg')) {
+            let gildedTotal = 0;
+            while (GS.gold >= 25) {
+                spendGold(25);
+                GS.enemy.currentHp -= 10;
+                if (GS.challengeMode) GS.challengeDmg += 10;
+                gildedTotal += 10;
+            }
+            if (gildedTotal > 0) log(`✨ Gilded Gauntlet: dealt ${gildedTotal} damage!`, 'damage');
         }
 
-        // Midas Die: passive gold at combat start
-        if (GS.artifacts.some(a => a.effect === 'midasDie')) {
-            const roll = rand(1, 6);
-            gainGold(roll);
-            log(`🎲 Midas Die: +${roll} gold!`, 'info');
-        }
+        GS.midasTurnCount = 0; // reset per-combat turn counter for Midas Die
 
         // Gambler's Coin: flip at combat start
         if (GS.artifacts.some(a => a.effect === 'gamblersCoin')) {
             GS.gamblerCoinBonus = Math.random() < 0.5 ? 2 : -1;
             log(GS.gamblerCoinBonus > 0 ? '🪙 Heads! All dice +2 this combat!' : '🪙 Tails! All dice -1 this combat!', 'info');
-        }
-
-        // Hourglass: free first turn
-        if (GS.artifacts.some(a => a.effect === 'hourglass')) GS.hourglassFreeFirstTurn = true;
-
-        // Parasite: gold per combat
-        if (GS.parasiteGoldPerCombat > 0) {
-            const pg = gainGold(GS.parasiteGoldPerCombat);
-            log(`🦠 Parasite: +${pg} gold`, 'info');
         }
 
         GS.isFirstTurn = true;
@@ -503,6 +491,16 @@ export const Combat = {
         if (GS.playerDebuffs.devouredDice && GS.playerDebuffs.devouredDice.length > 0) {
             const maxDevour = Math.max(...GS.playerDebuffs.devouredDice.map(dd => dd.turnsLeft || 0));
             html += `<span class="player-status-tag player-status-tag--sealed">👄 ${GS.playerDebuffs.devouredDice.length} die swallowed${maxDevour > 0 ? ` (${maxDevour}t)` : ''}</span>`;
+        }
+        if (GS.artifacts?.some(a => a.effect === 'battleFury')) {
+            const needed = 3;
+            const charges = GS.furyCharges || 0;
+            const ready = charges >= needed;
+            html += `<span class="player-status-tag${ready ? ' player-status-tag--fury-ready' : ''}">🔥 Fury ${charges}/${needed}${ready ? ' READY!' : ''}</span>`;
+        }
+        if (GS.artifacts?.some(a => a.effect === 'goldScaleDmg')) {
+            const bonus = Math.floor((GS.goldSpent || 0) / 20);
+            html += `<span class="player-status-tag">💎 Crown +${bonus} atk (${GS.goldSpent || 0}g spent)</span>`;
         }
         bar.innerHTML = html;
     },
@@ -963,18 +961,18 @@ export const Combat = {
 
         const totalDef = Math.floor(defBase * defMult) + defBonus;
 
-        // Frost Brand: block 10+ → apply chill
-        if (totalDef >= 10 && GS.artifacts.some(a => a.effect === 'frostBrand')) applyStatus('chill', 3, 2);
+        // Frost Brand: block 8+ → apply 2 chill; at 5 chill: freeze enemy
+        if (GS.artifacts.some(a => a.effect === 'frostBrand')) {
+            const thresh = GS.passives._frostBrandThresh ?? 8;
+            if (totalDef >= thresh) applyStatus('chill', 2, 2);
+        }
 
         // ══════════════════════════════════════════════════════
         // ── ENEMY TURN ──
         // ══════════════════════════════════════════════════════
         e.immune = false; // reset from previous charge/vanish
 
-        if (GS.hourglassFreeFirstTurn) {
-            GS.hourglassFreeFirstTurn = false;
-            log('⏳ Hourglass: free turn! Enemy skips.', 'info');
-        } else if (es && es.freeze > 0) {
+        if (es && es.freeze > 0) {
             log(`🧊 Frozen — ${e.name} skips their turn!`, 'info');
             Combat.renderEnemy();
         } else if (es && es.stun > 0) {
@@ -1244,9 +1242,10 @@ export const Combat = {
         if (GS.transformBuffs && GS.transformBuffs.conduit > 0 && atkCount > 0) {
             poisonToApply += GS.transformBuffs.conduit * atkCount;
         }
-        const goldScale = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
+        const goldScale = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor((GS.goldSpent || 0) / a.value), 0);
         if (goldScale > 0) atkBonus += goldScale;
         if (GS.passives.goldDmg) atkBonus += Math.floor(GS.gold / GS.passives.goldDmg);
+        if (GS.passives.flatDmg) atkBonus += GS.passives.flatDmg;
         if (GS.passives.threshold) {
             const threshT = GS.passives.thresholdValue || 12;
             GS.allocated.strike.forEach(d => { if (d.value >= threshT) atkBase += d.value; });
@@ -1275,8 +1274,8 @@ export const Combat = {
         }
 
         let totalAtk = Math.floor(atkBase * atkMult) + atkBonus;
-        // Sharpening Stone: +50% after all other bonuses
-        if (GS.artifacts.some(a => a.effect === 'sharpeningStone')) totalAtk = Math.ceil(totalAtk * 1.5);
+        // Sharpening Stone: +50% if exactly 1 die in strike zone (Tall build condition)
+        if (atkCount === 1 && GS.artifacts.some(a => a.effect === 'sharpeningStone')) totalAtk = Math.ceil(totalAtk * 1.5);
 
         // Rage Potion: double attack damage as FINAL multiplier
         if (GS.ragePotionActive) {
@@ -1351,16 +1350,6 @@ export const Combat = {
             }
         }
 
-        // Soul Pact: overkill reflects back to player (death check deferred until after healing)
-        let soulPactLethal = false;
-        const soulPactP = e.passives.find(p => p.id === 'soulPact');
-        if (soulPactP && finalAtk > e.currentHp && finalAtk > 0) {
-            const reflected = finalAtk - e.currentHp;
-            GS.hp = Math.max(0, GS.hp - reflected);
-            log(`👹 Soul Pact! ${reflected} overkill reflected to you!`, 'damage');
-            updateStats();
-            soulPactLethal = GS.hp <= 0;
-        }
 
         // ── PLAYER ATTACKS ENEMY ──
         // Environment: modify damage before applying (e.g. narrowCorridor +5, thornsAura recoil)
@@ -1409,9 +1398,9 @@ export const Combat = {
             const sh = heal(siphonHealing);
             if (sh > 0) { log(`🩸 Siphon: +${sh} HP${siphonHealing !== sh ? ` (${siphonHealing} base)` : ''}`, 'heal'); updateStats(); spawnFloatText(`+${sh}`, $('player-hp-bar'), 'heal'); }
         }
-        // Hunter's Mark: first hit applies mark
-        if (!GS.huntersMarkFired && finalAtk > 0 && GS.artifacts.some(a => a.effect === 'huntersMark')) {
-            applyStatus('mark', 5, 2); GS.huntersMarkFired = true;
+        // Hunter's Mark: each turn you deal damage, apply 3 mark for 1 turn
+        if (finalAtk > 0 && GS.artifacts.some(a => a.effect === 'huntersMark')) {
+            applyStatus('mark', 3, 1);
         }
         // Ember Crown: 15+ damage → 3 burn
         if (finalAtk >= 15 && GS.artifacts.some(a => a.effect === 'emberCrown')) applyStatus('burn', 3, 3);
@@ -1429,13 +1418,6 @@ export const Combat = {
         if (regenCoreHeal > 0) {
             const h = heal(regenCoreHeal);
             if (h > 0) { log(`💚 Regen Core: +${h} HP`, 'heal'); updateStats(); spawnFloatText(`+${h}`, $('player-hp-bar'), 'heal'); }
-        }
-
-        // Soul Pact: deferred death check (after siphon/bloodstone/lifesteal/regen healing)
-        if (soulPactLethal && GS.hp <= 0) {
-            GS.hp = 0; updateStats();
-            setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000);
-            return;
         }
 
         // ── POST-ATTACK PASSIVE CHECKS ──
@@ -1499,9 +1481,11 @@ export const Combat = {
         updateStats();
 
         if (e.currentHp <= 0) {
-            if (e.currentHp < 0 && GS.artifacts.some(a => a.effect === 'overflowChalice')) {
-                const h = heal(-e.currentHp);
-                if (h > 0) { log(`🏆 Overflow Chalice: +${h} HP!`, 'heal'); updateStats(); spawnFloatText(`+${h}`, $('player-hp-bar'), 'heal'); }
+            if (GS.artifacts.some(a => a.effect === 'overflowChalice')) {
+                const overkill = e.currentHp < 0 ? -e.currentHp : 0;
+                const floorHeal = 5;
+                const h = heal(floorHeal + overkill);
+                if (h > 0) { log(`🏆 Overflow Chalice: +${h} HP (5 base${overkill > 0 ? ` +${overkill} overkill` : ''})!`, 'heal'); updateStats(); spawnFloatText(`+${h}`, $('player-hp-bar'), 'heal'); }
             }
             Combat.enemyDefeated(); return;
         }
@@ -1512,6 +1496,7 @@ export const Combat = {
         if (e.poison > 0) {
             let poisonDmg = e.poison;
             if (GS.passives.plagueLord) poisonDmg *= (GS.passives.plagueLordMult || 2);
+            if (GS.passives.enemyPoisonTickBonus) poisonDmg += GS.passives.enemyPoisonTickBonus;
             const armorP2 = e.passives.find(p => p.id === 'armor');
             if (armorP2) poisonDmg = Math.max(0, poisonDmg - armorP2.params.reduction);
             e.currentHp -= poisonDmg;
@@ -1557,7 +1542,7 @@ export const Combat = {
             // Re-check for combat end after environment effects
             if (GS.hp <= 0) {
                 GS.hp = 0; updateStats();
-                setTimeout(() => window.Game.defeat(), 1000); return;
+                setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000); return;
             }
             if (GS.enemy.currentHp <= 0) { Combat.enemyDefeated(); return; }
         }
@@ -1586,7 +1571,7 @@ export const Combat = {
                 if (GS.hp <= 0) {
                     const wardIdx = findConsumableIdx('ward');
                     if (wardIdx >= 0) { GS.hp = 1; log('💀 Death Ward!', 'heal'); removeConsumableByIdx(wardIdx); updateStats(); }
-                    else if (!GS.eternalPactUsed && GS.artifacts.some(a => a.effect === 'eternalPact')) { GS.hp = 1; GS.eternalPactUsed = true; log('💀 Eternal Pact activates — death cheated!', 'damage'); updateStats(); }
+                    else if (!GS.eternalPactUsed && GS.artifacts.some(a => a.effect === 'eternalPact')) { const pct = GS.passives._eternalPactRevivePct ?? 0.25; const reviveHp = Math.max(1, Math.floor(GS.maxHp * pct)); GS.hp = reviveHp; GS.eternalPactUsed = true; log(`💀 Eternal Pact activates — revived at ${reviveHp} HP!`, 'damage'); updateStats(); }
                     else { GS.hp = 0; updateStats(); setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000); return true; }
                 }
                 const burnOnP = e.passives.find(p => p.id === 'burnOnPhase');
@@ -1779,7 +1764,7 @@ export const Combat = {
                 if (GS.hp <= 0) {
                     const wardIdx = findConsumableIdx('ward');
                     if (wardIdx >= 0) { GS.hp = 1; log('💀 Death Ward!', 'heal'); removeConsumableByIdx(wardIdx); updateStats(); }
-                    else if (!GS.eternalPactUsed && GS.artifacts.some(a => a.effect === 'eternalPact')) { GS.hp = 1; GS.eternalPactUsed = true; log('💀 Eternal Pact activates — death cheated!', 'damage'); updateStats(); }
+                    else if (!GS.eternalPactUsed && GS.artifacts.some(a => a.effect === 'eternalPact')) { const pct = GS.passives._eternalPactRevivePct ?? 0.25; const reviveHp = Math.max(1, Math.floor(GS.maxHp * pct)); GS.hp = reviveHp; GS.eternalPactUsed = true; log(`💀 Eternal Pact activates — revived at ${reviveHp} HP!`, 'damage'); updateStats(); }
                     else { GS.hp = 0; updateStats(); setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000); return true; }
                 }
                 // Gnaw: each hit locks 1 player die (multiHit per-hit effect)
@@ -1805,15 +1790,6 @@ export const Combat = {
             if (mitigated > 0) spawnFloatText(`-${mitigated}`, $('player-hp-bar'), 'player-damage');
 
             if (mitigated > 0) {
-                // Thorn Mail
-                const thornMail = GS.artifacts.filter(a => a.effect === 'thornMail').reduce((s, a) => s + a.value, 0);
-                if (thornMail > 0) {
-                    e.currentHp -= thornMail;
-                    if (GS.challengeMode) GS.challengeDmg += thornMail;
-                    log(`🌿 Thorn Mail: ${thornMail} back!`, 'info');
-                    Combat.renderEnemy();
-                    if (e.currentHp <= 0) { Combat.enemyDefeated(); return true; }
-                }
                 // Thorns Aura
                 if (GS.transformBuffs && GS.transformBuffs.thornsAura > 0) {
                     e.currentHp -= GS.transformBuffs.thornsAura;
@@ -1822,9 +1798,19 @@ export const Combat = {
                     Combat.renderEnemy();
                     if (e.currentHp <= 0) { Combat.enemyDefeated(); return true; }
                 }
-                // Toxic Blood
-                if (GS.artifacts.some(a => a.effect === 'toxicBlood')) applyEnemyPoison(2);
             }
+            // Thorn Mail: reflect 15% of guard value on any attack
+            if (GS.artifacts.some(a => a.effect === 'thornMail')) {
+                const thornPct = GS.passives._thornMailPct ?? 0.15;
+                const thornReflect = Math.max(1, Math.floor(totalDef * thornPct));
+                e.currentHp -= thornReflect;
+                if (GS.challengeMode) GS.challengeDmg += thornReflect;
+                log(`🌿 Thorn Mail: ${thornReflect} reflected (${totalDef} guard × ${Math.round(thornPct * 100)}%)`, 'info');
+                Combat.renderEnemy();
+                if (e.currentHp <= 0) { Combat.enemyDefeated(); return true; }
+            }
+            // Toxic Blood: any hit (even fully blocked) applies 2 poison
+            if (GS.artifacts.some(a => a.effect === 'toxicBlood')) applyEnemyPoison(2);
 
             // Vampiric Ward: heal from blocked
             if (GS.transformBuffs && GS.transformBuffs.vampiricWard && blocked > 0) {
@@ -1853,7 +1839,7 @@ export const Combat = {
             if (GS.hp <= 0) {
                 const wardIdx = findConsumableIdx('ward');
                 if (wardIdx >= 0) { GS.hp = 1; log('💀 Death Ward activated! Survived with 1 HP!', 'heal'); removeConsumableByIdx(wardIdx); updateStats(); }
-                else if (!GS.eternalPactUsed && GS.artifacts.some(a => a.effect === 'eternalPact')) { GS.hp = 1; GS.eternalPactUsed = true; log('💀 Eternal Pact activates — death cheated!', 'damage'); updateStats(); }
+                else if (!GS.eternalPactUsed && GS.artifacts.some(a => a.effect === 'eternalPact')) { const pct = GS.passives._eternalPactRevivePct ?? 0.25; const reviveHp = Math.max(1, Math.floor(GS.maxHp * pct)); GS.hp = reviveHp; GS.eternalPactUsed = true; log(`💀 Eternal Pact activates — revived at ${reviveHp} HP!`, 'damage'); updateStats(); }
                 else { GS.hp = 0; updateStats(); setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000); return true; }
             }
 
@@ -2104,7 +2090,7 @@ export const Combat = {
             updateStats();
             if (GS.hp <= 0) {
                 GS.hp = 0; updateStats();
-                setTimeout(() => window.Game.defeat(), 1000); return;
+                setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000); return;
             }
             if (GS.enemy && GS.enemy.currentHp <= 0) { Combat.enemyDefeated(); return; }
         }
@@ -2116,7 +2102,7 @@ export const Combat = {
             updateStats();
             if (GS.hp <= 0) {
                 GS.hp = 0; updateStats();
-                setTimeout(() => window.Game.defeat(), 1000);
+                setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000);
                 return;
             }
         }
@@ -2131,7 +2117,7 @@ export const Combat = {
                 updateStats();
                 if (GS.hp <= 0) {
                     GS.hp = 0; updateStats();
-                    setTimeout(() => window.Game.defeat(), 1000);
+                    setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000);
                     return;
                 }
             }
@@ -2140,7 +2126,6 @@ export const Combat = {
         // ── PLAYER POISON TICK ──
         if (GS.playerDebuffs.poison > 0) {
             let dmg = GS.playerDebuffs.poison;
-            if (GS.artifacts.some(a => a.effect === 'burnproofCloak')) dmg = Math.floor(dmg * 0.5);
             GS.hp = Math.max(0, GS.hp - dmg);
             GS.playerDebuffs.poison = Math.max(0, GS.playerDebuffs.poison - 1);
             log(`☠️ Poison deals ${dmg} damage! (${GS.playerDebuffs.poison} stacks remain)`, 'damage');
@@ -2154,7 +2139,7 @@ export const Combat = {
             if (GS.hp <= 0) {
                 GS.hp = 0;
                 updateStats();
-                setTimeout(() => window.Game.defeat(), 1000);
+                setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000);
                 return;
             }
         }
@@ -2219,6 +2204,14 @@ export const Combat = {
             const h = heal(GS.regenStacks);
             if (h > 0) { log(`❤️ Rejuvenate: +${h} HP (${GS.regenStacks - 1} next turn)`, 'heal'); spawnFloatText(`+${h}`, $('player-hp-bar'), 'heal'); }
             GS.regenStacks--;
+        }
+
+        // ── MIDAS DIE: scaling gold per turn ──
+        if (GS.artifacts.some(a => a.effect === 'midasDie')) {
+            GS.midasTurnCount = (GS.midasTurnCount || 0) + 1;
+            gainGold(GS.midasTurnCount);
+            log(`🎲 Midas Die: +${GS.midasTurnCount} gold (turn ${GS.midasTurnCount})`, 'info');
+            updateStats();
         }
 
         // ── BATTLE FURY CHARGE ──
@@ -2421,13 +2414,16 @@ export const Combat = {
         summary.loot.push({ icon: '✨', text: `+${earnedXP} XP` });
         log(`${e.name} defeated! +${g} gold, +${earnedXP} XP`, 'info');
 
-        // Parasite: gain +1 max HP and +1 gold/combat per kill
+        // Parasite: +1 max HP and +2 gold immediately per kill
         if (GS.artifacts.some(a => a.effect === 'parasite')) {
-            GS.maxHp++;
-            GS.hp = Math.min(GS.hp + 1, GS.maxHp);
-            GS.parasiteGoldPerCombat += GS.artifacts.filter(a => a.effect === 'parasite').length;
-            summary.bonuses.push({ icon: '🦠', text: `Parasite: +1 max HP (${GS.maxHp})` });
-            log(`🦠 Parasite: +1 max HP (${GS.maxHp}), gold/combat now +${GS.parasiteGoldPerCombat}`, 'info');
+            const enh = GS.passives._parasiteEnh;
+            const hpGain = enh ? 2 : 1;
+            const goldGain = enh ? 3 : 2;
+            GS.maxHp += hpGain;
+            GS.hp = Math.min(GS.hp + hpGain, GS.maxHp);
+            gainGold(goldGain);
+            summary.bonuses.push({ icon: '🦠', text: `Parasite: +${hpGain} max HP (${GS.maxHp}), +${goldGain} gold` });
+            log(`🦠 Parasite: +${hpGain} max HP (${GS.maxHp}), +${goldGain} gold`, 'info');
         }
 
         // Convalescence: heal 25% of missing HP after each combat
@@ -2541,6 +2537,9 @@ export const Combat = {
                 if (delta > 0) favorGained[order] = delta;
             }
             summary.favorGained = favorGained;
+
+            // Check for mid-run tier crossings and apply bonuses immediately
+            summary.newTierUnlocks = Campaign.applyMidRunTierBonuses(GS);
         }
 
         if (GS.challengeMode) {

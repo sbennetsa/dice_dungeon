@@ -6,14 +6,26 @@
 // ════════════════════════════════════════════════════════════════
 
 import { GS, gainGold, gainXP, heal } from '../state.js';
+import { getAct } from '../constants.js';
 
 // ── Result helper ─────────────────────────────────────────────
 // Applies a Result object to live game state.
-// Call this after the player picks a choice.
+// Positive gold and HP rewards scale by act to stay relevant.
+// Negative outcomes (damage, costs) are never scaled.
 export function applyEncounterResult(result) {
-  if (result.deltaHP)   heal(result.deltaHP);
-  if (result.deltaGold) gainGold(result.deltaGold);
-  if (result.deltaXP)   gainXP(result.deltaXP);
+  const act = getAct(GS.floor);
+  const goldMult = [1, 1.5, 2.5][act - 1];
+  const hpMult   = [1, 1.2, 1.5][act - 1];
+
+  if (result.deltaHP) {
+    const scaled = result.deltaHP > 0 ? Math.round(result.deltaHP * hpMult) : result.deltaHP;
+    heal(scaled);
+  }
+  if (result.deltaGold) {
+    const scaled = result.deltaGold > 0 ? Math.round(result.deltaGold * goldMult) : result.deltaGold;
+    gainGold(scaled);
+  }
+  if (result.deltaXP) gainXP(result.deltaXP);
 }
 
 // ── Pool builder ──────────────────────────────────────────────
@@ -75,30 +87,29 @@ export const NON_COMBAT_ENCOUNTERS = [
     choices: [
       {
         label: 'Pay the toll',
-        hint: 'Costs 15 gold',
+        hint: 'Costs 15 gold — safe passage',
         available: (gs) => gs.gold >= 15,
         effect: () => ({
           narrative: 'He tips his hat with surprising sincerity. "Safe travels." You believe him.',
           deltaGold: -15,
-          deltaXP: 1,
         }),
       },
       {
         label: 'Bluff your way through',
-        hint: 'Risky — he might shoot',
+        hint: '50/50 — +20 XP or -8 HP',
         effect: () => {
           const roll = Math.ceil(Math.random() * 6);
           return roll >= 4
-            ? { narrative: `You spin a tale about being a royal inspector. He buys it — barely. (Rolled ${roll})`, deltaXP: 3 }
+            ? { narrative: `You spin a tale about being a royal inspector. He buys it — barely. (Rolled ${roll})`, deltaXP: 20 }
             : { narrative: `He doesn't buy it. The bolt grazes your shoulder. (Rolled ${roll})`, deltaHP: -8 };
         },
       },
       {
         label: 'Turn back and find another route',
-        hint: 'Safe but slow — +5 XP',
+        hint: 'Safe — +10 gold from a stash you find along the way',
         effect: () => ({
-          narrative: 'You double back through a service tunnel. It smells terrible. You arrive late but unharmed — and wiser.',
-          deltaXP: 5,
+          narrative: 'You double back through a service tunnel. It smells terrible. Someone left a coin purse wedged in a crack.',
+          deltaGold: 10,
         }),
       },
     ],
@@ -131,12 +142,12 @@ export const NON_COMBAT_ENCOUNTERS = [
       },
       {
         label: 'Inspect the crate',
-        hint: 'Costs 5 gold bribe — 50/50 find gold or nothing',
+        hint: 'Costs 5 gold bribe — 50/50 find gold or lose the 5g',
         available: (gs) => gs.gold >= 5,
         effect: () => {
           const valuable = Math.random() < 0.5;
           return valuable
-            ? { narrative: 'A genuine relic, misattributed. You pocket it before she notices.', deltaGold: -5, deltaXP: 10 }
+            ? { narrative: 'Valuables inside. You help yourself to a few before anyone notices.', deltaGold: 15 }
             : { narrative: 'The porter\'s eyes go wide. You both agree to walk away quickly.', deltaGold: -5 };
         },
       },
@@ -164,10 +175,10 @@ export const NON_COMBAT_ENCOUNTERS = [
       },
       {
         label: 'Ask what she knows',
-        hint: '+15 XP, no cost',
+        hint: '+20 XP, no cost',
         effect: () => ({
-          narrative: 'She describes the floor ahead in careful detail. You won\'t be surprised.',
-          deltaXP: 15,
+          narrative: 'She shares what she knows about the dungeon. Hard-won knowledge.',
+          deltaXP: 20,
         }),
       },
       {
@@ -202,30 +213,30 @@ export const NON_COMBAT_ENCOUNTERS = [
       },
       {
         label: 'Play — wager everything',
-        hint: 'Win: double gold / Lose: lose all gold',
+        hint: 'High risk — win 2× your stake (up to 100g) or lose it all',
         available: (gs) => gs.gold >= 20,
         effect: () => {
           const win = Math.random() < 0.5;
-          const stake = GS.gold;
+          const stake = Math.min(GS.gold, 100);
           return win
-            ? { narrative: `You walk away with ${stake * 2} gold. He's already looking for the next mark.`, deltaGold: stake }
+            ? { narrative: `Your roll is perfect. He pays double without a word. You leave richer than you arrived.`, deltaGold: stake * 2 }
             : { narrative: 'You walk away with nothing. He does not gloat.', deltaGold: -stake };
         },
       },
       {
         label: 'Watch, don\'t play',
-        hint: '+5 XP, no risk',
+        hint: '+20 XP — study his technique',
         effect: () => ({
           narrative: 'You study his technique. His tells are subtle. You file them away.',
-          deltaXP: 5,
+          deltaXP: 20,
         }),
       },
       {
         label: 'Accuse him of cheating',
-        hint: 'Might go badly',
+        hint: '50/50 — +15g or -12 HP',
         effect: () => {
           const roll = Math.ceil(Math.random() * 6);
-          return roll >= 5
+          return roll >= 4
             ? { narrative: `He folds immediately. Hands you 15 gold. "Fair enough," he says. (Rolled ${roll})`, deltaGold: 15 }
             : { narrative: `He takes offence. The table goes over. Someone gets punched. (Rolled ${roll})`, deltaHP: -12 };
         },
@@ -238,27 +249,35 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'social',
     title: 'The Guild Recruiter',
     flavour: 'The uniform is impeccable. Everything about this screams paperwork.',
-    body: `An Adventurer's Guild recruiter materialises from nowhere, clipboard in hand. She's been waiting. The Guild offers real benefits — insurance, referrals, discounts. The fee is also real.`,
+    body: `An Adventurer's Guild recruiter materialises from nowhere, clipboard in hand. She's been waiting. She wants your registration fee — or, failing that, your combat stories. She'll file whatever you give her.`,
     weight: 4,
     choices: [
       {
-        label: 'Join the Guild',
-        hint: 'Costs 30 gold — +25 XP and a discount next shop',
+        label: 'Pay the registration fee',
+        hint: 'Costs 30 gold — +40 XP',
         available: (gs) => gs.gold >= 30,
         effect: () => ({
-          narrative: 'You sign. The badge is heavier than expected. She hands you a pamphlet.',
+          narrative: 'You sign. The badge is heavier than expected. She hands you a pamphlet you will never read.',
           deltaGold: -30,
-          deltaXP: 25,
+          deltaXP: 40,
         }),
       },
       {
-        label: 'Negotiate the fee',
-        hint: '50/50 — might join for 15g or get nothing',
+        label: 'Tell her about your fights',
+        hint: 'Free — +15 XP for the debrief',
+        effect: () => ({
+          narrative: 'She takes rapid notes. Asks good questions. Recounting it all, you realise how much you\'ve learned.',
+          deltaXP: 15,
+        }),
+      },
+      {
+        label: 'Challenge her to prove you\'re worth a discount',
+        hint: '50/50 — free registration (+40 XP) or pay double (-15g, +20 XP)',
         effect: () => {
           const roll = Math.ceil(Math.random() * 6);
           return roll >= 4
-            ? { narrative: `She checks a box. "New member discount." You join for 15 gold. (Rolled ${roll})`, deltaGold: -15, deltaXP: 25 }
-            : { narrative: `She closes her clipboard. "Full price or nothing." She walks away. (Rolled ${roll})` };
+            ? { narrative: `She's impressed. "Provisional member." The badge costs nothing. (Rolled ${roll})`, deltaXP: 40 }
+            : { narrative: `She's not impressed. You pay a processing fee for wasting her time. (Rolled ${roll})`, deltaGold: -15, deltaXP: 20 };
         },
       },
       {
@@ -283,21 +302,21 @@ export const NON_COMBAT_ENCOUNTERS = [
     choices: [
       {
         label: 'Take everything',
-        hint: '+20 gold — small risk of HP loss',
+        hint: '+20 gold +8 XP — small risk of HP loss',
         effect: () => {
           const trapped = Math.random() < 0.15;
           return trapped
-            ? { narrative: 'Gold and trinkets — and a needle trap. Poison seeps into the wound.', deltaGold: 20, deltaXP: 5, deltaHP: -8 }
-            : { narrative: 'Clean score. Whoever left this isn\'t coming back for it.', deltaGold: 20, deltaXP: 5 };
+            ? { narrative: 'Gold and trinkets — and a needle trap. Poison seeps into the wound.', deltaGold: 20, deltaXP: 8, deltaHP: -8 }
+            : { narrative: 'Clean score. Whoever left this isn\'t coming back for it.', deltaGold: 20, deltaXP: 8 };
         },
       },
       {
         label: 'Take carefully',
-        hint: '+15 gold, no risk',
+        hint: '+15 gold +5 XP, no risk',
         effect: () => ({
           narrative: 'Slow and methodical. You check everything. 15 gold and your peace of mind.',
           deltaGold: 15,
-          deltaXP: 3,
+          deltaXP: 5,
         }),
       },
       {
@@ -337,11 +356,11 @@ export const NON_COMBAT_ENCOUNTERS = [
       },
       {
         label: 'Examine it first',
-        hint: 'Safe — identify before committing',
+        hint: '50/50 — +10 HP blessing or just 3 gold',
         effect: () => {
           const lucky = Math.random() < 0.5;
           return lucky
-            ? { narrative: 'Inscribed on the edge: a blessing glyph. You feel invigorated.', deltaHP: 10, deltaXP: 5 }
+            ? { narrative: 'Inscribed on the edge: a blessing glyph. You feel invigorated.', deltaHP: 10 }
             : { narrative: 'Just copper, minted in a city that probably doesn\'t exist anymore. Worth 3 gold.', deltaGold: 3 };
         },
       },
@@ -400,12 +419,12 @@ export const NON_COMBAT_ENCOUNTERS = [
     choices: [
       {
         label: 'Follow the map',
-        hint: '60% +20 XP shortcut / 40% -8 HP dead end',
+        hint: '60% +30 XP shortcut / 40% -8 HP dead end',
         effect: () => {
           const works = Math.random() < 0.6;
           return works
-            ? { narrative: 'The shortcut is real. You arrive ahead of schedule, slightly smug.', deltaXP: 20 }
-            : { narrative: 'The shortcut is not real. An hour of backtracking in the dark.', deltaHP: -8 };
+            ? { narrative: 'The route is good. You move quickly, learn the dungeon\'s layout. Time well spent.', deltaXP: 30 }
+            : { narrative: 'The route is wrong. An hour of backtracking in the dark.', deltaHP: -8 };
         },
       },
       {
@@ -454,11 +473,13 @@ export const NON_COMBAT_ENCOUNTERS = [
       },
       {
         label: 'Shout back',
-        hint: '+10 XP',
-        effect: () => ({
-          narrative: 'Your voice bounces back changed. The dungeon acknowledges you.',
-          deltaXP: 10,
-        }),
+        hint: '50/50 — +30 XP or -10 HP',
+        effect: () => {
+          const roll = Math.ceil(Math.random() * 6);
+          return roll >= 4
+            ? { narrative: `The dungeon roars back. Something shifts in you. (Rolled ${roll})`, deltaXP: 30 }
+            : { narrative: `The sound turns on you. The walls ring for a long time. (Rolled ${roll})`, deltaHP: -10 };
+        },
       },
     ],
   },
@@ -496,12 +517,12 @@ export const NON_COMBAT_ENCOUNTERS = [
       },
       {
         label: 'Donate blood for their research',
-        hint: 'Costs 8 HP — +15 XP',
+        hint: 'Costs 8 HP — +25 XP',
         available: (gs) => gs.hp > 12,
         effect: () => ({
           narrative: 'They ask a lot of questions while they work. You gain more than you expected.',
           deltaHP: -8,
-          deltaXP: 15,
+          deltaXP: 25,
         }),
       },
     ],
@@ -518,12 +539,12 @@ export const NON_COMBAT_ENCOUNTERS = [
     choices: [
       {
         label: 'Offer your blood (20 HP)',
-        hint: 'High risk, high reward — +40 XP',
+        hint: 'High risk, high reward — +60 XP',
         available: (gs) => gs.hp > 25,
         effect: () => ({
           narrative: 'You leave a little of yourself on the altar. Knowledge floods in — ancient, useful, dangerous.',
           deltaHP: -20,
-          deltaXP: 40,
+          deltaXP: 60,
         }),
       },
       {
@@ -539,11 +560,11 @@ export const NON_COMBAT_ENCOUNTERS = [
       },
       {
         label: 'Smash it',
-        hint: '50/50 — +10 XP or -15 HP',
+        hint: '50/50 — +25 XP or -15 HP',
         effect: () => {
           const win = Math.random() < 0.5;
           return win
-            ? { narrative: 'It breaks cleanly. You feel lighter.', deltaXP: 10 }
+            ? { narrative: 'It breaks cleanly. You feel lighter.', deltaXP: 25 }
             : { narrative: 'It breaks badly. Something was still in there.', deltaHP: -15 };
         },
       },
@@ -574,18 +595,18 @@ export const NON_COMBAT_ENCOUNTERS = [
       },
       {
         label: 'Inhale the spores',
-        hint: '+15 XP — heightened awareness',
+        hint: '+25 XP — heightened awareness',
         effect: () => ({
           narrative: 'The spores are information. The dungeon\'s layout feels clearer somehow.',
-          deltaXP: 15,
+          deltaXP: 25,
         }),
       },
       {
         label: 'Burn it',
-        hint: '+5 gold, lose the mystery',
+        hint: '+15 gold, lose the mystery',
         effect: () => ({
           narrative: 'Valuable bioluminescent material. Practical choice. The hum stops.',
-          deltaGold: 5,
+          deltaGold: 15,
         }),
       },
     ],
@@ -601,19 +622,19 @@ export const NON_COMBAT_ENCOUNTERS = [
     choices: [
       {
         label: 'Gaze into it',
-        hint: '+30 XP — a vision of what\'s ahead',
+        hint: '+30 XP',
         effect: () => ({
-          narrative: 'You see the act\'s boss — not in detail, but in character. You know what you\'re walking toward.',
+          narrative: 'The reflection shows you older, harder, further along. Something about it steadies you.',
           deltaXP: 30,
         }),
       },
       {
         label: 'Reach in',
-        hint: 'Roll d6 — +20 gold, +10 HP, or -10 HP',
+        hint: 'Roll d6 — +25 gold, +15 HP, or -10 HP',
         effect: () => {
           const roll = Math.ceil(Math.random() * 6);
-          if (roll >= 5) return { narrative: `Your hand closes on something real. Cold coins from nowhere. (Rolled ${roll})`, deltaGold: 20 };
-          if (roll >= 3) return { narrative: `A gentle warmth flows up your arm. (Rolled ${roll})`, deltaHP: 10 };
+          if (roll >= 5) return { narrative: `Your hand closes on something real. Cold coins from nowhere. (Rolled ${roll})`, deltaGold: 25 };
+          if (roll >= 3) return { narrative: `A gentle warmth flows up your arm. (Rolled ${roll})`, deltaHP: 15 };
           return { narrative: `The pool takes something from you. (Rolled ${roll})`, deltaHP: -10 };
         },
       },
@@ -633,41 +654,37 @@ export const NON_COMBAT_ENCOUNTERS = [
     family: 'curse',
     title: 'The Dark Bargain',
     flavour: "No tricks. It just wants something. It's very clear about this.",
-    body: `A voice. No body. No theatrics. It makes you an offer in plain, direct language. It wants something you have. It will give you something in return. The exchange rate is generous. The reasons are opaque.`,
-    weight: 2, // rare — impactful
+    body: `A voice. No body. No theatrics. It makes you an offer in plain, direct language. It wants something small. It will give you something in return. The exchange is modest. The reasons remain opaque.`,
+    weight: 2, // rare
     choices: [
       {
-        label: 'Trade half your gold',
-        hint: '+50 XP',
-        available: (gs) => gs.gold >= 20,
+        label: 'Trade some luck',
+        hint: 'Gamble — 50/50: +20 HP or -20 gold',
         effect: () => {
-          const half = Math.floor(GS.gold / 2);
-          return {
-            narrative: `${half} gold — gone. Knowledge takes its place. You understand the dungeon better now.`,
-            deltaGold: -half,
-            deltaXP: 50,
-          };
+          const win = Math.random() < 0.5;
+          return win
+            ? { narrative: 'Your luck holds. Something courses through you — borrowed vitality.', deltaHP: 20 }
+            : { narrative: 'Your luck doesn\'t. A hand reaches through nothing and takes its payment.', deltaGold: -20 };
         },
       },
       {
-        label: 'Trade your blood (25 HP)',
-        hint: '+40 gold',
-        available: (gs) => gs.hp > 30,
+        label: 'Trade something small',
+        hint: '-10 HP, +25 XP',
+        available: (gs) => gs.hp > 15,
         effect: () => ({
-          narrative: 'It takes something from you that isn\'t quite blood. The gold is real, though.',
-          deltaHP: -25,
-          deltaGold: 40,
+          narrative: 'It takes something from you that\'s hard to name. Knowledge fills the space it left.',
+          deltaHP: -10,
+          deltaXP: 25,
         }),
       },
       {
-        label: 'Trade your vitality',
-        hint: '-15 HP, +30 XP, +15 gold',
-        available: (gs) => gs.hp > 20,
+        label: 'Trade some gold',
+        hint: '-25 gold, +30 XP',
+        available: (gs) => gs.gold >= 25,
         effect: () => ({
-          narrative: 'You feel diminished. Richer. Wiser. It is content.',
-          deltaHP: -15,
+          narrative: 'The coins disappear before you finish counting them. Something settles in your mind.',
+          deltaGold: -25,
           deltaXP: 30,
-          deltaGold: 15,
         }),
       },
       {

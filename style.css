@@ -386,6 +386,11 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     background: rgba(200,60,60,0.1);
     border: 1px solid rgba(200,60,60,0.3);
 }
+.player-status-tag--fury-ready {
+    color: #ffd060;
+    background: rgba(180,100,0,0.25);
+    border: 1px solid #d4a534;
+}
 
 .enemy-intent {
     margin-top: 12px;
@@ -1055,6 +1060,18 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 .gameover-screen h2.defeat { color: var(--red); }
 .gameover-screen h2.victory { color: var(--gold); text-shadow: 0 0 20px rgba(212,165,52,0.3); }
 
+.support-link {
+    display: block;
+    margin-top: 18px;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--text-dim);
+    text-decoration: none;
+    opacity: 0.75;
+    transition: opacity 0.15s, color 0.15s;
+}
+.support-link:hover { opacity: 1; color: var(--gold); }
+
 .final-stats {
     background: var(--bg-surface);
     border: 1px solid var(--border);
@@ -1676,6 +1693,59 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     margin-bottom: 16px;
 }
 
+/* ── Order Tier Popup ── */
+#order-tier-popup {
+    align-items: center;
+    justify-content: center;
+}
+.otp-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 24px;
+    max-width: 360px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+.otp-unlock {
+    margin-bottom: 16px;
+    padding: 16px;
+    border: 1px solid;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+}
+.otp-unlock:last-of-type { margin-bottom: 20px; }
+.otp-order-name {
+    font-family: var(--font-heading);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+}
+.otp-tier-badge {
+    display: inline-block;
+    font-family: var(--font-data);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    padding: 3px 12px;
+    border: 1px solid;
+    border-radius: 20px;
+    margin-bottom: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.otp-bonus-desc {
+    font-family: var(--font-body);
+    font-size: var(--text-base);
+    color: var(--text-dim);
+    line-height: 1.4;
+}
+.otp-btn {
+    width: 100%;
+    margin-top: 4px;
+}
+
 /* ── Campaign favor in battle summary ── */
 .bs-favor-order {
     padding: 8px 0;
@@ -2279,6 +2349,38 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 .sd-face-left   { transform: rotateY(-90deg) translateZ(155px); }
 .sd-face-top    { transform: rotateX(-90deg) translateZ(155px); }
 .sd-face-bottom { transform: rotateX(90deg) translateZ(155px); }
+
+/* Face tier pips */
+.sd-face-tier {
+    position: absolute;
+    bottom: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; align-items: center;
+    padding: 6px 12px;
+    cursor: pointer; z-index: 2;
+    transition: opacity .15s;
+}
+.sd-face-tier:hover .sd-tier-pip { transform: scale(1.25); }
+.sd-tier-pip {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    transition: background .25s, box-shadow .25s, transform .15s;
+}
+
+/* Tier detail in detail bar */
+.sd-tier-list {
+    display: flex; flex-direction: column; gap: 3px;
+    margin-top: 4px;
+}
+.sd-tier-row {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--font-body); font-size: 11px;
+    transition: color .2s;
+}
+.sd-tier-num {
+    font-family: var(--font-data); font-size: 9px; font-weight: bold;
+    min-width: 18px; opacity: 0.7;
+}
+.sd-tier-earned { font-weight: 600; }
 
 /* Nodes */
 .sd-nodes { position: absolute; inset: 0; }
@@ -3935,6 +4037,68 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
   font-style: italic;
   line-height: 1.7;
   color: #6b5020;
+}
+
+.order-codex-nav-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.order-codex-nav-entry {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: rgba(139, 105, 20, 0.08);
+  border: 1px solid rgba(139, 105, 20, 0.25);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.order-codex-nav-entry:hover {
+  background: rgba(139, 105, 20, 0.18);
+  border-color: rgba(139, 105, 20, 0.5);
+}
+
+.order-codex-nav-badge {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.order-codex-nav-glyph {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4em;
+  color: #8b6914;
+  flex-shrink: 0;
+}
+
+.order-codex-nav-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.order-codex-nav-name {
+  font-family: var(--font-heading);
+  font-size: 0.95em;
+  color: #c8a44a;
+}
+
+.order-codex-nav-tier {
+  font-family: var(--font-body);
+  font-size: 0.78em;
+  color: #8b6914;
+  font-style: italic;
 }
 
 /* ── Responsive ── */

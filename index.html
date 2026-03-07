@@ -93,6 +93,10 @@
                 <span class="start-nav-label">Bestiary</span>
             </button>
         </div>
+        <div style="display:flex; justify-content:center; align-items:center; gap:16px; margin-top:8px;">
+            <a class="support-link" style="display:inline; margin-top:0;" href="https://buymeacoffee.com/YOURNAME" target="_blank" rel="noopener">☕ Buy me a coffee</a>
+            <button class="btn" onclick="IssueReport.show()" style="font-size:0.8em; padding:5px 10px;">🐛 Report a Bug</button>
+        </div>
     </div>
 </div>
 
@@ -152,6 +156,9 @@
             <button class="dev-only" onclick="Bestiary.revealAll()" style="margin:6px 12px 2px;padding:4px 10px;font-size:0.75rem;font-family:var(--font-data);background:#7a2020;color:#f5e6c8;border:1px solid #5a1010;border-radius:3px;cursor:pointer;width:calc(100% - 24px)">[DEV] Reveal All</button>
             <div class="bestiary-index-count" id="bestiary-index-count">— entries</div>
             <div class="bestiary-index-list" id="bestiary-index-list"></div>
+            <div style="padding:8px 12px; text-align:right;">
+                <button class="btn" onclick="IssueReport.show()" style="font-size:0.8em; padding:5px 10px;">bug</button>
+            </div>
         </aside>
         <main class="bestiary-page" id="bestiary-page">
             <div class="bestiary-parchment" id="bestiary-parchment">
@@ -167,8 +174,9 @@
 <!-- ═══════════ DUNGEON PATH SCREEN ═══════════ -->
 <div id="screen-dungeon-path" class="screen">
     <div class="dungeon-path-wrapper">
-        <div class="dungeon-path-header">
+        <div class="dungeon-path-header" style="display:flex; justify-content:space-between; align-items:center;">
             <h2>Dungeon Path</h2>
+            <button class="btn" onclick="IssueReport.show()" style="font-size:0.8em; padding:5px 10px;">🐛</button>
         </div>
         <div id="dungeon-path-settings"></div>
         <div id="dungeon-path-seed"></div>
@@ -189,10 +197,7 @@
         <div class="header-title">Dice Dungeon</div>
         <div class="stats-row">
             <div class="stat-item"><span class="stat-label">Floor</span><span class="stat-val" id="s-floor">1</span></div>
-            <div class="stat-item"><span class="stat-label">Lvl</span><span class="stat-val" id="s-level">1</span></div>
-            <div class="stat-item"><span class="stat-label">XP</span><span class="stat-val" id="s-xp">0/50</span></div>
             <div class="stat-item"><span class="stat-label">HP</span><span class="stat-val hp" id="s-hp">50/50</span></div>
-            <div class="stat-item"><span class="stat-label">Dice</span><span class="stat-val" id="s-dice">3/4</span></div>
             <div class="stat-item"><span class="stat-label">Gold</span><span class="stat-val gold" id="s-gold">0</span></div>
         </div>
         <div class="header-btns">
@@ -398,7 +403,9 @@
         <div id="go-unlocks"></div>
         <div id="go-buttons" style="margin-top:20px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
             <button class="btn btn-primary" onclick="Game.backToStart()">Try Again</button>
+            <button class="btn" onclick="IssueReport.show()" style="font-size:0.8em; padding:5px 10px;">🐛</button>
         </div>
+        <a class="support-link" href="https://buymeacoffee.com/YOURNAME" target="_blank" rel="noopener">☕ Buy me a coffee</a>
     </div>
 </div>
 
@@ -422,6 +429,14 @@
             <button class="btn btn-primary" id="consumable-confirm-yes">Use</button>
             <button class="btn" id="consumable-confirm-no">Cancel</button>
         </div>
+    </div>
+</div>
+
+<!-- ═══════════ ORDER TIER POPUP ═══════════ -->
+<div id="order-tier-popup" style="display:none; position:fixed; inset:0; z-index:300; background:rgba(0,0,0,0.82);">
+    <div class="otp-box">
+        <div id="otp-content"></div>
+        <button class="btn otp-btn" id="otp-continue">Continue</button>
     </div>
 </div>
 

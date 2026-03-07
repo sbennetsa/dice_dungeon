@@ -772,6 +772,57 @@ export const Combat = {
         if ($('btn-return-all')) $('btn-return-all').style.display = 'none';
         exitRerollMode();
 
+        // ── SEALED SLOT COUNTDOWN (at execute start so seals last through one full allocation phase) ──
+        if (GS.playerDebuffs.disabledSlots && GS.playerDebuffs.disabledSlots.length > 0) {
+            const expired = [];
+            GS.playerDebuffs.disabledSlots.forEach(ds => {
+                ds.turnsLeft--;
+                if (ds.turnsLeft <= 0) expired.push(ds);
+            });
+            if (expired.length > 0) {
+                GS.playerDebuffs.disabledSlots = GS.playerDebuffs.disabledSlots.filter(ds => ds.turnsLeft > 0);
+                const names = expired.map(ds => ds.slotId.startsWith('str') ? 'strike' : 'guard');
+                log(`🔓 ${expired.length} slot${expired.length > 1 ? 's' : ''} unsealed (${names.join(', ')}).`, 'info');
+            }
+        }
+
+        // ── LOCKED DICE COUNTDOWN (at execute start so locks last through one full allocation phase) ──
+        GS.dice.forEach(d => {
+            if (d.locked && d.lockedTurns !== undefined) {
+                d.lockedTurns--;
+                if (d.lockedTurns <= 0) {
+                    delete d.locked;
+                    delete d.lockedTurns;
+                    log('🔓 A die is unlocked!', 'info');
+                }
+            }
+        });
+
+        // ── DICE CURSE COUNTDOWN (at execute start so curse lasts through one full allocation phase) ──
+        if (GS.playerDebuffs.diceCurseTurns > 0) {
+            GS.playerDebuffs.diceCurseTurns--;
+            if (GS.playerDebuffs.diceCurseTurns <= 0) {
+                GS.playerDebuffs.diceCurse = 0;
+                log('💀 Curse fades.', 'info');
+            }
+        }
+
+        // ── DEVOURED DICE COUNTDOWN (at execute start so devour lasts through one full allocation phase) ──
+        if (GS.playerDebuffs.devouredDice && GS.playerDebuffs.devouredDice.length > 0) {
+            const returned = [];
+            GS.playerDebuffs.devouredDice.forEach(dd => {
+                dd.turnsLeft--;
+                if (dd.turnsLeft <= 0) returned.push(dd);
+            });
+            if (returned.length > 0) {
+                returned.forEach(dd => {
+                    GS.dice.push(dd.die);
+                    log('👄 A die returns from the void!', 'info');
+                });
+                GS.playerDebuffs.devouredDice = GS.playerDebuffs.devouredDice.filter(dd => dd.turnsLeft > 0);
+            }
+        }
+
         const e = GS.enemy;
         const es = GS.enemyStatus;
 
@@ -2145,56 +2196,9 @@ export const Combat = {
         // Reset Echo Stone tracking for new turn
         GS.echoStoneDieId = null;
 
-        // ── SEALED SLOT COUNTDOWN ──
-        if (GS.playerDebuffs.disabledSlots && GS.playerDebuffs.disabledSlots.length > 0) {
-            const expired = [];
-            GS.playerDebuffs.disabledSlots.forEach(ds => {
-                ds.turnsLeft--;
-                if (ds.turnsLeft <= 0) expired.push(ds);
-            });
-            if (expired.length > 0) {
-                GS.playerDebuffs.disabledSlots = GS.playerDebuffs.disabledSlots.filter(ds => ds.turnsLeft > 0);
-                const names = expired.map(ds => ds.slotId.startsWith('str') ? 'strike' : 'guard');
-                log(`🔓 ${expired.length} slot${expired.length > 1 ? 's' : ''} unsealed (${names.join(', ')}).`, 'info');
-            }
-        }
-
-        // ── DICE CURSE COUNTDOWN ──
-        if (GS.playerDebuffs.diceCurseTurns > 0) {
-            GS.playerDebuffs.diceCurseTurns--;
-            if (GS.playerDebuffs.diceCurseTurns <= 0) {
-                GS.playerDebuffs.diceCurse = 0;
-                log('💀 Curse fades.', 'info');
-            }
-        }
-
-        // ── LOCKED DICE COUNTDOWN ──
-        GS.dice.forEach(d => {
-            if (d.locked && d.lockedTurns !== undefined) {
-                d.lockedTurns--;
-                if (d.lockedTurns <= 0) {
-                    delete d.locked;
-                    delete d.lockedTurns;
-                    log('🔓 A die is unlocked!', 'info');
-                }
-            }
-        });
-
-        // ── DEVOURED DICE COUNTDOWN ──
-        if (GS.playerDebuffs.devouredDice && GS.playerDebuffs.devouredDice.length > 0) {
-            const returned = [];
-            GS.playerDebuffs.devouredDice.forEach(dd => {
-                dd.turnsLeft--;
-                if (dd.turnsLeft <= 0) returned.push(dd);
-            });
-            if (returned.length > 0) {
-                returned.forEach(dd => {
-                    GS.dice.push(dd.die);
-                    log('👄 A die returns from the void!', 'info');
-                });
-                GS.playerDebuffs.devouredDice = GS.playerDebuffs.devouredDice.filter(dd => dd.turnsLeft > 0);
-            }
-        }
+        // NOTE: Locked dice, dice curse, devoured dice, and sealed slot countdowns
+        // are all processed at the START of execute() so they persist through
+        // one full allocation phase before expiring.
 
         // ── RESET PER-TURN CONSUMABLE FLAGS ──
         GS.consumableUsedThisTurn = false;

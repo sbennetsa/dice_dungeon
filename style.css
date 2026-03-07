@@ -3763,6 +3763,25 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 .order-codex-corner--bl { bottom: 12px; left: 14px; transform: scaleY(-1); }
 .order-codex-corner--br { bottom: 12px; right: 14px; transform: scale(-1); }
 
+.order-codex-header-img {
+  display: block;
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto 18px;
+  border-radius: 6px;
+  opacity: 0.85;
+}
+
+.order-codex-badge-footer {
+  margin-top: 24px;
+  text-align: center;
+}
+.order-codex-badge-footer img {
+  width: 100px;
+  height: auto;
+  opacity: 0.6;
+}
+
 .order-codex-page-header { text-align: center; margin-bottom: 18px; }
 
 .order-codex-page-header h2 {

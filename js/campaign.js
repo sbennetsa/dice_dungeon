@@ -197,26 +197,36 @@ export const ORDER_CODEX = [
     {
         key: 'warpack',
         name: 'The Warpack',
+        headerImg: 'assets/orders/headers/WolfPack.webp',
+        badgeImg: 'assets/orders/badges/WolfPackBadge.webp',
         lore: 'The Warpack does not recruit. It recognises. Those who fight with numbers, who trust the swarm over the singular blow, find themselves running alongside outriders they never met. The Warpack respects aggression not as chaos, but as method. They count their own alongside yours.',
     },
     {
         key: 'gilded',
         name: 'The Gilded Hand',
+        headerImg: 'assets/orders/headers/GuildedHand.webp',
+        badgeImg: 'assets/orders/badges/GuildedHandBadge.webp',
         lore: 'The Gilded Hand sees everything as leverage. Gold is not wealth to them — it is language. Those who speak it fluently, who understand that wealth applied in the right moment is indistinguishable from power, earn their notice. Their favour is never announced. It simply arrives.',
     },
     {
         key: 'runeforged',
         name: 'The Runeforged',
+        headerImg: 'assets/orders/headers/RuneForged.webp',
+        badgeImg: 'assets/orders/badges/RuneForgedBadge.webp',
         lore: 'The Runeforged believe that a die is a tool, and a tool improperly understood is waste. They study those who treat their dice as instruments rather than chance. Precision, enhancement, mastery over the face — these are their values. They communicate in diagrams.',
     },
     {
         key: 'brood',
         name: 'The Brood',
+        headerImg: 'assets/orders/headers/Brood.webp',
+        badgeImg: 'assets/orders/badges/BroodBadge.webp',
         lore: 'The Brood does not explain itself. It watches those who use decay as a strategy, who understand that rot is patient and patient things win. Their gifts are indistinguishable from warnings. If you survive what they send, they consider the matter settled.',
     },
     {
         key: 'ironward',
         name: 'The Ironward',
+        headerImg: 'assets/orders/headers/Ironward.webp',
+        badgeImg: 'assets/orders/badges/IronwardBadge.webp',
         lore: 'The Ironward respects one thing above all others: the willingness to be hit and to stand again. They are not healers. They are witnesses. Those who invest in their own survival, who treat their HP as a resource worth protecting, earn the Ironward\'s quiet attention.',
     },
 ];

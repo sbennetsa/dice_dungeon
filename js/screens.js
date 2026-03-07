@@ -5079,6 +5079,7 @@ const CampaignScreen = {
                 <div class="order-codex-corner order-codex-corner--tr">❧</div>
                 <div class="order-codex-corner order-codex-corner--bl">❧</div>
                 <div class="order-codex-corner order-codex-corner--br">❧</div>
+                ${entry.headerImg ? `<img class="order-codex-header-img" src="${entry.headerImg}" alt="${entry.name}">` : ''}
                 <div class="order-codex-page-header">
                     <h2>${entry.name}</h2>
                     <hr class="order-codex-rule">
@@ -5088,6 +5089,7 @@ const CampaignScreen = {
                 <div class="order-codex-tiers-heading">Tier Benefits</div>
                 <div class="order-codex-tiers">${tierRows}</div>
                 ${favorSection}
+                ${entry.badgeImg ? `<div class="order-codex-badge-footer"><img src="${entry.badgeImg}" alt="${entry.name} badge"></div>` : ''}
             </div>`;
     },
 };

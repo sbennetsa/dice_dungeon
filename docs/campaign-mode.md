@@ -116,43 +116,60 @@ Each node in `SKILL_TREE` carries an `orderFavor` property. Weights sum to 1.0 p
 
 ## Favor Simulation & Tier Thresholds
 
+### Difficulty Scaling Impact on Favor
+
+Favor uses **scaled baseThreat** — the same difficulty multipliers that make Casual enemies easier also reduce the favor earned per kill. The sublinear threat formula (`P=0.55`) compresses the effect: Act 1 ≈ 0.92×, Act 2 ≈ 0.81×, Act 3 ≈ 0.73× threat vs Standard.
+
+| Loop | Difficulty | Threat/Loop | vs Standard |
+|------|-----------|-------------|-------------|
+| 1 | Casual | ~895 | 76% |
+| 2 | Standard | ~1,177 | 100% |
+| 3 | Heroic | ~1,428 | 121% |
+
+Tier thresholds are calibrated to these scaled totals so campaign pacing is preserved.
+
 ### Simulation Methodology
 
-Using the standard floor layout (8 kills per loop): floors 1, 3 regular (Act 1, ~16.5 threat each); floor 5 Bone King (59); floor 8 regular (Act 2, ~62); floor 10 Crimson Wyrm (183); floors 12, 13 regular (Act 3, ~210 each); floor 15 Void Lord (420). **Total threat per loop: ~1,177.**
+Using the standard floor layout (8 kills per loop) with **difficulty-scaled** threat values:
+- **Loop 1 (Casual):** floors 1, 3 regular (Act 1, ~15.2 each); floor 5 Bone King (~54); floor 8 regular (Act 2, ~50); floor 10 Crimson Wyrm (~148); floors 12, 13 regular (Act 3, ~153 each); floor 15 Void Lord (~307). **Total: ~895.**
+- **Loop 2 (Standard):** unscaled threat. Total: ~1,177.
+- **Loop 3 (Heroic):** threat scaled up. Total: ~1,428.
 
 Nodes are assumed to unlock progressively across 6 levels evenly spaced through the 15 floors. Loop 2 and 3 start with all prior-loop nodes already active.
 
 ### Warpack Example (most illustrative — focused player)
 
+**Loop 1 (Casual, scaled threat):**
+
 | Kill | Floor | Threat | Weight | Warpack Favor | Cumulative |
 |------|-------|--------|--------|---------------|------------|
-| 1 | 1 | 16.5 | 0.5 | 8 | 8 |
-| 2 | 3 | 16.5 | 1.5 | 25 | 33 |
-| 3 | 5 Bone King | 59 | 2.5 | 148 | 181 |
-| 4 | 8 | 62 | 3.1 | 192 | 373 |
-| 5 | 10 Crimson Wyrm | 183 | 4.1 | 750 | 1,123 |
-| 6 | 12 | 210 | 5.1 | 1,071 | 2,194 |
-| 7 | 13 | 210 | 5.1 | 1,071 | 3,265 ← Tier 1 crossed |
-| 8 | 15 Void Lord | 420 | 5.1 | 2,142 | 5,407 |
+| 1 | 1 | 15.2 | 0.5 | 8 | 8 |
+| 2 | 3 | 15.2 | 1.5 | 23 | 31 |
+| 3 | 5 Bone King | 54 | 2.5 | 135 | 166 |
+| 4 | 8 | 50 | 3.1 | 155 | 321 |
+| 5 | 10 Crimson Wyrm | 148 | 4.1 | 607 | 928 |
+| 6 | 12 | 153 | 5.1 | 780 | 1,708 |
+| 7 | 13 | 153 | 5.1 | 780 | 2,488 ← Tier 1 crossed |
+| 8 | 15 Void Lord | 307 | 5.1 | 1,566 | 4,054 |
 
-Loop 2 (weight ~5.5 throughout): **+6,500** → cumulative ~11,900. Tier 2 crossed mid-loop 2.
-Loop 3 (weight ~5.8): **+6,800** → cumulative ~18,700. Tier 3 crossed mid-loop 3.
+Loop 2 (Standard, weight ~5.5 throughout): **+6,500** → cumulative ~10,554. Tier 2 crossed mid-loop 2.
+Loop 3 (Heroic, weight ~5.8): **+8,300** → cumulative ~18,854. Tier 3 crossed mid-loop 3.
 
-### Proposed Tier Thresholds (per Order)
+### Tier Thresholds (per Order)
 
-Derived from expected favor accumulation for a focused player: Tier 1 triggers at loop 1 end, Tier 2 during loop 2, Tier 3 during loop 3.
+Derived from expected favor accumulation with difficulty-scaled threat. Tier 1 reduced ~27% vs pre-scaling values (matching Casual threat reduction). Tier 2/3 reduced less (~15-17%) — Loops 2-3 use Standard/Heroic scaling which partially compensates.
 
-| Order | Max Weight | Loop 1 Total | Loop 2 Total | Loop 3 Total | **Tier 1** | **Tier 2** | **Tier 3** |
-|-------|-----------|-------------|-------------|-------------|-----------|-----------|-----------|
-| The Warpack | 5.1 | 5,400 | 11,900 | 18,700 | **3,000** | **9,000** | **16,000** |
-| The Gilded Hand | 4.7 | 4,900 | 10,800 | 17,000 | **3,000** | **8,500** | **14,500** |
-| The Runeforged | 5.1 | 5,000 | 11,100 | 17,500 | **3,000** | **8,500** | **15,000** |
-| The Ironward | 5.1 | 5,400 | 11,800 | 18,500 | **3,000** | **9,000** | **16,000** |
-| The Brood | 3.4 | 3,300 | 7,500 | 12,400 | **2,000** | **6,000** | **10,500** |
+| Order | Max Weight | Loop 1 Total | Loop 2 Cumul. | Loop 3 Cumul. | **Tier 1** | **Tier 2** | **Tier 3** |
+|-------|-----------|-------------|--------------|--------------|-----------|-----------|-----------|
+| The Warpack | 5.1 | 4,054 | 10,554 | 18,854 | **2,200** | **7,500** | **15,000** |
+| The Gilded Hand | 4.7 | 3,675 | 9,575 | 17,075 | **2,200** | **7,000** | **13,500** |
+| The Runeforged | 5.1 | 3,750 | 9,850 | 17,550 | **2,200** | **7,000** | **14,000** |
+| The Ironward | 5.1 | 4,054 | 10,454 | 18,554 | **2,200** | **7,500** | **15,000** |
+| The Brood | 3.4 | 2,475 | 6,975 | 13,475 | **1,500** | **5,000** | **10,000** |
 
 *Brood has lower thresholds to compensate for its specialized (lower max weight) node profile, so Brood players hit tiers at similar campaign milestones to other Orders.*
 
-**Cross-order synergy** activates when a player has reached **Tier 2 in both Orders** simultaneously. A mixed player accumulates ~65% of a focused player's rate per Order — cross-order synergy is achievable in a 3-loop campaign but requires intentional node investment across two faces.
+**Cross-order synergy** activates when **both Orders have reached Tier 2** simultaneously. A mixed player accumulates ~65% of a focused player's rate per Order — cross-order synergy is achievable in a 3-loop campaign but requires intentional node investment across two faces.
 
 These values are starting estimates — calibrate against playtesting data.
 

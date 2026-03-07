@@ -17,12 +17,16 @@ const LOOP_DIFFICULTIES = ['casual', 'standard', 'heroic'];
 
 // ── Tier thresholds (per Order) ───────────────────────────────
 // Index 0 = Tier 1, 1 = Tier 2, 2 = Tier 3.
+// Thresholds calibrated for difficulty-scaled baseThreat:
+// Loop 1 (Casual) generates ~76% of Standard threat, Loop 3 (Heroic) ~121%.
+// Tier 1 reduced ~27% to ensure crossing by Loop 1 end.
+// Tier 2/3 reduced ~15-17% — Loops 2-3 partially/fully compensate via higher scaling.
 const ORDER_TIERS = {
-    warpack:    [3000,  9000, 16000],
-    gilded:     [3000,  8500, 14500],
-    runeforged: [3000,  8500, 15000],
-    brood:      [2000,  6000, 10500],
-    ironward:   [3000,  9000, 16000],
+    warpack:    [2200,  7500, 15000],
+    gilded:     [2200,  7000, 13500],
+    runeforged: [2200,  7000, 14000],
+    brood:      [1500,  5000, 10000],
+    ironward:   [2200,  7500, 15000],
 };
 
 // ── Tier node enhancements ────────────────────────────────────

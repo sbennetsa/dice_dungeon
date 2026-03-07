@@ -146,10 +146,12 @@ export function scoreFloor(floor) {
     const isBoss = floor.type === 'boss';
     const bossFloor = isBoss ? floor.floor : null;
 
-    // Base enemy threat from bestiary profile (per-act)
+    // Base enemy threat: prefer pre-computed baseThreat on the enemy
+    // (reflects difficulty scaling), fall back to unscaled profile
     const act = Math.ceil(floor.floor / 5);
     const profile = getEnemyProfile(enemy.name, bossFloor, act);
-    const enemyThreat = profile ? profile.baseThreat : 0;
+    const profileThreat = profile ? profile.baseThreat : 0;
+    const enemyThreat = enemy.baseThreat ?? profileThreat;
 
     // Contextual environment threat (per-enemy)
     const envThreat = scoreEnvironmentThreat(floor.environment, enemy, bossFloor);
@@ -163,17 +165,17 @@ export function scoreFloor(floor) {
     const baseThreat = enemyThreat + envThreat + anomalyThreat;
 
     // Elite threat: per-enemy per-act affinity for each modifier.
-    // Affinities are per-act dicts for regular enemies, flat for bosses.
-    // Casual mode may have only a visible modifier (no hidden).
+    // Scale proportionally when difficulty scaling has changed baseThreat.
+    const threatRatio = profileThreat > 0 ? enemyThreat / profileThreat : 1.0;
     let eliteThreat = 0;
     if (floor.eliteOffered && floor.eliteModifiers) {
-        const visibleThreat = getEliteThreatForEnemy(
+        const visibleRaw = getEliteThreatForEnemy(
             floor.eliteModifiers.visible.id, enemy.name, bossFloor, act
         );
-        const hiddenThreat = floor.eliteModifiers.hidden
+        const hiddenRaw = floor.eliteModifiers.hidden
             ? getEliteThreatForEnemy(floor.eliteModifiers.hidden.id, enemy.name, bossFloor, act)
             : 0;
-        eliteThreat = visibleThreat + hiddenThreat;
+        eliteThreat = Math.round((visibleRaw + hiddenRaw) * threatRatio);
     }
 
     const totalThreat = baseThreat + eliteThreat;
@@ -203,7 +205,8 @@ export function scoreFloorDetailed(floor) {
 
     const act = Math.ceil(floor.floor / 5);
     const profile = getEnemyProfile(enemy.name, bossFloor, act);
-    const enemyThreat = profile ? profile.baseThreat : 0;
+    const profileThreat = profile ? profile.baseThreat : 0;
+    const enemyThreat = enemy.baseThreat ?? profileThreat;
     const envThreat = scoreEnvironmentThreat(floor.environment, enemy, bossFloor);
     const anomalyMult2 = floor.anomaly ? (ANOMALY_THREAT_MULTS[floor.anomaly.id] ?? 1.0) : 1.0;
     const anomalyThreat = Math.round(enemyThreat * (anomalyMult2 - 1));

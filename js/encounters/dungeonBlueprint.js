@@ -259,8 +259,8 @@ const ENVIRONMENT_CHANCES = [0.30, 0.50, 0.70]; // by act (0-indexed)
  * @param {object} rng
  * @returns {object|null}
  */
-function selectEnvironmentSeeded(floor, act, enemy, rng) {
-    const chance = ENVIRONMENT_CHANCES[Math.min(act - 1, 2)];
+function selectEnvironmentSeeded(floor, act, enemy, rng, chanceOverride = null) {
+    const chance = chanceOverride ?? ENVIRONMENT_CHANCES[Math.min(act - 1, 2)];
     if (rng.random() > chance) return null;
 
     const available = Object.values(ENVIRONMENTS).filter(e => e.act <= act);
@@ -283,12 +283,14 @@ function selectEnvironmentSeeded(floor, act, enemy, rng) {
  * @param {object} rng
  * @returns {object|null}
  */
-function selectEnvironmentForBudget(floor, act, enemy, currentThreat, floorTarget, rng) {
+function selectEnvironmentForBudget(floor, act, enemy, currentThreat, floorTarget, rng, chanceOverride = null) {
     const gap = floorTarget - currentThreat;
     const baseChance = ENVIRONMENT_CHANCES[Math.min(act - 1, 2)];
 
-    // Adjust spawn chance: under budget → more likely, over budget → less likely
-    const adjustedChance = Math.max(0.10, Math.min(0.90, baseChance + gap * 0.008));
+    // When overridden (casual), use flat chance without budget adjustment
+    const adjustedChance = chanceOverride != null
+        ? chanceOverride
+        : Math.max(0.10, Math.min(0.90, baseChance + gap * 0.008));
     if (rng.random() > adjustedChance) return null;
 
     const available = Object.values(ENVIRONMENTS).filter(e => e.act <= act);
@@ -425,6 +427,10 @@ function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
     }
 
     // 4. Select environment
+    // Casual: 10% flat chance (very rare), never on boss floors
+    const casualEnv = options.difficulty === 'casual';
+    const envChanceOverride = casualEnv ? 0.10 : null;
+
     let environment;
     if (hasBudget) {
         // Budget-aware: compute current threat so far, steer env choice
@@ -433,10 +439,13 @@ function generateCombatFloor(floor, act, isBoss, rng, options = {}) {
         const anomalyMult = anomaly ? (ANOMALY_THREAT_MULTS[anomaly.id] ?? 1.0) : 1.0;
         const anomalyThreat = Math.round(baseThreat * (anomalyMult - 1));
         const currentThreat = baseThreat + anomalyThreat;
-        environment = selectEnvironmentForBudget(floor, act, enemy, currentThreat, options.floorTarget, rng);
+        environment = selectEnvironmentForBudget(floor, act, enemy, currentThreat, options.floorTarget, rng, envChanceOverride);
     } else {
-        environment = selectEnvironmentSeeded(floor, act, enemy, rng);
+        environment = selectEnvironmentSeeded(floor, act, enemy, rng, envChanceOverride);
     }
+
+    // Casual: never on boss floors (selection still ran to preserve seed stability)
+    if (casualEnv && isBoss) environment = null;
 
     // 5. Pre-select elite modifiers.
     // Casual (singleModifier) shows only the visible modifier — no hidden.
@@ -526,6 +535,7 @@ function generateAct(actNum, baseFloor, rng, options = {}) {
                 floorTarget,
                 eliteRate:      options.eliteRate,
                 singleModifier: options.singleModifier,
+                difficulty:     options.difficulty,
             });
 
             // Track actual threat consumed
@@ -631,6 +641,7 @@ function _generateBlueprint(seed, schedules, difficulty, options) {
             actBudget:           actBudgets ? actBudgets[0] : undefined,
             eliteRate,
             singleModifier,
+            difficulty,
         }),
         generateAct(2, 6,  rng, {
             forcedScheduleIndex: schedules[1],
@@ -639,6 +650,7 @@ function _generateBlueprint(seed, schedules, difficulty, options) {
             actBudget:           actBudgets ? actBudgets[1] : undefined,
             eliteRate,
             singleModifier,
+            difficulty,
         }),
         generateAct(3, 11, rng, {
             forcedScheduleIndex: schedules[2],
@@ -647,6 +659,7 @@ function _generateBlueprint(seed, schedules, difficulty, options) {
             actBudget:           actBudgets ? actBudgets[2] : undefined,
             eliteRate,
             singleModifier,
+            difficulty,
         }),
     ];
 

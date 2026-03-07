@@ -512,6 +512,38 @@ Shown at loop end after `Campaign.endLoop()` flushes favor. If any tier threshol
 
 ---
 
+## NCE Design Intent — Flavour, Not Run-Defining
+
+**Date:** 2026-03-07
+**Status:** Decided
+
+### Decision
+NCEs (Non-Combat Encounters) are random corridor interrupts that fire between floors without advancing the floor counter. They are flavour events with minor mechanical rewards — not run-defining. Dark bargains, large trade-offs, and major player-advantage events belong in the scheduled floor event system.
+
+### Design rules
+- **Structure**: every encounter offers a safe minor reward / gamble for more / walk away. No guaranteed punishments — risk is always probabilistic.
+- **Act-scaling**: `applyEncounterResult` scales positive deltaGold `[×1, ×1.5, ×2.5]` and positive deltaHP `[×1, ×1.2, ×1.5]` by act. Negative outcomes (damage, gold costs) are never scaled. XP is not scaled — the XP threshold grows proportionally so flat values stay relevant.
+- **XP target**: 2–3 NCEs contributing XP over a run should add roughly one level if the player takes XP options. Base values are in the 20–30 XP range for primary XP choices.
+
+### Why Dark Bargain was redesigned
+The original Dark Bargain offered trades at the scale of half the player's gold or 25 HP — run-defining swings more appropriate for floor events. It was redesigned to small-stakes trades (−10 HP, −25g, luck gamble) while keeping the atmospheric theme. The body text was updated to acknowledge the modest scale: "The exchange is modest. The reasons remain opaque."
+
+### Integration point
+`Game.nextFloor()` is the single integration point. It calls `checkForNCE(resolvedFloorType)` before `_doAdvance()`. If an NCE fires, the floor counter does not advance until the player presses Continue. All callers (Rewards, Shop, Events) already route through `Game.nextFloor()`.
+
+### Fire rates
+| Floor type | Chance |
+|---|---|
+| After boss | 50% |
+| After combat | 30% |
+| After event | 25% |
+| After shop | 10% |
+
+### See also
+`docs/nce-balance-audit.md` — full economy analysis and per-encounter change rationale.
+
+---
+
 ## Casual Elite Constraints
 
 **Date:** 2026-03-05
@@ -524,3 +556,51 @@ Casual difficulty: max 10% elite offer rate; elites have exactly 1 modifier (the
 - Casual players should not face hidden surprises in an already optional encounter type.
 - Brittle as sole modifier on Casual is player-favourable (enemy weaker + gold/XP multiplier). Acceptable because: (a) elites are rare and optional, (b) the player has complete information upfront, (c) it's a small upside in an easy mode.
 - `selectEliteModifiersSeeded` always consumes the same RNG calls regardless of `singleModifier` to preserve seed stability (same seed + same difficulty = same dungeon).
+
+---
+
+## Artifact Removals — Hourglass and Burnproof Cloak
+
+**Date:** 2026-03-07
+**Status:** Decided
+
+### Decision
+Hourglass and Burnproof Cloak were removed from the artifact pool entirely.
+
+### Rationale — Hourglass
+A free turn before the enemy acts every combat with no downside, no cost, and no build condition. Every build benefits equally — it is a flat upgrade masquerading as a meaningful choice. It has no place in the 'interesting choices' category without a balancing constraint. Rather than rework it, the slot is better left open for a future artifact with genuine trade-offs.
+
+### Rationale — Burnproof Cloak
+Two mechanically unrelated effects (burn immunity + poison damage reduction) with no thematic bridge. The defensive coverage it provided is adequately served by other problem-solver artifacts (Soul Mirror, Iron Will).
+
+---
+
+## Frost Brand + Frozen Heart Merger
+
+**Date:** 2026-03-07
+**Status:** Decided
+
+### Decision
+Frozen Heart was removed as a standalone artifact. Its freeze effect was merged into Frost Brand, which now reads: "Block 8+: apply 2 chill. At 5 chill stacks: freeze the enemy (skip attack), chill resets."
+
+### Rationale
+Frost Brand and Frozen Heart had a hard dependency — neither was useful without the other, yet both occupied artifact slots. Two artifact slots for a single control effect (freeze) is poor design. Merging them preserves the full control chain while freeing a slot.
+
+### Implementation
+The freeze trigger lives in `applyStatus('chill', ...)` in `combat.js`. When `frostBrand` is held and `GS.enemyStatus.chill >= 5`, freeze fires and chill resets to 0. Campaign Ironward T1 sets `GS.passives._frostBrandThresh = 6` (block threshold to apply chill) and `GS.passives._frozenHeartTurns = 2` (freeze duration). The passive name `_frozenHeartTurns` is retained for clarity.
+
+---
+
+## Merchant's Crown — Gold Spent vs. Gold Held
+
+**Date:** 2026-03-07
+**Status:** Decided
+
+### Decision
+Merchant's Crown scales on cumulative gold **spent** this run (`GS.goldSpent`), not current gold held. Golden Aegis retains gold-held scaling. All intentional player gold spends route through `spendGold(amount)` in `state.js`, which decrements `GS.gold` and increments `GS.goldSpent`.
+
+### Rationale
+Both artifacts previously used identical design (hold gold → gain stat). Spending-based scaling differentiates them: Merchant's Crown rewards an active economy (buy items, use consumables, pay event costs), while Golden Aegis rewards conservation. The two now pull in opposite directions, creating tension when held together.
+
+### Rule
+Any code that deducts gold intentionally (shop, events, artifact costs, skill purchases) must use `spendGold(amount)`. Enemy steal effects and other non-player-initiated gold loss may use direct mutation.

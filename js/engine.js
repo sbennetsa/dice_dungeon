@@ -1004,7 +1004,7 @@ export function updateSlotTotals() {
 
     const atkBonuses = [];
     const db = GS.buffs.damageBoost; atkBonus += db; if (db > 0) atkBonuses.push({ amount: db, label: 'damage boost' });
-    const goldScale = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor(GS.gold / a.value), 0);
+    const goldScale = GS.artifacts.filter(a => a.effect === 'goldScaleDmg').reduce((s, a) => s + Math.floor((GS.goldSpent || 0) / a.value), 0);
     atkBonus += goldScale; if (goldScale > 0) atkBonuses.push({ amount: goldScale, label: 'gold scale' });
     const goldDmg = GS.passives.goldDmg ? Math.floor(GS.gold / GS.passives.goldDmg) : 0;
     atkBonus += goldDmg; if (goldDmg > 0) atkBonuses.push({ amount: goldDmg, label: 'gold dmg' });

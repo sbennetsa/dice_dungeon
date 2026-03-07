@@ -594,7 +594,14 @@ export const Campaign = {
         if (tier.runeforged >= 1) {
             if (has('sharpeningStone'))  gs.passives._sharpeningMult  = 0.75; // +50%→+75%
             if (has('precisionLens'))    gs.passives._precisionRolls  = 3;    // 2→3
-            if (has('colossusBelt'))     gs.passives._colossusThresh  = 7;    // 9→7
+            if (has('colossussBelt')) {                                        // +3→+5 bonus per face
+                const beltArt = gs.artifacts.find(a => a.effect === 'colossussBelt');
+                if (beltArt) {
+                    const extra = 2;
+                    gs.dice.forEach(d => { if (d.beltApplied) { d.faceValues = d.faceValues.map(v => v + extra); d.min += extra; d.max += extra; } });
+                    beltArt.value = 5;
+                }
+            }
             if (has('glassCannon'))      gs.passives._glassCannonFaces = 4;   // +3→+4
             if (has('titansDie'))        gs.passives._titansDieMin    = 14;   // min 14
             if (has('echoChamber'))      gs.passives._echoChambMult   = 2.5;  // ×2→×2.5
@@ -615,14 +622,13 @@ export const Campaign = {
         if (tier.ironward >= 1) {
             if (has('overflowChalice'))  gs.passives._chaliceBlockHeal   = 0.15; // +15% block/turn
             if (has('bloodstone'))       gs.passives._bloodstonePct      = 0.40; // 30%→40%
-            if (has('thornMail'))        gs.passives._thornMailDmg       = 5;    // 3→5
-            if (has('frostBrand'))       gs.passives._frostBrandThresh   = 7;    // 10→7 block
+            if (has('thornMail'))        gs.passives._thornMailPct       = 0.25; // 15%→25% of guard value
+            if (has('frostBrand'))       gs.passives._frostBrandThresh   = 6;    // 8→6 block; freeze 1→2 turns via _frozenHeartTurns
+            if (has('frostBrand'))       gs.passives._frozenHeartTurns   = 2;    // freeze duration 1→2 turns
             if (has('soulMirror'))       gs.passives._soulMirrorReduce   = 0.65; // 50%→65%
-            if (has('eternalPact'))      gs.passives._eternalPactCount   = 2;    // 1→2 uses
+            if (has('eternalPact'))      gs.passives._eternalPactRevivePct = 0.50; // 25%→50% HP on revive
             if (has('anchored'))         gs.passives._anchoredBlockBonus = 1;    // +1 block/turn
             if (has('ironWill'))         gs.passives._ironWillRegen      = 1;    // +1 regen
-            if (has('burnproofCloak'))   gs.passives._burnproofReduce    = 0.75; // 50%→75%
-            if (has('frozenHeart'))      gs.passives._frozenHeartTurns   = 2;    // 1→2 freeze turns
         }
 
         // ── Mixed: Parasite (Gilded + Ironward) ───────────────

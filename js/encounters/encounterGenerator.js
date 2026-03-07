@@ -70,8 +70,10 @@ function _generateNCE(floor) {
  * @returns {object|null} NCE encounter object, or null if nothing fires
  */
 export function checkForNCE(resolvedFloorType) {
-    // NCE system disabled — encounters need rework before re-enabling
-    return null;
+    const chances = { boss: 0.5, combat: 0.3, event: 0.25, shop: 0.1 };
+    const chance = chances[resolvedFloorType] ?? 0;
+    if (Math.random() >= chance) return null;
+    return _generateNCE(GS.floor);
 }
 
 // ────────────────────────────────────────────────────────────

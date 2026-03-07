@@ -644,32 +644,30 @@ export const ARTIFACT_POOL = [
     // ── BUILD ENABLERS: TALL ──
     { name: 'Colossus Belt',   icon: '🏋️', desc: 'Dice with max face ≥9 gain +3 to all face values (applied immediately)', effect: 'colossussBelt', value: 3, category: 'enabler', onAcquire: true },
     { name: 'Precision Lens',  icon: '🔍', desc: 'All dice roll twice and keep the higher result',        effect: 'precisionLens', value: 0,    category: 'enabler' },
-    { name: 'Sharpening Stone',icon: '⚔️', desc: 'All dice values gain +50% (round up) after runes',     effect: 'sharpeningStone',value: 0.5, category: 'enabler' },
+    { name: 'Sharpening Stone',icon: '⚔️', desc: 'If you have exactly 1 die in the strike zone, its damage is increased by 50% (round up)', effect: 'sharpeningStone', value: 0.5, category: 'enabler' },
 
     // ── BUILD ENABLERS: POISON ──
     { name: 'Venom Gland',     icon: '🧪', desc: 'All poison applied from any source is doubled',         effect: 'venomGland',    value: 2,    category: 'enabler' },
     { name: 'Festering Wound', icon: '🩸', desc: 'Enemy takes +1 damage per poison stack on them',        effect: 'festeringWound',value: 1,    category: 'enabler' },
-    { name: 'Toxic Blood',     icon: '☠️', desc: 'When you take damage, apply 2 poison to the attacker', effect: 'toxicBlood',    value: 2,    category: 'enabler' },
+    { name: 'Toxic Blood',     icon: '☠️', desc: 'When the enemy attacks you (even if fully blocked), apply 2 poison to them', effect: 'toxicBlood', value: 2, category: 'enabler' },
 
     // ── BUILD ENABLERS: GOLD ──
-    { name: "Merchant's Crown",icon: '💎', desc: '+1 attack damage per 20 gold held',                     effect: 'goldScaleDmg',  value: 20,   category: 'enabler' },
+    { name: "Merchant's Crown",icon: '💎', desc: '+1 attack damage per 20 gold spent this run',           effect: 'goldScaleDmg',  value: 20,   category: 'enabler' },
     { name: 'Golden Aegis',    icon: '🛡️', desc: '+1 block per 25 gold held',                             effect: 'goldenAegis',   value: 25,   category: 'enabler' },
-    { name: 'Midas Die',       icon: '🎲', desc: 'At the start of each combat, gain gold equal to a d6 roll.',                                 effect: 'midasDie', value: 0, category: 'enabler' },
+    { name: 'Midas Die',       icon: '🎲', desc: 'Each combat turn, gain gold equal to the turn number (1g turn 1, 2g turn 2…). Builds as the fight goes on.', effect: 'midasDie', value: 0, category: 'enabler' },
     { name: 'Tax Collector',   icon: '💰', desc: 'Gain 7 gold after every combat',                        effect: 'goldPerKill',   value: 7,    category: 'enabler' },
-    { name: 'Gilded Gauntlet', icon: '✨', desc: 'Start of combat: spend 50 gold → deal 15 damage',       effect: 'goldToDmg',     value: 1,    category: 'enabler' },
+    { name: 'Gilded Gauntlet', icon: '✨', desc: 'At combat start, spend 25 gold → deal 10 damage. Repeats as long as you have 25+ gold.', effect: 'goldToDmg', value: 1, category: 'enabler' },
 
     // ── PROBLEM SOLVERS ──
     { name: 'Anchored Slots',  icon: '⚓', desc: 'Your slots cannot be sealed by enemy abilities',        effect: 'anchoredSlots', value: 0,    category: 'solver' },
     { name: 'Soul Mirror',     icon: '👻', desc: 'Unblockable damage is reduced by 50%',                  effect: 'soulMirror',    value: 0.5,  category: 'solver' },
     { name: 'Iron Will',       icon: '🧠', desc: 'Your dice values and face counts cannot be reduced by enemy effects', effect: 'ironWill', value: 0, category: 'solver' },
-    { name: 'Burnproof Cloak', icon: '🧥', desc: 'Immune to burn; poison damage to you ticks for half (round down)', effect: 'burnproofCloak', value: 0, category: 'solver' },
-    { name: 'Thorn Mail',      icon: '🌿', desc: 'When you take damage, deal 3 back to the attacker',     effect: 'thornMail',     value: 3,    category: 'solver' },
-    { name: 'Overflow Chalice',icon: '🏆', desc: 'Overkill damage (beyond enemy remaining HP) heals you', effect: 'overflowChalice',value: 0,   category: 'solver' },
+    { name: 'Thorn Mail',      icon: '🌿', desc: 'When attacked, reflect 15% of your total guard value back as damage (scales with your block)', effect: 'thornMail', value: 0.15, category: 'solver' },
+    { name: 'Overflow Chalice',icon: '🏆', desc: 'On kill: heal 5 HP plus any overkill damage dealt', effect: 'overflowChalice', value: 5, category: 'solver' },
 
     // ── STATUS EFFECT ARTIFACTS ──
-    { name: 'Frost Brand',     icon: '❄️', desc: 'When you block 10+ damage in a turn, apply 3 chill to the enemy', effect: 'frostBrand',   value: 3, category: 'status' },
-    { name: 'Frozen Heart',    icon: '🧊', desc: 'At 6+ chill stacks, enemy is frozen (skip next attack); chill resets to 0', effect: 'frozenHeart', value: 6, category: 'status' },
-    { name: "Hunter's Mark",   icon: '🎯', desc: 'First hit each combat applies 5 mark for 2 turns (+5 damage from all sources)', effect: 'huntersMark', value: 5, category: 'status' },
+    { name: 'Frost Brand',     icon: '❄️', desc: 'Block 8+ damage: apply 2 chill. At 5 chill stacks: freeze enemy (skip attack), chill resets.', effect: 'frostBrand', value: 2, category: 'status' },
+    { name: "Hunter's Mark",   icon: '🎯', desc: 'Each turn you deal damage, apply 3 mark for 1 turn (+3 damage on all sources)', effect: 'huntersMark', value: 3, category: 'status' },
     { name: "Witch's Hex",     icon: '💔', desc: 'When you apply poison, also apply weaken for 1 turn (enemy deals 25% less)', effect: 'witchsHex', value: 1, category: 'status' },
     { name: 'Ember Crown',     icon: '🔥', desc: 'When you deal 15+ damage in a turn, apply 3 burn for 3 turns', effect: 'emberCrown', value: 3, category: 'status' },
     { name: 'Thunder Strike',  icon: '⚡', desc: 'When you deal 25%+ of enemy max HP in a turn, stun the enemy (cannot trigger 2 turns in a row)', effect: 'thunderStrike', value: 0.25, category: 'status' },
@@ -677,8 +675,7 @@ export const ARTIFACT_POOL = [
     // ── INTERESTING CHOICES ──
     { name: "Berserker's Mask",icon: '😤', desc: '+50% attack damage but you cannot allocate more than 1 die to defense', effect: 'berserkersMask', value: 1.5, category: 'choice' },
     { name: 'Glass Cannon',    icon: '💥', desc: 'All dice gain +3 to every face value permanently; max HP is halved (applied immediately)', effect: 'glassCannon', value: 3, category: 'choice', onAcquire: true },
-    { name: 'Hourglass',       icon: '⏳', desc: 'You get a free turn at the start of every combat before the enemy acts', effect: 'hourglass', value: 0, category: 'choice' },
-    { name: 'Parasite',        icon: '🦠', desc: 'Whenever you kill an enemy: +1 max HP and +1 gold per combat permanently', effect: 'parasite', value: 0, category: 'choice' },
+    { name: 'Parasite',        icon: '🦠', desc: 'Whenever you kill an enemy: gain +1 max HP and +2 gold immediately', effect: 'parasite', value: 0, category: 'choice' },
     { name: 'Blood Pact',      icon: '💀', desc: 'At the start of each turn, lose 3 HP. All your damage is increased by 30%', effect: 'bloodPact', value: 0.3, category: 'choice' },
     { name: "Gambler's Coin",  icon: '🪙', desc: 'At the start of each combat: Heads = all dice +2 this fight, Tails = all dice -1 this fight', effect: 'gamblersCoin', value: 0, category: 'choice' },
     { name: 'Battle Fury',     icon: '🔥', desc: 'Each turn you survive, gain 1 Fury. At 3 Fury: your highest attack die is ×2 this turn, then Fury resets', effect: 'battleFury', value: 3, category: 'choice' },
@@ -726,7 +723,7 @@ export const LEGENDARY_ARTIFACT_POOL = [
     {
         name: 'Eternal Pact',
         icon: '💀',
-        desc: 'Once per run, survive a lethal hit with 1 HP instead of dying.',
+        desc: 'Once per run, survive a lethal hit and revive with 25% max HP instead of dying.',
         effect: 'eternalPact',
         value: 0,
         category: 'solver',

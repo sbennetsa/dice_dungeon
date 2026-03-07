@@ -1,13 +1,12 @@
-# Dice Dungeon — Enemy Design Spec v2.1
+# Dice Dungeon — Enemy Specification
 
-> **Purpose:** Replaces the fixed-ATK enemy system with dice-based enemies. Enemies roll dice that fuel their abilities. Player sees intent + roll before assigning their own dice.
-> **Base build:** `dice-dungeon-0.0.1.html`
+> Enemies roll dice that fuel their abilities. Player sees intent + roll before assigning their own dice.
 
 ---
 
 ## CORE CONCEPT
 
-Enemies are no longer stat blocks with fixed ATK. They have their own dice pools, abilities, and intent patterns. Each turn:
+Enemies are not stat blocks with fixed ATK. They have their own dice pools, abilities, and intent patterns. Each turn:
 
 1. **Enemy declares intent** — shows which ability it will use next
 2. **Enemy rolls dice** — player sees the exact result and what it means
@@ -55,7 +54,7 @@ This gives the player meaningful decisions every turn. "13 damage incoming — d
 
 ---
 
-## TURN FLOW (detailed)
+## TURN FLOW
 
 ### Step 1: Enemy Intent
 ```
@@ -103,7 +102,6 @@ Each ability has a `type` that determines how the dice sum is used:
 ### attack
 Deal dice sum as damage to player (reduced by player block).
 ```javascript
-// Resolution:
 const damage = diceSum + storedBonus;
 const blocked = Math.min(playerBlock, damage);
 const playerTakes = damage - blocked;
@@ -196,11 +194,8 @@ enemy.extraDice.push(dieSize);
 Passives are always-on effects that don't consume dice. Defined as objects:
 
 ```javascript
-// Passive definition:
 { id: 'thickHide', name: 'Thick Hide', desc: 'Ignores slot damage below 10', params: { threshold: 10 } }
 ```
-
-### Available Passives:
 
 | ID | Name | Effect | Params |
 |----|------|--------|--------|
@@ -230,9 +225,27 @@ Passives are always-on effects that don't consume dice. Defined as objects:
 
 ---
 
+## PLAYER DEBUFFS
+
+Temporary effects applied to the player during combat, cleared when combat ends:
+
+- **Poison:** Take X damage at start of turn, lasts N turns
+- **Slot disable:** A specific attack slot is unusable for N turns. Dice in it are returned to pool
+- **Dice value reduction:** All dice roll results reduced by X (min 1) for the fight
+- **Unblockable damage:** Damage that bypasses defense entirely, shown separately in the log
+- **Overkill reflection:** Excess damage beyond enemy's remaining HP is dealt back to player (Soul Pact)
+
+All player debuff countdowns are decremented at the **start of `execute()`**, not in `newTurn()`. This ensures effects persist through the full allocation phase the turn they are applied, then expire at the moment the player submits.
+
+---
+
 ## ENEMY ROSTER
 
 ### Act 1 — Tutorial Enemies
+
+Player context: 3×d6, 2 strike / 2 guard slots, no mods, no passives. Max single die value is 6. Average 2-dice attack is 7. Floor 1 is always Goblin.
+
+---
 
 **Goblin**
 ```javascript
@@ -241,7 +254,6 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   hp: 20,
   dice: [4, 4],
   gold: [15, 25],
-  xp: [8, 12],
   abilities: {
     strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' }
   },
@@ -260,7 +272,6 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   hp: 14,
   dice: [3, 3, 3],
   gold: [12, 20],
-  xp: [6, 10],
   abilities: {
     frenzy: { name: 'Frenzy', icon: '🐀', type: 'attack', desc: 'Each die hits separately', multiHit: true }
   },
@@ -279,7 +290,6 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   hp: 22,
   dice: [4, 4],
   gold: [15, 22],
-  xp: [8, 14],
   abilities: {
     strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
     spore:  { name: 'Spore Cloud', icon: '🍄', type: 'poison', desc: 'Apply poison equal to dice sum' }
@@ -299,7 +309,6 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   hp: 28,
   dice: [4, 4],
   gold: [18, 28],
-  xp: [10, 16],
   abilities: {
     strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' }
   },
@@ -312,7 +321,7 @@ Passives are always-on effects that don't consume dice. Defined as objects:
 ```
 *Design intent: DPS check. Average 5 damage per turn, but if you don't kill it in 3 turns it transforms into a much scarier enemy (2×d6, +15 HP). Teaches urgency.*
 
-*Mitosis implementation: On turn 3, log "The Slime shudders and splits!" Replace dice pool with newDice, add bonusHp to current and max HP. Visual flash or animation if possible.*
+*Mitosis: On turn 3, log "The Slime shudders and splits!" Replace dice pool with newDice, add bonusHp to current and max HP.*
 
 ---
 
@@ -323,7 +332,6 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   hp: 18,
   dice: [6, 6],
   gold: [14, 22],
-  xp: [8, 12],
   abilities: {
     strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' }
   },
@@ -333,11 +341,15 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   pattern: ['strike']
 }
 ```
-*Design intent: Glass cannon. 2×d6 averages 7 damage — highest in Act 1. But Brittle means it melts fast if you go aggressive. Teaches that aggression is sometimes the best defense. Reward: kill it before it kills you.*
+*Design intent: Glass cannon. 2×d6 averages 7 damage — highest in Act 1. But Brittle means it melts fast if you go aggressive. Teaches that aggression is sometimes the best defense.*
 
 ---
 
 ### Act 2 — Counter-Pick Enemies
+
+Player context: 4–5 dice (some upgraded), 3–4 slots, 1–2 artifacts, face mods, a build direction.
+
+---
 
 **Orc Warrior**
 ```javascript
@@ -346,7 +358,6 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   hp: 45,
   dice: [6, 6, 6],
   gold: [20, 30],
-  xp: [14, 20],
   abilities: {
     strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
     warCry: { name: 'War Cry', icon: '📯', type: 'buff', desc: 'Store dice sum, add to next Strike', buffTarget: 'strike' }
@@ -366,7 +377,6 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   hp: 32,
   dice: [6, 6],
   gold: [22, 35],
-  xp: [16, 24],
   abilities: {
     bolt:  { name: 'Shadow Bolt', icon: '🔮', type: 'attack', desc: 'Deal damage (penetrates 3 block)', penetrate: 3 },
     curse: { name: 'Curse', icon: '💀', type: 'curse', desc: 'Disable your busiest attack slot', durationDivisor: 3 }
@@ -375,11 +385,11 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   pattern: ['bolt', 'bolt', 'curse']
 }
 ```
-*Design intent: Punishes Wide builds. Bolt penetrates 3 block (subtract 3 from player block before comparing). Curse disables the attack slot with the most dice — Wide players lose their stacked slot. Duration = ceil(diceSum / 3), so average 2×d6=7 → 3 turns disabled. Counter: spread dice evenly across slots, or kill fast.*
+*Design intent: Punishes Wide builds. Bolt penetrates 3 block. Curse disables the attack slot with the most dice — Wide players lose their stacked slot. Duration = ceil(diceSum / 3), so average 2×d6=7 → 3 turns disabled. Counter: spread dice evenly across slots, or kill fast.*
 
-*Bolt penetrate implementation: `effectiveDamage = diceSum; effectiveBlock = Math.max(0, playerBlock - 3);`*
+*Bolt penetrate: `effectiveBlock = Math.max(0, playerBlock - 3)`.*
 
-*Curse implementation: Find attack slot with highest dice count. Mark disabled for ceil(sum/3) turns. Disabled slot: dice assigned there contribute 0. Decrement each turn.*
+*Curse: Find attack slot with highest dice count. Mark disabled for ceil(sum/3) turns.*
 
 ---
 
@@ -390,7 +400,6 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   hp: 55,
   dice: [8, 8],
   gold: [20, 30],
-  xp: [14, 22],
   abilities: {
     strike: { name: 'Smash', icon: '💪', type: 'attack', desc: 'Deal damage' },
     heal:   { name: 'Regenerate', icon: '💚', type: 'heal', desc: 'Heal HP equal to dice sum' }
@@ -402,9 +411,9 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   pattern: ['strike', 'strike', 'heal']
 }
 ```
-*Design intent: Punishes low per-hit damage. 2×d8 averages 9 on Smash. Thick Hide means each attack SLOT must deal 10+ or it's ignored entirely — many small dice in one slot won't cut it. Passive regen + active heal makes it a war of attrition. Counter: Tall builds with big concentrated hits. Poison ignores Thick Hide. Player sees Heal intent and knows to go all-in on attack that turn.*
+*Design intent: Punishes low per-hit damage. Thick Hide means each attack SLOT must deal 10+ or it's ignored entirely. Passive regen + active heal makes it a war of attrition. Counter: Tall builds with big concentrated hits. Poison ignores Thick Hide.*
 
-*Thick Hide implementation: For each player attack slot, if slot total < threshold, set slot damage to 0.*
+*Thick Hide: For each player attack slot, if slot total < threshold, set slot damage to 0.*
 
 ---
 
@@ -415,7 +424,6 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   hp: 38,
   dice: [6, 6, 6],
   gold: [25, 40],
-  xp: [18, 26],
   abilities: {
     drain: { name: 'Drain', icon: '🩸', type: 'attack', desc: 'Deal damage and heal 50% of amount dealt' }
   },
@@ -426,13 +434,11 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   pattern: ['drain']
 }
 ```
-*Design intent: Punishes slow builds. 3×d6 averages 10.5, heals ~5 each turn. You need to out-damage the healing. Blood Frenzy at 20% (below 8 HP) adds 2×d6 making it 5×d6 averaging 17.5 — terrifying spike. Counter: burst from above 20% to dead in one turn, or stack enough damage that healing can't keep up.*
+*Design intent: Punishes slow builds. 3×d6 averages 10.5, heals ~5 each turn. Blood Frenzy at 20% adds 2×d6 making it 5×d6 averaging 17.5. Counter: burst from above 20% to dead in one turn.*
 
-*Drain implementation: Resolve as normal attack. After player takes damage, `enemy.hp = Math.min(enemy.maxHp, enemy.hp + Math.floor(damageTaken * 0.5))`.*
+*Lifesteal: Based on damage actually dealt to player (after block). `enemy.hp = Math.min(enemy.maxHp, enemy.hp + Math.floor(damageTaken * 0.5))`.*
 
-*Note: Lifesteal is based on damage actually dealt to player (after block), not dice sum.*
-
-*Blood Frenzy implementation: At start of enemy turn, if `enemy.hp < enemy.maxHp * 0.2` and not already triggered, add extraDice to pool. Log "The Vampire enters a Blood Frenzy!" Flag so it only triggers once.*
+*Blood Frenzy: At start of enemy turn, if hp < maxHp * 0.2 and not already triggered, add extraDice. Log "The Vampire enters a Blood Frenzy!" Flag so it only triggers once.*
 
 ---
 
@@ -443,7 +449,6 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   hp: 35,
   dice: [6, 6],
   gold: [20, 30],
-  xp: [14, 20],
   abilities: {
     strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
     steal:  { name: 'Gold Snatch', icon: '💰', type: 'steal', desc: 'Steal gold equal to dice sum' }
@@ -454,13 +459,17 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   pattern: ['steal', 'strike', 'strike']
 }
 ```
-*Design intent: Punishes Gold builds. Opens with steal (loses you gold AND reduces gold scaling damage). Greed Tax means a player holding 300g faces 2+3=5 dice instead of 2. Counter: spend gold before this fight (you can't — it's random encounters). Accept the tax, or kill it fast before it steals too much.*
+*Design intent: Punishes Gold builds. Opens with steal (loses you gold AND reduces gold scaling damage). Greed Tax means a player holding 300g faces 5 dice instead of 2. Counter: kill it fast before it steals too much.*
 
-*Greed Tax implementation: At start of combat, calculate `bonusDice = Math.floor(player.gold / 100)`. Add that many dice of dieSize to the enemy's pool. Recalculate if gold changes mid-fight (from steal).*
+*Greed Tax: At start of combat, `bonusDice = Math.floor(player.gold / 100)`. Recalculate if gold changes mid-fight.*
 
 ---
 
 ### Act 3 — Hard Counter Enemies
+
+Player context: 5–7 dice (heavily upgraded), 5–6 slots, 3–4 artifacts, capstone passives, full build.
+
+---
 
 **Demon**
 ```javascript
@@ -469,7 +478,6 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   hp: 75,
   dice: [8, 8, 8],
   gold: [35, 55],
-  xp: [22, 32],
   abilities: {
     strike:   { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
     hellfire: { name: 'Hellfire', icon: '🔥', type: 'unblockable', desc: 'Deal unblockable damage' }
@@ -480,9 +488,9 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   pattern: ['strike', 'hellfire']
 }
 ```
-*Design intent: Unblockable damage forces HP management. 3×d8 Hellfire averages 13.5 unblockable — that's a lot of HP every other turn. Soul Pact means you can't just nuke it carelessly; hitting for 100 when it has 5 HP left means 95 reflected. Counter: precise damage control, healing sustain, Soul Mirror artifact (halves unblockable).*
+*Design intent: Unblockable damage forces HP management. 3×d8 Hellfire averages 13.5 unblockable every other turn. Soul Pact means you can't nuke it carelessly. Counter: precise damage control, healing sustain.*
 
-*Soul Pact implementation: When enemy HP would go below 0, reflect `Math.abs(newHp)` as damage to player before setting enemy HP to 0.*
+*Soul Pact: When enemy HP would go below 0, reflect `Math.abs(newHp)` as damage to player before setting enemy HP to 0.*
 
 ---
 
@@ -493,7 +501,6 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   hp: 65,
   dice: [8, 8],
   gold: [40, 60],
-  xp: [24, 34],
   abilities: {
     strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
     decay:  { name: 'Decay', icon: '💀', type: 'decay', desc: 'All your dice permanently lose 1 max value this fight' }
@@ -504,11 +511,11 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   pattern: ['strike', 'strike', 'decay']
 }
 ```
-*Design intent: Time pressure. Every 3 turns your dice get weaker. A d6 [1-6] becomes [1-5] then [1-4]. Long fights destroy your build. Phylactery means you have to kill it twice. Counter: burst damage to kill fast, Iron Will artifact (immune to dice reduction).*
+*Design intent: Time pressure. Every 3 turns your dice get weaker. Phylactery means you have to kill it twice. Counter: burst damage to kill fast.*
 
-*Decay implementation: On Decay turn, for each player die: `die.max = Math.max(die.min, die.max - 1)`. Rebuild faceValues array. This persists for the fight only — restored after combat.*
+*Decay: For each player die, `die.max = Math.max(die.min, die.max - 1)`. Rebuild faceValues. Restored after combat.*
 
-*Phylactery implementation: On first death, if !phylacteryUsed, set `enemy.hp = Math.floor(enemy.maxHp * 0.4)`, set flag true. Log "The Lich's phylactery glows... it reforms!"*
+*Phylactery: On first death, set `enemy.hp = Math.floor(enemy.maxHp * 0.4)`, set flag. Log "The Lich's phylactery glows... it reforms!"*
 
 ---
 
@@ -519,7 +526,6 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   hp: 85,
   dice: [8, 8, 8, 8],
   gold: [45, 65],
-  xp: [26, 36],
   abilities: {
     strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
     charge: { name: 'Breath Charge', icon: '🔥', type: 'charge', desc: 'Charging... next attack is doubled!' },
@@ -531,11 +537,11 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   pattern: ['strike', 'charge', 'breath']
 }
 ```
-*Design intent: Massive spike damage. 4×d8 averages 18 on Strike. Charge → Breath doubles to avg 36 + burn. Scales means each attack slot must exceed 8 before dealing any damage — punishes Wide builds spreading small dice. Counter: see Charge intent and prepare massive defense. Tall builds punch through Scales. Stun/Freeze to skip the Breath turn.*
+*Design intent: Massive spike damage. 4×d8 averages 18 on Strike. Charge → Breath doubles to avg 36 + burn. Scales punishes Wide builds. Counter: see Charge intent and prepare massive defense. Tall builds punch through Scales. Stun/Freeze to skip the Breath turn.*
 
-*Charge implementation: On Charge turn, enemy does nothing. Set `enemy.charged = true`. On Breath turn (or next attack), double the dice sum. Clear flag.*
+*Scales: For each player attack slot, `effectiveDamage = Math.max(0, slotTotal - 8)`.*
 
-*Scales implementation: For each player attack slot, `effectiveDamage = Math.max(0, slotTotal - 8)`.*
+*Charge: On Charge turn, enemy does nothing, set charged flag. On Breath turn, double the dice sum.*
 
 ---
 
@@ -546,7 +552,6 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   hp: 45,
   dice: [8, 8, 8],
   gold: [35, 55],
-  xp: [22, 34],
   abilities: {
     strike: { name: 'Strike', icon: '🗡️', type: 'attack', desc: 'Deal damage' },
     vanish: { name: 'Vanish', icon: '💨', type: 'charge', desc: 'Disappears — immune to damage this turn. Next strike is doubled.' }
@@ -558,13 +563,13 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   pattern: ['strike', 'strike', 'vanish']
 }
 ```
-*Design intent: Elusive and punishing. Evasion wastes one of your dice every turn. Expose punishes empty attack slots (Tall players with few filled slots give it extra dice). Vanish is a charge that also makes it immune to damage. 3×d8 averages 13.5, doubled after Vanish = 27. Counter: fill all attack slots to minimize Expose. Poison/burn still tick during Vanish. Low HP (45) means it dies fast if you can land hits.*
+*Design intent: Elusive and punishing. Evasion wastes one of your dice every turn. Expose punishes empty attack slots. Vanish makes it immune + doubles next hit. Counter: fill all attack slots to minimize Expose. Poison/burn still tick during Vanish.*
 
-*Evasion implementation: After player assigns dice, pick one random die from attack slots and set its contributed value to 0. Log "Shadow Assassin evades your [die value] attack!"*
+*Evasion: After player assigns dice, pick one random die from attack slots and set its contributed value to 0.*
 
-*Expose implementation: At start of combat turn, count player attack slots with 0 dice assigned. Add that many d6 to enemy pool temporarily. Recalculate each turn.*
+*Expose: At start of combat turn, count player attack slots with 0 dice assigned. Add that many d6 to enemy pool temporarily.*
 
-*Vanish implementation: On Vanish turn, enemy takes no damage from any source. Set charged flag for next attack to be doubled.*
+*Vanish: On Vanish turn, enemy takes no damage. Set charged flag for next attack to be doubled.*
 
 ---
 
@@ -575,7 +580,6 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   hp: 100,
   dice: [6, 6],
   gold: [50, 70],
-  xp: [28, 38],
   abilities: {
     strike: { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' }
   },
@@ -587,17 +591,17 @@ Passives are always-on effects that don't consume dice. Defined as objects:
   pattern: ['strike']
 }
 ```
-*Design intent: Inevitable doom. Starts weak (2×d6 avg 7) but gains a die every 3 turns. By turn 9 it's rolling 5×d6 averaging 17.5. Armor makes chip damage useless — you need big hits. Overcharge is the relief valve: burst 25+ to stun it and buy a turn. Counter: Tall builds that can burst through armor. Poison is reduced by armor too (-5 per tick). Race to kill before it snowballs.*
+*Design intent: Inevitable doom. Starts weak (2×d6 avg 7) but gains a die every 3 turns. By turn 9 it's rolling 5×d6 avg 17.5. Armor makes chip damage useless. Overcharge is the relief valve: burst 25+ to stun it and buy a turn. Counter: Tall builds that can burst through armor.*
 
-*Armor implementation: ALL damage to this enemy (dice, poison, burn, reflect, etc.) is reduced by `reduction`, minimum 0 per source.*
+*Armor: ALL damage to this enemy (dice, poison, burn, reflect, etc.) is reduced by `reduction`, minimum 0.*
 
-*Escalate implementation: Every `interval` turns, push a new die to extraDice. Log "The Iron Golem powers up! +1d6"*
+*Escalate: Every `interval` turns, push a new die to extraDice. Log "The Iron Golem powers up! +1d6"*
 
-*Overcharge implementation: Track total damage dealt to Golem this turn. If ≥ threshold, set stunned flag. Next turn, skip enemy ability. Log "The Iron Golem is overcharged — stunned!"*
+*Overcharge: Track total damage dealt to Golem this turn. If ≥ threshold, stun next turn.*
 
 ---
 
-### BOSSES
+### Bosses
 
 Bosses use the same dice + ability + pattern system but with **phase transitions** that change their pattern and/or dice pool.
 
@@ -618,10 +622,10 @@ Bosses use the same dice + ability + pattern system but with **phase transitions
   },
   passives: [],
   pattern: ['strike', 'strike', 'boneWall', 'raiseDead'],
-  phases: null  // single phase boss
+  phases: null
 }
 ```
-*Design intent: Escalating threat. Each full cycle (4 turns) it gains a die. By cycle 2 it's rolling 4×d6 (avg 14). By cycle 3, 5×d6 (avg 17.5). Bone Wall provides shield that must be chewed through. Ideal kill time: 2 cycles (8 turns). Player sees Raise Dead coming and knows to push damage.*
+*Design intent: Escalating threat. Each full cycle (4 turns) it gains a die. By cycle 2 it's rolling 4×d6 (avg 14). Bone Wall provides shield that must be chewed through. Ideal kill time: 2 cycles (8 turns).*
 
 ---
 
@@ -652,13 +656,11 @@ Bosses use the same dice + ability + pattern system but with **phase transitions
   ]
 }
 ```
-*Design intent: Phase transition is a dramatic power spike. Phase 1: 4×d8 (avg 18) with burn and slot disruption. At 50% HP: gains 2 more dice (6×d8, avg 27) and all attacks burn. Player needs to prepare for phase 2 — stockpile a defensive consumable, build block. Fire Breath + burn stacks create sustained pressure.*
+*Design intent: Phase transition is a dramatic power spike. Phase 1: 4×d8 (avg 18) with burn and slot disruption. At 50%: gains 2 more dice (6×d8, avg 27) and all attacks burn.*
 
-*Phase implementation: After damage is dealt to boss, check if HP crossed threshold. If so, apply changes once. Add dice to pool, add passives, display log message.*
+*Wing Buffet halfDamage: `damage = Math.floor(diceSum / 2)`. Then disable 1 random player slot for 1 turn.*
 
-*Wing Buffet halfDamage: `damage = Math.floor(diceSum / 2)`. Then disable 1 random player slot (attack or defend) for 1 turn.*
-
-*burnOnPhase passive: After ANY ability resolves, apply burn stacks to player.*
+*Phase: After damage is dealt to boss, check if HP crossed threshold. If so, apply changes once.*
 
 ---
 
@@ -697,48 +699,26 @@ Bosses use the same dice + ability + pattern system but with **phase transitions
   ]
 }
 ```
-*Design intent: Three-phase final boss. Phase 1: 4×d10 (avg 22) with slot disable and unblockable. Manageable. Phase 2 (50%): gains 2 dice (6×d10, avg 33) and Entropy starts shrinking player dice each turn — hard timer. Phase 3 (20%): attacks twice per turn but takes +50% damage — desperate race to finish it.*
+*Design intent: Three-phase final boss. Phase 1: 4×d10 (avg 22) with slot disable and unblockable. Phase 2 (50%): gains 2 dice (6×d10, avg 33) and Entropy starts shrinking player dice — hard timer. Phase 3 (20%): attacks twice per turn but takes +50% damage — desperate race to finish it.*
 
-*Entropy implementation: At start of each player turn (while in phase 2+), for each player die: `die.max = Math.max(die.min, die.max - 1)`. Rebuild faceValues. Fight-only, restored after combat.*
+*Entropy: At start of each player turn (while in phase 2+), for each player die: `die.max = Math.max(die.min, die.max - 1)`. Restored after combat.*
 
-*doubleAction implementation: Enemy executes two abilities per turn. Advance pattern index twice. Roll dice twice (separate rolls). Player sees both intents: "Strike (22) + Void Rift (18)"*
+*doubleAction: Enemy executes two abilities per turn. Advance pattern index twice, roll dice twice.*
 
 *damageTakenMultiplier: All damage to boss is multiplied by 1.5.*
 
 ---
 
-## ELITE ENEMIES
-
-Elites appear on specific floors (floor 8 and 12). They are regular enemies from the current act with **elite modifiers** applied:
-
-```javascript
-const ELITE_MODIFIERS = [
-  { prefix: '💀 Deadly',   diceUpgrade: 2, hpMult: 1.3, goldMult: 2.0, xpMult: 1.5 },
-  { prefix: '🛡️ Armored',  addPassive: { id: 'armor', params: { reduction: 3 } }, hpMult: 1.5, goldMult: 1.5, xpMult: 1.5 },
-  { prefix: '⚡ Swift',     extraDice: [6], hpMult: 1.0, goldMult: 1.8, xpMult: 1.5 },
-  { prefix: '🔥 Enraged',  diceUpgrade: 4, hpMult: 1.0, goldMult: 2.5, xpMult: 2.0 },
-];
-```
-
-- `diceUpgrade`: Add this value to each die's size (d6 becomes d8 for +2)
-- `extraDice`: Add additional dice to pool
-- `addPassive`: Add an extra passive effect
-- Elites also give an artifact pick (1 of 3) on defeat
-
----
-
 ## SCALING
-
-Enemy stats scale with floor number:
 
 ```javascript
 const scale = Math.pow(1.04, floor - 1);
-// Apply to HP only. Dice provide natural damage scaling through pool size.
+// Applied to HP only. Dice provide natural damage scaling through pool size.
 // Ability params (thresholds, burn amounts, etc.) do NOT scale.
 const scaledHp = Math.round(enemy.hp * scale);
 ```
 
-Dice pools are fixed per enemy definition — scaling comes from enemy type progression (Act 1 enemies have d3-d6, Act 2 have d6-d8, Act 3 have d8-d10) rather than scaling individual dice.
+Dice pools are fixed per enemy definition — act progression (d3–d6 → d6–d8 → d8–d10) provides the natural damage curve rather than scaling individual dice.
 
 ---
 
@@ -772,18 +752,4 @@ Log each step clearly:
 "Poison ticks for 5 on Orc Warrior"
 ```
 
----
-
-## IMPLEMENTATION CHECKLIST
-
-1. [ ] Define enemy data structures (all 15 + 3 bosses)
-2. [ ] Refactor combat loop to: enemy intent → enemy roll → player roll/assign → resolve
-3. [ ] Implement ability type handlers (attack, unblockable, buff, heal, shield, poison, curse, steal, charge, decay, summon_die)
-4. [ ] Implement passive effect system with processing order
-5. [ ] Implement boss phase transitions
-6. [ ] Implement elite modifier system
-7. [ ] Update combat UI: show enemy dice, intent, roll results
-8. [ ] Wire enemy status effects (poison, burn, chill, freeze, mark, weaken, stun applied by player)
-9. [ ] Test each enemy individually — verify ability patterns cycle correctly
-10. [ ] Test boss phase transitions at correct HP thresholds
-11. [ ] Balance pass: verify Act 1 is survivable with starter dice, Act 3 is challenging with built loadout
+Passive abilities display as permanent tags below the HP bar (e.g. "💀 Brittle: +3 damage taken", "🛡️ Thick Hide: Ignores hits below 10"). Phase transitions get a log message and visual flash on the enemy panel.

@@ -3,7 +3,7 @@
 //  Entry point: exposes all modules on window for onclick handlers
 // ════════════════════════════════════════════════════════════
 import { ENEMIES, FACE_MODS, ARTIFACT_POOL, LEGENDARY_ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, UTILITY_DICE, getAct, getFloorType, getArtifactPool, pickConsumablesForMarket, pickWeightedConsumable } from './constants.js';
-import { GS, $, rand, pick, shuffle, pickWeighted, log, gainXP, gainGold, heal } from './state.js';
+import { GS, $, rand, pick, shuffle, pickWeighted, log, gainXP, gainGold, spendGold, heal } from './state.js';
 import { createDie, createDieFromFaces, createUtilityDie, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones } from './engine.js';
 import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone, checkForNCE, applyEncounterResult, markEncounterSeen } from './encounters/encounterGenerator.js';
@@ -80,6 +80,16 @@ function applyUpgrade(die) {
     _checkBelt(die);
 }
 
+// Applies Glass Cannon bonus to a newly acquired die (if Glass Cannon is held and die not yet marked).
+function _checkGlassCannon(die) {
+    const art = GS.artifacts?.find(a => a.effect === 'glassCannon');
+    if (!art || die.glassApplied) return;
+    die.faceValues = die.faceValues.map(v => v + art.value);
+    die.min += art.value; die.max += art.value;
+    die.glassApplied = true;
+    log(`💥 Glass Cannon: new die gained +${art.value} to all faces`, 'info');
+}
+
 // Applies Colossus Belt bonus to a single die if it qualifies and hasn't been marked yet.
 function _checkBelt(die) {
     const belt = GS.artifacts?.find(a => a.effect === 'colossussBelt');
@@ -114,6 +124,7 @@ function _applyArtifactOnAcquire(art) {
         GS.dice.forEach(d => {
             d.faceValues = d.faceValues.map(v => v + art.value);
             d.min += art.value; d.max += art.value;
+            d.glassApplied = true;
         });
         GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2));
         GS.hp = Math.min(GS.hp, GS.maxHp);
@@ -121,7 +132,7 @@ function _applyArtifactOnAcquire(art) {
     } else if (art.effect === 'titansDie') {
         const d = createDieFromFaces([12, 12, 12, 12, 12, 12]);
         GS.dice.push(d);
-        _checkBelt(d);
+        _checkBelt(d); _checkGlassCannon(d);
         log(`🎲 Titan's Die: permanent d12 added to your pool!`, 'info');
     }
 }
@@ -277,13 +288,15 @@ function applyStartBoons(boons, gs) {
     for (const boon of boons) {
         switch (boon.type) {
 
-            case 'die':
-                gs.dice.push(createDie(boon.min ?? 1, boon.max ?? 6));
+            case 'die': {
+                const d = createDie(boon.min ?? 1, boon.max ?? 6);
+                gs.dice.push(d); _checkBelt(d); _checkGlassCannon(d);
                 break;
+            }
 
             case 'utilityDie': {
                 const utDef = UTILITY_DICE.find(u => u.id === boon.dieId);
-                if (utDef) gs.dice.push(createUtilityDie(utDef));
+                if (utDef) { const d = createUtilityDie(utDef); gs.dice.push(d); _checkGlassCannon(d); }
                 break;
             }
 
@@ -353,7 +366,6 @@ const Game = {
             gamblerCoinBonus: 0,
             hourglassFreeFirstTurn: false,
             huntersMarkFired: false,
-            parasiteGoldPerCombat: 0,
             passives: {}, unlockedNodes: [],
             rerolls: 0, rerollsLeft: 0,
             enemy: null, enemiesKilled: 0, totalGold: 0,
@@ -422,7 +434,11 @@ const Game = {
             applyStartBoons(Campaign.getApplicableStartBoons(), GS);
         }
 
-        DungeonPath.show(difficulty);
+        if (GS.campaign) {
+            Game.enterFloor();
+        } else {
+            DungeonPath.show(difficulty);
+        }
     },
 
     backToStart() {
@@ -631,7 +647,7 @@ const Game = {
 
         const totalSlots = GS.slots.strike.length + GS.slots.guard.length;
         rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
-            GS.dice.push(createDie(1, 6));
+            const _nd = createDie(1, 6); GS.dice.push(_nd); _checkBelt(_nd); _checkGlassCannon(_nd);
             log('Added new D6!', 'info');
             GS.challengePrep--;
             if (GS.challengePrep > 0) Game.showChallengePrep();
@@ -1469,7 +1485,7 @@ const Rewards = {
                 if (slot.mod) merged.faceMods.push({ faceIndex: i, mod: { ...slot.mod } });
             });
             GS.dice.push(merged);
-            _checkBelt(merged);
+            _checkBelt(merged); _checkGlassCannon(merged);
             const fs = merged.faceMods.length ? ` [${merged.faceMods.map(m => `face${m.faceIndex}:${m.mod.icon}`).join(', ')}]` : '';
             log(`🔥 Forged: [${newMin}-${newMax}] d6${fs}`, 'info');
             updateStats();
@@ -1601,7 +1617,7 @@ const Rewards = {
 
         const totalSlots = GS.slots.strike.length + GS.slots.guard.length;
         rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — you have ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
-            GS.dice.push(createDie(1, 6));
+            const _nd = createDie(1, 6); GS.dice.push(_nd); _checkBelt(_nd); _checkGlassCannon(_nd);
             log('Added new D6!', 'info');
             Game.nextFloor();
         }});
@@ -2085,7 +2101,7 @@ const BattleSummary = {
         const totalSlots = GS.slots.strike.length + GS.slots.guard.length;
 
         rewards.push({ title: '🎲 New Die', desc: `Add a D6 (1-6) — ${GS.dice.length} dice, ${totalSlots} slots`, action: () => {
-            GS.dice.push(createDie(1, 6));
+            const _nd = createDie(1, 6); GS.dice.push(_nd); _checkBelt(_nd); _checkGlassCannon(_nd);
             log('Added new D6!', 'info');
             lockGeneral('New D6 (1-6) added');
         }});
@@ -2212,10 +2228,10 @@ const Shop = {
         const all = [
             { title: '🎲 Weighted Die', desc: `Rolls 2-7 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 35, type: 'DICE', rarity: 'common',
               effect: 'Adds a 2-7 die to your pool',
-              action: () => { GS.dice.push(createDie(2, 7)); log('Bought Weighted Die (2-7)!', 'info'); } },
+              action: () => { const d = createDie(2, 7); GS.dice.push(d); _checkBelt(d); _checkGlassCannon(d); log('Bought Weighted Die (2-7)!', 'info'); } },
             { title: '💎 Power Die', desc: `Rolls 4-9 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 80, type: 'DICE', rarity: 'uncommon',
               effect: 'Adds a 4-9 die to your pool',
-              action: () => { const d = createDie(4, 9); GS.dice.push(d); _checkBelt(d); log('Bought Power Die (4-9)!', 'info'); } },
+              action: () => { const d = createDie(4, 9); GS.dice.push(d); _checkBelt(d); _checkGlassCannon(d); log('Bought Power Die (4-9)!', 'info'); } },
             { title: '⬆️ Die Upgrade', desc: 'Improve one die\'s range', price: 50, type: 'UPGRADE', rarity: 'uncommon',
               effect: '+1/+1 to a die', action: () => { Shop.showUpgrade(); return false; } },
             { title: '🗡️ Blade Oil', desc: 'Sharpen your blades permanently', price: 25, type: 'BUFF', rarity: 'common',
@@ -2236,7 +2252,7 @@ const Shop = {
             all.push(
                 { title: '⚡ Titan Die', desc: `Rolls 6-11 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 150, type: 'DICE', rarity: 'rare',
                   effect: 'Adds a 6-11 die to your pool',
-                  action: () => { const d = createDie(6, 11); GS.dice.push(d); _checkBelt(d); log('Bought Titan Die (6-11)!', 'info'); } },
+                  action: () => { const d = createDie(6, 11); GS.dice.push(d); _checkBelt(d); _checkGlassCannon(d); log('Bought Titan Die (6-11)!', 'info'); } },
             );
         }
 
@@ -2266,7 +2282,7 @@ const Shop = {
                 desc: `Utility die (${utDef.zone}) — ${utDef.desc}`,
                 price: utDef.price,
                 type: 'UTILITY DIE', effect: utDef.desc, rarity: utDef.rarity,
-                action: () => { GS.dice.push(createUtilityDie(utDef)); log(`Bought ${utDef.icon} ${utDef.name}!`, 'info'); },
+                action: () => { const d = createUtilityDie(utDef); GS.dice.push(d); _checkGlassCannon(d); log(`Bought ${utDef.icon} ${utDef.name}!`, 'info'); },
             });
         });
 
@@ -2304,7 +2320,7 @@ const Shop = {
             `;
             if (canBuy) {
                 card.onclick = () => {
-                    GS.gold -= item.price;
+                    spendGold(item.price);
                     Shop.purchased.add(i);
                     const result = item.action();
                     if (result !== false) {
@@ -2330,7 +2346,7 @@ const Shop = {
         `;
         if (canRefresh) {
             refreshCard.onclick = () => {
-                GS.gold -= refreshCost;
+                spendGold(refreshCost);
                 Shop.refreshCount++;
                 Shop.purchased = new Set();
                 Shop.generateItems();
@@ -2381,7 +2397,7 @@ const Shop = {
             `;
             if (canBuy) {
                 card.onclick = () => {
-                    GS.gold -= item.price;
+                    spendGold(item.price);
                     Shop.marketPurchased.add(i);
                     updateStats();
                     addConsumableToInventory({ ...item }, () => { Shop._renderMarket(); Shop._renderForge(); Shop._renderSell(); });
@@ -2399,7 +2415,7 @@ const Shop = {
         mRefreshCard.innerHTML = `<div class="card-title">🔄 Refresh Market</div><div class="card-desc">Restock consumables</div><div class="card-price">${mRefreshCost} gold</div>`;
         if (canMRefresh) {
             mRefreshCard.onclick = () => {
-                GS.gold -= mRefreshCost;
+                spendGold(mRefreshCost);
                 Shop.marketRefreshCount++;
                 Shop.marketPurchased = new Set();
                 Shop.generateMarket();
@@ -2853,13 +2869,13 @@ const Events = {
             });
             log(`🏋️ Colossus Belt: dice with max≥${thresh} gained +${art.value} to all faces!`, 'info');
         } else if (art.effect === 'glassCannon') {
-            GS.dice.forEach(d => { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; });
+            GS.dice.forEach(d => { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; d.glassApplied = true; });
             GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2)); GS.hp = Math.min(GS.hp, GS.maxHp);
             log(`💥 Glass Cannon: all dice +${art.value} faces, max HP halved!`, 'damage');
         } else if (art.effect === 'titansDie') {
             const d = createDie(1, art.value);
             GS.dice.push(d);
-            _checkBelt(d);
+            _checkBelt(d); _checkGlassCannon(d);
             log(`🎲 Titan's Die: permanent d${art.value} added to your pool!`, 'info');
         }
         log(`Found ${art.icon} ${art.name}!`, 'info');
@@ -3036,10 +3052,10 @@ const Events = {
                     text: GS.gold >= 30 ? 'Buy a mystery die (30g) — random between d4 and d8' : 'Buy a mystery die (30g) — Not enough gold',
                     disabled: GS.gold < 30,
                     action: () => {
-                        GS.gold -= 30;
+                        spendGold(30);
                         const opts = [{min:1,max:4},{min:2,max:6},{min:1,max:6},{min:2,max:8},{min:1,max:8}];
                         const {min, max} = pick(opts);
-                        GS.dice.push(createDie(min, max));
+                        const _md = createDie(min, max); GS.dice.push(_md); _checkBelt(_md); _checkGlassCannon(_md);
                         Events._showOutcome('🎲 Mystery Die Revealed!', [
                             `You received: <strong>d${max} (${min}–${max})</strong>`,
                             `<span style="color:var(--text-dim); font-size:0.9em;">Added to your dice pool</span>`
@@ -3112,7 +3128,7 @@ const Events = {
                     text: GS.gold >= 25 ? 'Offer 25 gold — choose face mod, die, and face' : 'Offer 25 gold — Not enough gold',
                     disabled: GS.gold < 25,
                     action: () => {
-                        GS.gold -= 25;
+                        spendGold(25);
                         updateStats();
                         Events._chooseFaceMod(mod => {
                             Events._applyModFlow(mod, () => { updateStats(); Game.nextFloor(); });
@@ -3290,7 +3306,7 @@ const Events = {
                     text: GS.gold >= 50 ? 'Bet 50 gold (50%: +100 gold, 50%: lose it all)' : 'Bet 50 gold — Not enough gold',
                     disabled: GS.gold < 50,
                     action: () => {
-                        GS.gold -= 50;
+                        spendGold(50);
                         let outcomeLines;
                         if (Math.random() < 0.5) {
                             const g = gainGold(100);
@@ -3470,7 +3486,7 @@ const Events = {
                     text: GS.gold >= 100 ? 'Buy everything (100g) — gain 3 random artifacts' : 'Buy everything (100g) — Not enough gold',
                     disabled: GS.gold < 100,
                     action: () => {
-                        GS.gold -= 100;
+                        spendGold(100);
                         const gained = Events._gainRandomArtifacts(3);
                         Events._showOutcome('💎 Merchant Prince Deal', [
                             `<span style="color:var(--gold)">You received 3 artifacts:</span>`,
@@ -3482,7 +3498,7 @@ const Events = {
                     text: GS.gold >= 60 ? 'Exclusive stock (60g) — choose 1 artifact from 5' : 'Exclusive stock (60g) — Not enough gold',
                     disabled: GS.gold < 60,
                     action: () => {
-                        GS.gold -= 60;
+                        spendGold(60);
                         updateStats();
                         Events._chooseArtifact(5, art => {
                             Events._gainArtifact(art);

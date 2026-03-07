@@ -4,6 +4,24 @@ A record of intentional design choices made during development, including the re
 
 ---
 
+## No On-Death Effects That Can Kill the Player
+
+**Date:** 2026-03-07
+**Status:** Decided
+
+### Decision
+Enemy on-death passives must not be able to kill the player. Removed Soul Pact from the Demon (act2 and act3).
+
+### Rationale
+Soul Pact reflected overkill damage back to the player on the same turn they killed the Demon. This created an unavoidable death scenario — the player dealt the killing blow and died simultaneously with no way to prevent it. This feels unfair regardless of how much damage was dealt.
+
+The Demon's identity is preserved by its existing kit: Hellfire (unblockable, alternates with Strike) and Hellfire Corruption (each hit corrupts a player die -1 max). These provide sufficient threat and uniqueness without a death trap.
+
+### Rule
+Do not add passives with `id` patterns like `soulPact`, `deathReflect`, or any mechanic that damages the player as a direct consequence of the player dealing lethal damage to an enemy.
+
+---
+
 ## Elite Encounter UI — Visible vs. Hidden Modifier Display
 
 **Date:** 2026-03-01
@@ -327,6 +345,170 @@ Two reward systems coexist without alignment. **Threat affinities** drive bluepr
 
 ### Rationale
 Aligning them would require either rewriting runtime rewards to be threat-derived (breaking legible multiplier UX) or computing goldMult from affinity factors (added complexity). The systems serve different purposes: affinities are the balance truth; multipliers are the player communication layer.
+
+---
+
+## Combat Debuff Countdown Timing — execute() Start, Not newTurn()
+
+**Date:** 2026-03-07
+**Status:** Decided
+
+### Decision
+All player debuff countdowns (sealed slots, locked dice, dice curse, devoured dice) are decremented at the **very start of `execute()`**, before any combat processing. They were previously decremented in `newTurn()`, which ran immediately after `execute()` — meaning an effect applied with `turnsLeft: 1` was expired before the player ever saw it.
+
+### Lifecycle (example: seal with `turnsLeft: 1`)
+1. Enemy fires Void Rift during turn N's `execute()` → seal pushed with `turnsLeft: 1`
+2. `newTurn()` renders: player sees sealed slot and tag showing `(1t)`
+3. Player allocates dice (sealed slot is blocked) and clicks Execute
+4. Turn N+1 `execute()` start: `turnsLeft` decrements 1 → 0, entry removed
+5. `newTurn()` at end of turn N+1 renders: seal gone, tag gone
+
+This gives the effect exactly one allocation phase — correct. The old code gave zero.
+
+### What was wrong before
+`newTurn()` immediately followed `execute()`. Any effect applied mid-execute with `turnsLeft: 1` was decremented to 0 and removed in the same frame, before the player could allocate. Effects with `turnsLeft: 2` became effectively 1 turn.
+
+### Affected debuffs
+- `GS.playerDebuffs.disabledSlots` (sealed slots, `turnsLeft` per entry)
+- `die.locked` / `die.lockedTurns` (locked dice)
+- `GS.playerDebuffs.diceCurse` / `diceCurseTurns`
+- `GS.playerDebuffs.devouredDice` (`turnsLeft` per entry)
+
+### Implementation note
+A `// NOTE:` comment in `newTurn()` documents that these countdowns were intentionally moved to `execute()` start. Enemy status effects (chill, mark, weaken, stun, freeze) are on a different lifecycle and are NOT moved — they remain in `newTurn()` / specific resolve points.
+
+---
+
+## Casual Environment Filtering — 10% Chance, Never on Boss Floors
+
+**Date:** 2026-03-07
+**Status:** Decided
+
+### Decision
+Casual difficulty applies a flat 10% environment spawn chance on all combat floors (vs. 30–70% budget-steered on Standard/Heroic). Boss floors on Casual always have `environment = null` regardless of the random roll.
+
+### Why boss floors are always clear on Casual
+Boss fights are already the hardest floors. On Casual, environments add complexity and swing that new players aren't prepared for. Boss floors should be a clean skill test on the easiest difficulty.
+
+### Seed stability
+Environment selection still runs (consuming its RNG call) before the result is nulled. This preserves the seed's determinism — the same seed on Casual still produces the same enemies, schedules, and elite layouts as Standard/Heroic. Only the environment filtering happens after selection.
+
+### Implementation
+`selectEnvironmentSeeded()` and `selectEnvironmentForBudget()` accept a `chanceOverride` parameter. When `difficulty === 'casual'`, `generateCombatFloor()` passes `chanceOverride: 0.10`. Boss floors: selection runs with the override, then the result is set to `null`.
+
+---
+
+## Campaign Starting Boons — Per-Tier Run Grants
+
+**Date:** 2026-03-07
+**Status:** Decided
+
+### Decision
+Each Ancient Order grants starting items/buffs at run start based on the player's accumulated favor tier for that Order. Boons are **cumulative** — reaching Tier 2 grants both Tier 1 and Tier 2 boons. Applied in `Game.start()` via `Campaign.getApplicableStartBoons()`.
+
+| Order | Tier 1 | Tier 2 | Tier 3 |
+|-------|--------|--------|--------|
+| **Warpack** | +1 d6 die | Lucky rune on strike slot | Rage Potion |
+| **Gilded Hand** | +20 gold | +20 gold (total +40) | Tax Collector artifact |
+| **Runeforged** | Amplifier rune on strike slot | Shield Die | Titan's Blow rune on strike slot |
+| **Brood** | Poison Core rune on strike slot | Venom Flask | +3 Conduit transform buff |
+| **Ironward** | +15 max HP | Healing Potion | Iron Skin Potion |
+
+### Boon types
+`die`, `utilityDie`, `rune`, `gold`, `consumable`, `artifact`, `maxHp`, `transformBuff`. Defined in `ORDER_START_BOONS` in `campaign.js`. Player-facing descriptions in `ORDER_START_BOON_DESCS` (same file).
+
+### Rationale
+Tier enhancements (passive upgrades to existing nodes) reward players who have invested in a specific Order's skill path. Starting boons reward Order favor independently of which skill nodes the player has unlocked — giving meaningful campaign progression value even on runs where the player tries a different build. They also differentiate early-run feel: Warpack starts with more dice, Gilded Hand starts richer, Ironward starts tankier, regardless of skill tree choices.
+
+### Implementation notes
+- `Campaign.getApplicableStartBoons()` returns boons where `tier > boon.tierIdx` (i.e. tier must be crossed, not just reached).
+- Applied in `Game.start()` after blueprint generation and `applyTierEnhancements()`.
+- Rune boons target a slot in the specified `slotZone` ('strike'/'guard'). If all slots in that zone already have a rune, the boon is silently skipped (Runeforger cap applies normally).
+
+---
+
+## Campaign Mode — Loop Structure and Order Favor System
+
+**Date:** 2026-03-07
+**Status:** Decided
+
+### Decision
+Campaign Mode runs 3 loops at escalating difficulty (Casual → Standard → Heroic). Death ends the campaign (permadeath). The Ancient Order system tracks favor across loops and enhances already-unlocked Skill Die nodes and artifacts — silently, at dungeon start. The system is entirely hidden during runs; the player only ever sees narrative interactions at loop end.
+
+### Loop structure
+| Loop | Difficulty | Challenge Band |
+|------|-----------|---------------|
+| 1 | Casual | 1–3 |
+| 2 | Standard | 4–7 |
+| 3 | Heroic | 8–10 |
+
+### Favor accumulation
+```
+favor_earned[order] = Σ over all kills: enemy.baseThreat × Σ(node.orderFavor[order] for each unlocked node)
+```
+- Bosses generate more favor naturally via high baseThreat — no separate multiplier needed
+- Favor uses scaled baseThreat — Casual enemies generate ~76% of Standard favor per kill
+- Accumulated in `GS._loopFavor` during a run; flushed to campaign state via `Campaign.endLoop()` on boss defeat
+- `GS.campaign` holds the active campaign object (null for single runs)
+
+### Order tier thresholds
+Calibrated so a focused player hits Tier 1 by Loop 1 end, Tier 2 mid-Loop 2, Tier 3 mid-Loop 3.
+
+| Order | Tier 1 | Tier 2 | Tier 3 |
+|-------|--------|--------|--------|
+| Warpack | 2,200 | 7,500 | 15,000 |
+| Gilded | 2,200 | 7,000 | 13,500 |
+| Runeforged | 2,200 | 7,000 | 14,000 |
+| Brood | 1,500 | 5,000 | 10,000 |
+| Ironward | 2,200 | 7,500 | 15,000 |
+
+Brood has lower thresholds because its nodes have a lower max favor weight (3.4 vs 5–6.9 for others) — a focused Brood player would otherwise hit tiers later than all other Orders.
+
+### Tier node enhancements
+Applied in `Campaign.applyTierEnhancements(GS)` at `Game.start()`. Only applies if the node is currently unlocked. Writes directly to `gs.passives[passiveKey]`. Fortify (Ironward Tier 1) is a special case — applies directly to `gs.maxHp` and `gs.hp`.
+
+| Order | Tier | Node | Enhancement |
+|-------|------|------|-------------|
+| Warpack | 1 | Pack Tactics | +1→+2 dmg/die |
+| Warpack | 2 | Volley | Threshold 4+→3+ dice |
+| Warpack | 3 | Swarm Master | +2→+3 dmg/die |
+| Gilded | 1 | Prospector | +4→+7 gold/combat |
+| Gilded | 2 | Compound Interest | 10%→18% gold interest |
+| Gilded | 3 | Golden God | dmg per 8 gold → per 6 gold |
+| Runeforged | 1 | Threshold | Trigger ≥12→≥10 |
+| Runeforged | 2 | Runeforger | Slot rune cap 3→4 |
+| Runeforged | 3 | Amplify | Also grants Titan's Blow effect |
+| Brood | 1 | Venom | +1→+2 poison/attack |
+| Brood | 2 | Plague Lord | ×2→×3 poison mult |
+| Brood | 3 | Gambler | Reroll dmg 2→4; also applies 1 poison |
+| Ironward | 1 | Fortify | +15→+25 max HP |
+| Ironward | 2 | Convalescence | 25%→35% missing HP recovery |
+| Ironward | 3 | Life Weave | Healing ×2→×3 |
+
+### Artifact enhancements
+`_applyArtifactEnhancements(gs, tier)` in `campaign.js`. Writes favor-conditional flags to `gs.passives._<flag>`. Requires the artifact to be held by the player. Each Order enhances 4–9 thematically aligned artifacts. Fully enumerated in `js/campaign.js`. Examples:
+- Warpack Tier 1: Echo Stone → first two dice each count twice (was just first)
+- Gilded Tier 1: Tax Collector → +10 gold/combat (was +7)
+- Runeforged Tier 1: Colossus Belt threshold 9→7
+- Brood Tier 1: Venom Gland → poison ×3 (was ×2)
+- Ironward Tier 1: Eternal Pact → survive lethal twice per run (was once)
+
+### Cross-order synergies
+Activate when **both** Orders have reached Tier ≥2. Applied in `_applySynergies(gs, tier)`. 10 pairs — all enumerated in `js/campaign.js`. Examples:
+- Warpack + Ironward: Swarm Master also applies to dice in Guard zone
+- Brood + Ironward: healing scales with active poison stacks on enemy
+- Gilded + Runeforged: Sharpening Stone scales with gold held
+- Brood + Warpack: Battle Fury stacks also apply 1 poison
+
+### Order Interaction screen
+Shown at loop end after `Campaign.endLoop()` flushes favor. If any tier threshold was newly crossed, shows one narrative text block per Order/tier. Multiple crossings shown in sequence. Atmospheric fallback text if no threshold crossed. The Order system is fully silent during the run — this screen is the only hint it exists. No numbers, bar fills, or mechanical labels are ever shown.
+
+### Implementation notes
+- `Campaign.applyTierEnhancements(GS)` and `applyStartBoons()` called in `Game.start()` after blueprint generation, only when `GS.campaign !== null`
+- `GS.passives._campaignTier` set by `applyTierEnhancements` for node effect functions to read during the run
+- `Campaign.endLoop(GS._loopFavor, outcome, stats)` handles favor flush, tier crossing detection, loop increment on victory, and archiving defeated campaigns
+- `CampaignHistory` in `persistence.js` stores up to 50 completed campaigns; campaigns are top-level records with nested loop entries
+- See `docs/campaign-mode.md` for full design spec including favor simulation tables and node affinity profiles
 
 ---
 

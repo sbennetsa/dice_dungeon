@@ -504,6 +504,12 @@ export const Combat = {
             const maxDevour = Math.max(...GS.playerDebuffs.devouredDice.map(dd => dd.turnsLeft || 0));
             html += `<span class="player-status-tag player-status-tag--sealed">👄 ${GS.playerDebuffs.devouredDice.length} die swallowed${maxDevour > 0 ? ` (${maxDevour}t)` : ''}</span>`;
         }
+        if (GS.artifacts?.some(a => a.effect === 'battleFury')) {
+            const needed = 3;
+            const charges = GS.furyCharges || 0;
+            const ready = charges >= needed;
+            html += `<span class="player-status-tag${ready ? ' player-status-tag--fury-ready' : ''}">🔥 Fury ${charges}/${needed}${ready ? ' READY!' : ''}</span>`;
+        }
         bar.innerHTML = html;
     },
 
@@ -1351,16 +1357,6 @@ export const Combat = {
             }
         }
 
-        // Soul Pact: overkill reflects back to player (death check deferred until after healing)
-        let soulPactLethal = false;
-        const soulPactP = e.passives.find(p => p.id === 'soulPact');
-        if (soulPactP && finalAtk > e.currentHp && finalAtk > 0) {
-            const reflected = finalAtk - e.currentHp;
-            GS.hp = Math.max(0, GS.hp - reflected);
-            log(`👹 Soul Pact! ${reflected} overkill reflected to you!`, 'damage');
-            updateStats();
-            soulPactLethal = GS.hp <= 0;
-        }
 
         // ── PLAYER ATTACKS ENEMY ──
         // Environment: modify damage before applying (e.g. narrowCorridor +5, thornsAura recoil)
@@ -1429,13 +1425,6 @@ export const Combat = {
         if (regenCoreHeal > 0) {
             const h = heal(regenCoreHeal);
             if (h > 0) { log(`💚 Regen Core: +${h} HP`, 'heal'); updateStats(); spawnFloatText(`+${h}`, $('player-hp-bar'), 'heal'); }
-        }
-
-        // Soul Pact: deferred death check (after siphon/bloodstone/lifesteal/regen healing)
-        if (soulPactLethal && GS.hp <= 0) {
-            GS.hp = 0; updateStats();
-            setTimeout(() => { if (GS.challengeMode) window.Game.challengeResult(); else window.Game.defeat(); }, 1000);
-            return;
         }
 
         // ── POST-ATTACK PASSIVE CHECKS ──

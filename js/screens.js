@@ -72,10 +72,25 @@ function _renderCombatLogReplay() {
     stats.parentElement.insertBefore(wrapper, stats.nextSibling);
 }
 
-// Applies a die upgrade, doubling the effect if mastersHammer is active
+// Applies a die upgrade, doubling the effect if mastersHammer is active.
+// Also checks Colossus Belt in case the upgrade pushed the die past the threshold.
 function applyUpgrade(die) {
     upgradeDie(die);
     if (GS.tempBuffs && GS.tempBuffs.mastersHammer) upgradeDie(die);
+    _checkBelt(die);
+}
+
+// Applies Colossus Belt bonus to a single die if it qualifies and hasn't been marked yet.
+function _checkBelt(die) {
+    const belt = GS.artifacts?.find(a => a.effect === 'colossussBelt');
+    if (!belt) return;
+    const thresh = GS.passives?._colossusThresh ?? 9;
+    if (!die.beltApplied && die.max >= thresh) {
+        die.faceValues = die.faceValues.map(v => v + belt.value);
+        die.min += belt.value; die.max += belt.value;
+        die.beltApplied = true;
+        log(`🏋️ Colossus Belt: ${die.name || 'die'} reached the threshold! +${belt.value} to all faces`, 'info');
+    }
 }
 
 // ── Artifact helpers ──
@@ -86,13 +101,15 @@ function applyUpgrade(die) {
  */
 function _applyArtifactOnAcquire(art) {
     if (art.effect === 'colossussBelt') {
+        const thresh = GS.passives?._colossusThresh ?? 9;
         GS.dice.forEach(d => {
-            if (d.max >= 9) {
+            if (!d.beltApplied && d.max >= thresh) {
                 d.faceValues = d.faceValues.map(v => v + art.value);
                 d.min += art.value; d.max += art.value;
+                d.beltApplied = true;
             }
         });
-        log(`🏋️ Colossus Belt: dice with max≥9 gained +${art.value} to all faces!`, 'info');
+        log(`🏋️ Colossus Belt: dice with max≥${thresh} gained +${art.value} to all faces!`, 'info');
     } else if (art.effect === 'glassCannon') {
         GS.dice.forEach(d => {
             d.faceValues = d.faceValues.map(v => v + art.value);
@@ -102,7 +119,9 @@ function _applyArtifactOnAcquire(art) {
         GS.hp = Math.min(GS.hp, GS.maxHp);
         log(`💥 Glass Cannon: all dice +${art.value} faces, max HP halved to ${GS.maxHp}!`, 'damage');
     } else if (art.effect === 'titansDie') {
-        GS.dice.push(createDieFromFaces([12, 12, 12, 12, 12, 12]));
+        const d = createDieFromFaces([12, 12, 12, 12, 12, 12]);
+        GS.dice.push(d);
+        _checkBelt(d);
         log(`🎲 Titan's Die: permanent d12 added to your pool!`, 'info');
     }
 }
@@ -817,6 +836,7 @@ const SkillDie = (() => {
     let _rotX = 0.18, _rotY = 0;
     let _velX = 0, _velY = 0;
     let _isDragging = false, _dragDist = 0;
+    let _snapTargetX = null, _snapTargetY = null;
     let _prevX = 0, _prevY = 0;
     let _pinching = false, _idleT = 0;
     let _selectedId = null;
@@ -1213,16 +1233,61 @@ const SkillDie = (() => {
         });
     }
 
+    // ── Snap target: find the closest face-aligned rotation ───
+    function _computeSnapTarget() {
+        // Candidate target rotations (rotX, rotY) per face index (SD_NORMALS order)
+        const PI = Math.PI;
+        // Normalise rotY to [-π, π] range for shortest-path snapping
+        const ry = ((_rotY % (2 * PI)) + 3 * PI) % (2 * PI) - PI;
+        const candidates = [
+            { x: 0,      y: 0 },          // front
+            { x: 0,      y: PI / 2 },      // right
+            { x: 0,      y: ry > 0 ? PI : -PI }, // back (pick sign to minimise travel)
+            { x: 0,      y: -PI / 2 },     // left
+            { x: -PI / 2, y: ry },         // top (keep current Y)
+        ];
+        let best = null, bestDist = Infinity;
+        for (const c of candidates) {
+            const rx = ((_rotX % (2 * PI)) + 3 * PI) % (2 * PI) - PI;
+            const dx = c.x - rx, dy = c.y - ry;
+            const dist = dx * dx + dy * dy;
+            if (dist < bestDist) { bestDist = dist; best = c; }
+        }
+        return best;
+    }
+
     // ── rAF loop ──────────────────────────────────────────────
     function _loop() {
         if (!_rafActive) return;
         if (!_isDragging && !_pinching) {
             _rotY += _velY; _rotX += _velX;
             _velX *= 0.96; _velY *= 0.96;
-            if (Math.abs(_velX) < 0.0004 && Math.abs(_velY) < 0.0004) {
+            const stopped = Math.abs(_velX) < 0.0004 && Math.abs(_velY) < 0.0004;
+            if (stopped) {
+                // Kick off a snap if we don't have a target yet
+                if (_snapTargetX === null) {
+                    const t = _computeSnapTarget();
+                    _snapTargetX = t.x; _snapTargetY = t.y;
+                    _idleT = 0;
+                }
+                // Lerp toward snap target
+                _rotX += (_snapTargetX - _rotX) * 0.12;
+                _rotY += (_snapTargetY - _rotY) * 0.12;
+                // Once close enough, lock exactly and switch to idle drift
+                if (Math.abs(_snapTargetX - _rotX) < 0.002 && Math.abs(_snapTargetY - _rotY) < 0.002) {
+                    _rotX = _snapTargetX; _rotY = _snapTargetY;
+                    _snapTargetX = null; _snapTargetY = null;
+                    _idleT += 0.002;
+                    _rotY += Math.sin(_idleT) * 0.0004;
+                }
+            } else {
+                // Still decelerating — clear any stale snap target
+                _snapTargetX = null; _snapTargetY = null;
                 _idleT += 0.002;
-                _rotY += Math.sin(_idleT) * 0.0004;
             }
+        } else {
+            // User is dragging — cancel snap
+            _snapTargetX = null; _snapTargetY = null;
         }
         _updateVisuals();
         requestAnimationFrame(_loop);
@@ -1404,6 +1469,7 @@ const Rewards = {
                 if (slot.mod) merged.faceMods.push({ faceIndex: i, mod: { ...slot.mod } });
             });
             GS.dice.push(merged);
+            _checkBelt(merged);
             const fs = merged.faceMods.length ? ` [${merged.faceMods.map(m => `face${m.faceIndex}:${m.mod.icon}`).join(', ')}]` : '';
             log(`🔥 Forged: [${newMin}-${newMax}] d6${fs}`, 'info');
             updateStats();
@@ -2149,7 +2215,7 @@ const Shop = {
               action: () => { GS.dice.push(createDie(2, 7)); log('Bought Weighted Die (2-7)!', 'info'); } },
             { title: '💎 Power Die', desc: `Rolls 4-9 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 80, type: 'DICE', rarity: 'uncommon',
               effect: 'Adds a 4-9 die to your pool',
-              action: () => { GS.dice.push(createDie(4, 9)); log('Bought Power Die (4-9)!', 'info'); } },
+              action: () => { const d = createDie(4, 9); GS.dice.push(d); _checkBelt(d); log('Bought Power Die (4-9)!', 'info'); } },
             { title: '⬆️ Die Upgrade', desc: 'Improve one die\'s range', price: 50, type: 'UPGRADE', rarity: 'uncommon',
               effect: '+1/+1 to a die', action: () => { Shop.showUpgrade(); return false; } },
             { title: '🗡️ Blade Oil', desc: 'Sharpen your blades permanently', price: 25, type: 'BUFF', rarity: 'common',
@@ -2170,7 +2236,7 @@ const Shop = {
             all.push(
                 { title: '⚡ Titan Die', desc: `Rolls 6-11 (${GS.dice.length} dice, ${totalSlots} slots)`, price: 150, type: 'DICE', rarity: 'rare',
                   effect: 'Adds a 6-11 die to your pool',
-                  action: () => { GS.dice.push(createDie(6, 11)); log('Bought Titan Die (6-11)!', 'info'); } },
+                  action: () => { const d = createDie(6, 11); GS.dice.push(d); _checkBelt(d); log('Bought Titan Die (6-11)!', 'info'); } },
             );
         }
 
@@ -2318,7 +2384,7 @@ const Shop = {
                     GS.gold -= item.price;
                     Shop.marketPurchased.add(i);
                     updateStats();
-                    addConsumableToInventory({ ...item }, () => { Shop._renderMarket(); Shop._renderForge(); });
+                    addConsumableToInventory({ ...item }, () => { Shop._renderMarket(); Shop._renderForge(); Shop._renderSell(); });
                 };
             }
             grid.appendChild(card);
@@ -2777,16 +2843,23 @@ const Events = {
     _gainArtifact(art) {
         GS.artifacts.push({ ...art });
         if (art.effect === 'colossussBelt') {
+            const thresh = GS.passives?._colossusThresh ?? 9;
             GS.dice.forEach(d => {
-                if (d.max >= 9) { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; }
+                if (!d.beltApplied && d.max >= thresh) {
+                    d.faceValues = d.faceValues.map(v => v + art.value);
+                    d.min += art.value; d.max += art.value;
+                    d.beltApplied = true;
+                }
             });
-            log(`🏋️ Colossus Belt: dice with max≥9 gained +${art.value} to all faces!`, 'info');
+            log(`🏋️ Colossus Belt: dice with max≥${thresh} gained +${art.value} to all faces!`, 'info');
         } else if (art.effect === 'glassCannon') {
             GS.dice.forEach(d => { d.faceValues = d.faceValues.map(v => v + art.value); d.min += art.value; d.max += art.value; });
             GS.maxHp = Math.max(10, Math.floor(GS.maxHp / 2)); GS.hp = Math.min(GS.hp, GS.maxHp);
             log(`💥 Glass Cannon: all dice +${art.value} faces, max HP halved!`, 'damage');
         } else if (art.effect === 'titansDie') {
-            GS.dice.push(createDie(1, art.value));
+            const d = createDie(1, art.value);
+            GS.dice.push(d);
+            _checkBelt(d);
             log(`🎲 Titan's Die: permanent d${art.value} added to your pool!`, 'info');
         }
         log(`Found ${art.icon} ${art.name}!`, 'info');
@@ -3088,7 +3161,7 @@ const Events = {
                     text: 'Smash it — a random die gains +1/+1',
                     action: () => {
                         const die = pick(GS.dice);
-                        upgradeDie(die);
+                        applyUpgrade(die);
                         log(`Smashed the chest! ${die.min}-${die.max} die upgraded!`, 'info');
                         updateStats(); Game.nextFloor();
                     }
@@ -3513,7 +3586,6 @@ const Rest = {
         const maintHeader = document.createElement('div');
         maintHeader.className = 'section-title';
         maintHeader.textContent = '🔧 MAINTENANCE';
-        if (!Rest._transformDone) maintHeader.style.opacity = '0.4';
         content.appendChild(maintHeader);
 
         const maintGrid = document.createElement('div');
@@ -3522,9 +3594,9 @@ const Rest = {
         if (!Rest._maintenanceDone) {
             const healAmt = Math.floor(GS.maxHp * 0.3);
             const healCard = document.createElement('div');
-            healCard.className = 'card' + (!Rest._transformDone ? ' disabled' : '');
+            healCard.className = 'card';
             healCard.innerHTML = `<div class="card-title">❤️ Heal</div><div class="card-desc">Restore ${healAmt} HP (30% max)</div>`;
-            if (Rest._transformDone) healCard.onclick = () => {
+            healCard.onclick = () => {
                 const h = heal(healAmt);
                 log(`Rested: +${h} HP`, 'heal');
                 updateStats();
@@ -3534,25 +3606,25 @@ const Rest = {
             maintGrid.appendChild(healCard);
 
             const upCard = document.createElement('div');
-            upCard.className = 'card' + (!Rest._transformDone ? ' disabled' : '');
+            upCard.className = 'card';
             upCard.innerHTML = `<div class="card-title">⬆️ Train</div><div class="card-desc">Upgrade one die +1/+1</div>`;
-            if (Rest._transformDone) upCard.onclick = () => Rest.showUpgrade();
+            upCard.onclick = () => Rest.showUpgrade();
             maintGrid.appendChild(upCard);
 
             const hasTrimmable = GS.dice.some(d => d.faceValues && d.faceValues.length > 3);
             if (hasTrimmable) {
                 const trimCard = document.createElement('div');
-                trimCard.className = 'card' + (!Rest._transformDone ? ' disabled' : '');
+                trimCard.className = 'card';
                 trimCard.innerHTML = `<div class="card-title">✂️ Trim</div><div class="card-desc">Remove a face from a die</div>`;
-                if (Rest._transformDone) trimCard.onclick = () => Rest.showFaceTrim();
+                trimCard.onclick = () => Rest.showFaceTrim();
                 maintGrid.appendChild(trimCard);
             }
 
             if (GS.passives.canMerge && GS.dice.length >= 4) {
                 const mergeCard = document.createElement('div');
-                mergeCard.className = 'card' + (!Rest._transformDone ? ' disabled' : '');
+                mergeCard.className = 'card';
                 mergeCard.innerHTML = `<div class="card-title">🔥 Forge Merge</div><div class="card-desc">Fuse 2 dice into 1</div>`;
-                if (Rest._transformDone) mergeCard.onclick = () => {
+                mergeCard.onclick = () => {
                     Rewards.showMergeSelection(() => { Rest._maintenanceDone = true; Rest._render(); });
                 };
                 maintGrid.appendChild(mergeCard);

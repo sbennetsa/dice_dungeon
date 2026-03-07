@@ -381,9 +381,7 @@ export const ENEMIES = {
                 strike:   { name: 'Strike', icon: '⚔️', type: 'attack', desc: 'Deal damage' },
                 hellfire: { name: 'Hellfire', icon: '🔥', type: 'unblockable', desc: 'Deal unblockable damage (max 15)', maxDamage: 15 },
             },
-            passives: [
-                { id: 'soulPact', name: 'Soul Pact', desc: 'Overkill damage reflects back to player', params: {} },
-            ],
+            passives: [],
             pattern: ['strike', 'hellfire'],
         },
         act3: {
@@ -393,7 +391,6 @@ export const ENEMIES = {
                 hellfire: { name: 'Hellfire', icon: '🔥', type: 'unblockable', desc: 'Deal unblockable damage (max 20)', maxDamage: 20 },
             },
             passives: [
-                { id: 'soulPact', name: 'Soul Pact', desc: 'Overkill damage reflects back to player', params: {} },
                 { id: 'hellfireMod', name: 'Hellfire Corruption', desc: 'Each hit corrupts 1 player die (-1 max)', params: {} },
             ],
             pattern: ['strike', 'hellfire'],

@@ -167,8 +167,9 @@
 <!-- ═══════════ DUNGEON PATH SCREEN ═══════════ -->
 <div id="screen-dungeon-path" class="screen">
     <div class="dungeon-path-wrapper">
-        <div class="dungeon-path-header">
+        <div class="dungeon-path-header" style="display:flex; justify-content:space-between; align-items:center;">
             <h2>Dungeon Path</h2>
+            <button class="btn" onclick="IssueReport.show()" style="font-size:0.8em; padding:5px 10px;">🐛</button>
         </div>
         <div id="dungeon-path-settings"></div>
         <div id="dungeon-path-seed"></div>
@@ -398,6 +399,7 @@
         <div id="go-unlocks"></div>
         <div id="go-buttons" style="margin-top:20px; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
             <button class="btn btn-primary" onclick="Game.backToStart()">Try Again</button>
+            <button class="btn" onclick="IssueReport.show()" style="font-size:0.8em; padding:5px 10px;">🐛</button>
         </div>
     </div>
 </div>

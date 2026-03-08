@@ -701,16 +701,14 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 }
 .die-face-watermark--mod { opacity: 0.10; }
 
-/* Bonus badges overlaid on the landed face */
+/* Per-die unique badges (e.g. Echo Stone) overlaid on the landed face */
 .die-badges {
     position: absolute;
     bottom: 3px; right: 3px;
     display: flex; gap: 1px;
     z-index: 2;
 }
-.die-aura-badge,
-.die-volley-badge,
-.die-passive-badge {
+.die-echo-badge {
     font-family: var(--font-data);
     font-size: 0.55em;
     font-weight: 700;
@@ -718,10 +716,26 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     border-radius: 3px;
     background: rgba(0,0,0,0.5);
     line-height: 1.2;
+    color: rgba(180,220,255,0.9);
 }
-.die-aura-badge    { color: rgba(255,200,0,0.9); }
-.die-volley-badge  { color: rgba(80,200,80,0.9); }
-.die-passive-badge { color: rgba(180,150,255,0.9); }
+
+/* Zone modifier summary tags */
+.zone-mods {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 3px 4px 0;
+}
+.zone-mod-tag {
+    font-family: var(--font-data);
+    font-size: 0.7em;
+    color: rgba(255,255,255,0.55);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    padding: 1px 5px;
+    white-space: nowrap;
+}
 
 /* ── Face mod glow ── */
 .die-face[data-mod] { animation: mod-pulse 2.5s ease-in-out infinite alternate; }

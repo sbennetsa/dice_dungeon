@@ -712,6 +712,7 @@ export function renderCombatDice() {
     });
 
     updateSlotTotals();
+    _renderZoneMods();
 
     const rerollBtn = $('btn-reroll-mode');
     const rerollCancelBtn = $('btn-reroll-cancel');
@@ -780,6 +781,19 @@ export function makeDieElement(die, context) {
     const cube = document.createElement('div');
     cube.className = 'die-cube';
     _buildDie3DFaces(cube, die, landedOverride);
+
+    // Per-die unique badges (single-die effects that don't apply to whole zone)
+    const hasEcho = GS.artifacts.some(a => a.effect === 'echoStone');
+    if (hasEcho && GS.echoStoneDieId !== null && die.id === GS.echoStoneDieId && die.rolled && die.rolledFaceIndex >= 0) {
+        const landGeo = die.rolledFaceIndex % 6;
+        const landedFaceEl = cube.querySelector(`[data-face-index="${landGeo}"]`);
+        if (landedFaceEl) {
+            const badge = document.createElement('div');
+            badge.className = 'die-badges';
+            badge.innerHTML = `<span class="die-echo-badge">🪨×2</span>`;
+            landedFaceEl.appendChild(badge);
+        }
+    }
 
     // Set initial cube rotation; animation is driven separately via _animateDieLanding
     if (die.rolled && !die._animateLanding) {
@@ -1111,6 +1125,39 @@ function calcUtilityPreviews(allocated, isStrike = false) {
         }
     });
     return { gold, poison, chill, burn, mark };
+}
+
+function _renderZoneMods() {
+    const ascendBonus = (GS.ascendedDice && GS.ascendedDice.length > 0)
+        ? GS.ascendedDice.reduce((s, a) => s + a.bonus, 0) : 0;
+    const pt  = GS.passives.packTactics || 0;
+    const sw  = GS.passives.swarmMaster || 0;
+    const vy  = GS.passives.volley || 0;
+    const hasEcho = GS.artifacts.some(a => a.effect === 'echoStone');
+
+    function buildMods(isStrike) {
+        const zone = isStrike ? GS.allocated.strike : GS.allocated.guard;
+        const tags = [];
+        if (ascendBonus > 0) tags.push(`🌟 +${ascendBonus} aura`);
+        if (isStrike && pt > 0) tags.push(`🐺 +${pt} pack tactics`);
+        if (sw > 0) tags.push(`👑 +${sw} swarm`);
+        if (vy > 0 && zone.length >= 4) tags.push(`⚡ +${vy} volley`);
+        if (hasEcho && GS.echoStoneDieId !== null) tags.push(`🪨 echo ×2`);
+        return tags;
+    }
+
+    const atkMods = document.getElementById('attack-zone-mods');
+    const defMods = document.getElementById('defend-zone-mods');
+    if (atkMods) {
+        const tags = buildMods(true);
+        atkMods.innerHTML = tags.map(t => `<span class="zone-mod-tag">${t}</span>`).join('');
+        atkMods.style.display = tags.length ? 'flex' : 'none';
+    }
+    if (defMods) {
+        const tags = buildMods(false);
+        defMods.innerHTML = tags.map(t => `<span class="zone-mod-tag">${t}</span>`).join('');
+        defMods.style.display = tags.length ? 'flex' : 'none';
+    }
 }
 
 export function updateSlotTotals() {

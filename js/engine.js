@@ -796,12 +796,14 @@ export function makeDieElement(die, context) {
         cube.dataset.ry = IDLE_ROT.y;
     }
 
-    // Hover: tilt to show more faces (JS-driven since cube has inline transform)
+    // Hover: tilt to show more faces — only outside combat
     el.addEventListener('mouseenter', () => {
+        if (el.closest('#screen-combat')) return;
         cube.style.transition = 'transform 0.25s ease';
         cube.style.transform = 'rotateX(-30deg) rotateY(42deg)';
     });
     el.addEventListener('mouseleave', () => {
+        if (el.closest('#screen-combat')) return;
         cube.style.transition = 'transform 0.25s ease';
         cube.style.transform = `rotateX(${cube.dataset.rx || IDLE_ROT.x}deg) rotateY(${cube.dataset.ry || IDLE_ROT.y}deg)`;
     });

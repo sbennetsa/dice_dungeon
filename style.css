@@ -547,8 +547,8 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     border-style: dashed;
 }
 
+/* Aura: glow only — no border-color so utility/special/volley borders are not overridden */
 .die.aura-boosted {
-    border-color: rgba(255, 200, 0, 0.4);
     box-shadow: 0 0 10px rgba(255, 200, 0, 0.15);
 }
 .die.aura-boosted.special {
@@ -561,7 +561,6 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     box-shadow: 0 0 10px rgba(80, 200, 80, 0.15);
 }
 .die.aura-boosted.volley-boosted {
-    border-color: rgba(180, 210, 60, 0.4);
     box-shadow: 0 0 10px rgba(255, 200, 0, 0.15), 0 0 8px rgba(80, 200, 80, 0.15);
 }
 

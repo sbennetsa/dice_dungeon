@@ -593,6 +593,21 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 }
 
 /* Standalone 3D preview for edit screens — no hover lift, shadow below to indicate draggability */
+/* Die face tooltip (combat audit) */
+.die-face-tip {
+    display: none;
+    position: fixed;
+    z-index: 500;
+    background: var(--bg-surface);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+    padding: 6px 8px;
+    gap: 4px;
+    flex-wrap: wrap;
+    pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+
 .die-3d-preview {
     flex-shrink: 0;
     cursor: default;

@@ -138,6 +138,31 @@ const UTIL_COLORS = {
     drain: '#6450b4', weaken: '#c87850',
 };
 
+// Lazy die face tooltip (shared singleton)
+function _getDieTip() {
+    let tip = document.getElementById('die-face-tip');
+    if (!tip) {
+        tip = document.createElement('div');
+        tip.id = 'die-face-tip';
+        tip.className = 'die-face-tip';
+        document.body.appendChild(tip);
+    }
+    return tip;
+}
+function _showDieTip(el, die) {
+    const tip = _getDieTip();
+    tip.innerHTML = renderFaceStrip(die, { highlightVal: die.rolled ? die.value : undefined });
+    tip.style.display = 'flex';
+    const rect = el.getBoundingClientRect();
+    const tipH = tip.offsetHeight || 60;
+    tip.style.left = Math.max(4, rect.left + rect.width / 2 - tip.offsetWidth / 2) + 'px';
+    tip.style.top  = (rect.top - tipH - 6) + 'px';
+}
+function _hideDieTip() {
+    const tip = document.getElementById('die-face-tip');
+    if (tip) tip.style.display = 'none';
+}
+
 function _buildFaceNum(v) {
     const el = document.createElement('div');
     el.className = String(v).length >= 3 ? 'face-num face-num--sm' : 'face-num';
@@ -786,13 +811,20 @@ export function makeDieElement(die, context) {
     }
 
     // Hover: tilt to show more faces — only outside combat
+    // Inside combat: show face-strip tooltip for auditing
     el.addEventListener('mouseenter', () => {
-        if (el.closest('#screen-combat')) return;
+        if (el.closest('#screen-combat')) {
+            _showDieTip(el, die);
+            return;
+        }
         cube.style.transition = 'transform 0.25s ease';
         cube.style.transform = 'rotateX(-30deg) rotateY(42deg)';
     });
     el.addEventListener('mouseleave', () => {
-        if (el.closest('#screen-combat')) return;
+        if (el.closest('#screen-combat')) {
+            _hideDieTip();
+            return;
+        }
         cube.style.transition = 'transform 0.25s ease';
         cube.style.transform = `rotateX(${cube.dataset.rx || IDLE_ROT.x}deg) rotateY(${cube.dataset.ry || IDLE_ROT.y}deg)`;
     });

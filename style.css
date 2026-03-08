@@ -547,22 +547,7 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     border-style: dashed;
 }
 
-/* Aura: glow only — no border-color so utility/special/volley borders are not overridden */
-.die.aura-boosted {
-    box-shadow: 0 0 10px rgba(255, 200, 0, 0.15);
-}
-.die.aura-boosted.special {
-    box-shadow: 0 0 10px rgba(255, 200, 0, 0.15), 0 0 8px rgba(212, 165, 52, 0.2);
-}
-
-/* Badge styles now handled inside .die-badges on the landed face — see 3D DICE section */
-.die.volley-boosted {
-    border-color: rgba(80, 200, 80, 0.4);
-    box-shadow: 0 0 10px rgba(80, 200, 80, 0.15);
-}
-.die.aura-boosted.volley-boosted {
-    box-shadow: 0 0 10px rgba(255, 200, 0, 0.15), 0 0 8px rgba(80, 200, 80, 0.15);
-}
+/* Die styling is purely type/face-mod based — no bonus-driven colours */
 
 .die.special {
     border-color: var(--gold);
@@ -665,8 +650,6 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 .die.unrolled .die-face { border-style: dashed; border-color: rgba(255,255,255,0.18); }
 
 /* State overrides on landed face */
-.die.die-3d.aura-boosted   .die-face--landed { border-color: rgba(255,200,0,0.6); box-shadow: inset 0 0 12px rgba(255,200,0,0.15); }
-.die.die-3d.volley-boosted .die-face--landed { border-color: rgba(80,200,80,0.6); }
 .die.die-3d.special        .die-face--landed { border-color: var(--gold); border-width: 2px; }
 .die.die-3d.reroll-selectable .die-face--landed {
     border-color: var(--gold) !important;
@@ -722,18 +705,14 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 /* Zone modifier summary tags */
 .zone-mods {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 3px 4px 0;
+    flex-direction: column;
+    gap: 2px;
+    padding: 3px 6px 0;
 }
-.zone-mod-tag {
+.zone-mod-note {
     font-family: var(--font-data);
     font-size: 0.7em;
-    color: rgba(255,255,255,0.55);
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 4px;
-    padding: 1px 5px;
+    color: rgba(255,255,255,0.4);
     white-space: nowrap;
 }
 

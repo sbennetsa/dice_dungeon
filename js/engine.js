@@ -753,35 +753,11 @@ export function makeDieElement(die, context) {
 
     // Per-die bonuses — shown as badge overlays on the landed face (not folded into value,
     // so the number always reflects the raw roll and the badge shows the additive bonus clearly)
-    // Compute per-zone bonuses for display
-    const inZone = context === 'strike' || context === 'guard';
-    let ascendBonus = 0, volleyBonus = 0, ptBonus = 0, swBonus = 0;
-    if (die.rolled && !die.dieType) {
-        if (GS.ascendedDice && GS.ascendedDice.length > 0)
-            ascendBonus = GS.ascendedDice.reduce((s, a) => s + a.bonus, 0);
-        if (inZone) {
-            if (GS.passives.volley && die.slotId) {
-                const zone = die.slotId.startsWith('str') ? GS.allocated.strike : GS.allocated.guard;
-                if (zone.length >= 4) volleyBonus = GS.passives.volley;
-            }
-            ptBonus = (context === 'strike') ? (GS.passives.packTactics || 0) : 0;
-            swBonus = GS.passives.swarmMaster || 0;
-        }
-    }
-    const bulwarkBonus = (!die.dieType && context === 'guard' && GS.passives.bulwark && GS.hp >= GS.maxHp * 0.75) ? 2 : 0;
-    // Apply aura-boosted / volley-boosted classes for glow effects
-    if (ascendBonus > 0) el.classList.add('aura-boosted');
-    if (volleyBonus > 0) el.classList.add('volley-boosted');
-
-    // Landed face shows the effective contribution value (bonuses folded in)
-    const totalBonus = ascendBonus + volleyBonus + ptBonus + swBonus + bulwarkBonus;
-    const landedOverride = (die.rolled && !die.dieType && totalBonus > 0) ? die.value + totalBonus : null;
-
-    // 3D cube rendering
+    // 3D cube rendering — die face always shows raw rolled value
     el.classList.add('die-3d', `die-ctx--${context}`);
     const cube = document.createElement('div');
     cube.className = 'die-cube';
-    _buildDie3DFaces(cube, die, landedOverride);
+    _buildDie3DFaces(cube, die);
 
     // Per-die unique badges (single-die effects that don't apply to whole zone)
     const hasEcho = GS.artifacts.some(a => a.effect === 'echoStone');
@@ -1136,33 +1112,47 @@ function _renderZoneMods() {
     const sw  = GS.passives.swarmMaster || 0;
     const vy  = GS.passives.volley || 0;
     const hasEcho = GS.artifacts.some(a => a.effect === 'echoStone');
-
     const bulwarkActive = !!(GS.passives.bulwark && GS.hp >= GS.maxHp * 0.75);
 
-    function buildMods(isStrike) {
+    // Build "die = base + X (source) + Y (source)" breakdown for a zone
+    function buildNote(isStrike) {
         const zone = isStrike ? GS.allocated.strike : GS.allocated.guard;
-        const tags = [];
-        if (ascendBonus > 0) tags.push(`🌟 +${ascendBonus} aura`);
-        if (isStrike && pt > 0) tags.push(`🐺 +${pt} pack tactics`);
-        if (sw > 0) tags.push(`👑 +${sw} swarm`);
-        if (vy > 0 && zone.length >= 4) tags.push(`⚡ +${vy} volley`);
-        if (!isStrike && bulwarkActive) tags.push(`❤️ +2 bulwark`);
-        if (hasEcho && GS.echoStoneDieId !== null) tags.push(`🪨 echo ×2`);
-        return tags;
+        const parts = [];
+        if (ascendBonus > 0) parts.push(`+${ascendBonus} aura`);
+        if (isStrike && pt > 0) parts.push(`+${pt} tactics`);
+        if (sw > 0) parts.push(`+${sw} swarm`);
+        if (vy > 0 && zone.length >= 4) parts.push(`+${vy} volley`);
+        if (!isStrike && bulwarkActive) parts.push(`+2 bulwark`);
+        if (!parts.length) return '';
+        const perDieTotal = parts.reduce((s, p) => s + parseInt(p), 0);
+        return `each die: base ${parts.join(' ')} = base+${perDieTotal}`;
     }
 
-    const atkMods = document.getElementById('attack-zone-mods');
-    const defMods = document.getElementById('defend-zone-mods');
-    if (atkMods) {
-        const tags = buildMods(true);
-        atkMods.innerHTML = tags.map(t => `<span class="zone-mod-tag">${t}</span>`).join('');
-        atkMods.style.display = tags.length ? 'flex' : 'none';
+    function buildEchoNote(isStrike) {
+        if (!hasEcho || GS.echoStoneDieId === null) return '';
+        const zone = isStrike ? GS.allocated.strike : GS.allocated.guard;
+        const echoDie = zone.find(d => d.id === GS.echoStoneDieId);
+        if (!echoDie) return '';
+        return `🪨 echo: die ${echoDie.value} counts ×2`;
     }
-    if (defMods) {
-        const tags = buildMods(false);
-        defMods.innerHTML = tags.map(t => `<span class="zone-mod-tag">${t}</span>`).join('');
-        defMods.style.display = tags.length ? 'flex' : 'none';
+
+    function render(elId, isStrike) {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        const note = buildNote(isStrike);
+        const echo = buildEchoNote(isStrike);
+        const lines = [note, echo].filter(Boolean);
+        if (lines.length) {
+            el.innerHTML = lines.map(l => `<span class="zone-mod-note">${l}</span>`).join('');
+            el.style.display = 'flex';
+        } else {
+            el.innerHTML = '';
+            el.style.display = 'none';
+        }
     }
+
+    render('attack-zone-mods', true);
+    render('defend-zone-mods', false);
 }
 
 export function updateSlotTotals() {

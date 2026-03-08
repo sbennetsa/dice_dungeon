@@ -625,7 +625,22 @@ export function makeDieElement(die, context) {
     if (rawDisplayLen >= 4) el.classList.add('die--xs');
     else if (rawDisplayLen >= 3) el.classList.add('die--sm');
 
-    el.innerHTML = `<span class="die-label">${rangeLabel}</span>${valueDisplay}${faceIcon}${badges}`;
+    // 3D cube rendering
+    el.classList.add('die-3d', `die-ctx--${context}`);
+    const typeIcon = die.dieType ? `<span class="die-3d-type-icon">${die.icon || ''}</span>` : '';
+    const rolling = die.rolled ? ' die-rolling' : '';
+    el.innerHTML = `
+        <div class="die-scene">
+            <div class="die-cube${rolling}">
+                <div class="die-face die-face--top">${valueDisplay}${faceIcon}${badges}</div>
+                <div class="die-face die-face--front"><span class="die-3d-range">${rangeLabel}</span></div>
+                <div class="die-face die-face--right">${typeIcon}</div>
+                <div class="die-face die-face--back"></div>
+                <div class="die-face die-face--left"></div>
+                <div class="die-face die-face--bottom"></div>
+            </div>
+        </div>
+    `;
     el.oncontextmenu = e => e.preventDefault();
 
     const tryReroll = () => {
@@ -762,6 +777,13 @@ export function makeDieElement(die, context) {
     }
 
     return el;
+}
+
+/** Renders a single enemy die as a 3D cube HTML string for use in enemy panel innerHTML. */
+export function makeEnemyDieHtml(value, dieMax, isRolled = true) {
+    const rolling = isRolled ? ' die-rolling' : '';
+    const display = isRolled ? value : '?';
+    return `<div class="die enemy-die"><div class="die-scene die-scene--sm"><div class="die-cube die-cube--enemy${rolling}"><div class="die-face die-face--top">${display}</div><div class="die-face die-face--front"><span class="die-3d-range">d${dieMax}</span></div><div class="die-face die-face--right"></div><div class="die-face die-face--back"></div><div class="die-face die-face--left"></div><div class="die-face die-face--bottom"></div></div></div></div>`;
 }
 
 export function setupDropZones() {
@@ -993,6 +1015,17 @@ export function updateSlotTotals() {
         });
     }
 
+    // Battle Fury: if charges ready, highest attack die is doubled — reflect in preview (pre-mult)
+    if ((GS.furyCharges || 0) >= 3 && atkNormal.length > 0) {
+        let topIdx = 0;
+        for (let i = 1; i < atkNormal.length; i++) {
+            if (atkNormal[i].value > atkNormal[topIdx].value) topIdx = i;
+        }
+        const extra = atkContribs[topIdx].val;
+        atkTotal += extra;
+        atkPreMultBonuses.push({ amount: extra, label: '🔥 Fury ×2' });
+    }
+
     const atkZoneMults = [];
     if (GS.artifacts.some(a => a.effect === 'berserkersMask')) { atkMultiplier *= 1.5; atkZoneMults.push({ mul: 1.5, label: "Berserker's Mask" }); }
     if (GS.artifacts.some(a => a.effect === 'bloodPact')) { atkMultiplier *= 1.3; atkZoneMults.push({ mul: 1.3, label: 'Blood Pact' }); }
@@ -1013,7 +1046,7 @@ export function updateSlotTotals() {
     atkBonus += fester; if (fester > 0) atkBonuses.push({ amount: fester, label: 'festering wound' });
 
     let finalAtk = Math.floor(atkTotal * atkMultiplier) + atkBonus;
-    const sharpeningAtk = GS.artifacts.some(a => a.effect === 'sharpeningStone');
+    const sharpeningAtk = atkNormal.length === 1 && GS.artifacts.some(a => a.effect === 'sharpeningStone');
     if (sharpeningAtk) finalAtk = Math.ceil(finalAtk * 1.5);
 
     $('attack-total').textContent = finalAtk;

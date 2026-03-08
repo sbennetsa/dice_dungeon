@@ -606,6 +606,199 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 
 .die.rolling { animation: diceRoll 0.4s ease; }
 
+/* ════════════════════════════════════════════════════════════
+   3D DICE
+   ════════════════════════════════════════════════════════════ */
+
+/* Wrapper overrides — transparent shell keeps event handling */
+.die.die-3d {
+    background: transparent;
+    border: none;
+    overflow: visible;
+    font-size: 0;
+}
+.die.die-3d:hover { transform: translateY(-2px); box-shadow: none; }
+
+/* Perspective scene */
+.die-scene {
+    width: 100%;
+    height: 100%;
+    perspective: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+.die-scene--sm { perspective: 110px; }
+
+/* Cube */
+.die-cube {
+    width: 56px;
+    height: 56px;
+    position: relative;
+    transform-style: preserve-3d;
+    transform: rotateX(-22deg) rotateY(25deg);
+    transition: transform 0.25s ease;
+}
+.die-scene--sm .die-cube { width: 30px; height: 30px; }
+.die.die-3d:hover .die-cube { transform: rotateX(-30deg) rotateY(42deg); }
+.die.die-3d.reroll-selectable:hover .die-cube { transform: rotateX(-30deg) rotateY(42deg) scale(1.05); }
+
+/* Faces — base */
+.die-face {
+    position: absolute;
+    width: 56px;
+    height: 56px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,0.10);
+    backface-visibility: hidden;
+    font-family: var(--font-data);
+}
+.die-scene--sm .die-face { width: 30px; height: 30px; border-radius: 4px; }
+
+/* Face transforms — standard (half = 28px) */
+.die-face--top    { transform: rotateX(-90deg) translateZ(28px); background: #3a3a52; color: var(--text-bright); font-size: 1.5em; font-weight: 700; }
+.die-face--bottom { transform: rotateX(90deg)  translateZ(28px); background: #181828; }
+.die-face--front  { transform: translateZ(28px);                  background: #2e2e48; }
+.die-face--back   { transform: rotateY(180deg) translateZ(28px);  background: #1c1c30; }
+.die-face--right  { transform: rotateY(90deg)  translateZ(28px);  background: #262640; }
+.die-face--left   { transform: rotateY(-90deg) translateZ(28px);  background: #202038; }
+
+/* Face transforms — small enemy die (half = 15px) */
+.die-scene--sm .die-face--top    { transform: rotateX(-90deg) translateZ(15px); background: #3a3a52; color: var(--text-bright); font-size: 1.1em; font-weight: 700; }
+.die-scene--sm .die-face--bottom { transform: rotateX(90deg)  translateZ(15px); background: #181828; }
+.die-scene--sm .die-face--front  { transform: translateZ(15px);                  background: #2e2e48; }
+.die-scene--sm .die-face--back   { transform: rotateY(180deg) translateZ(15px);  background: #1c1c30; }
+.die-scene--sm .die-face--right  { transform: rotateY(90deg)  translateZ(15px);  background: #262640; }
+.die-scene--sm .die-face--left   { transform: rotateY(-90deg) translateZ(15px);  background: #202038; }
+
+/* Strike zone tint */
+.die-ctx--strike .die-face--top    { background: #3e2828; }
+.die-ctx--strike .die-face--front  { background: #302020; }
+.die-ctx--strike .die-face--right  { background: #281818; }
+.die-ctx--strike .die-face--left   { background: #201010; }
+.die-ctx--strike .die-face--back   { background: #1a0e0e; }
+.die-ctx--strike .die-face--bottom { background: #140c0c; }
+
+/* Guard zone tint */
+.die-ctx--guard .die-face--top    { background: #1e2840; }
+.die-ctx--guard .die-face--front  { background: #182038; }
+.die-ctx--guard .die-face--right  { background: #141830; }
+.die-ctx--guard .die-face--left   { background: #101428; }
+.die-ctx--guard .die-face--back   { background: #0e1020; }
+.die-ctx--guard .die-face--bottom { background: #0c0e1a; }
+
+/* Enemy die (dark purple tint) */
+.die-cube--enemy .die-face--top    { background: #2e2036; color: var(--text-bright); }
+.die-cube--enemy .die-face--front  { background: #251828; }
+.die-cube--enemy .die-face--right  { background: #1e1420; }
+.die-cube--enemy .die-face--left   { background: #18101c; }
+.die-cube--enemy .die-face--back   { background: #140e18; }
+.die-cube--enemy .die-face--bottom { background: #100c14; }
+
+/* Utility die top-face tints */
+.die.die-type-gold     .die-face--top { background: rgba(212,165,52,0.25);  border-color: rgba(212,165,52,0.45);  color: var(--gold); }
+.die.die-type-poison   .die-face--top { background: rgba(96,208,128,0.20);  border-color: rgba(96,208,128,0.40);  color: var(--green-bright); }
+.die.die-type-chill    .die-face--top { background: rgba(96,128,224,0.22);  border-color: rgba(96,128,224,0.40);  color: var(--blue-bright); }
+.die.die-type-burn     .die-face--top { background: rgba(255,96,96,0.20);   border-color: rgba(255,96,96,0.40);   color: var(--red-bright); }
+.die.die-type-shield   .die-face--top { background: rgba(80,140,220,0.22);  border-color: rgba(80,140,220,0.40); }
+.die.die-type-mark     .die-face--top { background: rgba(220,80,80,0.20);   border-color: rgba(220,80,80,0.40); }
+.die.die-type-amplifier .die-face--top{ background: rgba(180,100,220,0.22); border-color: rgba(180,100,220,0.40);}
+.die.die-type-drain    .die-face--top { background: rgba(100,80,180,0.22);  border-color: rgba(100,80,180,0.40); }
+.die.die-type-weaken   .die-face--top { background: rgba(200,120,80,0.22);  border-color: rgba(200,120,80,0.40); }
+.die.die-type-mimic    .die-face--top { background: rgba(160,160,80,0.22);  border-color: rgba(160,160,80,0.40); }
+
+/* State overrides on top face */
+.die.die-3d.aura-boosted .die-face--top    { border-color: rgba(255,200,0,0.55); box-shadow: inset 0 0 10px rgba(255,200,0,0.15); }
+.die.die-3d.volley-boosted .die-face--top  { border-color: rgba(80,200,80,0.55); }
+.die.die-3d.special .die-face--top         { border-color: var(--gold); border-width: 2px; }
+.die.die-3d.unrolled .die-face--top        { border-style: dashed; border-color: rgba(255,255,255,0.22); color: var(--text-dim); }
+.die.die-3d.unrolled .die-face--front      { border-style: dashed; }
+.die.die-3d.reroll-selectable .die-face--top {
+    border-color: var(--gold) !important;
+    box-shadow: inset 0 0 12px rgba(212,165,52,0.4) !important;
+    animation: pulse-glow 1s ease infinite;
+}
+
+/* Value font-size scaling when value string is long */
+.die.die-3d.die--sm .die-face--top { font-size: 1.15em; }
+.die.die-3d.die--xs .die-face--top { font-size: 0.9em; }
+
+/* Range label on front face */
+.die-3d-range {
+    font-size: 0.45em;
+    font-family: var(--font-data);
+    color: var(--text-dim);
+    text-align: center;
+    line-height: 1.2;
+}
+.die-scene--sm .die-3d-range { font-size: 0.9em; }
+
+/* Type icon on right face */
+.die-3d-type-icon {
+    font-size: 0.65em;
+    opacity: 0.7;
+}
+
+/* Face-mod icons positioned on top face */
+.die.die-3d .die-face-icon {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    font-size: 0.38em;
+}
+.die.die-3d .die-face-icon--active {
+    position: absolute;
+    bottom: 3px;
+    right: 3px;
+    top: auto;
+    font-size: 0.4em;
+    filter: drop-shadow(0 0 3px rgba(255,255,255,0.8));
+}
+
+/* Bonus badges on top face */
+.die.die-3d .die-aura-badge,
+.die.die-3d .die-volley-badge,
+.die.die-3d .die-passive-badge { font-size: 0.28em; }
+
+/* Roll animation — plays once on element creation */
+@keyframes die-roll-3d {
+    0%   { transform: rotateX(-22deg) rotateY(25deg); }
+    20%  { transform: rotateX(-80deg) rotateY(160deg) rotateZ(12deg); }
+    60%  { transform: rotateX(-38deg) rotateY(440deg) rotateZ(-8deg); }
+    100% { transform: rotateX(-22deg) rotateY(25deg); }
+}
+.die-rolling .die-cube {
+    animation: die-roll-3d 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Enemy dice row */
+.enemy-dice-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 2px 0 4px;
+    justify-content: center;
+    align-items: center;
+}
+.enemy-die {
+    width: 38px;
+    height: 38px;
+    cursor: default;
+    position: relative;
+    overflow: visible;
+    flex-shrink: 0;
+}
+.enemy-shield-tag {
+    font-size: 0.78em;
+    color: var(--text-dim);
+    margin-top: 2px;
+    text-align: center;
+}
+
 @keyframes pulse-glow {
     0%, 100% { filter: brightness(1); }
     50% { filter: brightness(1.3); }

@@ -780,6 +780,10 @@ const Game = {
             isElite: false,
             isBoss: true,
             poison: 0,
+            _frenzyTempDice: [],
+            _buffTempDice: [],
+            _buffTurnsLeft: 0,
+            _frenzyTurnsLeft: 0,
         };
 
         // Reset combat state (mirrors Combat.start)

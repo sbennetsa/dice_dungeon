@@ -5,7 +5,7 @@ import { pickWeightedConsumable, SKILL_TREE } from './constants.js';
 import { calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { GS, $, log, gainXP, gainGold, spendGold, heal, pick, rand } from './state.js';
 import { BestiaryProgress } from './persistence.js';
-import { rollSingleDie, getActiveFace, renderCombatDice, renderConsumables, updateStats, setupDropZones, show, createDie, getSlotById, getSlotRunes, enterRerollMode, exitRerollMode, sortPoolDice, resetSortMode } from './engine.js';
+import { rollSingleDie, getActiveFace, renderCombatDice, renderConsumables, updateStats, setupDropZones, show, createDie, getSlotById, getSlotRunes, enterRerollMode, exitRerollMode, sortPoolDice, resetSortMode, makeEnemyDieHtml } from './engine.js';
 
 // window.Game and window.Rewards are set by screens.js at load time
 // to avoid circular module dependencies
@@ -389,14 +389,16 @@ export const Combat = {
         const e = GS.enemy;
         const nameCls = (e.isElite || e.isBoss) ? 'enemy-name elite' : 'enemy-name';
 
-        // Dice pool display
+        // Dice pool display — 3D dice
         const allDice = [...e.dice, ...e.extraDice];
-        const counts = {};
-        allDice.forEach(d => { counts[d.max] = (counts[d.max] || 0) + 1; });
-        const diceDesc = Object.entries(counts).map(([d, n]) => `${n}×d${d}`).join(' + ');
-        const diceIcons = '🎲'.repeat(Math.min(allDice.length, 6));
-        const shieldPart = e.shield > 0 ? ` &nbsp;🛡️ Shield: ${e.shield}` : '';
-        const diceHtml = `<div class="enemy-dice-pool" style="font-size:0.8em;color:var(--text-dim);margin:4px 0;">${diceIcons} ${diceDesc}${shieldPart}</div>`;
+        const shieldPart = e.shield > 0 ? `<div class="enemy-shield-tag">🛡️ Shield: ${e.shield}</div>` : '';
+        let diceRowHtml;
+        if (e.diceResults && e.diceResults.length > 0) {
+            diceRowHtml = e.diceResults.map((val, i) => makeEnemyDieHtml(val, allDice[i]?.max || 6, true)).join('');
+        } else {
+            diceRowHtml = allDice.map(d => makeEnemyDieHtml(0, d.max, false)).join('');
+        }
+        const diceHtml = `<div class="enemy-dice-row">${diceRowHtml}</div>${shieldPart}`;
 
         // Status indicators
         let statusIndicators = '';

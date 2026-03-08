@@ -768,12 +768,13 @@ export function makeDieElement(die, context) {
             swBonus = GS.passives.swarmMaster || 0;
         }
     }
+    const bulwarkBonus = (!die.dieType && context === 'guard' && GS.passives.bulwark && GS.hp >= GS.maxHp * 0.75) ? 2 : 0;
     // Apply aura-boosted / volley-boosted classes for glow effects
     if (ascendBonus > 0) el.classList.add('aura-boosted');
     if (volleyBonus > 0) el.classList.add('volley-boosted');
 
     // Landed face shows the effective contribution value (bonuses folded in)
-    const totalBonus = ascendBonus + volleyBonus + ptBonus + swBonus;
+    const totalBonus = ascendBonus + volleyBonus + ptBonus + swBonus + bulwarkBonus;
     const landedOverride = (die.rolled && !die.dieType && totalBonus > 0) ? die.value + totalBonus : null;
 
     // 3D cube rendering
@@ -1083,11 +1084,12 @@ function calcUtilityPreviews(allocated, isStrike = false) {
     const volley = (GS.passives.volley && allocated.length >= 4) ? GS.passives.volley : 0;
     const packTactics = isStrike ? (GS.passives.packTactics || 0) : 0;
     const swarmMaster = GS.passives.swarmMaster || 0;
+    const bulwark = (!isStrike && GS.passives.bulwark && GS.hp >= GS.maxHp * 0.75) ? 2 : 0;
     let zoneBase = 0;
     allocated.forEach(d => {
         if (d.dieType) return;
         const runes = getSlotRunes(d.slotId);
-        let val = d.value + packTactics + swarmMaster + ascendBonus + volley;
+        let val = d.value + packTactics + swarmMaster + ascendBonus + volley + bulwark;
         let runeMul = 1;
         for (const r of runes) {
             if (r.effect === 'amplifier') runeMul *= 2;
@@ -1135,6 +1137,8 @@ function _renderZoneMods() {
     const vy  = GS.passives.volley || 0;
     const hasEcho = GS.artifacts.some(a => a.effect === 'echoStone');
 
+    const bulwarkActive = !!(GS.passives.bulwark && GS.hp >= GS.maxHp * 0.75);
+
     function buildMods(isStrike) {
         const zone = isStrike ? GS.allocated.strike : GS.allocated.guard;
         const tags = [];
@@ -1142,6 +1146,7 @@ function _renderZoneMods() {
         if (isStrike && pt > 0) tags.push(`🐺 +${pt} pack tactics`);
         if (sw > 0) tags.push(`👑 +${sw} swarm`);
         if (vy > 0 && zone.length >= 4) tags.push(`⚡ +${vy} volley`);
+        if (!isStrike && bulwarkActive) tags.push(`❤️ +2 bulwark`);
         if (hasEcho && GS.echoStoneDieId !== null) tags.push(`🪨 echo ×2`);
         return tags;
     }
@@ -1174,7 +1179,8 @@ export function updateSlotTotals() {
         const pt = isStrike ? (GS.passives.packTactics || 0) : 0;
         const sw = GS.passives.swarmMaster || 0;
         const vy = (GS.passives.volley && zoneCount >= 4) ? GS.passives.volley : 0;
-        const displayVal = d.value + pt + sw + vy + (zoneAscend || 0);
+        const bw = (!isStrike && GS.passives.bulwark && GS.hp >= GS.maxHp * 0.75) ? 2 : 0;
+        const displayVal = d.value + pt + sw + vy + bw + (zoneAscend || 0);
         let val = displayVal;
         const perDieMults = [];
         for (const r of runes) {

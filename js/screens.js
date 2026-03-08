@@ -26,7 +26,7 @@ let _pendingUnlocks = [];
 // ════════════════════════════════════════════════════════════
 
 // Replace YOURNAME with your Buy Me a Coffee username once set up.
-const SUPPORT_URL = 'https://buymeacoffee.com/YOURNAME';
+const SUPPORT_URL = 'https://buymeacoffee.com/sbaidev';
 
 /** Append a donate link after the #go-buttons container on the game-over screen. */
 function _appendSupportLink() {

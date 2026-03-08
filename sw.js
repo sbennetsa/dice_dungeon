@@ -1,4 +1,4 @@
-const CACHE = 'dice-dungeon-v1';
+const CACHE = 'dice-dungeon-v2';
 const SHELL = [
     './',
     './index.html',

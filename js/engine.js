@@ -811,10 +811,11 @@ export function makeDieElement(die, context) {
     }
 
     // Hover: tilt to show more faces — only outside combat
-    // Inside combat: show face-strip tooltip for auditing
+    // Inside combat: show face-strip tooltip after 4s hold for auditing
+    let _tipTimer = null;
     el.addEventListener('mouseenter', () => {
         if (el.closest('#screen-combat')) {
-            _showDieTip(el, die);
+            _tipTimer = setTimeout(() => _showDieTip(el, die), 4000);
             return;
         }
         cube.style.transition = 'transform 0.25s ease';
@@ -822,6 +823,7 @@ export function makeDieElement(die, context) {
     });
     el.addEventListener('mouseleave', () => {
         if (el.closest('#screen-combat')) {
+            clearTimeout(_tipTimer);
             _hideDieTip();
             return;
         }

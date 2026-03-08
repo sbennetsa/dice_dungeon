@@ -239,8 +239,9 @@ function _buildDie3DFaces(cubeEl, die, landedOverride = null) {
 function _animateDieLanding(cubeEl, die) {
     const geoIdx = die.rolledFaceIndex >= 0 ? die.rolledFaceIndex % 6 : 0;
     const target = GEOM_ROTS[geoIdx];
-    const spX = (Math.random() > 0.5 ? 1 : -1) * (720 + Math.floor(Math.random() * 360));
-    const spY = (Math.random() > 0.5 ? 1 : -1) * (1080 + Math.floor(Math.random() * 360));
+    // Exact multiples of 360° so the animation itself ends on the correct face (no snap discontinuity).
+    const spX = (Math.random() > 0.5 ? 1 : -1) * 360 * (2 + Math.floor(Math.random() * 3)); // 720/1080/1440
+    const spY = (Math.random() > 0.5 ? 1 : -1) * 360 * (3 + Math.floor(Math.random() * 3)); // 1080/1440/1800
 
     // Start at idle, then spin to target + full spins (lands on correct face)
     cubeEl.style.transition = 'none';

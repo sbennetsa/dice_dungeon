@@ -555,15 +555,7 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     box-shadow: 0 0 10px rgba(255, 200, 0, 0.15), 0 0 8px rgba(212, 165, 52, 0.2);
 }
 
-.die .die-aura-badge {
-    position: absolute;
-    bottom: 2px;
-    right: 3px;
-    font-size: 0.35em;
-    font-weight: 700;
-    color: #ffe070;
-    text-shadow: 0 0 4px rgba(255, 200, 0, 0.6);
-}
+/* Badge styles now handled inside .die-badges on the landed face — see 3D DICE section */
 .die.volley-boosted {
     border-color: rgba(80, 200, 80, 0.4);
     box-shadow: 0 0 10px rgba(80, 200, 80, 0.15);
@@ -571,24 +563,6 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
 .die.aura-boosted.volley-boosted {
     border-color: rgba(180, 210, 60, 0.4);
     box-shadow: 0 0 10px rgba(255, 200, 0, 0.15), 0 0 8px rgba(80, 200, 80, 0.15);
-}
-.die .die-volley-badge {
-    position: absolute;
-    bottom: 2px;
-    left: 3px;
-    font-size: 0.35em;
-    font-weight: 700;
-    color: #70e070;
-    text-shadow: 0 0 4px rgba(80, 200, 80, 0.6);
-}
-.die .die-passive-badge {
-    position: absolute;
-    top: 2px;
-    left: 3px;
-    font-size: 0.35em;
-    font-weight: 700;
-    color: #70c8ff;
-    text-shadow: 0 0 4px rgba(80, 160, 255, 0.6);
 }
 
 .die.special {
@@ -615,21 +589,30 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     background: transparent;
     border: none;
     overflow: visible;
-    font-size: 0;
+    font-size: 14px;
 }
-.die.die-3d:hover { transform: translateY(-2px); box-shadow: none; }
 
+/* Standalone 3D preview for edit screens — no hover lift, shadow below to indicate draggability */
+.die-3d-preview {
+    flex-shrink: 0;
+    cursor: default;
+}
+.die-3d-preview .die-scene {
+    cursor: grab;
+}
+.die-3d-preview .die-scene:active {
+    cursor: grabbing;
+}
 /* Perspective scene */
 .die-scene {
     width: 100%;
     height: 100%;
-    perspective: 180px;
+    perspective: 280px;
     display: flex;
     align-items: center;
     justify-content: center;
     pointer-events: none;
 }
-.die-scene--sm { perspective: 110px; }
 
 /* Cube */
 .die-cube {
@@ -637,167 +620,188 @@ h3 { font-family: var(--font-heading); font-size: var(--text-lg);  font-weight: 
     height: 56px;
     position: relative;
     transform-style: preserve-3d;
-    transform: rotateX(-22deg) rotateY(25deg);
-    transition: transform 0.25s ease;
+    /* transform and transition are set by JS */
 }
-.die-scene--sm .die-cube { width: 30px; height: 30px; }
-.die.die-3d:hover .die-cube { transform: rotateX(-30deg) rotateY(42deg); }
-.die.die-3d.reroll-selectable:hover .die-cube { transform: rotateX(-30deg) rotateY(42deg) scale(1.05); }
 
-/* Faces — base */
+/* ── Die faces — base ── */
 .die-face {
     position: absolute;
-    width: 56px;
-    height: 56px;
-    border-radius: 7px;
+    width: 56px; height: 56px;
+    border-radius: 8px;
+    background: #1a1a2e;
+    border: 2px solid rgba(201,168,76,0.3);
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.4);
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(255,255,255,0.10);
-    backface-visibility: hidden;
-    font-family: var(--font-data);
+    overflow: hidden;
 }
-.die-scene--sm .die-face { width: 30px; height: 30px; border-radius: 4px; }
+.die-face--void {
+    background: #06060c;
+    border-color: rgba(40,30,50,0.25);
+    opacity: 0.15;
+}
 
-/* Face transforms — standard (half = 28px) */
-.die-face--top    { transform: rotateX(-90deg) translateZ(28px); background: #3a3a52; color: var(--text-bright); font-size: 1.5em; font-weight: 700; }
-.die-face--bottom { transform: rotateX(90deg)  translateZ(28px); background: #181828; }
-.die-face--front  { transform: translateZ(28px);                  background: #2e2e48; }
-.die-face--back   { transform: rotateY(180deg) translateZ(28px);  background: #1c1c30; }
-.die-face--right  { transform: rotateY(90deg)  translateZ(28px);  background: #262640; }
-.die-face--left   { transform: rotateY(-90deg) translateZ(28px);  background: #202038; }
+/* Context tints — same background for all 6 faces per context */
+.die-ctx--pool   .die-face { background: #1a1a2e; border-color: rgba(201,168,76,0.30); }
+.die-ctx--strike .die-face { background: #211414; border-color: rgba(200,80,80,0.32); }
+.die-ctx--guard  .die-face { background: #121828; border-color: rgba(80,120,200,0.32); }
 
-/* Face transforms — small enemy die (half = 15px) */
-.die-scene--sm .die-face--top    { transform: rotateX(-90deg) translateZ(15px); background: #3a3a52; color: var(--text-bright); font-size: 1.1em; font-weight: 700; }
-.die-scene--sm .die-face--bottom { transform: rotateX(90deg)  translateZ(15px); background: #181828; }
-.die-scene--sm .die-face--front  { transform: translateZ(15px);                  background: #2e2e48; }
-.die-scene--sm .die-face--back   { transform: rotateY(180deg) translateZ(15px);  background: #1c1c30; }
-.die-scene--sm .die-face--right  { transform: rotateY(90deg)  translateZ(15px);  background: #262640; }
-.die-scene--sm .die-face--left   { transform: rotateY(-90deg) translateZ(15px);  background: #202038; }
+/* Unrolled die: all faces dashed */
+.die.unrolled .die-face { border-style: dashed; border-color: rgba(255,255,255,0.18); }
 
-/* Strike zone tint */
-.die-ctx--strike .die-face--top    { background: #3e2828; }
-.die-ctx--strike .die-face--front  { background: #302020; }
-.die-ctx--strike .die-face--right  { background: #281818; }
-.die-ctx--strike .die-face--left   { background: #201010; }
-.die-ctx--strike .die-face--back   { background: #1a0e0e; }
-.die-ctx--strike .die-face--bottom { background: #140c0c; }
-
-/* Guard zone tint */
-.die-ctx--guard .die-face--top    { background: #1e2840; }
-.die-ctx--guard .die-face--front  { background: #182038; }
-.die-ctx--guard .die-face--right  { background: #141830; }
-.die-ctx--guard .die-face--left   { background: #101428; }
-.die-ctx--guard .die-face--back   { background: #0e1020; }
-.die-ctx--guard .die-face--bottom { background: #0c0e1a; }
-
-/* Enemy die (dark purple tint) */
-.die-cube--enemy .die-face--top    { background: #2e2036; color: var(--text-bright); }
-.die-cube--enemy .die-face--front  { background: #251828; }
-.die-cube--enemy .die-face--right  { background: #1e1420; }
-.die-cube--enemy .die-face--left   { background: #18101c; }
-.die-cube--enemy .die-face--back   { background: #140e18; }
-.die-cube--enemy .die-face--bottom { background: #100c14; }
-
-/* Utility die top-face tints */
-.die.die-type-gold     .die-face--top { background: rgba(212,165,52,0.25);  border-color: rgba(212,165,52,0.45);  color: var(--gold); }
-.die.die-type-poison   .die-face--top { background: rgba(96,208,128,0.20);  border-color: rgba(96,208,128,0.40);  color: var(--green-bright); }
-.die.die-type-chill    .die-face--top { background: rgba(96,128,224,0.22);  border-color: rgba(96,128,224,0.40);  color: var(--blue-bright); }
-.die.die-type-burn     .die-face--top { background: rgba(255,96,96,0.20);   border-color: rgba(255,96,96,0.40);   color: var(--red-bright); }
-.die.die-type-shield   .die-face--top { background: rgba(80,140,220,0.22);  border-color: rgba(80,140,220,0.40); }
-.die.die-type-mark     .die-face--top { background: rgba(220,80,80,0.20);   border-color: rgba(220,80,80,0.40); }
-.die.die-type-amplifier .die-face--top{ background: rgba(180,100,220,0.22); border-color: rgba(180,100,220,0.40);}
-.die.die-type-drain    .die-face--top { background: rgba(100,80,180,0.22);  border-color: rgba(100,80,180,0.40); }
-.die.die-type-weaken   .die-face--top { background: rgba(200,120,80,0.22);  border-color: rgba(200,120,80,0.40); }
-.die.die-type-mimic    .die-face--top { background: rgba(160,160,80,0.22);  border-color: rgba(160,160,80,0.40); }
-
-/* State overrides on top face */
-.die.die-3d.aura-boosted .die-face--top    { border-color: rgba(255,200,0,0.55); box-shadow: inset 0 0 10px rgba(255,200,0,0.15); }
-.die.die-3d.volley-boosted .die-face--top  { border-color: rgba(80,200,80,0.55); }
-.die.die-3d.special .die-face--top         { border-color: var(--gold); border-width: 2px; }
-.die.die-3d.unrolled .die-face--top        { border-style: dashed; border-color: rgba(255,255,255,0.22); color: var(--text-dim); }
-.die.die-3d.unrolled .die-face--front      { border-style: dashed; }
-.die.die-3d.reroll-selectable .die-face--top {
+/* State overrides on landed face */
+.die.die-3d.aura-boosted   .die-face--landed { border-color: rgba(255,200,0,0.6); box-shadow: inset 0 0 12px rgba(255,200,0,0.15); }
+.die.die-3d.volley-boosted .die-face--landed { border-color: rgba(80,200,80,0.6); }
+.die.die-3d.special        .die-face--landed { border-color: var(--gold); border-width: 2px; }
+.die.die-3d.reroll-selectable .die-face--landed {
     border-color: var(--gold) !important;
-    box-shadow: inset 0 0 12px rgba(212,165,52,0.4) !important;
+    box-shadow: inset 0 0 14px rgba(212,165,52,0.45) !important;
     animation: pulse-glow 1s ease infinite;
 }
 
-/* Value font-size scaling when value string is long */
-.die.die-3d.die--sm .die-face--top { font-size: 1.15em; }
-.die.die-3d.die--xs .die-face--top { font-size: 0.9em; }
+/* ── Pip grid ── */
+.pip-grid {
+    display: grid;
+    width: 100%; height: 100%;
+    padding: 9px;
+    place-items: center;
+    position: relative;
+    z-index: 1;
+}
+.pip {
+    width: 8px; height: 8px;
+    background: radial-gradient(circle at 40% 35%, #e8d5a3, #c9a84c);
+    border-radius: 50%;
+    box-shadow: 0 0 4px rgba(232,213,163,0.5), inset 0 -1px 2px rgba(0,0,0,0.3);
+}
+/* Die-ctx pip colors */
+.die-ctx--strike .pip { background: radial-gradient(circle at 40% 35%, #ffa0a0, #e05050); box-shadow: 0 0 4px rgba(255,100,100,0.4); }
+.die-ctx--guard  .pip { background: radial-gradient(circle at 40% 35%, #a0c0ff, #4a7eff); box-shadow: 0 0 4px rgba(100,150,255,0.4); }
 
-/* Range label on front face */
-.die-3d-range {
-    font-size: 0.45em;
+/* Pip grid layouts */
+.pip-grid[data-pips="1"] { grid-template: 1fr / 1fr; }
+.pip-grid[data-pips="2"] { grid-template: 1fr 1fr / 1fr 1fr; }
+.pip-grid[data-pips="2"] .pip:nth-child(1) { grid-area: 1/2; }
+.pip-grid[data-pips="2"] .pip:nth-child(2) { grid-area: 2/1; }
+.pip-grid[data-pips="3"] { grid-template: 1fr 1fr 1fr / 1fr 1fr; }
+.pip-grid[data-pips="3"] .pip:nth-child(1) { grid-area: 1/2; }
+.pip-grid[data-pips="3"] .pip:nth-child(2) { grid-area: 2/1; grid-column: 1/-1; justify-self: center; }
+.pip-grid[data-pips="3"] .pip:nth-child(3) { grid-area: 3/1; }
+.pip-grid[data-pips="4"] { grid-template: 1fr 1fr / 1fr 1fr; }
+.pip-grid[data-pips="5"] { grid-template: 1fr 1fr 1fr / 1fr 1fr; }
+.pip-grid[data-pips="5"] .pip:nth-child(1) { grid-area: 1/1; }
+.pip-grid[data-pips="5"] .pip:nth-child(2) { grid-area: 1/2; }
+.pip-grid[data-pips="5"] .pip:nth-child(3) { grid-area: 2/1; grid-column: 1/-1; justify-self: center; }
+.pip-grid[data-pips="5"] .pip:nth-child(4) { grid-area: 3/1; }
+.pip-grid[data-pips="5"] .pip:nth-child(5) { grid-area: 3/2; }
+.pip-grid[data-pips="6"] { grid-template: 1fr 1fr 1fr / 1fr 1fr; }
+.pip-grid[data-pips="7"] { grid-template: 1fr 1fr 1fr / 1fr 1fr 1fr; }
+.pip-grid[data-pips="7"] .pip:nth-child(1) { grid-area: 1/1; }
+.pip-grid[data-pips="7"] .pip:nth-child(2) { grid-area: 1/2; }
+.pip-grid[data-pips="7"] .pip:nth-child(3) { grid-area: 1/3; }
+.pip-grid[data-pips="7"] .pip:nth-child(4) { grid-area: 2/2; }
+.pip-grid[data-pips="7"] .pip:nth-child(5) { grid-area: 3/1; }
+.pip-grid[data-pips="7"] .pip:nth-child(6) { grid-area: 3/2; }
+.pip-grid[data-pips="7"] .pip:nth-child(7) { grid-area: 3/3; }
+.pip-grid[data-pips="8"] { grid-template: 1fr 1fr 1fr / 1fr 1fr 1fr; }
+.pip-grid[data-pips="8"] .pip:nth-child(1) { grid-area: 1/1; }
+.pip-grid[data-pips="8"] .pip:nth-child(2) { grid-area: 1/2; }
+.pip-grid[data-pips="8"] .pip:nth-child(3) { grid-area: 1/3; }
+.pip-grid[data-pips="8"] .pip:nth-child(4) { grid-area: 2/1; }
+.pip-grid[data-pips="8"] .pip:nth-child(5) { grid-area: 2/3; }
+.pip-grid[data-pips="8"] .pip:nth-child(6) { grid-area: 3/1; }
+.pip-grid[data-pips="8"] .pip:nth-child(7) { grid-area: 3/2; }
+.pip-grid[data-pips="8"] .pip:nth-child(8) { grid-area: 3/3; }
+.pip-grid[data-pips="9"] { grid-template: 1fr 1fr 1fr / 1fr 1fr 1fr; }
+/* Smaller pips for 7-9 */
+.pip-grid[data-pips="7"] .pip,
+.pip-grid[data-pips="8"] .pip,
+.pip-grid[data-pips="9"] .pip { width: 6px; height: 6px; }
+
+/* Number display for values 10+ and utility dice */
+.face-num {
     font-family: var(--font-data);
-    color: var(--text-dim);
+    font-size: 1.3em;
+    font-weight: 700;
+    color: var(--gold-bright);
     text-align: center;
+    line-height: 1;
+    position: relative;
+    z-index: 1;
+}
+.face-num--sm { font-size: 1.0em; }
+
+/* Watermark icons (utility die icon / face mod icon) */
+.die-face-watermark {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8em;
+    opacity: 0.08;
+    pointer-events: none;
+    z-index: 0;
+}
+.die-face-watermark--mod { opacity: 0.10; }
+
+/* Bonus badges overlaid on the landed face */
+.die-badges {
+    position: absolute;
+    bottom: 3px; right: 3px;
+    display: flex; gap: 1px;
+    z-index: 2;
+}
+.die-aura-badge,
+.die-volley-badge,
+.die-passive-badge {
+    font-family: var(--font-data);
+    font-size: 0.55em;
+    font-weight: 700;
+    padding: 1px 3px;
+    border-radius: 3px;
+    background: rgba(0,0,0,0.5);
     line-height: 1.2;
 }
-.die-scene--sm .die-3d-range { font-size: 0.9em; }
+.die-aura-badge    { color: rgba(255,200,0,0.9); }
+.die-volley-badge  { color: rgba(80,200,80,0.9); }
+.die-passive-badge { color: rgba(180,150,255,0.9); }
 
-/* Type icon on right face */
-.die-3d-type-icon {
-    font-size: 0.65em;
-    opacity: 0.7;
+/* ── Face mod glow ── */
+.die-face[data-mod] { animation: mod-pulse 2.5s ease-in-out infinite alternate; }
+@keyframes mod-pulse {
+    0%   { box-shadow: inset 0 0 20px rgba(0,0,0,0.4), 0 0 5px var(--mod-glow-a, transparent); }
+    100% { box-shadow: inset 0 0 20px rgba(0,0,0,0.4), 0 0 16px var(--mod-glow-b, transparent); }
 }
+.die-face[data-mod="executioner"]   { border-color:#e84040; --mod-glow-a:rgba(232,64,64,0.15);   --mod-glow-b:rgba(232,64,64,0.5); }
+.die-face[data-mod="freezeStrike"]  { border-color:#5ec4e8; --mod-glow-a:rgba(94,196,232,0.15);  --mod-glow-b:rgba(94,196,232,0.5); }
+.die-face[data-mod="jackpot"]       { border-color:#f0c040; --mod-glow-a:rgba(240,192,64,0.15);  --mod-glow-b:rgba(240,192,64,0.5); }
+.die-face[data-mod="chainLightning"]{ border-color:#c8a0ff; --mod-glow-a:rgba(200,160,255,0.15); --mod-glow-b:rgba(200,160,255,0.5); }
+.die-face[data-mod="critical"]      { border-color:#ff6b2b; --mod-glow-a:rgba(255,107,43,0.15);  --mod-glow-b:rgba(255,107,43,0.5); }
+.die-face[data-mod="shieldBash"]    { border-color:#4a9eff; --mod-glow-a:rgba(74,158,255,0.15);  --mod-glow-b:rgba(74,158,255,0.5); }
+.die-face[data-mod="volatile"]      { border-color:#40e870; --mod-glow-a:rgba(64,232,112,0.15);  --mod-glow-b:rgba(64,232,112,0.5); }
+.die-face[data-mod="vampiricStrike"]{ border-color:#c060e0; --mod-glow-a:rgba(192,96,224,0.15);  --mod-glow-b:rgba(192,96,224,0.5); }
+.die-face[data-mod="poisonBurst"]   { border-color:#60d080; --mod-glow-a:rgba(96,208,128,0.15);  --mod-glow-b:rgba(96,208,128,0.5); }
+.die-face[data-mod="searing"]       { border-color:#ff8040; --mod-glow-a:rgba(255,128,64,0.15);  --mod-glow-b:rgba(255,128,64,0.5); }
+.die-face[data-mod="frostbite"]     { border-color:#80d0ff; --mod-glow-a:rgba(128,208,255,0.15); --mod-glow-b:rgba(128,208,255,0.5); }
+.die-face[data-mod="marked"]        { border-color:#ff4466; --mod-glow-a:rgba(255,68,102,0.15);  --mod-glow-b:rgba(255,68,102,0.5); }
 
-/* Face-mod icons positioned on top face */
-.die.die-3d .die-face-icon {
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    font-size: 0.38em;
+/* ── Landing flash animations ── */
+@keyframes face-land-flash {
+    0%   { box-shadow: inset 0 0 40px rgba(232,213,163,0.7), 0 0 22px rgba(232,213,163,0.5); }
+    100% { box-shadow: inset 0 0 20px rgba(0,0,0,0.4); }
 }
-.die.die-3d .die-face-icon--active {
-    position: absolute;
-    bottom: 3px;
-    right: 3px;
-    top: auto;
-    font-size: 0.4em;
-    filter: drop-shadow(0 0 3px rgba(255,255,255,0.8));
-}
+.die-face.landed-face { animation: face-land-flash 0.7s ease-out forwards; }
 
-/* Bonus badges on top face */
-.die.die-3d .die-aura-badge,
-.die.die-3d .die-volley-badge,
-.die.die-3d .die-passive-badge { font-size: 0.28em; }
+@keyframes face-land-mod {
+    0%   { box-shadow: inset 0 0 50px color-mix(in srgb,var(--mod-glow-b,rgba(232,213,163,0.8)) 60%,transparent), 0 0 30px var(--mod-glow-b,rgba(232,213,163,0.5)); }
+    35%  { box-shadow: none; }
+    55%  { box-shadow: inset 0 0 30px color-mix(in srgb,var(--mod-glow-b,rgba(232,213,163,0.8)) 30%,transparent); }
+    100% { box-shadow: none; }
+}
+.die-face.landed-mod { animation: face-land-mod 1s ease-out forwards; }
 
-/* Roll animation — plays once on element creation */
-@keyframes die-roll-3d {
-    0%   { transform: rotateX(-22deg) rotateY(25deg); }
-    20%  { transform: rotateX(-80deg) rotateY(160deg) rotateZ(12deg); }
-    60%  { transform: rotateX(-38deg) rotateY(440deg) rotateZ(-8deg); }
-    100% { transform: rotateX(-22deg) rotateY(25deg); }
-}
-.die-rolling .die-cube {
-    animation: die-roll-3d 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-}
-
-/* Enemy dice row */
-.enemy-dice-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    padding: 2px 0 4px;
-    justify-content: center;
-    align-items: center;
-}
-.enemy-die {
-    width: 38px;
-    height: 38px;
-    cursor: default;
-    position: relative;
-    overflow: visible;
-    flex-shrink: 0;
-}
-.enemy-shield-tag {
-    font-size: 0.78em;
-    color: var(--text-dim);
-    margin-top: 2px;
-    text-align: center;
-}
 
 @keyframes pulse-glow {
     0%, 100% { filter: brightness(1); }

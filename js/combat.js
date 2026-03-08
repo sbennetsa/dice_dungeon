@@ -5,7 +5,7 @@ import { pickWeightedConsumable, SKILL_TREE } from './constants.js';
 import { calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
 import { GS, $, log, gainXP, gainGold, spendGold, heal, pick, rand } from './state.js';
 import { BestiaryProgress } from './persistence.js';
-import { rollSingleDie, getActiveFace, renderCombatDice, renderConsumables, updateStats, setupDropZones, show, createDie, getSlotById, getSlotRunes, enterRerollMode, exitRerollMode, sortPoolDice, resetSortMode, makeEnemyDieHtml } from './engine.js';
+import { rollSingleDie, getActiveFace, renderCombatDice, renderConsumables, updateStats, setupDropZones, show, createDie, getSlotById, getSlotRunes, enterRerollMode, exitRerollMode, sortPoolDice, resetSortMode } from './engine.js';
 
 // window.Game and window.Rewards are set by screens.js at load time
 // to avoid circular module dependencies
@@ -389,16 +389,14 @@ export const Combat = {
         const e = GS.enemy;
         const nameCls = (e.isElite || e.isBoss) ? 'enemy-name elite' : 'enemy-name';
 
-        // Dice pool display — 3D dice
+        // Dice pool display
         const allDice = [...e.dice, ...e.extraDice];
-        const shieldPart = e.shield > 0 ? `<div class="enemy-shield-tag">🛡️ Shield: ${e.shield}</div>` : '';
-        let diceRowHtml;
-        if (e.diceResults && e.diceResults.length > 0) {
-            diceRowHtml = e.diceResults.map((val, i) => makeEnemyDieHtml(val, allDice[i]?.max || 6, true)).join('');
-        } else {
-            diceRowHtml = allDice.map(d => makeEnemyDieHtml(0, d.max, false)).join('');
-        }
-        const diceHtml = `<div class="enemy-dice-row">${diceRowHtml}</div>${shieldPart}`;
+        const counts = {};
+        allDice.forEach(d => { counts[d.max] = (counts[d.max] || 0) + 1; });
+        const diceDesc = Object.entries(counts).map(([d, n]) => `${n}×d${d}`).join(' + ');
+        const diceIcons = '🎲'.repeat(Math.min(allDice.length, 6));
+        const shieldPart = e.shield > 0 ? ` &nbsp;🛡️ Shield: ${e.shield}` : '';
+        const diceHtml = `<div class="enemy-dice-pool" style="font-size:0.8em;color:var(--text-dim);margin:4px 0;">${diceIcons} ${diceDesc}${shieldPart}</div>`;
 
         // Status indicators
         let statusIndicators = '';
@@ -824,7 +822,7 @@ export const Combat = {
 
         // ── DEFEND CALCULATION (before enemy attack for defense resolution) ──
         let defBase = 0, defMult = 1, defBonus = 0;
-        let mirrorDmg = 0, regenCoreHeal = 0, steadfastContrib = 0;
+        let mirrorDmg = 0, shieldBashDmg = 0, regenCoreHeal = 0, steadfastContrib = 0;
         let poisonToApply = 0;
         let siphonHealing = 0;
         let crossSlotBonusAtk = 0; // from guard-slot critical face mods
@@ -935,7 +933,7 @@ export const Combat = {
             if (d.dieType) return; // unknown utility die: contribute 0
 
             if (m) {
-                if (m.effect === 'shieldBash') mirrorDmg += dieVal;
+                if (m.effect === 'shieldBash') shieldBashDmg += dieVal;
                 if (m.effect === 'chainLightning') dieVal *= 2;
                 if (m.effect === 'freezeStrike') applyStatus('freeze', 1);
                 if (m.effect === 'jackpot') { gainGold(50); log('💰 Jackpot! +50 gold!', 'info'); }
@@ -1409,7 +1407,14 @@ export const Combat = {
         // Thunder Strike: 25%+ of enemy max HP → stun
         const tsArt = GS.artifacts.find(a => a.effect === 'thunderStrike');
         if (tsArt && finalAtk >= Math.ceil(GS.enemy.hp * tsArt.value)) applyStatus('stun', 1);
-        // Mirror: deal block as damage
+        // Shield Bash: block value also dealt as damage
+        if (shieldBashDmg > 0) {
+            GS.enemy.currentHp = Math.max(0, GS.enemy.currentHp - shieldBashDmg);
+            if (GS.challengeMode) GS.challengeDmg += shieldBashDmg;
+            log(`🛡️ Shield Bash: ${shieldBashDmg} damage to enemy!`, 'damage');
+            spawnFloatText(`-${shieldBashDmg}`, $('enemy-panel'), 'damage');
+        }
+        // Mirror rune: deal block as damage
         if (mirrorDmg > 0) {
             GS.enemy.currentHp = Math.max(0, GS.enemy.currentHp - mirrorDmg);
             if (GS.challengeMode) GS.challengeDmg += mirrorDmg;

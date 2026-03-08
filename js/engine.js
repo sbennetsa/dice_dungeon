@@ -64,6 +64,7 @@ export function rollSingleDie(die) {
             die._mimickedType = target.dieType ?? null; // null = normal die
             die.rolled = true;
             die.rolledFaceIndex = fIdx;
+            die._animateLanding = true;
             if (GS.gamblerCoinBonus) die.value = Math.max(1, die.value + GS.gamblerCoinBonus);
             if (die.infuseFloor && die.value < die.infuseFloor) die.value = die.infuseFloor;
             if (die.cursed) die.value = Math.max(1, die.value - 1);
@@ -82,6 +83,7 @@ export function rollSingleDie(die) {
     die.value = val;
     die.rolled = true;
     die.rolledFaceIndex = fIdx;
+    die._animateLanding = true;
     // Volatile face mod: if this roll landed on a face with the volatile mod, randomise
     const volatileMod = die.faceMods.find(m => m.mod.effect === 'volatile' && m.faceIndex === fIdx);
     if (volatileMod) {
@@ -102,6 +104,153 @@ export function getActiveFace(die) {
     const hit = die.faceMods.find(m => m.faceIndex === die.rolledFaceIndex);
     if (hit) return { faceValue: die.faceValues[hit.faceIndex], modifier: hit.mod };
     return null;
+}
+
+// ════════════════════════════════════════════════════════════
+//  3D DIE GEOMETRY
+// ════════════════════════════════════════════════════════════
+// Die cube: 56×56px, half = 28px → translateZ(28px)
+// GEOM_FACES[i] = CSS transform that places face i on that cube side
+const GEOM_FACES = [
+    'rotateY(0deg) translateZ(28px)',     // 0: front
+    'rotateY(90deg) translateZ(28px)',    // 1: right
+    'rotateX(-90deg) translateZ(28px)',   // 2: top
+    'rotateX(90deg) translateZ(28px)',    // 3: bottom
+    'rotateY(-90deg) translateZ(28px)',   // 4: left
+    'rotateY(180deg) translateZ(28px)',   // 5: back
+];
+// GEOM_ROTS[i] = cube rotation that brings face i to face the viewer
+const GEOM_ROTS = [
+    { x: 0,   y: 0   },
+    { x: 0,   y: -90 },
+    { x: 90,  y: 0   },
+    { x: -90, y: 0   },
+    { x: 0,   y: 90  },
+    { x: 0,   y: 180 },
+];
+const IDLE_ROT = { x: -22, y: 25 };
+
+// Utility die colors for face tinting
+const UTIL_COLORS = {
+    gold: '#f0c040', poison: '#60d080', chill: '#60a0e0',
+    burn: '#e85d30', shield: '#4a9eff', mark: '#e05060',
+    amplifier: '#b464dc', mimic: '#a0a050',
+    drain: '#6450b4', weaken: '#c87850',
+};
+
+function _buildPipGrid(v) {
+    if (v < 1 || v > 9) {
+        const el = document.createElement('div');
+        el.className = 'face-num';
+        el.textContent = v;
+        return el;
+    }
+    const grid = document.createElement('div');
+    grid.className = 'pip-grid';
+    grid.dataset.pips = String(v);
+    for (let i = 0; i < v; i++) {
+        const pip = document.createElement('div');
+        pip.className = 'pip';
+        grid.appendChild(pip);
+    }
+    return grid;
+}
+
+function _buildDie3DFaces(cubeEl, die) {
+    cubeEl.innerHTML = '';
+    const fc = die.faceValues ? die.faceValues.length : 0;
+    const isUtil = !!die.dieType;
+    const rolledGeo = (die.rolled && die.rolledFaceIndex >= 0) ? die.rolledFaceIndex % 6 : -1;
+
+    for (let geoIdx = 0; geoIdx < 6; geoIdx++) {
+        const face = document.createElement('div');
+        face.className = 'die-face';
+        face.style.transform = GEOM_FACES[geoIdx];
+        face.dataset.faceIndex = geoIdx;
+        const isLanded = geoIdx === rolledGeo;
+        if (isLanded) face.classList.add('die-face--landed');
+
+        // Void face: die has fewer sides than 6 and this geo slot has no value
+        if (fc === 0 || (!isLanded && geoIdx >= fc)) {
+            face.classList.add('die-face--void');
+            cubeEl.appendChild(face);
+            continue;
+        }
+
+        // For the landed face use die.value (accounts for volatile/infuse/curse mods)
+        const faceValIdx = isLanded ? die.rolledFaceIndex : geoIdx;
+        const fv = isLanded ? die.value : die.faceValues[Math.min(faceValIdx, fc - 1)];
+        const modEntry = die.faceMods?.find(m => m.faceIndex === faceValIdx);
+        const mod = modEntry?.mod || null;
+
+        if (isUtil) {
+            const isAmp = die.dieType === 'amplifier';
+            const isPct = die.dieType === 'gold' || die.dieType === 'poison';
+            const dispVal = isAmp ? `×${fv / 100}` : isPct ? `${fv}%` : fv;
+            const dispStr = String(dispVal);
+            const color = UTIL_COLORS[die.dieType] || 'var(--gold-bright)';
+            face.style.borderColor = color + '88';
+
+            const tint = document.createElement('div');
+            tint.className = 'die-face-tint';
+            tint.style.cssText = `position:absolute;inset:0;border-radius:inherit;opacity:0.08;pointer-events:none;background:radial-gradient(ellipse at center,${color},transparent 70%)`;
+            face.appendChild(tint);
+
+            const wm = document.createElement('div');
+            wm.className = 'die-face-watermark';
+            wm.textContent = die.icon || '';
+            face.appendChild(wm);
+
+            const num = document.createElement('div');
+            num.className = dispStr.length >= 4 ? 'face-num face-num--sm' : 'face-num';
+            num.style.color = color;
+            num.textContent = dispVal;
+            face.appendChild(num);
+        } else {
+            face.appendChild(_buildPipGrid(fv));
+        }
+
+        if (mod) {
+            face.dataset.mod = mod.effect;
+            const modWm = document.createElement('div');
+            modWm.className = 'die-face-watermark die-face-watermark--mod';
+            modWm.textContent = mod.icon || '';
+            face.appendChild(modWm);
+        }
+
+        cubeEl.appendChild(face);
+    }
+}
+
+function _animateDieLanding(cubeEl, die) {
+    const geoIdx = die.rolledFaceIndex >= 0 ? die.rolledFaceIndex % 6 : 0;
+    const target = GEOM_ROTS[geoIdx];
+    const spX = (Math.random() > 0.5 ? 1 : -1) * (720 + Math.floor(Math.random() * 360));
+    const spY = (Math.random() > 0.5 ? 1 : -1) * (1080 + Math.floor(Math.random() * 360));
+
+    // Start at idle, then spin to target + full spins (lands on correct face)
+    cubeEl.style.transition = 'none';
+    cubeEl.style.transform = `rotateX(${IDLE_ROT.x}deg) rotateY(${IDLE_ROT.y}deg)`;
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            cubeEl.style.transition = 'transform 0.9s cubic-bezier(0.12,0.8,0.3,1)';
+            cubeEl.style.transform = `rotateX(${target.x + spX}deg) rotateY(${target.y + spY}deg)`;
+            setTimeout(() => {
+                // Snap to clean target rotation (no accumulated spin degrees)
+                cubeEl.style.transition = 'none';
+                cubeEl.style.transform = `rotateX(${target.x}deg) rotateY(${target.y}deg)`;
+                cubeEl.dataset.rx = target.x;
+                cubeEl.dataset.ry = target.y;
+                // Landing flash on the face that landed
+                const landFace = cubeEl.querySelector(`[data-face-index="${geoIdx}"]`);
+                if (landFace) {
+                    const cls = landFace.dataset.mod ? 'landed-mod' : 'landed-face';
+                    landFace.classList.add(cls);
+                    setTimeout(() => landFace.classList.remove('landed-face', 'landed-mod'), 700);
+                }
+            }, 950);
+        });
+    });
 }
 
 // ════════════════════════════════════════════════════════════
@@ -389,7 +538,15 @@ export function renderCombatDice() {
     pool.innerHTML = '';
     const sortedPool = sortMode === 'none' ? poolDice
         : [...poolDice].sort((a, b) => sortMode === 'desc' ? b.value - a.value : a.value - b.value);
-    sortedPool.forEach(d => pool.appendChild(makeDieElement(d, 'pool')));
+    sortedPool.forEach(d => {
+        const el = makeDieElement(d, 'pool');
+        pool.appendChild(el);
+        if (d._animateLanding) {
+            const cubeEl = el.querySelector('.die-cube');
+            if (cubeEl) _animateDieLanding(cubeEl, d);
+            d._animateLanding = false;
+        }
+    });
 
     const rollHint = $('roll-hint');
     const allRolled = GS.dice.every(d => d.rolled);
@@ -482,7 +639,13 @@ export function renderCombatDice() {
         } else {
             const allocatedDie = GS.allocated.strike.find(d => d.slotId === slot.id);
             if (allocatedDie) {
-                slotEl.appendChild(makeDieElement(allocatedDie, 'strike'));
+                const dieEl = makeDieElement(allocatedDie, 'strike');
+                slotEl.appendChild(dieEl);
+                if (allocatedDie._animateLanding) {
+                    const cubeEl = dieEl.querySelector('.die-cube');
+                    if (cubeEl) _animateDieLanding(cubeEl, allocatedDie);
+                    allocatedDie._animateLanding = false;
+                }
             } else {
                 const ph = document.createElement('div');
                 ph.className = 'slot-placeholder';
@@ -516,7 +679,13 @@ export function renderCombatDice() {
         } else {
             const allocatedDie = GS.allocated.guard.find(d => d.slotId === slot.id);
             if (allocatedDie) {
-                slotEl.appendChild(makeDieElement(allocatedDie, 'guard'));
+                const dieEl = makeDieElement(allocatedDie, 'guard');
+                slotEl.appendChild(dieEl);
+                if (allocatedDie._animateLanding) {
+                    const cubeEl = dieEl.querySelector('.die-cube');
+                    if (cubeEl) _animateDieLanding(cubeEl, allocatedDie);
+                    allocatedDie._animateLanding = false;
+                }
             } else {
                 const ph = document.createElement('div');
                 ph.className = 'slot-placeholder';
@@ -566,17 +735,8 @@ export function makeDieElement(die, context) {
         el.title = die.faceMods.map(m => `${m.mod.icon} ${m.mod.name}: ${m.mod.desc}`).join(' | ');
     }
 
-    const isAmpDie = die.dieType === 'amplifier';
-    const isPctDie = die.dieType === 'gold' || die.dieType === 'poison';
-    const rangeLabel = isAmpDie ? `×${die.min / 100}-×${die.max / 100}`
-        : isPctDie ? `${die.min}%-${die.max}%`
-        : `${die.min}-${die.max}`;
-    // Always show the numeric face value; face mod icon shown separately as an overlay.
-    let valueDisplay = die.rolled
-        ? (isAmpDie ? `×${die.value / 100}` : isPctDie ? `${die.value}%` : die.value)
-        : '?';
-
-    // Per-die bonuses: only shown when die is allocated to a zone (not pool)
+    // Per-die bonuses — shown as badge overlays on the landed face (not folded into value,
+    // so pips always reflect the raw roll and the badge shows the additive bonus clearly)
     // Zone-specific bonuses (volley, packTactics, swarmMaster) must not bleed onto pool dice
     const inZone = context === 'strike' || context === 'guard';
     let ascendBonus = 0, volleyBonus = 0, ptBonus = 0, swBonus = 0;
@@ -593,11 +753,7 @@ export function makeDieElement(die, context) {
         }
     }
     const passiveBonus = ptBonus + swBonus;
-    const totalBonus = ascendBonus + volleyBonus + passiveBonus;
     let badges = '';
-    if (totalBonus > 0 && !die.dieType) {
-        valueDisplay = die.value + totalBonus;
-    }
     if (ascendBonus > 0) {
         badges += `<span class="die-aura-badge">+${ascendBonus}</span>`;
         el.classList.add('aura-boosted');
@@ -610,37 +766,50 @@ export function makeDieElement(die, context) {
         badges += `<span class="die-passive-badge">+${passiveBonus}</span>`;
     }
 
-    // Face mod icon overlay: shown for active face mod (rolled) OR all mods when unrolled
-    let faceIcon = '';
-    if (face) {
-        // Rolled onto a face mod — show its icon as a bright overlay so the value stays readable
-        faceIcon = `<span class="die-face-icon die-face-icon--active" title="${face.modifier.name}: ${face.modifier.desc}">${face.modifier.icon}</span>`;
-    } else if (die.faceMods.length) {
-        const icons = die.faceMods.map(m => m.mod.icon).join('');
-        const titles = die.faceMods.map(m => `${m.mod.name}: ${m.mod.desc}`).join(' | ');
-        faceIcon = `<span class="die-face-icon" style="opacity:${die.rolled ? '0.4' : '1'}" title="${titles}">${icons}</span>`;
-    }
-
-    const rawDisplayLen = String(valueDisplay).replace(/<[^>]*>/g, '').length;
-    if (rawDisplayLen >= 4) el.classList.add('die--xs');
-    else if (rawDisplayLen >= 3) el.classList.add('die--sm');
-
     // 3D cube rendering
     el.classList.add('die-3d', `die-ctx--${context}`);
-    const typeIcon = die.dieType ? `<span class="die-3d-type-icon">${die.icon || ''}</span>` : '';
-    const rolling = die.rolled ? ' die-rolling' : '';
-    el.innerHTML = `
-        <div class="die-scene">
-            <div class="die-cube${rolling}">
-                <div class="die-face die-face--top">${valueDisplay}${faceIcon}${badges}</div>
-                <div class="die-face die-face--front"><span class="die-3d-range">${rangeLabel}</span></div>
-                <div class="die-face die-face--right">${typeIcon}</div>
-                <div class="die-face die-face--back"></div>
-                <div class="die-face die-face--left"></div>
-                <div class="die-face die-face--bottom"></div>
-            </div>
-        </div>
-    `;
+    const cube = document.createElement('div');
+    cube.className = 'die-cube';
+    _buildDie3DFaces(cube, die);
+
+    // Overlay badges onto the landed face
+    if (badges && die.rolled && die.rolledFaceIndex >= 0) {
+        const landGeo = die.rolledFaceIndex % 6;
+        const landedFaceEl = cube.querySelector(`[data-face-index="${landGeo}"]`);
+        if (landedFaceEl) {
+            const badgeWrap = document.createElement('div');
+            badgeWrap.className = 'die-badges';
+            badgeWrap.innerHTML = badges;
+            landedFaceEl.appendChild(badgeWrap);
+        }
+    }
+
+    // Set initial cube rotation; animation is driven separately via _animateDieLanding
+    if (die.rolled && !die._animateLanding) {
+        const t = GEOM_ROTS[die.rolledFaceIndex >= 0 ? die.rolledFaceIndex % 6 : 0];
+        cube.style.transform = `rotateX(${t.x}deg) rotateY(${t.y}deg)`;
+        cube.dataset.rx = t.x;
+        cube.dataset.ry = t.y;
+    } else {
+        cube.style.transform = `rotateX(${IDLE_ROT.x}deg) rotateY(${IDLE_ROT.y}deg)`;
+        cube.dataset.rx = IDLE_ROT.x;
+        cube.dataset.ry = IDLE_ROT.y;
+    }
+
+    // Hover: tilt to show more faces (JS-driven since cube has inline transform)
+    el.addEventListener('mouseenter', () => {
+        cube.style.transition = 'transform 0.25s ease';
+        cube.style.transform = 'rotateX(-30deg) rotateY(42deg)';
+    });
+    el.addEventListener('mouseleave', () => {
+        cube.style.transition = 'transform 0.25s ease';
+        cube.style.transform = `rotateX(${cube.dataset.rx || IDLE_ROT.x}deg) rotateY(${cube.dataset.ry || IDLE_ROT.y}deg)`;
+    });
+
+    const scene = document.createElement('div');
+    scene.className = 'die-scene';
+    scene.appendChild(cube);
+    el.appendChild(scene);
     el.oncontextmenu = e => e.preventDefault();
 
     const tryReroll = () => {
@@ -779,11 +948,50 @@ export function makeDieElement(die, context) {
     return el;
 }
 
-/** Renders a single enemy die as a 3D cube HTML string for use in enemy panel innerHTML. */
-export function makeEnemyDieHtml(value, dieMax, isRolled = true) {
-    const rolling = isRolled ? ' die-rolling' : '';
-    const display = isRolled ? value : '?';
-    return `<div class="die enemy-die"><div class="die-scene die-scene--sm"><div class="die-cube die-cube--enemy${rolling}"><div class="die-face die-face--top">${display}</div><div class="die-face die-face--front"><span class="die-3d-range">d${dieMax}</span></div><div class="die-face die-face--right"></div><div class="die-face die-face--back"></div><div class="die-face die-face--left"></div><div class="die-face die-face--bottom"></div></div></div></div>`;
+
+// Creates a standalone 3D die element with drag-to-rotate (for edit/inspect screens, no allocation)
+export function makeDie3DPreview(die) {
+    const rx = IDLE_ROT.x, ry = IDLE_ROT.y;
+    const cube = document.createElement('div');
+    cube.className = 'die-cube';
+    _buildDie3DFaces(cube, die);
+    cube.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+    cube.dataset.rx = rx;
+    cube.dataset.ry = ry;
+
+    const scene = document.createElement('div');
+    scene.className = 'die-scene';
+    scene.style.cursor = 'grab';
+    scene.appendChild(cube);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'die die-3d die-ctx--pool die-3d-preview';
+    wrap.appendChild(scene);
+
+    // Pointer-drag rotation (no allocation logic)
+    let dragging = false, dsx, dsy, srx, sry;
+    scene.addEventListener('pointerdown', e => {
+        dragging = true;
+        dsx = e.clientX; dsy = e.clientY;
+        srx = parseFloat(cube.dataset.rx); sry = parseFloat(cube.dataset.ry);
+        scene.setPointerCapture(e.pointerId);
+        scene.style.cursor = 'grabbing';
+        cube.style.transition = 'none';
+    });
+    scene.addEventListener('pointermove', e => {
+        if (!dragging) return;
+        const rx = srx - (e.clientY - dsy) * 0.5;
+        const ry = sry + (e.clientX - dsx) * 0.5;
+        cube.dataset.rx = rx; cube.dataset.ry = ry;
+        cube.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+    });
+    scene.addEventListener('pointerup', () => {
+        dragging = false;
+        scene.style.cursor = 'grab';
+        cube.style.transition = 'transform 0.3s ease';
+    });
+
+    return wrap;
 }
 
 export function setupDropZones() {

@@ -4,7 +4,7 @@
 // ════════════════════════════════════════════════════════════
 import { ENEMIES, FACE_MODS, ARTIFACT_POOL, LEGENDARY_ARTIFACT_POOL, RUNES, SKILL_TREE, CONSUMABLES, UTILITY_DICE, getAct, getFloorType, getArtifactPool, pickConsumablesForMarket, pickWeightedConsumable } from './constants.js';
 import { GS, $, rand, pick, shuffle, pickWeighted, log, gainXP, gainGold, spendGold, heal } from './state.js';
-import { createDie, createDieFromFaces, createUtilityDie, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones } from './engine.js';
+import { createDie, createDieFromFaces, createUtilityDie, upgradeDie, renderFaceStrip, renderDieCard, show, updateStats, resetDieIdCounter, renderCombatDice, renderConsumables, setupDropZones, makeDie3DPreview } from './engine.js';
 import { Combat } from './combat.js';
 import { generateEncounter, applyEliteChoice, calculateAvgDamage, deepClone, checkForNCE, applyEncounterResult, markEncounterSeen } from './encounters/encounterGenerator.js';
 import { applyEliteModifier, scaleElitePassives, calculateRewardMultipliers } from './encounters/eliteModifierSystem.js';
@@ -2712,9 +2712,13 @@ const Shop = {
         c.innerHTML = '';
 
         const preview = document.createElement('div');
-        preview.style.cssText = 'text-align:center; margin-bottom:12px; padding:10px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px;';
-        preview.innerHTML = `<div style="font-family:Uncial Antiqua,cursive; color:var(--gold); margin-bottom:6px;">d${die.faceValues.length}: ${die.min}–${die.max}</div>
-            <div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center;">${renderFaceStrip(die)}</div>`;
+        preview.style.cssText = 'text-align:center; margin-bottom:12px; padding:10px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; gap:16px; justify-content:center;';
+        const previewLabel = document.createElement('div');
+        previewLabel.innerHTML = `<div style="font-family:var(--font-heading); color:var(--gold); margin-bottom:6px; font-size:0.85em;">d${die.faceValues.length}: ${die.min}–${die.max}</div>
+            <div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center;">${renderFaceStrip(die)}</div>
+            <div style="font-size:0.65em; color:var(--text-dim); margin-top:4px; font-family:var(--font-body); font-style:italic;">drag to rotate</div>`;
+        preview.appendChild(makeDie3DPreview(die));
+        preview.appendChild(previewLabel);
         c.appendChild(preview);
 
         die.faceValues.forEach((v, fIdx) => {
@@ -2808,8 +2812,12 @@ const Shop = {
         c.appendChild(info);
 
         const preview = document.createElement('div');
-        preview.style.cssText = 'text-align:center; margin-bottom:12px; padding:8px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px;';
-        preview.innerHTML = `<div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center;">${renderFaceStrip(die)}</div>`;
+        preview.style.cssText = 'text-align:center; margin-bottom:12px; padding:8px; background:var(--bg-surface); border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; gap:16px; justify-content:center;';
+        const previewFaces = document.createElement('div');
+        previewFaces.innerHTML = `<div style="display:flex; gap:2px; flex-wrap:wrap; justify-content:center;">${renderFaceStrip(die)}</div>
+            <div style="font-size:0.65em; color:var(--text-dim); margin-top:4px; font-family:var(--font-body); font-style:italic;">drag to rotate</div>`;
+        preview.appendChild(makeDie3DPreview(die));
+        preview.appendChild(previewFaces);
         c.appendChild(preview);
 
         die.faceValues.forEach((val, idx) => {

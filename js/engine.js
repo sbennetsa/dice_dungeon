@@ -138,22 +138,11 @@ const UTIL_COLORS = {
     drain: '#6450b4', weaken: '#c87850',
 };
 
-function _buildPipGrid(v) {
-    if (v < 1 || v > 9) {
-        const el = document.createElement('div');
-        el.className = 'face-num';
-        el.textContent = v;
-        return el;
-    }
-    const grid = document.createElement('div');
-    grid.className = 'pip-grid';
-    grid.dataset.pips = String(v);
-    for (let i = 0; i < v; i++) {
-        const pip = document.createElement('div');
-        pip.className = 'pip';
-        grid.appendChild(pip);
-    }
-    return grid;
+function _buildFaceNum(v) {
+    const el = document.createElement('div');
+    el.className = String(v).length >= 3 ? 'face-num face-num--sm' : 'face-num';
+    el.textContent = v;
+    return el;
 }
 
 function _buildDie3DFaces(cubeEl, die) {
@@ -207,7 +196,7 @@ function _buildDie3DFaces(cubeEl, die) {
             num.textContent = dispVal;
             face.appendChild(num);
         } else {
-            face.appendChild(_buildPipGrid(fv));
+            face.appendChild(_buildFaceNum(fv));
         }
 
         if (mod) {
@@ -736,7 +725,7 @@ export function makeDieElement(die, context) {
     }
 
     // Per-die bonuses — shown as badge overlays on the landed face (not folded into value,
-    // so pips always reflect the raw roll and the badge shows the additive bonus clearly)
+    // so the number always reflects the raw roll and the badge shows the additive bonus clearly)
     // Zone-specific bonuses (volley, packTactics, swarmMaster) must not bleed onto pool dice
     const inZone = context === 'strike' || context === 'guard';
     let ascendBonus = 0, volleyBonus = 0, ptBonus = 0, swBonus = 0;

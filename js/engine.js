@@ -170,7 +170,7 @@ function _buildFaceNum(v) {
     return el;
 }
 
-function _buildDie3DFaces(cubeEl, die) {
+function _buildDie3DFaces(cubeEl, die, landedOverride = null) {
     cubeEl.innerHTML = '';
     const fc = die.faceValues ? die.faceValues.length : 0;
     const isUtil = !!die.dieType;
@@ -191,9 +191,9 @@ function _buildDie3DFaces(cubeEl, die) {
             continue;
         }
 
-        // For the landed face use die.value (accounts for volatile/infuse/curse mods)
+        // For the landed face: use override (effective total) if provided, else raw die.value
         const faceValIdx = isLanded ? die.rolledFaceIndex : geoIdx;
-        const fv = isLanded ? die.value : die.faceValues[Math.min(faceValIdx, fc - 1)];
+        const fv = isLanded ? (landedOverride ?? die.value) : die.faceValues[Math.min(faceValIdx, fc - 1)];
         const modEntry = die.faceMods?.find(m => m.faceIndex === faceValIdx);
         const mod = modEntry?.mod || null;
 
@@ -752,7 +752,7 @@ export function makeDieElement(die, context) {
 
     // Per-die bonuses — shown as badge overlays on the landed face (not folded into value,
     // so the number always reflects the raw roll and the badge shows the additive bonus clearly)
-    // Zone-specific bonuses (volley, packTactics, swarmMaster) must not bleed onto pool dice
+    // Compute per-zone bonuses for display
     const inZone = context === 'strike' || context === 'guard';
     let ascendBonus = 0, volleyBonus = 0, ptBonus = 0, swBonus = 0;
     if (die.rolled && !die.dieType) {
@@ -767,37 +767,19 @@ export function makeDieElement(die, context) {
             swBonus = GS.passives.swarmMaster || 0;
         }
     }
-    const passiveBonus = ptBonus + swBonus;
-    let badges = '';
-    if (ascendBonus > 0) {
-        badges += `<span class="die-aura-badge">+${ascendBonus}</span>`;
-        el.classList.add('aura-boosted');
-    }
-    if (volleyBonus > 0) {
-        badges += `<span class="die-volley-badge">+${volleyBonus}</span>`;
-        el.classList.add('volley-boosted');
-    }
-    if (passiveBonus > 0) {
-        badges += `<span class="die-passive-badge">+${passiveBonus}</span>`;
-    }
+    // Apply aura-boosted / volley-boosted classes for glow effects
+    if (ascendBonus > 0) el.classList.add('aura-boosted');
+    if (volleyBonus > 0) el.classList.add('volley-boosted');
+
+    // Landed face shows the effective contribution value (bonuses folded in)
+    const totalBonus = ascendBonus + volleyBonus + ptBonus + swBonus;
+    const landedOverride = (die.rolled && !die.dieType && totalBonus > 0) ? die.value + totalBonus : null;
 
     // 3D cube rendering
     el.classList.add('die-3d', `die-ctx--${context}`);
     const cube = document.createElement('div');
     cube.className = 'die-cube';
-    _buildDie3DFaces(cube, die);
-
-    // Overlay badges onto the landed face
-    if (badges && die.rolled && die.rolledFaceIndex >= 0) {
-        const landGeo = die.rolledFaceIndex % 6;
-        const landedFaceEl = cube.querySelector(`[data-face-index="${landGeo}"]`);
-        if (landedFaceEl) {
-            const badgeWrap = document.createElement('div');
-            badgeWrap.className = 'die-badges';
-            badgeWrap.innerHTML = badges;
-            landedFaceEl.appendChild(badgeWrap);
-        }
-    }
+    _buildDie3DFaces(cube, die, landedOverride);
 
     // Set initial cube rotation; animation is driven separately via _animateDieLanding
     if (die.rolled && !die._animateLanding) {

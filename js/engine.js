@@ -308,6 +308,7 @@ export function renderDieCard(die, index, opts = {}) {
 export function show(screenId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     $(screenId).classList.add('active');
+    _hideDieTip();
 }
 
 export function renderConsumables() {
